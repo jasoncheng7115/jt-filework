@@ -125,12 +125,24 @@
 
 - [x] Command bus
 - [x] Keymap engine
-- [ ] CView preset
-- [ ] native shortcut compatibility
+- [x] CView preset
+- [x] native shortcut compatibility
 - [x] selection
 - [x] mark
 - [ ] pane navigation
 - [ ] tab navigation
+
+## P0 — Keymap / Settings
+
+- [x] Keymaps are data: `keymaps/*.keymap`, parsed, conflict-checked at load
+- [x] Platform preset and CView/WinCV preset
+- [x] Menu labels from the catalogue, shortcuts from the active keymap
+- [x] Switch preset at runtime; preference persisted
+- [x] Monospace list font, configurable family and size, persisted
+- [ ] Settings window (keymap editor, font picker, startup, theme, locale)
+- [ ] Per-command rebinding UI with conflict reporting
+- [ ] Import/export a keymap
+- [ ] Command palette
 
 ## P0 — Drag & Drop
 

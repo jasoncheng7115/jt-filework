@@ -243,6 +243,52 @@ impl core::fmt::Display for KeymapError {
 
 impl std::error::Error for KeymapError {}
 
+impl KeyChord {
+    /// Render as a string `QKeySequence` accepts.
+    ///
+    /// `primary` becomes Qt's `Ctrl`, which Qt itself maps to Command on
+    /// macOS — so one keymap file is correct on every platform, which is the
+    /// whole point of naming the modifier by role rather than by key
+    /// (`AGENTS.md` §5).
+    pub fn to_portable_shortcut(&self) -> String {
+        let mut parts = Vec::new();
+        if self.modifiers.primary {
+            parts.push("Ctrl".to_string());
+        }
+        if self.modifiers.control {
+            // Qt calls the physical Control key "Meta" on macOS and "Ctrl"
+            // elsewhere; `Meta` is the portable spelling for "really Control".
+            parts.push("Meta".to_string());
+        }
+        if self.modifiers.alt {
+            parts.push("Alt".to_string());
+        }
+        if self.modifiers.shift {
+            parts.push("Shift".to_string());
+        }
+        parts.push(match &self.key {
+            Key::Char(c) => c.to_uppercase().to_string(),
+            Key::Function(n) => format!("F{n}"),
+            Key::Up => "Up".into(),
+            Key::Down => "Down".into(),
+            Key::Left => "Left".into(),
+            Key::Right => "Right".into(),
+            Key::Enter => "Return".into(),
+            Key::Escape => "Esc".into(),
+            Key::Space => "Space".into(),
+            Key::Tab => "Tab".into(),
+            Key::Backspace => "Backspace".into(),
+            Key::Delete => "Delete".into(),
+            Key::Home => "Home".into(),
+            Key::End => "End".into(),
+            Key::PageUp => "PgUp".into(),
+            Key::PageDown => "PgDown".into(),
+            Key::Insert => "Ins".into(),
+        });
+        parts.join("+")
+    }
+}
+
 /// A named set of bindings.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Keymap {
@@ -478,6 +524,19 @@ primary+f          = search.open
 
         let chords = map.chords_for(&CommandId::new("file.rename"));
         assert_eq!(chords.len(), 1, "menus need to show the shortcut");
+    }
+
+    #[test]
+    fn chords_render_as_portable_qt_shortcuts() {
+        let shortcut = |text: &str| KeyChord::parse(text).unwrap().to_portable_shortcut();
+        assert_eq!(shortcut("primary+t"), "Ctrl+T");
+        assert_eq!(shortcut("primary+shift+d"), "Ctrl+Shift+D");
+        assert_eq!(shortcut("f5"), "F5");
+        assert_eq!(shortcut("alt+left"), "Alt+Left");
+        assert_eq!(shortcut("insert"), "Ins");
+        assert_eq!(shortcut("space"), "Space");
+        // "really Control" stays distinct from the platform accelerator.
+        assert_eq!(shortcut("ctrl+r"), "Meta+R");
     }
 
     #[test]

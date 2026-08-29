@@ -569,6 +569,69 @@ pub unsafe extern "C" fn jtf_tr(
     unsafe { write_str(&app.tr(key), buf, len) }
 }
 
+/// The shortcut bound to a command id, as a `QKeySequence` string.
+///
+/// Empty when the command is unbound.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `command` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_shortcut_for(
+    app: *const App,
+    command: *const c_char,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let Some(command) = (unsafe { read_str(command) }) else {
+        return 0;
+    };
+    unsafe { write_str(&app.shortcut_for(command), buf, len) }
+}
+
+/// Whether a command id is registered.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `command` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_has_command(app: *const App, command: *const c_char) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let Some(command) = (unsafe { read_str(command) }) else {
+        return 0;
+    };
+    c_int::from(app.has_command(command))
+}
+
+/// Name of the active keymap preset.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_keymap_name(app: *const App, buf: *mut c_char, len: c_int) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    unsafe { write_str(&app.keymap_name(), buf, len) }
+}
+
+/// Switch keymap preset.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `name` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_keymap(app: *mut App, name: *const c_char) {
+    let Some(name) = (unsafe { read_str(name) }) else {
+        return;
+    };
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_keymap(name);
+    }
+}
+
 /// List font family, empty for the platform's own fixed-width font.
 ///
 /// # Safety

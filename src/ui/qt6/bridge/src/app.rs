@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
+use jtf_commands::{CommandId, CommandRegistry, Keymap};
 use jtf_core::i18n::{Catalog, LocaleId, Localizer};
 use jtf_core::theme::{Palette, ResolvedTheme, SystemAppearance, ThemeMode, ThemeToken};
 use jtf_core::{Error, FileEntry, FileKind, Location};
@@ -74,6 +75,8 @@ pub struct App {
     theme_mode: ThemeMode,
     show_hidden: bool,
     settings: SessionSettings,
+    registry: CommandRegistry,
+    keymap: Keymap,
     repo_root: PathBuf,
     session_path: PathBuf,
 }
@@ -105,6 +108,8 @@ impl App {
             locale,
             theme_mode,
             show_hidden: false,
+            registry: CommandRegistry::baseline(),
+            keymap: load_keymap(&repo_root, &settings.keymap),
             settings,
             repo_root,
             session_path,
@@ -598,6 +603,36 @@ impl App {
         self.localizer.text_or_key(key)
     }
 
+    /// The active keymap's name.
+    pub(crate) fn keymap_name(&self) -> String {
+        self.keymap.name().to_string()
+    }
+
+    /// Switch keymap preset. An unknown name falls back to the platform one
+    /// rather than leaving the application with no shortcuts at all.
+    pub(crate) fn set_keymap(&mut self, name: &str) {
+        self.keymap = load_keymap(&self.repo_root, name);
+        self.settings.keymap = self.keymap.name().to_string();
+    }
+
+    /// The shortcut bound to a command, rendered for the toolkit.
+    ///
+    /// Empty when the command is unbound, which is a normal state: a preset
+    /// binds what its users expect and leaves the rest alone.
+    pub(crate) fn shortcut_for(&self, command: &str) -> String {
+        let id = CommandId::new(command);
+        self.keymap
+            .chords_for(&id)
+            .first()
+            .map_or_else(String::new, |chord| chord.to_portable_shortcut())
+    }
+
+    /// Whether a command exists at all, so the UI can refuse to build a menu
+    /// item for something nothing implements.
+    pub(crate) fn has_command(&self, command: &str) -> bool {
+        self.registry.contains(&CommandId::new(command))
+    }
+
     /// How the list should be drawn.
     pub(crate) const fn font(&self) -> &FontSettings {
         &self.settings.font
@@ -757,6 +792,26 @@ fn locate_repo_root() -> PathBuf {
         }
     }
     PathBuf::from(".")
+}
+
+/// Load a keymap preset by name from `keymaps/<name>.keymap`.
+///
+/// Keymaps are data (`docs/UI_UX_SPEC.md` §7), so switching preset is reading
+/// a different file rather than running different code — which is what makes
+/// a settings screen for them a matter of editing data later.
+fn load_keymap(repo_root: &std::path::Path, name: &str) -> Keymap {
+    let wanted = if name.is_empty() { "platform" } else { name };
+    let path = repo_root.join("keymaps").join(format!("{wanted}.keymap"));
+
+    let parsed = fs::read_to_string(&path)
+        .ok()
+        .and_then(|text| Keymap::parse(wanted, &text).ok());
+
+    match parsed {
+        Some(keymap) => keymap,
+        None if wanted != "platform" => load_keymap(repo_root, "platform"),
+        None => Keymap::new("platform"),
+    }
 }
 
 fn load_catalog(repo_root: &std::path::Path, locale: &LocaleId) -> Catalog {

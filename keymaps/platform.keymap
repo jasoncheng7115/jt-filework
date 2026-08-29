@@ -1,0 +1,52 @@
+# jt-filework — platform keymap (default)
+#
+# Native conventions. `primary` is the platform accelerator: Command on
+# macOS, Control elsewhere. `ctrl` means the physical Control key on every
+# platform, and is avoided here because macOS users do not expect it.
+#
+# Format: `chord = command.id`. Conflicts are rejected at load
+# (docs/UI_TEST_PLAN.md KEY-005).
+
+# tabs
+primary+t          = tab.new
+primary+w          = tab.close
+primary+shift+t    = tab.reopen
+primary+d          = tab.duplicate
+
+# panes
+primary+shift+h    = workspace.split.horizontal
+primary+shift+v    = workspace.split.vertical
+primary+shift+w    = workspace.pane.close
+f6                 = workspace.pane.next
+shift+f6           = workspace.pane.previous
+primary+1          = workspace.preset.single
+primary+4          = workspace.preset.quad
+
+# navigation
+primary+up         = nav.up
+primary+left       = nav.back
+primary+right      = nav.forward
+primary+down       = file.open
+primary+shift+h    = nav.home
+
+# files
+f2                 = file.rename
+primary+backspace  = file.trash
+primary+shift+n    = file.new_folder
+
+# marking
+space              = file.mark.toggle
+primary+shift+a    = file.mark.all
+primary+shift+z    = file.mark.none
+primary+shift+i    = file.mark.invert
+
+# view
+primary+r          = view.refresh
+primary+shift+period = view.hidden
+primary+minus      = view.font.smaller
+primary+equal      = view.font.larger
+
+# search and tools
+primary+f          = search.open
+primary+shift+f    = search.ai
+primary+j          = jobs.show

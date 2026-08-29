@@ -1,0 +1,50 @@
+# jt-filework — CView / WinCV keymap
+#
+# The function-key layout long-time CView and WinCV users have in their
+# fingers, in the Norton Commander lineage those tools belong to. Where a
+# command does not exist yet the binding is simply absent rather than bound to
+# something approximate.
+#
+# `primary` is the platform accelerator; `ctrl` is the physical Control key,
+# which this preset uses deliberately because that is what the original tools
+# used.
+
+# the function row
+f2                 = file.rename
+f3                 = file.view
+f4                 = file.edit
+f5                 = file.copy_to_target_pane
+f6                 = file.move_to_target_pane
+f7                 = file.new_folder
+f8                 = file.trash
+
+# panes and tabs
+tab                = workspace.pane.next
+shift+tab          = workspace.pane.previous
+primary+t          = tab.new
+primary+w          = tab.close
+
+# navigation
+backspace          = nav.up
+ctrl+pageup        = nav.up
+alt+left           = nav.back
+alt+right          = nav.forward
+primary+home       = nav.home
+
+# marking: Space marks and Insert marks, as both tools allowed
+space              = file.mark.toggle
+insert             = file.mark.toggle
+primary+a          = file.mark.all
+primary+z          = file.mark.none
+primary+i          = file.mark.invert
+
+# view
+ctrl+r             = view.refresh
+ctrl+h             = view.hidden
+primary+shift+h    = workspace.split.horizontal
+primary+shift+v    = workspace.split.vertical
+primary+1          = workspace.preset.single
+primary+4          = workspace.preset.quad
+
+# search
+primary+f          = search.open

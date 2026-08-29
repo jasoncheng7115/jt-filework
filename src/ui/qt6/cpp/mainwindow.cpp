@@ -74,12 +74,26 @@ QString MainWindow::tr_(const char *key) const {
 }
 
 void MainWindow::buildMenus() {
-    const auto add = [this](QMenu *menu, const char *key, const QKeySequence &shortcut,
-                            std::function<void()> handler) {
+    // Every action carries a command id. Its label comes from the localization
+    // catalogue and its shortcut from the active keymap, so the whole keyboard
+    // layout is data: switching preset re-reads a file, and a settings screen
+    // for it is an editor over that data rather than new code
+    // (AGENTS.md 9, docs/UI_UX_SPEC.md 7).
+    const auto command = [this](QMenu *menu, const char *id, std::function<void()> handler) {
         auto *action = new QAction(this);
-        if (!shortcut.isEmpty()) {
-            action->setShortcut(shortcut);
-        }
+        connect(action, &QAction::triggered, this, [this, handler] {
+            handler();
+            refreshAll();
+        });
+        menu->addAction(action);
+        m_commandActions.append({action, id});
+        return action;
+    };
+
+    // Menu entries that are settings rather than commands: they have a label
+    // but no place in the keymap.
+    const auto setting = [this](QMenu *menu, const char *key, std::function<void()> handler) {
+        auto *action = new QAction(this);
         connect(action, &QAction::triggered, this, [this, handler] {
             handler();
             refreshAll();
@@ -91,94 +105,133 @@ void MainWindow::buildMenus() {
 
     m_fileMenu = menuBar()->addMenu(QString());
     m_translatableMenus.append({m_fileMenu, "menu.file"});
-    add(m_fileMenu, "command.tab.new", QKeySequence::AddTab, [this] { jtf_new_tab(m_app); });
-    add(m_fileMenu, "command.tab.close", QKeySequence::Close, [this] {
+    command(m_fileMenu, "tab.new", [this] { jtf_new_tab(m_app); });
+    command(m_fileMenu, "tab.close", [this] {
         const int pane = jtf_active_pane(m_app);
         jtf_close_tab(m_app, pane, jtf_active_tab(m_app, pane));
     });
+    m_fileMenu->addSeparator();
+    // Registered commands with no implementation yet. Shown and disabled
+    // rather than hidden, so the keyboard layout and the menu agree about
+    // what exists (docs/UI_UX_SPEC.md 13).
+    for (const char *id : {"file.new_folder", "file.rename", "file.trash"}) {
+        auto *action = new QAction(this);
+        action->setEnabled(false);
+        m_fileMenu->addAction(action);
+        m_commandActions.append({action, id});
+    }
 
     m_viewMenu = menuBar()->addMenu(QString());
     m_translatableMenus.append({m_viewMenu, "menu.view"});
-    add(m_viewMenu, "command.workspace.split.horizontal", QKeySequence(QStringLiteral("Ctrl+D")),
-        [this] { jtf_split_active(m_app, 0); });
-    add(m_viewMenu, "command.workspace.split.vertical",
-        QKeySequence(QStringLiteral("Ctrl+Shift+D")), [this] { jtf_split_active(m_app, 1); });
-    add(m_viewMenu, "command.workspace.pane.close", QKeySequence(QStringLiteral("Ctrl+Shift+W")),
-        [this] { jtf_close_active_pane(m_app); });
-    add(m_viewMenu, "command.workspace.pane.next", QKeySequence(Qt::Key_F6),
-        [this] { jtf_focus_next_pane(m_app); });
-    add(m_viewMenu, "command.workspace.pane.previous",
-        QKeySequence(QStringLiteral("Shift+F6")), [this] {
-            const auto order = jtf_pane_count(m_app);
-            for (int i = 1; i < order; ++i) {
-                jtf_focus_next_pane(m_app); // cycling forward n-1 times is back one
-            }
-        });
+    command(m_viewMenu, "workspace.split.horizontal", [this] { jtf_split_active(m_app, 0); });
+    command(m_viewMenu, "workspace.split.vertical", [this] { jtf_split_active(m_app, 1); });
+    command(m_viewMenu, "workspace.pane.close", [this] { jtf_close_active_pane(m_app); });
+    command(m_viewMenu, "workspace.pane.next", [this] { jtf_focus_next_pane(m_app); });
+    command(m_viewMenu, "workspace.pane.previous", [this] {
+        // Cycling forward n-1 times is one step back, and needs no second
+        // traversal order to keep in agreement with the first.
+        const int panes = jtf_pane_count(m_app);
+        for (int i = 1; i < panes; ++i) {
+            jtf_focus_next_pane(m_app);
+        }
+    });
     m_viewMenu->addSeparator();
-    add(m_viewMenu, "command.file.mark.all", QKeySequence(QStringLiteral("Ctrl+Shift+A")),
-        [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 0); });
-    add(m_viewMenu, "command.file.mark.none", QKeySequence(QStringLiteral("Ctrl+Shift+N")),
-        [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 1); });
-    add(m_viewMenu, "command.file.mark.invert", QKeySequence(QStringLiteral("Ctrl+Shift+I")),
-        [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 2); });
+    command(m_viewMenu, "workspace.preset.single", [this] { jtf_apply_preset(m_app, 0); });
+    command(m_viewMenu, "workspace.preset.quad", [this] { jtf_apply_preset(m_app, 3); });
     m_viewMenu->addSeparator();
-    add(m_viewMenu, "preset.quad", QKeySequence(QStringLiteral("Ctrl+4")),
-        [this] { jtf_apply_preset(m_app, 3); });
-    add(m_viewMenu, "preset.single", QKeySequence(QStringLiteral("Ctrl+1")),
-        [this] { jtf_apply_preset(m_app, 0); });
+    command(m_viewMenu, "file.mark.all",
+            [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 0); });
+    command(m_viewMenu, "file.mark.none",
+            [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 1); });
+    command(m_viewMenu, "file.mark.invert",
+            [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 2); });
     m_viewMenu->addSeparator();
-    add(m_viewMenu, "command.view.hidden", QKeySequence(QStringLiteral("Ctrl+Shift+.")),
-        [this] { jtf_set_show_hidden(m_app, jtf_show_hidden(m_app) ? 0 : 1); });
+    command(m_viewMenu, "view.hidden",
+            [this] { jtf_set_show_hidden(m_app, jtf_show_hidden(m_app) ? 0 : 1); });
+    command(m_viewMenu, "view.refresh", [this] { jtf_refresh(m_app, jtf_active_pane(m_app)); });
 
     auto *themeMenu = m_viewMenu->addMenu(QString());
     m_translatableMenus.append({themeMenu, "menu.theme"});
-    add(themeMenu, "theme.system", {}, [this] { jtf_set_theme_mode(m_app, 0); });
-    add(themeMenu, "theme.light", {}, [this] { jtf_set_theme_mode(m_app, 1); });
-    add(themeMenu, "theme.dark", {}, [this] { jtf_set_theme_mode(m_app, 2); });
+    setting(themeMenu, "theme.system", [this] { jtf_set_theme_mode(m_app, 0); });
+    setting(themeMenu, "theme.light", [this] { jtf_set_theme_mode(m_app, 1); });
+    setting(themeMenu, "theme.dark", [this] { jtf_set_theme_mode(m_app, 2); });
 
     auto *fontMenu = m_viewMenu->addMenu(QString());
     m_translatableMenus.append({fontMenu, "menu.font"});
-    add(fontMenu, "font.system_mono", {}, [this] { jtf_set_font(m_app, "", 0, 1); });
-    add(fontMenu, "font.system_proportional", {}, [this] { jtf_set_font(m_app, "", 0, 0); });
+    setting(fontMenu, "font.system_mono", [this] { jtf_set_font(m_app, "", 0, 1); });
+    setting(fontMenu, "font.system_proportional", [this] { jtf_set_font(m_app, "", 0, 0); });
     fontMenu->addSeparator();
-    add(fontMenu, "font.smaller", QKeySequence(QStringLiteral("Ctrl+-")), [this] {
-        const int size = jtf_font_point_size(m_app);
-        const int current = size > 0 ? size : listFont().pointSize();
-        jtf_set_font(m_app, familyUtf8().constData(), qMax(8, current - 1),
-                     jtf_font_monospace(m_app));
-    });
-    add(fontMenu, "font.larger", QKeySequence(QStringLiteral("Ctrl++")), [this] {
-        const int size = jtf_font_point_size(m_app);
-        const int current = size > 0 ? size : listFont().pointSize();
-        jtf_set_font(m_app, familyUtf8().constData(), qMin(32, current + 1),
-                     jtf_font_monospace(m_app));
-    });
+    command(fontMenu, "view.font.smaller", [this] { stepFontSize(-1); });
+    command(fontMenu, "view.font.larger", [this] { stepFontSize(1); });
     fontMenu->addSeparator();
-    add(fontMenu, "font.choose", {}, [this] {
-        bool accepted = false;
-        const QString chosen = QInputDialog::getText(
-            this, tr_("font.choose"), tr_("font.family_prompt"), QLineEdit::Normal,
-            jtfText([&](char *b, int l) { return jtf_font_family(m_app, b, l); }), &accepted);
-        if (accepted) {
-            const QByteArray utf8 = chosen.trimmed().toUtf8();
-            jtf_set_font(m_app, utf8.constData(), jtf_font_point_size(m_app),
-                         jtf_font_monospace(m_app));
-        }
-    });
+    setting(fontMenu, "font.choose", [this] { chooseFontFamily(); });
+
+    auto *keymapMenu = m_viewMenu->addMenu(QString());
+    m_translatableMenus.append({keymapMenu, "menu.keymap"});
+    setting(keymapMenu, "keymap.platform", [this] { jtf_set_keymap(m_app, "platform"); });
+    setting(keymapMenu, "keymap.cview", [this] { jtf_set_keymap(m_app, "cview"); });
 
     auto *localeMenu = m_viewMenu->addMenu(QString());
     m_translatableMenus.append({localeMenu, "menu.language"});
-    add(localeMenu, "language.english", {}, [this] { jtf_set_locale(m_app, "en"); });
-    add(localeMenu, "language.zh_tw", {}, [this] { jtf_set_locale(m_app, "zh-TW"); });
+    setting(localeMenu, "language.english", [this] { jtf_set_locale(m_app, "en"); });
+    setting(localeMenu, "language.zh_tw", [this] { jtf_set_locale(m_app, "zh-TW"); });
 
     m_goMenu = menuBar()->addMenu(QString());
     m_translatableMenus.append({m_goMenu, "menu.go"});
-    add(m_goMenu, "command.nav.up", QKeySequence(QStringLiteral("Ctrl+Up")),
-        [this] { jtf_navigate_up(m_app, jtf_active_pane(m_app)); });
-    add(m_goMenu, "command.nav.back", QKeySequence::Back,
-        [this] { jtf_go_back(m_app, jtf_active_pane(m_app)); });
-    add(m_goMenu, "command.nav.forward", QKeySequence::Forward,
-        [this] { jtf_go_forward(m_app, jtf_active_pane(m_app)); });
+    command(m_goMenu, "nav.up", [this] { jtf_navigate_up(m_app, jtf_active_pane(m_app)); });
+    command(m_goMenu, "nav.back", [this] { jtf_go_back(m_app, jtf_active_pane(m_app)); });
+    command(m_goMenu, "nav.forward", [this] { jtf_go_forward(m_app, jtf_active_pane(m_app)); });
+    command(m_goMenu, "nav.home", [this] {
+        const QByteArray home = qgetenv("HOME");
+        if (!home.isEmpty()) {
+            jtf_navigate(m_app, jtf_active_pane(m_app), home.constData());
+        }
+    });
+}
+
+void MainWindow::stepFontSize(int delta) {
+    const int stored = jtf_font_point_size(m_app);
+    const int current = stored > 0 ? stored : listFont().pointSize();
+    jtf_set_font(m_app, familyUtf8().constData(), qBound(8, current + delta, 32),
+                 jtf_font_monospace(m_app));
+}
+
+void MainWindow::chooseFontFamily() {
+    bool accepted = false;
+    const QString chosen = QInputDialog::getText(
+        this, tr_("font.choose"), tr_("font.family_prompt"), QLineEdit::Normal,
+        jtfText([&](char *b, int l) { return jtf_font_family(m_app, b, l); }), &accepted);
+    if (!accepted) {
+        return;
+    }
+    const QByteArray utf8 = chosen.trimmed().toUtf8();
+    jtf_set_font(m_app, utf8.constData(), jtf_font_point_size(m_app), jtf_font_monospace(m_app));
+    applyFont();
+}
+
+// Labels from the catalogue, shortcuts from the keymap. Called on every
+// retranslate, so switching locale or keymap updates both without a restart.
+void MainWindow::applyCommandBindings() {
+    for (const auto &entry : std::as_const(m_commandActions)) {
+        QAction *action = entry.first;
+        const char *id = entry.second;
+
+        const QString labelKey = QStringLiteral("command.%1").arg(QLatin1String(id));
+        const QByteArray labelKeyUtf8 = labelKey.toUtf8();
+        action->setText(jtfText([&](char *buf, int len) {
+            return jtf_tr(m_app, labelKeyUtf8.constData(), buf, len);
+        }));
+
+        const QString shortcut = jtfText(
+            [&](char *buf, int len) { return jtf_shortcut_for(m_app, id, buf, len); });
+        action->setShortcut(shortcut.isEmpty() ? QKeySequence() : QKeySequence(shortcut));
+
+        // A command the registry does not know about cannot be invoked; it is
+        // left disabled rather than silently doing nothing.
+        if (jtf_has_command(m_app, id) == 0) {
+            action->setEnabled(false);
+        }
+    }
 }
 
 void MainWindow::buildToolbar() {
@@ -188,30 +241,21 @@ void MainWindow::buildToolbar() {
     bar->setFloatable(false);
     bar->setIconSize(QSize(16, 16));
 
-    const auto navAction = [&](glyph::Shape, const char *key, const QKeySequence &shortcut,
-                               std::function<void(int)> handler) {
+    const auto navAction = [&](const char *id, std::function<void(int)> handler) {
         auto *action = new QAction(QString(), this);
-        action->setShortcut(shortcut);
         connect(action, &QAction::triggered, this, [this, handler] {
             handler(jtf_active_pane(m_app));
             refreshAll();
         });
         bar->addAction(action);
-        m_translatable.append({action, key});
+        m_commandActions.append({action, id});
         return action;
     };
 
-    m_backAction = navAction(glyph::Shape::ArrowLeft, "command.nav.back", QKeySequence::Back,
-                             [this](int pane) { jtf_go_back(m_app, pane); });
-    m_forwardAction = navAction(glyph::Shape::ArrowRight, "command.nav.forward",
-                                QKeySequence::Forward,
-                                [this](int pane) { jtf_go_forward(m_app, pane); });
-    m_upAction = navAction(glyph::Shape::ArrowUp, "command.nav.up",
-                           QKeySequence(QStringLiteral("Ctrl+Up")),
-                           [this](int pane) { jtf_navigate_up(m_app, pane); });
-    m_refreshAction = navAction(glyph::Shape::Reload, "command.view.refresh",
-                                QKeySequence::Refresh,
-                                [this](int pane) { jtf_refresh(m_app, pane); });
+    m_backAction = navAction("nav.back", [this](int pane) { jtf_go_back(m_app, pane); });
+    m_forwardAction = navAction("nav.forward", [this](int pane) { jtf_go_forward(m_app, pane); });
+    m_upAction = navAction("nav.up", [this](int pane) { jtf_navigate_up(m_app, pane); });
+    m_refreshAction = navAction("view.refresh", [this](int pane) { jtf_refresh(m_app, pane); });
 
     bar->addSeparator();
 
@@ -351,6 +395,7 @@ void MainWindow::retranslate() {
     for (const auto &entry : std::as_const(m_translatable)) {
         entry.first->setText(tr_(entry.second));
     }
+    applyCommandBindings();
     for (const auto &entry : std::as_const(m_translatableMenus)) {
         entry.first->setTitle(tr_(entry.second));
     }

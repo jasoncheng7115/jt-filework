@@ -112,6 +112,9 @@ pub struct SessionSettings {
     /// How the file list is drawn.
     #[serde(default)]
     pub font: FontSettings,
+    /// Which keymap preset is active. Empty means the platform default.
+    #[serde(default)]
+    pub keymap: String,
 }
 
 const fn default_true() -> bool {
@@ -132,6 +135,7 @@ impl Default for SessionSettings {
             remember_closed_tabs: true,
             remember_marks: true,
             font: FontSettings::default(),
+            keymap: String::new(),
         }
     }
 }
@@ -149,6 +153,7 @@ impl SessionSettings {
             remember_closed_tabs: false,
             remember_marks: false,
             font: FontSettings::default(),
+            keymap: String::new(),
         }
     }
 }

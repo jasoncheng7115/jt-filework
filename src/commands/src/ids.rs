@@ -184,111 +184,129 @@ impl CommandRegistry {
     }
 
     /// The baseline command set from `docs/UI_UX_SPEC.md` §7.1.
+    ///
+    /// Built from a table, so adding a command is adding a row.
     pub fn baseline() -> Self {
-        use CommandCategory as C;
         let mut registry = Self::new();
-        let mut add = |id: &str, category: CommandCategory, key: &'static str| {
-            registry.register(Command::new(id, category, key));
-        };
-
-        add(
-            "workspace.split.horizontal",
-            C::Workspace,
-            "command.workspace.split.horizontal",
-        );
-        add(
-            "workspace.split.vertical",
-            C::Workspace,
-            "command.workspace.split.vertical",
-        );
-        add(
-            "workspace.pane.next",
-            C::Workspace,
-            "command.workspace.pane.next",
-        );
-        add(
-            "workspace.pane.previous",
-            C::Workspace,
-            "command.workspace.pane.previous",
-        );
-        add(
-            "workspace.pane.close",
-            C::Workspace,
-            "command.workspace.pane.close",
-        );
-
-        add("tab.new", C::Tabs, "command.tab.new");
-        add("tab.close", C::Tabs, "command.tab.close");
-        add("tab.reopen", C::Tabs, "command.tab.reopen");
-        add("tab.duplicate", C::Tabs, "command.tab.duplicate");
-        add("tab.pin", C::Tabs, "command.tab.pin");
-        add("tab.next", C::Tabs, "command.tab.next");
-        add("tab.previous", C::Tabs, "command.tab.previous");
-        add("tab.move_to_pane", C::Tabs, "command.tab.move_to_pane");
-
-        add("nav.up", C::Navigation, "command.nav.up");
-        add("nav.back", C::Navigation, "command.nav.back");
-        add("nav.forward", C::Navigation, "command.nav.forward");
-        add("nav.home", C::Navigation, "command.nav.home");
-        add("nav.goto", C::Navigation, "command.nav.goto");
-
-        add("file.open", C::File, "command.file.open");
-        add("file.view", C::File, "command.file.view");
-        add("file.edit", C::File, "command.file.edit");
-        add("file.rename", C::File, "command.file.rename");
-        add("file.new_folder", C::File, "command.file.new_folder");
-        add(
-            "file.copy_to_target_pane",
-            C::File,
-            "command.file.copy_to_target_pane",
-        );
-        add(
-            "file.move_to_target_pane",
-            C::File,
-            "command.file.move_to_target_pane",
-        );
-
-        add(
-            "file.mark.toggle",
-            C::SelectionAndMarks,
-            "command.file.mark.toggle",
-        );
-        add(
-            "file.mark.all",
-            C::SelectionAndMarks,
-            "command.file.mark.all",
-        );
-        add(
-            "file.mark.none",
-            C::SelectionAndMarks,
-            "command.file.mark.none",
-        );
-        add(
-            "file.mark.invert",
-            C::SelectionAndMarks,
-            "command.file.mark.invert",
-        );
-
-        add("preview.toggle", C::View, "command.preview.toggle");
-        add("preview.quicklook", C::View, "command.preview.quicklook");
-
-        add("search.open", C::Search, "command.search.open");
-        add("search.ai", C::Search, "command.search.ai");
-
-        add("ai.ask", C::Ai, "command.ai.ask");
-
-        add("jobs.show", C::Jobs, "command.jobs.show");
-        add("jobs.cancel_active", C::Jobs, "command.jobs.cancel_active");
-
-        add("theme.set", C::Settings, "command.theme.set");
-        add("locale.set", C::Settings, "command.locale.set");
-
-        registry.register(Command::new("file.trash", C::File, "command.file.trash").destructive());
-        registry
-            .register(Command::new("file.delete", C::File, "command.file.delete").destructive());
+        for (id, category, key) in BASELINE_COMMANDS {
+            registry.register(Command::new(*id, *category, key));
+        }
+        for (id, category, key) in DESTRUCTIVE_COMMANDS {
+            registry.register(Command::new(*id, *category, key).destructive());
+        }
         registry
     }
 }
+
+use CommandCategory as C;
+
+/// Every ordinary command. The label is always a localization key, never
+/// text (`AGENTS.md` §11).
+const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
+    (
+        "workspace.split.horizontal",
+        C::Workspace,
+        "command.workspace.split.horizontal",
+    ),
+    (
+        "workspace.split.vertical",
+        C::Workspace,
+        "command.workspace.split.vertical",
+    ),
+    (
+        "workspace.pane.next",
+        C::Workspace,
+        "command.workspace.pane.next",
+    ),
+    (
+        "workspace.pane.previous",
+        C::Workspace,
+        "command.workspace.pane.previous",
+    ),
+    (
+        "workspace.pane.close",
+        C::Workspace,
+        "command.workspace.pane.close",
+    ),
+    (
+        "workspace.preset.single",
+        C::Workspace,
+        "command.workspace.preset.single",
+    ),
+    (
+        "workspace.preset.quad",
+        C::Workspace,
+        "command.workspace.preset.quad",
+    ),
+    ("tab.new", C::Tabs, "command.tab.new"),
+    ("tab.close", C::Tabs, "command.tab.close"),
+    ("tab.reopen", C::Tabs, "command.tab.reopen"),
+    ("tab.duplicate", C::Tabs, "command.tab.duplicate"),
+    ("tab.pin", C::Tabs, "command.tab.pin"),
+    ("tab.next", C::Tabs, "command.tab.next"),
+    ("tab.previous", C::Tabs, "command.tab.previous"),
+    ("tab.move_to_pane", C::Tabs, "command.tab.move_to_pane"),
+    ("nav.up", C::Navigation, "command.nav.up"),
+    ("nav.back", C::Navigation, "command.nav.back"),
+    ("nav.forward", C::Navigation, "command.nav.forward"),
+    ("nav.home", C::Navigation, "command.nav.home"),
+    ("nav.goto", C::Navigation, "command.nav.goto"),
+    ("file.open", C::File, "command.file.open"),
+    ("file.view", C::File, "command.file.view"),
+    ("file.edit", C::File, "command.file.edit"),
+    ("file.rename", C::File, "command.file.rename"),
+    ("file.new_folder", C::File, "command.file.new_folder"),
+    (
+        "file.copy_to_target_pane",
+        C::File,
+        "command.file.copy_to_target_pane",
+    ),
+    (
+        "file.move_to_target_pane",
+        C::File,
+        "command.file.move_to_target_pane",
+    ),
+    (
+        "file.mark.toggle",
+        C::SelectionAndMarks,
+        "command.file.mark.toggle",
+    ),
+    (
+        "file.mark.all",
+        C::SelectionAndMarks,
+        "command.file.mark.all",
+    ),
+    (
+        "file.mark.none",
+        C::SelectionAndMarks,
+        "command.file.mark.none",
+    ),
+    (
+        "file.mark.invert",
+        C::SelectionAndMarks,
+        "command.file.mark.invert",
+    ),
+    ("view.refresh", C::View, "command.view.refresh"),
+    ("view.hidden", C::View, "command.view.hidden"),
+    ("view.font.smaller", C::View, "command.view.font.smaller"),
+    ("view.font.larger", C::View, "command.view.font.larger"),
+    ("preview.toggle", C::View, "command.preview.toggle"),
+    ("preview.quicklook", C::View, "command.preview.quicklook"),
+    ("search.open", C::Search, "command.search.open"),
+    ("search.ai", C::Search, "command.search.ai"),
+    ("ai.ask", C::Ai, "command.ai.ask"),
+    ("jobs.show", C::Jobs, "command.jobs.show"),
+    ("jobs.cancel_active", C::Jobs, "command.jobs.cancel_active"),
+    ("theme.set", C::Settings, "command.theme.set"),
+    ("locale.set", C::Settings, "command.locale.set"),
+];
+
+/// Commands that can destroy data, flagged so the UI can confirm and the
+/// palette can mark them (`docs/SECURITY.md` §9).
+const DESTRUCTIVE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
+    ("file.trash", C::File, "command.file.trash"),
+    ("file.delete", C::File, "command.file.delete"),
+];
 
 #[cfg(test)]
 mod tests {

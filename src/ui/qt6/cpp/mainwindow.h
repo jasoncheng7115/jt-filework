@@ -40,6 +40,9 @@ private:
     void applyFont();
     QFont listFont() const;
     void buildToolbar();
+    void applyCommandBindings();
+    void stepFontSize(int delta);
+    void chooseFontFamily();
     void syncToolbar();
     void markActivePane();
     QString tr_(const char *key) const;
@@ -61,5 +64,8 @@ private:
     QMenu *m_viewMenu = nullptr;
     QMenu *m_goMenu = nullptr;
     QList<QPair<QAction *, const char *>> m_translatable;
+    // Actions bound to a command id: label from the catalogue, shortcut from
+    // the keymap.
+    QList<QPair<QAction *, const char *>> m_commandActions;
     QList<QPair<QMenu *, const char *>> m_translatableMenus;
 };
