@@ -3,6 +3,7 @@
 #include "breadcrumb.h"
 #include "headerview.h"
 #include "icons.h"
+#include "matchdelegate.h"
 
 #include <QApplication>
 #include "jtfstring.h"
@@ -179,6 +180,10 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // looks like it did nothing.
     m_header = new JtfHeaderView(m_view);
     m_view->setHorizontalHeader(m_header);
+    // Only the name column: highlighting a date because the query happens to
+    // contain a digit would be noise, not information.
+    m_matches = new MatchDelegate(this);
+    m_view->setItemDelegateForColumn(0, m_matches);
     // The name column takes whatever the others do not, so the list fills
     // the pane instead of ending in dead space, and widening a pane widens
     // the one column where the extra room is worth anything. The rest stay
@@ -500,10 +505,38 @@ void PaneWidget::showHeaderMenu(const QPoint &position) {
 }
 
 void PaneWidget::applyColumnVisibility() {
+    // In search results the Path column is shown whatever the tab's own
+    // setting says: two files called `notes.md` are indistinguishable without
+    // it, and results come from everywhere below the folder. The tab's
+    // setting is untouched, so leaving the search restores it.
+    const QString query =
+        jtfText([&](char *b, int l) { return jtf_search_query(m_app, m_pane, b, l); });
+    const bool searching = jtf_is_searching(m_app, m_pane) || !query.isEmpty();
+
+    // What to pick out: the search's terms, or the filter's, or nothing.
+    // Both narrow the list by matching text, and in both the reader wants to
+    // see which part matched.
+    QString needle = query;
+    if (needle.isEmpty() && m_filterBar->isVisible()) {
+        needle = m_filter->text();
+    }
+    m_matches->setNeedle(needle);
+
     for (int column = 0; column < jtf_column_count(); ++column) {
-        m_view->setColumnHidden(column, jtf_column_visible(m_app, m_pane, column) == 0);
+        bool visible = jtf_column_visible(m_app, m_pane, column) != 0;
+        if (searching && isPathColumn(column)) {
+            visible = true;
+        }
+        m_view->setColumnHidden(column, !visible);
     }
     fitNameColumn();
+}
+
+bool PaneWidget::isPathColumn(int column) const {
+    // By key, not by index: the column order is data and has changed once.
+    const QString key =
+        jtfText([&](char *buf, int len) { return jtf_column_key(column, buf, len); });
+    return key == QLatin1String("column.path");
 }
 
 void PaneWidget::fitNameColumn() {
@@ -937,6 +970,7 @@ void PaneWidget::refresh() {
     syncSortIndicator();
     m_model->setThumbnailsEnabled(jtf_thumbnails(m_app) != 0);
     applyViewMode();
+    applyColumnVisibility();
     m_model->refresh();
     ensureCurrentRow();
     retranslate();
@@ -1147,6 +1181,11 @@ void PaneWidget::applyTheme(const QColor &mark, const QColor &directory, const Q
     // the rest in the dim one: that contrast is what makes the sorted column
     // findable without hunting for the caret.
     m_header->applyTheme(directory, dim, indicator);
+    if (m_matches != nullptr) {
+        // The mark colour: the program already uses it to mean "this is what
+        // you asked about", and reusing it is one fewer colour to learn.
+        m_matches->setHighlight(mark, directory);
+    }
     m_border = border;
     setActive(m_active);
     m_model->refresh();

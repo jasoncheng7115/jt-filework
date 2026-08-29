@@ -80,6 +80,7 @@ private:
     void showContextMenu(const QPoint &position);
     void showHeaderMenu(const QPoint &position);
     void applyColumnVisibility();
+    bool isPathColumn(int column) const;
     void fitNameColumn();
     void applyViewMode();
     class QAbstractItemView *currentView() const;
@@ -115,6 +116,7 @@ private:
     QPoint m_dragOrigin;
     class JtfHeaderView *m_header = nullptr;
     class QListView *m_grid = nullptr;
+    class MatchDelegate *m_matches = nullptr;
     QColor m_border;
     QString m_typeAhead;
     class QElapsedTimer *m_typeAheadClock = nullptr;

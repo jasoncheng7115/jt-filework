@@ -85,6 +85,8 @@ qt_add_executable(jt-filework
     cpp/keyhintbar.h
     cpp/thumbnails.cpp
     cpp/thumbnails.h
+    cpp/matchdelegate.cpp
+    cpp/matchdelegate.h
     cpp/shortcutsdialog.cpp
     cpp/shortcutsdialog.h
     cpp/theme.cpp
