@@ -78,7 +78,13 @@ MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_ap
     });
     connect(m_places, &PlacesList::placesChanged, this,
             [this] { jtf_app_save_session(m_app); });
+    // Added last so the outer splitter reads left to right as sidebar,
+    // panes, inspector. The pane area is inserted between them in
+    // rebuildLayout, which finds its slot by pointer rather than by index -
+    // an index here was correct until the inspector was added, and then
+    // silently replaced the wrong widget.
     m_inspector = new Inspector(m_app, m_outer);
+    m_outer->addWidget(m_inspector);
     m_inspector->setVisible(false);
     connect(m_inspector, &Inspector::closeRequested, this, [this] { setInspectorVisible(false); });
     setCentralWidget(m_outer);
@@ -136,6 +142,14 @@ MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_ap
     applyFont();
     setTreeVisible(jtf_tree_visible(m_app) != 0);
     retranslate();
+
+    // The file list is where the keyboard belongs. Without this the path
+    // field keeps the focus it got by being the first focusable widget built,
+    // and every key the user presses - Home, the arrows, a letter that is a
+    // command in CView mode - goes into a text box instead of the list.
+    if (PaneWidget *pane = activePane()) {
+        pane->focusList();
+    }
 
     // The pump is the whole "never block the UI thread" contract in one
     // place: enumeration happens on worker threads, and the UI collects
@@ -917,6 +931,10 @@ void MainWindow::buildToolbar() {
         auto *segment = new QToolButton(m_modeSwitch);
         segment->setCheckable(true);
         segment->setAutoRaise(true);
+        // A QToolButton inherits the toolbar's icon-only style, and these
+        // segments are words with no icon: without this the switch is an
+        // empty box.
+        segment->setToolButtonStyle(Qt::ToolButtonTextOnly);
         segment->setProperty("jtfModeSegment", true);
         segment->setProperty("jtfKeymap", QString::fromLatin1(name));
         connect(segment, &QToolButton::clicked, this, [this, name] { setKeymap(name); });
@@ -1190,10 +1208,13 @@ void MainWindow::rebuildLayout() {
     // The tree lives beside the whole workspace, not inside a pane: it
     // navigates the active pane, whichever that is.
     if (m_paneArea) {
-        m_outer->replaceWidget(1, widget);
+        const int slot = m_outer->indexOf(m_paneArea);
+        Q_ASSERT(slot >= 0);
+        m_outer->replaceWidget(slot, widget);
         m_paneArea->deleteLater();
     } else {
-        m_outer->addWidget(widget);
+        // Between the sidebar and the inspector, both of which already exist.
+        m_outer->insertWidget(m_outer->indexOf(m_inspector), widget);
     }
     m_paneArea = widget;
     m_root = widget;

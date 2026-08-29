@@ -461,6 +461,30 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
             m_typeAhead.clear();
             return true;
 
+        case Qt::Key_Home:
+        case Qt::Key_End: {
+            // QTableView reads Home as "first column of this row" and only
+            // moves rows on Ctrl+Home. A file list has one axis that matters,
+            // so both spellings go to the top and bottom of the list.
+            //
+            // Home lands on the first entry rather than on `..`, matching
+            // where the cursor is put on arriving in a folder. `..` is one
+            // press of Up away.
+            const int rows = m_model->rowCount();
+            if (rows == 0) {
+                return true;
+            }
+            const bool toEnd = key->key() == Qt::Key_End;
+            int row = 0;
+            if (toEnd) {
+                row = rows - 1;
+            } else if (rows > 1 && jtf_row_is_parent(m_app, m_pane, 0)) {
+                row = 1;
+            }
+            setCurrentRow(row, QAbstractItemView::EnsureVisible);
+            return true;
+        }
+
         case Qt::Key_Left:
         case Qt::Key_Right: {
             // The list has columns, so Qt would move the current cell
@@ -613,6 +637,10 @@ void PaneWidget::refreshRows() {
     retranslate();
 }
 
+void PaneWidget::focusList() {
+    m_view->setFocus(Qt::OtherFocusReason);
+}
+
 void PaneWidget::ensureCurrentRow() {
     const int rows = m_model->rowCount();
     if (rows == 0) {
@@ -636,9 +664,8 @@ void PaneWidget::ensureCurrentRow() {
     if (row < 0 || row >= rows) {
         row = rows > 1 && jtf_row_is_parent(m_app, m_pane, 0) ? 1 : 0;
     }
-    const QModelIndex index = m_model->index(row, 0);
-    m_view->setCurrentIndex(index);
-    m_view->scrollTo(index, QAbstractItemView::PositionAtCenter);
+    setCurrentRow(row, QAbstractItemView::PositionAtCenter);
+
     // The cursor is only useful if the keys reach it. Never steal focus from
     // a text field the user is typing in.
     QWidget *focused = QApplication::focusWidget();
@@ -646,6 +673,22 @@ void PaneWidget::ensureCurrentRow() {
     if (!typing && m_active) {
         m_view->setFocus(Qt::OtherFocusReason);
     }
+}
+
+void PaneWidget::setCurrentRow(int row, QAbstractItemView::ScrollHint hint) {
+    // Through the selection model, not setCurrentIndex: that moves the
+    // current cell without selecting anything, so the row the cursor is on
+    // does not light up and the list looks like it ignored the key. The
+    // arrow keys go through the selection model too, which is why they
+    // always looked right.
+    const QModelIndex index = m_model->index(row, 0);
+    if (!index.isValid()) {
+        return;
+    }
+    m_view->selectionModel()->setCurrentIndex(index,
+                                              QItemSelectionModel::ClearAndSelect |
+                                                  QItemSelectionModel::Rows);
+    m_view->scrollTo(index, hint);
 }
 
 void PaneWidget::setListFont(const QFont &font) {

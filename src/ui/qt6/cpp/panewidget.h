@@ -10,6 +10,7 @@
 #include <QPoint>
 #include <QStringList>
 #include <QFont>
+#include <QAbstractItemView>
 #include <QWidget>
 
 class FileListModel;
@@ -35,6 +36,8 @@ public:
     // Row the keyboard is on, or -1. The window needs it for commands that
     // act on the focused entry.
     int currentRow() const;
+    /// Put the keyboard in the file list.
+    void focusList();
     void openCurrentRow();
     void toggleSearch();
     void clearSearch();
@@ -68,6 +71,7 @@ private:
     void showHeaderMenu(const QPoint &position);
     void applyColumnVisibility();
     void ensureCurrentRow();
+    void setCurrentRow(int row, QAbstractItemView::ScrollHint hint);
     static QString chordFor(const class QKeyEvent *key);
     // Typing letters jumps to a matching row. docs/UI_UX_SPEC.md 5.4: it must
     // never start a rename and never trigger a destructive command.
