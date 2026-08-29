@@ -90,6 +90,8 @@ int jtf_batch_can_apply(const JtfApp *app, int *changes);
 int jtf_batch_apply(JtfApp *app);
 void jtf_batch_clear(JtfApp *app);
 int jtf_child_directories(const JtfApp *app, const char *path, char *buf, int len);
+int jtf_folders_first(const JtfApp *app);
+void jtf_set_folders_first(JtfApp *app, int folders_first);
 int jtf_tree_visible(const JtfApp *app);
 int jtf_tree_width(const JtfApp *app);
 void jtf_set_tree_state(JtfApp *app, int visible, int width);

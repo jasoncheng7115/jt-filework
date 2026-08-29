@@ -17,7 +17,7 @@ use jtf_ops::{ConflictPolicy, Plan, PlanError, RenamePattern, RenamePreview, Und
 use jtf_search::{SearchHandle, SearchUpdate};
 use jtf_viewer::{detect, ContentKind, Encoding, HexView, TextView};
 use jtf_workspace::{
-    sort_entries, FontSettings, LayoutPreset, Orientation, PaneId, Session, SessionSettings,
+    sort_entries_with, FontSettings, LayoutPreset, Orientation, PaneId, Session, SessionSettings,
     SortKey, SortSpec, Workspace,
 };
 
@@ -675,6 +675,31 @@ impl App {
             .join("\n")
     }
 
+    /// Whether folders sort ahead of files.
+    pub(crate) const fn folders_first(&self) -> bool {
+        self.settings.folders_first
+    }
+
+    /// Set it, and re-sort every pane so the change is visible immediately
+    /// rather than at the next navigation.
+    pub(crate) fn set_folders_first(&mut self, folders_first: bool) {
+        if self.settings.folders_first == folders_first {
+            return;
+        }
+        self.settings.folders_first = folders_first;
+        let panes: Vec<PaneId> = self.views.keys().copied().collect();
+        let show_hidden = self.show_hidden;
+        for pane in panes {
+            let needle = self.filter_text(pane).to_lowercase();
+            if let Some(view) = self.views.get_mut(&pane) {
+                let sort = view.sort;
+                sort_entries_with(&mut view.entries, sort, folders_first);
+                Self::recompute_visible(view, &needle, show_hidden);
+                view.generation += 1;
+            }
+        }
+    }
+
     /// Whether the sidebar is shown, and how wide.
     pub(crate) const fn tree_state(&self) -> (bool, u16) {
         (self.settings.tree_visible, self.settings.tree_width)
@@ -1312,9 +1337,10 @@ impl App {
             .map_or_else(SortSpec::default, jtf_workspace::Tab::sort);
         let needle = self.filter_text(pane).to_lowercase();
         let show_hidden = self.show_hidden;
+        let folders_first = self.settings.folders_first;
         if let Some(view) = self.views.get_mut(&pane) {
             view.sort = sort;
-            sort_entries(&mut view.entries, sort);
+            sort_entries_with(&mut view.entries, sort, folders_first);
             Self::recompute_visible(view, &needle, show_hidden);
             view.generation += 1;
         }
@@ -1469,6 +1495,7 @@ impl App {
         }
         let panes: Vec<PaneId> = self.views.keys().copied().collect();
         let show_hidden = self.show_hidden;
+        let folders_first = self.settings.folders_first;
         for pane in panes {
             let filter = self.filter_text(pane).to_lowercase();
             let Some(view) = self.views.get_mut(&pane) else {
@@ -1503,7 +1530,7 @@ impl App {
                     view.loading = false;
                     view.search = None;
                     let sort = view.sort;
-                    sort_entries(&mut view.entries, sort);
+                    sort_entries_with(&mut view.entries, sort, folders_first);
                     Self::recompute_visible(view, &filter, show_hidden);
                     view.generation += 1;
                 }
@@ -1536,7 +1563,7 @@ impl App {
                 view.loading = false;
                 view.handle = None;
                 let sort = view.sort;
-                sort_entries(&mut view.entries, sort);
+                sort_entries_with(&mut view.entries, sort, folders_first);
                 Self::recompute_visible(view, &filter, show_hidden);
                 // The final sort reorders everything, so the row set has a new
                 // identity even though its length did not change.

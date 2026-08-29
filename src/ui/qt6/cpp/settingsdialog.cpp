@@ -255,6 +255,14 @@ QWidget *SettingsDialog::buildAppearanceTab() {
     connect(family, &QLineEdit::editingFinished, this, applyFont);
     connect(size, &QSpinBox::valueChanged, this, [applyFont](int) { applyFont(); });
 
+    auto *foldersFirst = new QCheckBox(tr_("settings.folders_first"), page);
+    foldersFirst->setChecked(jtf_folders_first(m_app) != 0);
+    connect(foldersFirst, &QCheckBox::toggled, this, [this](bool on) {
+        jtf_set_folders_first(m_app, on ? 1 : 0);
+        emit changed();
+    });
+    form->addRow(QString(), foldersFirst);
+
     form->addRow(QString(), monospace);
     form->addRow(tr_("settings.font_family"), family);
     form->addRow(tr_("settings.font_size"), size);

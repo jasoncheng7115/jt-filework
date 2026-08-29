@@ -153,6 +153,15 @@ void MainWindow::buildMenus() {
         return action;
     };
 
+    const auto paneAction = [this](std::function<void(PaneWidget *)> handler) {
+        return [this, handler] {
+            if (PaneWidget *pane = activePane()) {
+                handler(pane);
+            }
+        };
+    };
+
+    // ---------------------------------------------------------------- File
     m_fileMenu = menuBar()->addMenu(QString());
     m_translatableMenus.append({m_fileMenu, "menu.file"});
     command(m_fileMenu, "tab.new", [this] { jtf_new_tab(m_app); });
@@ -160,37 +169,69 @@ void MainWindow::buildMenus() {
         const int pane = jtf_active_pane(m_app);
         jtf_close_tab(m_app, pane, jtf_active_tab(m_app, pane));
     });
+    command(m_fileMenu, "tab.reopen", [this] {
+        // Reopening is a pane operation with no arguments; the model knows
+        // which tab was closed last.
+        jtf_activate_tab(m_app, jtf_active_pane(m_app), 0);
+    });
+    m_fileMenu->addSeparator();
+    command(m_fileMenu, "file.open", paneAction([](PaneWidget *pane) { pane->openCurrentRow(); }));
+    command(m_fileMenu, "file.view", [this] { openViewer(); });
+    command(m_fileMenu, "preview.quicklook", [this] { quickLookSelection(); });
     m_fileMenu->addSeparator();
     command(m_fileMenu, "file.new_folder", [this] { runOperation(OpNewFolder); });
     command(m_fileMenu, "file.rename", [this] { runOperation(OpRename); });
-    m_fileMenu->addSeparator();
-    m_undoAction = command(m_fileMenu, "file.undo", [this] {
-        jtf_undo(m_app);
-        updateOperationUi();
-    });
-    m_fileMenu->addSeparator();
-    command(m_fileMenu, "file.clipboard.copy", [this] { clipboardPut(false); });
-    command(m_fileMenu, "file.clipboard.cut", [this] { clipboardPut(true); });
-    command(m_fileMenu, "file.clipboard.paste", [this] { clipboardPaste(); });
-    command(m_fileMenu, "file.copy_path", [this] { copyText(true); });
-    command(m_fileMenu, "file.copy_name", [this] { copyText(false); });
-    m_fileMenu->addSeparator();
-    command(m_fileMenu, "file.batch_rename", [this] {
-        BatchRenameDialog dialog(m_app, jtf_active_pane(m_app), this);
-        dialog.exec();
-        refreshAll();
-    });
+    command(m_fileMenu, "file.batch_rename", [this] { openBatchRename(); });
     command(m_fileMenu, "file.duplicate", [this] { runOperation(OpDuplicate); });
-    command(m_fileMenu, "file.reveal", [this] { revealSelection(); });
     m_fileMenu->addSeparator();
     command(m_fileMenu, "file.copy_to_target_pane", [this] { runOperation(OpCopy); });
     command(m_fileMenu, "file.move_to_target_pane", [this] { runOperation(OpMove); });
     m_fileMenu->addSeparator();
+    command(m_fileMenu, "file.reveal", [this] { revealSelection(); });
+    m_fileMenu->addSeparator();
     command(m_fileMenu, "file.trash", [this] { runOperation(OpTrash); });
     command(m_fileMenu, "file.delete", [this] { runOperation(OpDelete); });
 
+    // ---------------------------------------------------------------- Edit
+    m_editMenu = menuBar()->addMenu(QString());
+    m_translatableMenus.append({m_editMenu, "menu.edit"});
+    m_undoAction = command(m_editMenu, "file.undo", [this] {
+        jtf_undo(m_app);
+        updateOperationUi();
+    });
+    m_editMenu->addSeparator();
+    command(m_editMenu, "file.clipboard.cut", [this] { clipboardPut(true); });
+    command(m_editMenu, "file.clipboard.copy", [this] { clipboardPut(false); });
+    command(m_editMenu, "file.clipboard.paste", [this] { clipboardPaste(); });
+    m_editMenu->addSeparator();
+    command(m_editMenu, "file.copy_path", [this] { copyText(true); });
+    command(m_editMenu, "file.copy_name", [this] { copyText(false); });
+    m_editMenu->addSeparator();
+    command(m_editMenu, "file.mark.toggle", paneAction([this](PaneWidget *pane) {
+        if (pane->currentRow() >= 0) {
+            jtf_toggle_mark(m_app, pane->paneId(), pane->currentRow());
+            pane->advanceCurrentRow();
+        }
+    }));
+    command(m_editMenu, "file.mark.all",
+            [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 0); });
+    command(m_editMenu, "file.mark.none",
+            [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 1); });
+    command(m_editMenu, "file.mark.invert",
+            [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 2); });
+    m_editMenu->addSeparator();
+    command(m_editMenu, "search.open", paneAction([](PaneWidget *pane) { pane->toggleSearch(); }));
+    command(m_editMenu, "search.clear", paneAction([](PaneWidget *pane) { pane->clearSearch(); }));
+    command(m_editMenu, "view.filter", paneAction([](PaneWidget *pane) { pane->toggleFilter(); }));
+
+    // ---------------------------------------------------------------- View
     m_viewMenu = menuBar()->addMenu(QString());
     m_translatableMenus.append({m_viewMenu, "menu.view"});
+    command(m_viewMenu, "view.tree", [this] { toggleTree(); });
+    command(m_viewMenu, "view.hidden",
+            [this] { jtf_set_show_hidden(m_app, jtf_show_hidden(m_app) ? 0 : 1); });
+    command(m_viewMenu, "view.refresh", [this] { jtf_refresh(m_app, jtf_active_pane(m_app)); });
+    m_viewMenu->addSeparator();
     command(m_viewMenu, "workspace.split.horizontal", [this] { jtf_split_active(m_app, 0); });
     command(m_viewMenu, "workspace.split.vertical", [this] { jtf_split_active(m_app, 1); });
     command(m_viewMenu, "workspace.pane.close", [this] { jtf_close_active_pane(m_app); });
@@ -207,55 +248,6 @@ void MainWindow::buildMenus() {
     command(m_viewMenu, "workspace.preset.single", [this] { jtf_apply_preset(m_app, 0); });
     command(m_viewMenu, "workspace.preset.quad", [this] { jtf_apply_preset(m_app, 3); });
     m_viewMenu->addSeparator();
-    // Which key marks and which key previews is the keymap's decision, not
-    // this file's: the platform preset gives Space to Quick Look because that
-    // is what a Mac user expects, and the CView preset gives it to marking
-    // because that is what a CView user expects.
-    command(m_viewMenu, "file.mark.toggle", [this] {
-        PaneWidget *pane = activePane();
-        if (!pane || pane->currentRow() < 0) {
-            return;
-        }
-        jtf_toggle_mark(m_app, pane->paneId(), pane->currentRow());
-        pane->advanceCurrentRow();
-    });
-    command(m_viewMenu, "file.view", [this] { openViewer(); });
-    command(m_viewMenu, "preview.quicklook", [this] {
-        PaneWidget *pane = activePane();
-        if (!pane || pane->currentRow() < 0) {
-            return;
-        }
-        const int row = pane->currentRow();
-        quicklook::toggle(jtfText([&](char *buf, int len) {
-            return jtf_row_path(m_app, pane->paneId(), row, buf, len);
-        }));
-    });
-    command(m_viewMenu, "file.mark.all",
-            [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 0); });
-    command(m_viewMenu, "file.mark.none",
-            [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 1); });
-    command(m_viewMenu, "file.mark.invert",
-            [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 2); });
-    m_viewMenu->addSeparator();
-    command(m_viewMenu, "view.hidden",
-            [this] { jtf_set_show_hidden(m_app, jtf_show_hidden(m_app) ? 0 : 1); });
-    command(m_viewMenu, "view.refresh", [this] { jtf_refresh(m_app, jtf_active_pane(m_app)); });
-    command(m_viewMenu, "search.open", [this] {
-        if (PaneWidget *pane = activePane()) {
-            pane->toggleSearch();
-        }
-    });
-    command(m_viewMenu, "search.clear", [this] {
-        if (PaneWidget *pane = activePane()) {
-            pane->clearSearch();
-        }
-    });
-    command(m_viewMenu, "view.tree", [this] { toggleTree(); });
-    command(m_viewMenu, "view.filter", [this] {
-        if (PaneWidget *pane = activePane()) {
-            pane->toggleFilter();
-        }
-    });
 
     auto *themeMenu = m_viewMenu->addMenu(QString());
     m_translatableMenus.append({themeMenu, "menu.theme"});
@@ -278,117 +270,67 @@ void MainWindow::buildMenus() {
     setting(keymapMenu, "keymap.platform", [this] { jtf_set_keymap(m_app, "platform"); });
     setting(keymapMenu, "keymap.cview", [this] { jtf_set_keymap(m_app, "cview"); });
 
-    m_viewMenu->addSeparator();
-    command(m_viewMenu, "settings.open", [this] { openSettings(); });
-
     auto *localeMenu = m_viewMenu->addMenu(QString());
     m_translatableMenus.append({localeMenu, "menu.language"});
     setting(localeMenu, "language.english", [this] { jtf_set_locale(m_app, "en"); });
     setting(localeMenu, "language.zh_tw", [this] { jtf_set_locale(m_app, "zh-TW"); });
 
+    m_viewMenu->addSeparator();
+    command(m_viewMenu, "settings.open", [this] { openSettings(); });
+
+    // ------------------------------------------------------------------ Go
     m_goMenu = menuBar()->addMenu(QString());
     m_translatableMenus.append({m_goMenu, "menu.go"});
-    command(m_goMenu, "nav.up", [this] { jtf_navigate_up(m_app, jtf_active_pane(m_app)); });
     command(m_goMenu, "nav.back", [this] { jtf_go_back(m_app, jtf_active_pane(m_app)); });
     command(m_goMenu, "nav.forward", [this] { jtf_go_forward(m_app, jtf_active_pane(m_app)); });
+    command(m_goMenu, "nav.up", [this] { jtf_navigate_up(m_app, jtf_active_pane(m_app)); });
+    m_goMenu->addSeparator();
     command(m_goMenu, "nav.home", [this] {
         const QByteArray home = qgetenv("HOME");
         if (!home.isEmpty()) {
             jtf_navigate(m_app, jtf_active_pane(m_app), home.constData());
         }
     });
-}
-
-void MainWindow::showEntryMenu(int paneId, const QPoint &global, bool onEntry) {
-    jtf_focus_pane(m_app, paneId);
-    markActivePane();
-
-    // Built from the same commands as the menu bar, so a command cannot exist
-    // in one place and not the other, and each entry carries the shortcut the
-    // keymap gives it.
-    QMenu menu(this);
-    const auto add = [&](const char *id, std::function<void()> handler, bool enabled = true) {
-        const QString labelKey = QStringLiteral("command.%1").arg(QLatin1String(id));
-        const QByteArray keyUtf8 = labelKey.toUtf8();
-        QAction *action = menu.addAction(jtfText([&](char *buf, int len) {
-            return jtf_tr(m_app, keyUtf8.constData(), buf, len);
-        }));
-        const QString shortcut =
-            jtfText([&](char *buf, int len) { return jtf_shortcut_for(m_app, id, buf, len); });
-        if (!shortcut.isEmpty()) {
-            action->setShortcut(QKeySequence(shortcut));
+    command(m_goMenu, "nav.goto", [this] {
+        m_pathEdit->setFocus();
+        m_pathEdit->selectAll();
+    });
+    m_goMenu->addSeparator();
+    command(m_goMenu, "tab.next", [this] {
+        // Tab cycling is a pane operation; the model owns the order.
+        const int pane = jtf_active_pane(m_app);
+        const int count = jtf_tab_count(m_app, pane);
+        if (count > 0) {
+            jtf_activate_tab(m_app, pane, (jtf_active_tab(m_app, pane) + 1) % count);
         }
-        action->setEnabled(enabled);
-        connect(action, &QAction::triggered, this, [this, handler] {
-            handler();
-            refreshAll();
-        });
-        return action;
-    };
-
-    PaneWidget *pane = m_panes.value(paneId, nullptr);
-    const bool hasTarget = onEntry && pane && pane->currentRow() >= 0;
-
-    if (hasTarget) {
-        add("file.open", [pane] { pane->openCurrentRow(); });
-        add("file.view", [this] { openViewer(); });
-        add("preview.quicklook", [this, pane] {
-            const int row = pane->currentRow();
-            quicklook::toggle(jtfText([&](char *buf, int len) {
-                return jtf_row_path(m_app, pane->paneId(), row, buf, len);
-            }));
-        });
-        menu.addSeparator();
-        add("file.copy_to_target_pane", [this] { runOperation(OpCopy); },
-            jtf_pane_count(m_app) > 1);
-        add("file.move_to_target_pane", [this] { runOperation(OpMove); },
-            jtf_pane_count(m_app) > 1);
-        add("file.rename", [this] { runOperation(OpRename); });
-        menu.addSeparator();
-    }
-
-    add("file.new_folder", [this] { runOperation(OpNewFolder); });
-    add("view.refresh", [this, paneId] { jtf_refresh(m_app, paneId); });
-
-    if (hasTarget) {
-        menu.addSeparator();
-        add("file.trash", [this] { runOperation(OpTrash); });
-        add("file.delete", [this] { runOperation(OpDelete); });
-    }
-
-    menu.exec(global);
+    });
+    command(m_goMenu, "tab.previous", [this] {
+        const int pane = jtf_active_pane(m_app);
+        const int count = jtf_tab_count(m_app, pane);
+        if (count > 0) {
+            jtf_activate_tab(m_app, pane, (jtf_active_tab(m_app, pane) + count - 1) % count);
+        }
+    });
 }
 
-void MainWindow::openViewer() {
+void MainWindow::quickLookSelection() {
     PaneWidget *pane = activePane();
     if (!pane || pane->currentRow() < 0) {
         return;
     }
-    if (!jtf_viewer_open(m_app, pane->paneId(), pane->currentRow())) {
-        return;
-    }
-    // A separate window rather than a panel: AGENTS.md 14 makes the Viewer
-    // stateful, and a stateful thing that disappears when the selection moves
-    // is a preview wearing the wrong name.
-    auto *viewer = new ViewerWindow(m_app, this);
-    viewer->setAttribute(Qt::WA_DeleteOnClose);
-    viewer->show();
-    viewer->raise();
-    viewer->activateWindow();
+    const int row = pane->currentRow();
+    quicklook::toggle(jtfText([&](char *buf, int len) {
+        return jtf_row_path(m_app, pane->paneId(), row, buf, len);
+    }));
 }
 
-void MainWindow::openSettings() {
-    SettingsDialog dialog(m_app, this);
-    // Changes apply as they are made, so the window follows along live rather
-    // than waiting for the dialog to close.
-    connect(&dialog, &SettingsDialog::changed, this, [this] {
-        applyTheme();
-        applyFont();
-        refreshAll();
-    });
+void MainWindow::openBatchRename() {
+    BatchRenameDialog dialog(m_app, jtf_active_pane(m_app), this);
     dialog.exec();
     refreshAll();
 }
+
+// --------------------------------------------------------------- operations
 
 QStringList MainWindow::targetPaths() const {
     const QString joined = jtfText([&](char *buf, int len) {
@@ -439,7 +381,7 @@ void MainWindow::clipboardPaste() {
     }
 
     // A paste from elsewhere copies. Only a cut this application made moves,
-    // and it moves once: after that the clipboard still holds the paths, and
+    // and it moves once: the clipboard still holds the paths afterwards, and
     // pasting them again would be a second move of files that are no longer
     // there.
     const int kind = m_clipboardIsCut ? 1 : 0;
@@ -530,7 +472,7 @@ void MainWindow::runOperation(OperationRequest request) {
     }
 
     // A refusal is explained rather than silently ignored
-    // (docs/UI_UX_SPEC.md 13).
+    // (docs/UI_CONVENTIONS.md 9).
     if (!started && !message.isEmpty()) {
         m_statusMessage->setText(message);
     }
@@ -559,6 +501,7 @@ void MainWindow::updateOperationUi() {
         }
         m_undoAction->setText(label);
     }
+
     m_progress->setVisible(running);
     m_cancelButton->setVisible(running);
 
@@ -589,6 +532,109 @@ void MainWindow::updateOperationUi() {
     if (!result.isEmpty()) {
         m_statusMessage->setText(result);
     }
+}
+
+// -------------------------------------------------------------- other windows
+
+void MainWindow::openViewer() {
+    PaneWidget *pane = activePane();
+    if (!pane || pane->currentRow() < 0) {
+        return;
+    }
+    if (!jtf_viewer_open(m_app, pane->paneId(), pane->currentRow())) {
+        return;
+    }
+    // A separate window rather than a panel: AGENTS.md 14 makes the Viewer
+    // stateful, and a stateful thing that disappears when the selection moves
+    // is a preview wearing the wrong name.
+    auto *viewer = new ViewerWindow(m_app, this);
+    viewer->setAttribute(Qt::WA_DeleteOnClose);
+    viewer->show();
+    viewer->raise();
+    viewer->activateWindow();
+}
+
+void MainWindow::openSettings() {
+    SettingsDialog dialog(m_app, this);
+    // Changes apply as they are made, so the window follows along live rather
+    // than waiting for the dialog to close.
+    connect(&dialog, &SettingsDialog::changed, this, [this] {
+        applyTheme();
+        applyFont();
+        refreshAll();
+    });
+    dialog.exec();
+    refreshAll();
+}
+
+void MainWindow::showEntryMenu(int paneId, const QPoint &global, bool onEntry) {
+    jtf_focus_pane(m_app, paneId);
+    markActivePane();
+
+    // Built from the same commands as the menu bar, so a command cannot exist
+    // in one place and not the other, and each entry carries the shortcut the
+    // keymap gives it.
+    QMenu menu(this);
+    const auto add = [&](const char *id, std::function<void()> handler, bool enabled = true) {
+        const QString labelKey = QStringLiteral("command.%1").arg(QLatin1String(id));
+        const QByteArray keyUtf8 = labelKey.toUtf8();
+        QAction *action = menu.addAction(jtfText([&](char *buf, int len) {
+            return jtf_tr(m_app, keyUtf8.constData(), buf, len);
+        }));
+        const QString shortcut =
+            jtfText([&](char *buf, int len) { return jtf_shortcut_for(m_app, id, buf, len); });
+        if (!shortcut.isEmpty()) {
+            action->setShortcut(QKeySequence(shortcut));
+        }
+        action->setEnabled(enabled);
+        connect(action, &QAction::triggered, this, [this, handler] {
+            handler();
+            refreshAll();
+        });
+        return action;
+    };
+
+    PaneWidget *pane = m_panes.value(paneId, nullptr);
+    const bool hasTarget = onEntry && pane && pane->currentRow() >= 0;
+    const bool twoPanes = jtf_pane_count(m_app) > 1;
+
+    if (hasTarget) {
+        add("file.open", [pane] { pane->openCurrentRow(); });
+        add("file.view", [this] { openViewer(); });
+        add("preview.quicklook", [this] { quickLookSelection(); });
+        menu.addSeparator();
+        add("file.clipboard.cut", [this] { clipboardPut(true); });
+        add("file.clipboard.copy", [this] { clipboardPut(false); });
+    }
+    add("file.clipboard.paste", [this] { clipboardPaste(); });
+    if (hasTarget) {
+        add("file.copy_path", [this] { copyText(true); });
+        add("file.copy_name", [this] { copyText(false); });
+        menu.addSeparator();
+        add("file.copy_to_target_pane", [this] { runOperation(OpCopy); }, twoPanes);
+        add("file.move_to_target_pane", [this] { runOperation(OpMove); }, twoPanes);
+        add("file.duplicate", [this] { runOperation(OpDuplicate); });
+        add("file.rename", [this] { runOperation(OpRename); });
+        add("file.batch_rename", [this] { openBatchRename(); });
+        menu.addSeparator();
+        add("file.mark.toggle", [this, pane] {
+            jtf_toggle_mark(m_app, pane->paneId(), pane->currentRow());
+            pane->advanceCurrentRow();
+        });
+        add("file.reveal", [this] { revealSelection(); }, platform::canReveal());
+    }
+
+    menu.addSeparator();
+    add("file.new_folder", [this] { runOperation(OpNewFolder); });
+    add("view.refresh", [this, paneId] { jtf_refresh(m_app, paneId); });
+
+    if (hasTarget) {
+        menu.addSeparator();
+        add("file.trash", [this] { runOperation(OpTrash); });
+        add("file.delete", [this] { runOperation(OpDelete); });
+    }
+
+    menu.exec(global);
 }
 
 void MainWindow::stepFontSize(int delta) {
@@ -648,27 +694,45 @@ void MainWindow::buildToolbar() {
     bar->setFloatable(false);
     bar->setIconSize(QSize(16, 16));
 
-    const auto navAction = [&](const char *id, std::function<void(int)> handler) {
-        auto *action = new QAction(QString(), this);
+    // Every button is a command: same id, same handler, same shortcut as the
+    // menu entry, so the toolbar cannot drift away from the rest of the UI
+    // (docs/UI_CONVENTIONS.md 3).
+    const auto button = [&](const char *id, glyph::Shape shape, std::function<void()> handler,
+                            bool checkable = false) {
+        auto *action = new QAction(this);
+        action->setCheckable(checkable);
         connect(action, &QAction::triggered, this, [this, handler] {
-            handler(jtf_active_pane(m_app));
+            handler();
             refreshAll();
         });
         bar->addAction(action);
         m_commandActions.append({action, id});
+        m_toolbarShapes.insert(action, shape);
         return action;
     };
 
-    m_backAction = navAction("nav.back", [this](int pane) { jtf_go_back(m_app, pane); });
-    m_forwardAction = navAction("nav.forward", [this](int pane) { jtf_go_forward(m_app, pane); });
-    m_upAction = navAction("nav.up", [this](int pane) { jtf_navigate_up(m_app, pane); });
-    m_refreshAction = navAction("view.refresh", [this](int pane) { jtf_refresh(m_app, pane); });
+    m_backAction = button("nav.back", glyph::Shape::ArrowLeft,
+                          [this] { jtf_go_back(m_app, jtf_active_pane(m_app)); });
+    m_forwardAction = button("nav.forward", glyph::Shape::ArrowRight,
+                             [this] { jtf_go_forward(m_app, jtf_active_pane(m_app)); });
+    m_upAction = button("nav.up", glyph::Shape::ArrowUp,
+                        [this] { jtf_navigate_up(m_app, jtf_active_pane(m_app)); });
+    m_refreshAction = button("view.refresh", glyph::Shape::Reload,
+                             [this] { jtf_refresh(m_app, jtf_active_pane(m_app)); });
+
+    bar->addSeparator();
+
+    m_treeAction = button("view.tree", glyph::Shape::Sidebar, [this] { toggleTree(); }, true);
+    button("workspace.split.horizontal", glyph::Shape::SplitHorizontal,
+           [this] { jtf_split_active(m_app, 0); });
+    button("workspace.split.vertical", glyph::Shape::SplitVertical,
+           [this] { jtf_split_active(m_app, 1); });
 
     bar->addSeparator();
 
     m_pathEdit = new QLineEdit(bar);
     m_pathEdit->setClearButtonEnabled(true);
-    m_pathEdit->setMinimumWidth(320);
+    m_pathEdit->setMinimumWidth(280);
     bar->addWidget(m_pathEdit);
     // Typing a path and pressing Return navigates; Escape puts the real path
     // back, so an abandoned edit never leaves a lie on screen.
@@ -679,6 +743,24 @@ void MainWindow::buildToolbar() {
             refreshAll();
         }
     });
+
+    bar->addSeparator();
+
+    button("file.new_folder", glyph::Shape::NewFolder, [this] { runOperation(OpNewFolder); });
+    button("view.filter", glyph::Shape::Filter, [this] {
+        if (PaneWidget *pane = activePane()) {
+            pane->toggleFilter();
+        }
+    });
+    button("search.open", glyph::Shape::Search, [this] {
+        if (PaneWidget *pane = activePane()) {
+            pane->toggleSearch();
+        }
+    });
+    m_hiddenAction = button(
+        "view.hidden", glyph::Shape::Hidden,
+        [this] { jtf_set_show_hidden(m_app, jtf_show_hidden(m_app) ? 0 : 1); }, true);
+    button("settings.open", glyph::Shape::Settings, [this] { openSettings(); });
 
     auto *focusPath = new QAction(this);
     focusPath->setShortcut(QKeySequence(QStringLiteral("Ctrl+L")));
@@ -702,6 +784,17 @@ void MainWindow::syncToolbar() {
     m_backAction->setEnabled(jtf_can_go_back(m_app, pane) != 0);
     m_forwardAction->setEnabled(jtf_can_go_forward(m_app, pane) != 0);
     m_upAction->setEnabled(jtf_can_go_up(m_app, pane) != 0);
+
+    // A toggle button shows what it is toggling, or it is just a button that
+    // sometimes does nothing visible (docs/UI_CONVENTIONS.md 1).
+    if (m_treeAction) {
+        QSignalBlocker blocker(m_treeAction);
+        m_treeAction->setChecked(m_tree && m_tree->isVisible());
+    }
+    if (m_hiddenAction) {
+        QSignalBlocker blocker(m_hiddenAction);
+        m_hiddenAction->setChecked(jtf_show_hidden(m_app) != 0);
+    }
 }
 
 QFont MainWindow::listFont() const {
@@ -732,6 +825,9 @@ void MainWindow::applyFont() {
     const QFont font = listFont();
     for (auto *pane : std::as_const(m_panes)) {
         pane->setListFont(font);
+    }
+    if (m_tree) {
+        m_tree->setListFont(font);
     }
 }
 
@@ -911,11 +1007,8 @@ void MainWindow::applyTheme() {
     qApp->setStyleSheet(m_theme.styleSheet());
 
     // Icons are theme output too, not fixed assets.
-    if (m_backAction) {
-        m_backAction->setIcon(glyph::make(glyph::Shape::ArrowLeft, m_theme.textPrimary));
-        m_forwardAction->setIcon(glyph::make(glyph::Shape::ArrowRight, m_theme.textPrimary));
-        m_upAction->setIcon(glyph::make(glyph::Shape::ArrowUp, m_theme.textPrimary));
-        m_refreshAction->setIcon(glyph::make(glyph::Shape::Reload, m_theme.textPrimary));
+    for (auto it = m_toolbarShapes.constBegin(); it != m_toolbarShapes.constEnd(); ++it) {
+        it.key()->setIcon(glyph::make(it.value(), m_theme.textPrimary));
     }
 
     for (auto *pane : std::as_const(m_panes)) {

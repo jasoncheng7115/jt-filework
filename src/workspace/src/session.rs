@@ -99,6 +99,10 @@ impl Default for FontSettings {
 /// Session-related preferences.
 ///
 /// Always persisted, independently of whether the workspace is.
+///
+/// The booleans are independent user choices, not a state machine: any
+/// combination is meaningful, which is what makes them settings.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionSettings {
     /// What a launch does.
@@ -115,6 +119,13 @@ pub struct SessionSettings {
     /// Which keymap preset is active. Empty means the platform default.
     #[serde(default)]
     pub keymap: String,
+    /// Whether folders sort ahead of files, or everything sorts together.
+    ///
+    /// Defaults to folders first, which is what every desktop file manager
+    /// does — but people who sort by date to see what changed want one list,
+    /// not two, so it is a preference rather than a rule.
+    #[serde(default = "default_true")]
+    pub folders_first: bool,
     /// Whether the folder tree sidebar is shown.
     #[serde(default)]
     pub tree_visible: bool,
@@ -142,6 +153,7 @@ impl Default for SessionSettings {
             remember_marks: true,
             font: FontSettings::default(),
             keymap: String::new(),
+            folders_first: true,
             // Off by default: a sidebar that appears uninvited on first launch
             // is a decision made for the user rather than by them.
             tree_visible: false,
@@ -164,6 +176,7 @@ impl SessionSettings {
             remember_marks: false,
             font: FontSettings::default(),
             keymap: String::new(),
+            folders_first: true,
             // Off by default: a sidebar that appears uninvited on first launch
             // is a decision made for the user rather than by them.
             tree_visible: false,

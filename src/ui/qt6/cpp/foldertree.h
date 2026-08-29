@@ -14,6 +14,7 @@
 
 #include <QAbstractItemModel>
 #include <QVector>
+#include <QFont>
 #include <QWidget>
 
 class QTreeView;
@@ -59,6 +60,8 @@ public:
     explicit FolderTree(JtfApp *app, QWidget *parent = nullptr);
 
     void selectPath(const QString &path);
+    // The tree uses the same font as the list: one window, one text size.
+    void setListFont(const QFont &font);
     void refresh();
 
 signals:

@@ -50,6 +50,18 @@ QToolBar#JtfToolbar QToolButton {
 QToolBar#JtfToolbar QToolButton:hover { background: %HOVER%; }
 QToolBar#JtfToolbar QToolButton:pressed { background: %ALT%; }
 QToolBar#JtfToolbar QToolButton:disabled { color: %DIM%; }
+/* A pressed-in look for the toggles, so "the sidebar is open" is readable
+   from the toolbar itself. */
+QToolBar#JtfToolbar QToolButton:checked {
+    background: %SELDIM%;
+    border: 1px solid %BORDER%;
+}
+QToolBar#JtfToolbar QToolButton:checked:hover { background: %HOVER%; }
+QToolBar#JtfToolbar::separator {
+    background: %BORDER%;
+    width: 1px;
+    margin: 5px 5px;
+}
 
 QLineEdit {
     background: %PANE%;

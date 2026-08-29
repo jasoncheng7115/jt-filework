@@ -34,7 +34,7 @@ Status: **done** · **partial** · **planned** · **later** (after Phase 2) ·
 | Detail list with columns | done |
 | Sort by any column, both directions, indicator shown | done |
 | Show and hide columns | done |
-| Directories first | done |
+| Directories first, or one list — a preference | done |
 | Hidden files toggle | done |
 | Native per-file icons | done |
 | **Filter the current folder**, instantly, live | done |

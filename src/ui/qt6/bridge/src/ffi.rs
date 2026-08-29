@@ -930,6 +930,24 @@ pub unsafe extern "C" fn jtf_child_directories(
     unsafe { write_str(&app.child_directories(path), buf, len) }
 }
 
+/// Whether folders sort ahead of files.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_folders_first(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(1, |a| c_int::from(a.folders_first()))
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_folders_first(app: *mut App, folders_first: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_folders_first(folders_first != 0);
+    }
+}
+
 /// Whether the folder tree is shown.
 ///
 /// # Safety

@@ -62,6 +62,8 @@ private:
     void setTreeVisible(bool visible);
     void syncTree();
     void openViewer();
+    void quickLookSelection();
+    void openBatchRename();
     void openSettings();
     void runOperation(OperationRequest request);
     void runDrop(int pane, const QStringList &paths, int kind);
@@ -89,6 +91,11 @@ private:
     class QAction *m_forwardAction = nullptr;
     class QAction *m_upAction = nullptr;
     class QAction *m_refreshAction = nullptr;
+    class QAction *m_treeAction = nullptr;
+    class QAction *m_hiddenAction = nullptr;
+    // Which glyph each toolbar action draws, so they can be redrawn when the
+    // theme changes.
+    QHash<class QAction *, glyph::Shape> m_toolbarShapes;
     Theme m_theme;
     class QLabel *m_statusMessage = nullptr;
     class QProgressBar *m_progress = nullptr;
@@ -100,6 +107,7 @@ private:
     bool m_applyingTheme = false;
 
     QMenu *m_fileMenu = nullptr;
+    QMenu *m_editMenu = nullptr;
     QMenu *m_viewMenu = nullptr;
     QMenu *m_goMenu = nullptr;
     QList<QPair<QAction *, const char *>> m_translatable;

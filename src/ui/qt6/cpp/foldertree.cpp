@@ -2,6 +2,7 @@
 #include "jtfstring.h"
 
 #include <QFileInfo>
+#include <QFontMetrics>
 #include <QHeaderView>
 #include <QLabel>
 #include <QTreeView>
@@ -223,6 +224,15 @@ void FolderTree::selectPath(const QString &path) {
         m_view->scrollTo(index, QAbstractItemView::EnsureVisible);
         m_view->expand(index);
     }
+}
+
+void FolderTree::setListFont(const QFont &font) {
+    m_view->setFont(font);
+    // Row height follows the font here too, or the sidebar and the list drift
+    // apart as the size changes.
+    m_view->setStyleSheet(
+        QStringLiteral("QTreeView::item { min-height: %1px; }")
+            .arg(QFontMetrics(font).height() + 4));
 }
 
 void FolderTree::refresh() {
