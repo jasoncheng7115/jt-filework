@@ -46,10 +46,10 @@
 
   <g filter="url(#panelShadow)">
     <!-- active pane: full height, fully opaque -->
-    <rect x="200" y="248" width="262" height="528" rx="26" fill="#F8FAFD"/>
+    <rect x="200" y="252" width="262" height="524" rx="26" fill="#F8FAFD"/>
     <!-- the other half of the split, itself split again: nesting is the point -->
-    <rect x="502" y="248" width="322" height="244" rx="26" fill="#CBD6E6" opacity="0.55"/>
-    <rect x="502" y="532" width="322" height="244" rx="26" fill="#CBD6E6" opacity="0.55"/>
+    <rect x="502" y="252" width="322" height="244" rx="26" fill="#CBD6E6" opacity="0.55"/>
+    <rect x="502" y="536" width="322" height="240" rx="26" fill="#CBD6E6" opacity="0.55"/>
   </g>
 
   <!-- active pane: a file list, with a gutter on the left for marks -->
@@ -69,14 +69,21 @@
   <circle cx="226" cy="553" r="15" fill="#E88A3C"/>
   <rect x="252" y="540" width="150" height="26" rx="13" fill="#8996AE"/>
 
-  <!-- inactive panes -->
-  <g fill="#5C7093" opacity="0.85">
-    <rect x="540" y="300" width="146" height="22" rx="11"/>
-    <rect x="540" y="356" width="112" height="22" rx="11"/>
-    <rect x="540" y="412" width="132" height="22" rx="11"/>
+  <!-- active pane's own tab strip: every pane owns its tabs (AGENTS.md 7) -->
+  <g>
+    <rect x="228" y="212" width="96" height="26" rx="13" fill="#F8FAFD"/>
+    <rect x="336" y="216" width="72" height="22" rx="11" fill="#F8FAFD" opacity="0.45"/>
+  </g>
 
-    <rect x="540" y="584" width="138" height="22" rx="11"/>
-    <rect x="540" y="640" width="104" height="22" rx="11"/>
-    <rect x="540" y="696" width="124" height="22" rx="11"/>
+  <!-- inactive panes: their own tab strips, and no file list.
+       Deliberately not rows on both sides - that silhouette belongs to
+       another product, and "one pane is active, the others are not" is what
+       this icon is actually about. See README.md, Originality. -->
+  <g>
+    <rect x="530" y="212" width="88" height="26" rx="13" fill="#CBD6E6" opacity="0.5"/>
+    <rect x="630" y="216" width="64" height="22" rx="11" fill="#CBD6E6" opacity="0.28"/>
+
+    <rect x="530" y="496" width="88" height="26" rx="13" fill="#CBD6E6" opacity="0.5"/>
+    <rect x="630" y="500" width="64" height="22" rx="11" fill="#CBD6E6" opacity="0.28"/>
   </g>
 </svg>

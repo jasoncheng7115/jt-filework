@@ -21,6 +21,55 @@ Accent colours are taken from the dark palette in `src/core/src/theme.rs`:
 
 If those tokens change, change them here too.
 
+## Originality and licensing
+
+The artwork is **original**, authored directly as SVG source in this
+repository. Nothing here is traced from, derived from, or copied out of
+another product's icon; no third-party icon set, stock asset, clip art, AI
+image generator output, or embedded font is used. Every shape is a rectangle,
+circle or gradient written by hand, so the only copyright in the file is the
+project's own and it ships under the repository licence
+(`GPL-3.0-or-later`).
+
+Copyright is therefore not the exposure. The one worth checking is **trade
+dress**: an icon can be independently drawn and still be a problem if it is
+confusingly similar to an established competitor's.
+
+### Comparison performed — 2026-08-29
+
+Checked against the icons of: QSpace, Commander One, Commander One PRO,
+Nimble Commander, ForkLift, Marta, File Cabinet Pro, Folder Hub, Clover.
+
+Result: no resemblance to any of them **except one family trait**. Commander
+One and Commander One PRO are a squircle divided 50/50 into two flat columns
+with list rows on *both* sides, bright blue and bright purple respectively.
+An early draft of this icon also put rows on both sides, which put it in the
+same visual family.
+
+That was changed rather than argued about. In the current artwork only the
+**active** pane carries a file list; the inactive panes carry their own tab
+strips and nothing else. This is both further from Commander One and closer
+to what the product actually is: not "two lists side by side", but a
+workspace of panes where each owns its tabs and exactly one is active.
+
+Remaining differences from the nearest neighbour:
+
+| | Commander One | JT FileWork |
+|---|---|---|
+| Ground | bright blue / purple, edge to edge | deep navy, panels inset on it |
+| Division | symmetric 50/50, two columns | asymmetric, one pane beside a nested pair |
+| Content | rows on both sides | rows on the active pane only |
+| Panels | flat halves | floating cards with shadow |
+| Accents | none | selection pill, mark dot in a gutter |
+| Tabs | not shown | a tab strip per pane |
+
+### If the icon changes
+
+Re-run this comparison before shipping a new design, and update this section
+with the date and what was checked. `TODO.md` tracks a trademark search
+before first public release, which is a separate question from this one and
+is not something a visual check can answer.
+
 ## Three masters, not one
 
 An icon that is one drawing scaled down is unreadable at 16px. Each master is

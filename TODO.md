@@ -44,6 +44,8 @@
 - [x] Separate 32px and 16px artwork
 - [x] Reproducible build script (.icns, .ico, PNG set, contact sheet)
 - [x] Accent colours sourced from the theme tokens
+- [x] Originality check against competitor icons (2026-08-29)
+- [ ] Trademark / trade dress search before first public release
 - [ ] Monochrome template variant for macOS menu bar / toolbar
 - [ ] Legibility check against light and dark Dock and taskbar backgrounds
 - [ ] Linux hicolor install paths in packaging
