@@ -277,8 +277,13 @@ Long-lead items: both identities take real time to obtain. See
 - [ ] codesign all nested binaries, then the bundle
 - [ ] notarytool submit + stapler staple, for the .app and the .dmg
 - [ ] Verify on a clean machine with the quarantine attribute present
-- [ ] Decide Windows OV vs EV certificate; start identity validation
-- [ ] Solve hardware-token / cloud-HSM signing in CI
+- [ ] Decide: SignPath Foundation (free, OSS) vs own OV/EV certificate
+- [ ] **Decide whether a commercial dual-licence is ever wanted** — accepting
+      SignPath Foundation signing rules it out (docs/SIGNING_RUNBOOK.md B1)
+- [ ] Publish the code signing policy page required by SignPath Foundation
+- [ ] Define Author / Reviewer / Approver roles for release signing
+- [ ] Windows release pipeline in CI (SignPath signs from CI, not a laptop)
+- [ ] If own certificate: solve hardware-token / cloud-HSM signing in CI
 - [ ] Evaluate Microsoft's cloud signing service (Phase 4)
 - [ ] signtool with RFC 3161 timestamp, for the exe and the installer
 - [ ] Linux: Flatpak portal permissions decision

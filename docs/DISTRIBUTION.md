@@ -168,6 +168,11 @@ setting.
 - Cost is materially higher than Apple's: budget in the **low hundreds of
   US dollars per year** for OV and more for EV, plus token or HSM costs.
   **Verify current pricing with a CA** rather than trusting this figure.
+- **SignPath Foundation signs open-source projects for free**, and
+  `GPL-3.0-or-later` qualifies. It is the likely answer for this project, but
+  it carries conditions that reach beyond signing — most importantly, it is
+  incompatible with ever offering a commercial dual-licence. See
+  `docs/SIGNING_RUNBOOK.md` §B1 before relying on it.
 - Microsoft's cloud signing service is a cheaper alternative for eligible
   organizations and removes the hardware problem, but has its own eligibility
   requirements. Evaluate it in Phase 4.
@@ -213,6 +218,13 @@ re-checked with a CA before budgeting.
 someone outside the project.** See §1.2.
 
 ---
+
+## 4.1 Step-by-step
+
+The procedure for both platforms — enrolment, certificates, notarization
+credentials, signing commands, verification and CI — is
+`docs/SIGNING_RUNBOOK.md`. This document is the decision; that one is the
+execution.
 
 ## 5. What This Means for the Plan
 

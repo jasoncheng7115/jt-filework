@@ -101,6 +101,7 @@ Possible future plugin SDK / protocol:
 - `docs/TESTING.md`
 - `docs/UI_TEST_PLAN.md`
 - `docs/DISTRIBUTION.md`
+- `docs/SIGNING_RUNBOOK.md`
 - `docs/DEVELOPMENT_ENVIRONMENT.md`
 - `docs/DEVELOPMENT_PLAN.md`
 - `TODO.md`
