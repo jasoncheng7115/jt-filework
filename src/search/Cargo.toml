@@ -1,0 +1,23 @@
+[package]
+name = "jtf-search"
+description = "Deterministic search: a typed query language, and a cancellable walker that answers it."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+jtf-core = { workspace = true }
+jtf-jobs = { workspace = true }
+jtf-fs = { workspace = true }
+# A user-supplied regular expression is untrusted input (docs/SECURITY.md 2).
+# The regex crate is justified rather than merely convenient: it has no
+# backtracking, so it cannot be made to run in exponential time by a crafted
+# pattern - which is the whole attack against a regex search box.
+# Fuzz target: fuzz/query_parser (docs/TESTING.md 9.1).
+regex = "1"
+
+[lints]
+workspace = true

@@ -972,6 +972,100 @@ impl App {
         }
     }
 
+    /// Whether the pane's tab has anywhere to go back to.
+    ///
+    /// A navigation button that is always enabled teaches people that
+    /// pressing it does nothing.
+    pub(crate) fn can_go_back(&self, pane: PaneId) -> bool {
+        self.workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .is_some_and(jtf_workspace::Tab::can_go_back)
+    }
+
+    /// Whether the pane's tab has anywhere to go forward to.
+    pub(crate) fn can_go_forward(&self, pane: PaneId) -> bool {
+        self.workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .is_some_and(jtf_workspace::Tab::can_go_forward)
+    }
+
+    /// Whether the pane can go up: the root has no parent.
+    pub(crate) fn can_go_up(&self, pane: PaneId) -> bool {
+        self.workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .and_then(|tab| tab.location().parent())
+            .is_some()
+    }
+
+    /// How many entries are selected in the pane.
+    pub(crate) fn selection_count(&self, pane: PaneId) -> usize {
+        self.workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .map_or(0, |tab| tab.selection().len())
+    }
+
+    /// The name of the pane's current folder, for the window title.
+    pub(crate) fn current_name(&self, pane: PaneId) -> String {
+        self.workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .map_or_else(String::new, |tab| display_name_of(tab.location()))
+    }
+
+    /// Whether a column is shown in this pane's active tab.
+    pub(crate) fn column_visible(&self, pane: PaneId, column: i32) -> bool {
+        self.workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .and_then(|tab| tab.columns().get(column_index(column)))
+            .is_some_and(|spec| spec.visible)
+    }
+
+    /// Show or hide a column. Name is always shown: a list of blank rows is
+    /// not a view of anything.
+    pub(crate) fn set_column_visible(&mut self, pane: PaneId, column: i32, visible: bool) {
+        if column == COLUMN_NAME {
+            return;
+        }
+        if let Some(p) = self.workspace.pane_mut(pane) {
+            if let Some(tab) = p.active_tab_mut() {
+                if let Some(spec) = tab.columns_mut().get_mut(column_index(column)) {
+                    spec.visible = visible;
+                }
+            }
+        }
+    }
+
+    /// Which column the pane is sorted by, as a column index.
+    ///
+    /// The header needs this to draw its indicator: sorting is done here, not
+    /// by the view, so the view has to be told what it is showing.
+    pub(crate) fn sort_column(&self, pane: PaneId) -> i32 {
+        let sort = self
+            .workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .map_or_else(SortSpec::default, jtf_workspace::Tab::sort);
+        match sort.key {
+            SortKey::Size => COLUMN_SIZE,
+            SortKey::Kind => COLUMN_KIND,
+            SortKey::Modified | SortKey::Created => COLUMN_MODIFIED,
+            _ => COLUMN_NAME,
+        }
+    }
+
+    /// Whether the pane's sort is ascending.
+    pub(crate) fn sort_ascending(&self, pane: PaneId) -> bool {
+        self.workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .is_none_or(|tab| tab.sort().ascending)
+    }
+
     pub(crate) const fn show_hidden(&self) -> bool {
         self.show_hidden
     }
@@ -1395,6 +1489,17 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
     let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
     let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
     (if m <= 2 { y + 1 } else { y }, m, d)
+}
+
+/// Column index in the tab's column list. The list is in `Column::ALL` order,
+/// and the viewer's four columns are its first four.
+const fn column_index(column: i32) -> usize {
+    match column {
+        COLUMN_SIZE => 1,
+        COLUMN_KIND => 2,
+        COLUMN_MODIFIED => 3,
+        _ => 0,
+    }
 }
 
 fn display_name_of(location: &Location) -> String {

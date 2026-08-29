@@ -11,6 +11,7 @@
 #include "theme.h"
 
 #include <QHash>
+#include <QPoint>
 #include <QStringList>
 #include <QByteArray>
 #include <QFont>
@@ -48,6 +49,7 @@ private:
     // What a menu item asks for. Kept separate from ops::Kind because rename
     // and new folder are not the same shape as copy and move.
     enum OperationRequest { OpCopy, OpMove, OpTrash, OpDelete, OpRename, OpNewFolder };
+    void showEntryMenu(int paneId, const QPoint &global, bool onEntry);
     void openViewer();
     void openSettings();
     void runOperation(OperationRequest request);

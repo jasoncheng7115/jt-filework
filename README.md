@@ -106,6 +106,7 @@ It ends with an honest list of what does not exist yet.
 - `docs/PRODUCT_SPEC.md`
 - `docs/ARCHITECTURE.md`
 - `docs/UI_UX_SPEC.md`
+- `docs/UI_CONVENTIONS.md`
 - `docs/I18N_THEME.md`
 - `docs/PLATFORM_INTEGRATION.md`
 - `docs/VIEWER_PREVIEW.md`

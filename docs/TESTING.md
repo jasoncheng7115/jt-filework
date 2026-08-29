@@ -545,7 +545,8 @@ A change is complete only when all of the following hold:
 - [ ] no new UI-thread blocking (§7.1 watchdog unchanged or improved)
 - [ ] no new hard-coded user-visible string
 - [ ] no new literal colour outside the token module
-- [ ] if UI changed: the affected `UI-*` cases in `docs/UI_TEST_PLAN.md` pass,
+- [ ] if UI changed: the `docs/UI_CONVENTIONS.md` review checklist is walked,
+      the affected `UI-*` cases in `docs/UI_TEST_PLAN.md` pass,
       a new interaction has a new case, the screenshot matrix is regenerated
       and reviewed, and Light/Dark plus both locales are verified
 - [ ] cancellation behaviour considered and tested where applicable

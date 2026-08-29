@@ -8,7 +8,9 @@
 #include <QElapsedTimer>
 #include <QMimeData>
 #include <QUrl>
+#include <QDesktopServices>
 #include <QItemSelectionModel>
+#include <QMenu>
 #include <QFontMetrics>
 #include <QEvent>
 #include <QHeaderView>
@@ -55,6 +57,10 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // Uniform row heights is what lets Qt virtualize properly; without it the
     // view measures every row and the cost becomes O(directory size).
     m_view->horizontalHeader()->setSectionsClickable(true);
+    // Sorting is done in the model, so the header has to be told what it is
+    // showing: without this the arrow never appears and clicking a header
+    // looks like it did nothing.
+    m_view->horizontalHeader()->setSortIndicatorShown(true);
     m_view->horizontalHeader()->setStretchLastSection(false);
     m_view->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     m_view->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
@@ -74,6 +80,13 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
 
     m_typeAheadClock = new QElapsedTimer();
     m_typeAheadClock->start();
+
+    m_view->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_view, &QTableView::customContextMenuRequested, this,
+            &PaneWidget::showContextMenu);
+    m_view->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_view->horizontalHeader(), &QHeaderView::customContextMenuRequested, this,
+            &PaneWidget::showHeaderMenu);
 
     m_view->installEventFilter(this);
     m_view->viewport()->installEventFilter(this);
@@ -100,6 +113,7 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
             [this](int section) {
                 jtf_sort_by(m_app, m_pane, section);
                 m_model->refresh();
+                syncSortIndicator();
                 emit stateChanged();
             });
 
@@ -117,6 +131,8 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
 
     syncTabs();
     syncPath();
+    syncSortIndicator();
+    applyColumnVisibility();
     m_view->setColumnWidth(0, 330);
     m_view->setColumnWidth(1, 92);
     m_view->setColumnWidth(2, 128);
@@ -125,8 +141,69 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
 }
 
 void PaneWidget::openRow(int row) {
+    // A folder is entered; anything else is handed to the system's default
+    // application. Double-clicking a file and having nothing happen is the
+    // single most obvious thing a file manager can get wrong.
     if (jtf_open_row(m_app, m_pane, row)) {
         emit stateChanged();
+        return;
+    }
+    const QString path = jtfText(
+        [&](char *buf, int len) { return jtf_row_path(m_app, m_pane, row, buf, len); });
+    if (!path.isEmpty()) {
+        // QDesktopServices asks the platform which application owns the type.
+        // It is an API call, not a shell command line (AGENTS.md 20.3).
+        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+    }
+}
+
+void PaneWidget::openCurrentRow() {
+    const int row = currentRow();
+    if (row >= 0) {
+        openRow(row);
+    }
+}
+
+void PaneWidget::showContextMenu(const QPoint &position) {
+    const QModelIndex index = m_view->indexAt(position);
+    if (index.isValid() && !m_view->selectionModel()->isSelected(index)) {
+        m_view->setCurrentIndex(index);
+        m_view->selectionModel()->select(
+            index, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    }
+    emit focusRequested(m_pane);
+    emit contextMenuRequested(m_view->viewport()->mapToGlobal(position), index.isValid());
+}
+
+void PaneWidget::showHeaderMenu(const QPoint &position) {
+    // Right-clicking a header to choose columns is a convention old enough
+    // that its absence reads as a missing feature.
+    QMenu menu(this);
+    for (int column = 0; column < jtf_column_count(); ++column) {
+        const QString key =
+            jtfText([&](char *buf, int len) { return jtf_column_key(column, buf, len); });
+        const QByteArray keyUtf8 = key.toUtf8();
+        const QString label = jtfText(
+            [&](char *buf, int len) { return jtf_tr(m_app, keyUtf8.constData(), buf, len); });
+
+        QAction *action = menu.addAction(label);
+        action->setCheckable(true);
+        action->setChecked(jtf_column_visible(m_app, m_pane, column) != 0);
+        // The name column cannot be hidden: a list of blank rows is not a
+        // view of anything.
+        action->setEnabled(column != 0);
+        connect(action, &QAction::toggled, this, [this, column](bool on) {
+            jtf_set_column_visible(m_app, m_pane, column, on ? 1 : 0);
+            applyColumnVisibility();
+            emit stateChanged();
+        });
+    }
+    menu.exec(m_view->horizontalHeader()->mapToGlobal(position));
+}
+
+void PaneWidget::applyColumnVisibility() {
+    for (int column = 0; column < jtf_column_count(); ++column) {
+        m_view->setColumnHidden(column, jtf_column_visible(m_app, m_pane, column) == 0);
     }
 }
 
@@ -308,6 +385,14 @@ void PaneWidget::syncTabs() {
     m_tabs->setVisible(count > 1);
 }
 
+void PaneWidget::syncSortIndicator() {
+    const int column = jtf_sort_column(m_app, m_pane);
+    const Qt::SortOrder order =
+        jtf_sort_ascending(m_app, m_pane) ? Qt::AscendingOrder : Qt::DescendingOrder;
+    QSignalBlocker blocker(m_view->horizontalHeader());
+    m_view->horizontalHeader()->setSortIndicator(column, order);
+}
+
 void PaneWidget::syncPath() {
     m_path->setText(
         jtfText([&](char *buf, int len) { return jtf_current_path(m_app, m_pane, buf, len); }));
@@ -316,6 +401,7 @@ void PaneWidget::syncPath() {
 void PaneWidget::refresh() {
     syncTabs();
     syncPath();
+    syncSortIndicator();
     m_model->refresh();
     retranslate();
 }
@@ -356,10 +442,19 @@ void PaneWidget::retranslate() {
         status = tr("status.loading");
     } else {
         const int rows = jtf_row_count(m_app, m_pane);
+        const int selected = jtf_selection_count(m_app, m_pane);
         const int marked = jtf_marked_count(m_app, m_pane);
         status = jtfFill(tr("status.items"), "count", QString::number(rows));
+        // Selection and marks are different things and are counted
+        // separately, because conflating them is exactly what AGENTS.md 10
+        // forbids in the model.
+        if (selected > 0) {
+            status += QStringLiteral("   ") +
+                      jtfFill(tr("status.selected"), "count", QString::number(selected));
+        }
         if (marked > 0) {
-            status += QStringLiteral("   ") + jtfFill(tr("status.marked"), "count", QString::number(marked));
+            status += QStringLiteral("   ") +
+                      jtfFill(tr("status.marked"), "count", QString::number(marked));
         }
     }
     m_status->setText(status);

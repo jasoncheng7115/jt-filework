@@ -234,6 +234,66 @@ void MainWindow::buildMenus() {
     });
 }
 
+void MainWindow::showEntryMenu(int paneId, const QPoint &global, bool onEntry) {
+    jtf_focus_pane(m_app, paneId);
+    markActivePane();
+
+    // Built from the same commands as the menu bar, so a command cannot exist
+    // in one place and not the other, and each entry carries the shortcut the
+    // keymap gives it.
+    QMenu menu(this);
+    const auto add = [&](const char *id, std::function<void()> handler, bool enabled = true) {
+        const QString labelKey = QStringLiteral("command.%1").arg(QLatin1String(id));
+        const QByteArray keyUtf8 = labelKey.toUtf8();
+        QAction *action = menu.addAction(jtfText([&](char *buf, int len) {
+            return jtf_tr(m_app, keyUtf8.constData(), buf, len);
+        }));
+        const QString shortcut =
+            jtfText([&](char *buf, int len) { return jtf_shortcut_for(m_app, id, buf, len); });
+        if (!shortcut.isEmpty()) {
+            action->setShortcut(QKeySequence(shortcut));
+        }
+        action->setEnabled(enabled);
+        connect(action, &QAction::triggered, this, [this, handler] {
+            handler();
+            refreshAll();
+        });
+        return action;
+    };
+
+    PaneWidget *pane = m_panes.value(paneId, nullptr);
+    const bool hasTarget = onEntry && pane && pane->currentRow() >= 0;
+
+    if (hasTarget) {
+        add("file.open", [pane] { pane->openCurrentRow(); });
+        add("file.view", [this] { openViewer(); });
+        add("preview.quicklook", [this, pane] {
+            const int row = pane->currentRow();
+            quicklook::toggle(jtfText([&](char *buf, int len) {
+                return jtf_row_path(m_app, pane->paneId(), row, buf, len);
+            }));
+        });
+        menu.addSeparator();
+        add("file.copy_to_target_pane", [this] { runOperation(OpCopy); },
+            jtf_pane_count(m_app) > 1);
+        add("file.move_to_target_pane", [this] { runOperation(OpMove); },
+            jtf_pane_count(m_app) > 1);
+        add("file.rename", [this] { runOperation(OpRename); });
+        menu.addSeparator();
+    }
+
+    add("file.new_folder", [this] { runOperation(OpNewFolder); });
+    add("view.refresh", [this, paneId] { jtf_refresh(m_app, paneId); });
+
+    if (hasTarget) {
+        menu.addSeparator();
+        add("file.trash", [this] { runOperation(OpTrash); });
+        add("file.delete", [this] { runOperation(OpDelete); });
+    }
+
+    menu.exec(global);
+}
+
 void MainWindow::openViewer() {
     PaneWidget *pane = activePane();
     if (!pane || pane->currentRow() < 0) {
@@ -462,6 +522,12 @@ void MainWindow::syncToolbar() {
     if (!m_pathEdit->hasFocus() && m_pathEdit->text() != path) {
         m_pathEdit->setText(path);
     }
+
+    // A navigation button that is always enabled teaches people that pressing
+    // it does nothing.
+    m_backAction->setEnabled(jtf_can_go_back(m_app, pane) != 0);
+    m_forwardAction->setEnabled(jtf_can_go_forward(m_app, pane) != 0);
+    m_upAction->setEnabled(jtf_can_go_up(m_app, pane) != 0);
 }
 
 QFont MainWindow::listFont() const {
@@ -504,6 +570,10 @@ QWidget *MainWindow::buildNode(const QJsonObject &node) {
             markActivePane();
         });
         connect(pane, &PaneWidget::stateChanged, this, [this] { refreshAll(); });
+        connect(pane, &PaneWidget::contextMenuRequested, this,
+                [this, paneId](const QPoint &global, bool onEntry) {
+                    showEntryMenu(paneId, global, onEntry);
+                });
         connect(pane, &PaneWidget::dropRequested, this,
                 [this, paneId](const QStringList &paths, int kind) {
                     runDrop(paneId, paths, kind);
@@ -580,7 +650,13 @@ void MainWindow::retranslate() {
     for (const auto &entry : std::as_const(m_translatableMenus)) {
         entry.first->setTitle(tr_(entry.second));
     }
-    setWindowTitle(tr_("app.name"));
+    // The window title names what you are looking at, then the application.
+    // A title that only ever says the app name is a wasted line.
+    const QString folder = jtfText([&](char *buf, int len) {
+        return jtf_current_name(m_app, jtf_active_pane(m_app), buf, len);
+    });
+    setWindowTitle(folder.isEmpty() ? tr_("app.name")
+                                    : folder + QStringLiteral(" — ") + tr_("app.name"));
     m_cancelButton->setText(tr_("operation.cancel"));
     for (auto *p : std::as_const(m_panes)) {
         p->retranslate();

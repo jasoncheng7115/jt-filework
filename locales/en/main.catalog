@@ -243,3 +243,4 @@ viewer.find_placeholder = Find in file
 viewer.not_found = Not found
 viewer.goto = Go to line
 viewer.rows = {count} lines
+status.selected = {count} selected

@@ -162,6 +162,17 @@ identifier, package names, catalogue values, file names, commit messages.
 Not `JT FileWork`, not `JTFileWork`, not `Jt-Filework`. One spelling means
 search finds everything and no build artefact disagrees with any other.
 
+## 10.2 Ordinary UI Conventions Are Not Optional
+
+`docs/UI_CONVENTIONS.md` lists what every surface must get right without being
+asked: disabled controls that look disabled, visible state, right-click menus,
+keyboard parity, tokens instead of colours, alignment, warnings before
+destructive actions, and failures that name the entry and the reason.
+
+They are not preferences. They are what a desktop application is expected to
+do, they are noticed only when missing, and they are cheap now and expensive
+later. Walk that document's checklist before calling a UI change done.
+
 ## 11. i18n Is Mandatory
 
 No user-visible string literals in UI implementation.

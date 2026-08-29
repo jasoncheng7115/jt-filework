@@ -484,6 +484,104 @@ pub unsafe extern "C" fn jtf_sort_by(app: *mut App, pane_id: c_int, column: c_in
     }
 }
 
+/// Whether the pane can go back, forward or up.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_can_go_back(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.can_go_back(pane(pane_id))))
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_can_go_forward(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.can_go_forward(pane(pane_id))))
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_can_go_up(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.can_go_up(pane(pane_id))))
+}
+
+/// How many entries are selected.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_selection_count(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        c_int::try_from(a.selection_count(pane(pane_id))).unwrap_or(0)
+    })
+}
+
+/// The pane's folder name, for the window title.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_current_name(
+    app: *const App,
+    pane_id: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    unsafe { write_str(&app.current_name(pane(pane_id)), buf, len) }
+}
+
+/// Whether a column is shown.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_column_visible(
+    app: *const App,
+    pane_id: c_int,
+    column: c_int,
+) -> c_int {
+    unsafe { app_ref(app) }.map_or(1, |a| c_int::from(a.column_visible(pane(pane_id), column)))
+}
+
+/// Show or hide a column.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_column_visible(
+    app: *mut App,
+    pane_id: c_int,
+    column: c_int,
+    visible: c_int,
+) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_column_visible(pane(pane_id), column, visible != 0);
+    }
+}
+
+/// Which column a pane is sorted by.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_sort_column(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| a.sort_column(pane(pane_id)))
+}
+
+/// Whether a pane's sort is ascending.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_sort_ascending(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(1, |a| c_int::from(a.sort_ascending(pane(pane_id))))
+}
+
 /// # Safety
 /// See [`jtf_app_free`].
 #[no_mangle]

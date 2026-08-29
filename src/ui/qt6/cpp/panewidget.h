@@ -7,6 +7,7 @@
 #include "bridge.h"
 
 #include <QColor>
+#include <QPoint>
 #include <QStringList>
 #include <QFont>
 #include <QWidget>
@@ -30,6 +31,7 @@ public:
     // Row the keyboard is on, or -1. The window needs it for commands that
     // act on the focused entry.
     int currentRow() const;
+    void openCurrentRow();
     void advanceCurrentRow();
     void retranslate();
     void setListFont(const QFont &font);
@@ -43,6 +45,7 @@ signals:
     void selectionChanged();
     // Paths dropped on this pane, and 0 for copy or 1 for move.
     void dropRequested(const QStringList &paths, int kind);
+    void contextMenuRequested(const QPoint &global, bool onEntry);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -50,11 +53,15 @@ protected:
 private:
     void openRow(int row);
     bool handleDrop(class QDropEvent *event);
+    void showContextMenu(const QPoint &position);
+    void showHeaderMenu(const QPoint &position);
+    void applyColumnVisibility();
     // Typing letters jumps to a matching row. docs/UI_UX_SPEC.md 5.4: it must
     // never start a rename and never trigger a destructive command.
     bool typeAhead(const QString &text);
     void syncTabs();
     void syncPath();
+    void syncSortIndicator();
 
     JtfApp *m_app;
     int m_pane;
