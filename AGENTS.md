@@ -447,14 +447,16 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-08-29 · **Branch:** `poc/qt6` · **Phase:** 1 — usable build
+**Updated:** 2026-08-30 · **Branch:** `poc/qt6` · **Phase:** 1 — usable build
 
 ### Gates
 
 ```text
-tests     344 passing, 0 failing, across 33 targets
+tests     411 passing, 0 failing
 clippy    clean (-D warnings, workspace-wide)
 rustfmt   clean
+bench     100K and 1M measured and recorded in ADR-0001
+watchdog  first run recorded; p99 486us with a 100K directory loaded
 CI        lint / i18n / security audit / test on macOS, Windows, Linux / rustdoc
 ```
 
@@ -464,78 +466,87 @@ CI        lint / i18n / security audit / test on macOS, Windows, Linux / rustdoc
 ./src/ui/qt6/build.sh            # debug build, then launch
 ./src/ui/qt6/build.sh release    # optimised build, then launch
 cargo run -p jtf-cli             # headless walkthrough of the core
-cargo run -p jtf-bench           # performance budgets
+cargo run -p jtf-bench 1000000   # performance budgets
+JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
 ```
 
 ### What the window does
 
-- **Navigation** — double-click, Enter, Backspace, back/forward, up, home, an
-  editable path field, a clickable breadcrumb that elides its middle, and a
-  resizable folder tree sidebar that can be hidden.
-- **Panes** — horizontal, vertical and nested splits; the quad preset; per-pane
-  tab bars; each pane self-contained with its own path, status and columns.
-- **The list** — native per-file icons, sortable columns with an indicator,
-  `Name · Size · Modified · Type`, checkbox marks, monospace by default,
-  folders-first sorting as a preference, type-ahead, filter and search boxes.
-- **Operations** — copy, move, rename, duplicate, new folder, trash and delete
-  through the job engine, with conflict resolution, progress, cancellation and
-  undo; batch rename; drag and drop; clipboard copy/cut/paste.
-- **Marks** — space to toggle, all/none/invert, and mark or unmark by wildcard
-  using the same pattern language as the search box.
-- **Viewing** — a text and hex viewer with encoding detection, and Quick Look
-  on macOS.
-- **Search** — a query parser, a bounded recursive walker, and live results.
-- **Inspector** — a right-hand panel with a preview and the file's facts.
-- **Chrome** — command palette, settings dialog, menus that show their
-  shortcuts, a toolbar of the common actions, a workspace status bar, Light /
-  Dark / System following the system live, runtime `en` ↔ `zh-TW` switching,
-  and session restore that can be turned off.
+- **Navigation** — double-click, Enter, Backspace, arrows, back/forward, up,
+  home, a breadcrumb that becomes an editable path when clicked, a folder tree
+  and a places sidebar with favourites, volumes, removable devices, bookmarks
+  and recent locations.
+- **Views** — a detail list and an icon grid over one model, thumbnails
+  decoded off the UI thread, columns chosen from the model's own set, and
+  sorting by any of them.
+- **Panes and windows** — splits, the quad preset, per-pane tabs, and tabs
+  that tear off into their own window or merge back by dragging.
+- **Operations** — copy, move, rename, duplicate, new file, new folder, trash,
+  delete, attributes and batch rename, queued rather than refused, with
+  conflict resolution, progress, cancellation and undo. Trashing goes through
+  the platform, so Finder's Put Back works.
+- **Marks** — space, all, none, invert, and by wildcard.
+- **Finding** — a filter over the current folder and a recursive search, both
+  highlighting what matched.
+- **Reading** — text and hex viewers, archive contents browsed like a folder,
+  an inspector with a preview and the file's facts, and Quick Look.
+- **Keyboard** — two profiles, Single-Key and Native, switchable from the
+  toolbar; a hint strip that changes with what the cursor is on; a searchable
+  shortcut reference read from the live keymap.
+- **Chrome** — command palette, settings, menus with icons and shortcuts,
+  Light / Dark / System following the system live, `en` ↔ `zh-TW` following
+  the system unless told otherwise, and session restore that can be turned off.
 
 ### Crates
 
 | Crate | What it does |
 |---|---|
-| `jtf-core` | file model, error codes, i18n catalogue + localizer, theme tokens |
+| `jtf-core` | file model, error codes, i18n catalogue + localizer, theme tokens, path input |
 | `jtf-jobs` | job state machine, monotonic progress, cancellation |
-| `jtf-workspace` | recursive split tree, per-pane tabs, selection vs marking, session memory, sorting |
+| `jtf-workspace` | windows, recursive split tree, tabs, selection vs marking, session, sorting |
 | `jtf-commands` | command registry, keymap, command bus |
-| `jtf-fs` | local provider, cancellable async enumeration in ramped batches |
-| `jtf-ops` | operation planning, conflict policy, execution, trash, undo, batch rename |
-| `jtf-viewer` | format detection, text decoding, line index, hex view |
+| `jtf-fs` | local provider, cancellable enumeration, folder sizes |
+| `jtf-ops` | planning, conflict policy, execution, trash, undo, batch rename |
+| `jtf-viewer` | format detection, text decoding, hex view, archive listing |
 | `jtf-search` | query parsing, matching, bounded recursive walk |
 | `jtf-qt6-bridge` | C ABI over the core; the only `unsafe` in Rust |
-| `jtf-conformance` | architecture boundaries, locale parity, keymap loading, hostile input |
+| `jtf-conformance` | architecture, locale parity, keymaps, hostile input |
 | `jtf-cli` | headless walkthrough |
 | `jtf-bench` | performance budgets |
-| `src/ui/qt6/cpp` | Qt 6 Widgets front end (C++), Objective-C++ for macOS |
+| `src/ui/qt6/cpp` | Qt 6 Widgets front end, Objective-C++ for macOS |
 
-Also: `locales/{en,zh-TW}` (296 keys), `keymaps/{platform,cview}.keymap`,
-application icon, CI, ADR-0002, `docs/design/reference-layout.png`.
+Also: `locales/{en,zh-TW}`, `keymaps/{native,single-key}.keymap`, Iconoir
+icons (MIT), the application icon, CI, ADR-0002, and the reference layouts and
+CView key table in `docs/design/`.
 
 ### Not built yet
 
 ```text
-platform adapters   Windows and Linux trash, reveal and preview are stubs
-views               no icon or grid view, no thumbnails
-sidebars            no bookmarks, no recent locations, no volumes list
-viewers             no image, archive, JSON, CSV or syntax-highlighted view
+archive extraction  browsing works; taking files out needs a decompressor
+platform adapters   Windows and Linux trash, reveal, tags and Open With are stubs
+sidebars            no smart views, no remote locations
+viewers             no image, JSON, CSV or syntax-highlighted view
+metadata            no ratings, comments or descriptions of our own
 upgrade             migration chain and version stamps are specified, not built
 AI providers        none - deliberately last, docs/SEARCH_AI.md
 ```
 
-The rest of the backlog is `docs/FEATURE_INVENTORY.md`, and the layout it is
-heading towards is `docs/design/REFERENCE_LAYOUT.md`.
+`docs/BASELINE_FEATURES.md` tracks the acceptance list;
+`docs/design/REFERENCE_LAYOUT.md` ranks what the reference layouts still ask
+for.
 
 ### Decisions outstanding
 
-- **ADR-0001 (GUI stack)** — Qt 6 selected by the project owner and now
-  proven to build and run; the ADR stays *Proposed* until the gate
-  measurements in `docs/TESTING.md` §8.2 are recorded against it.
+- **ADR-0001 (GUI stack)** — the macOS performance gates are measured and met;
+  it stays *Proposed* pending the same numbers on Windows and Linux and a
+  decision by the project owner.
 - Commercial dual-licensing, which decides whether SignPath Foundation
   signing is available for Windows (`docs/SIGNING_RUNBOOK.md` §B1).
+- Whether to take on a decompression dependency for archive extraction, and
+  where our own file metadata would live. Both want an ADR before code.
 
 ### Next
 
-1. Benchmark the list at 100K and 1M rows; record the numbers in ADR-0001.
-2. Bookmarks, recent locations and a volumes list in the sidebar.
-3. Windows and Linux platform adapters: trash, reveal, preview.
+1. Windows and Linux platform adapters: trash, reveal, tags, Open With.
+2. The remaining reference-layout items, in the order that document ranks them.
+3. `docs/UPGRADE.md`'s migration chain and version stamps.
