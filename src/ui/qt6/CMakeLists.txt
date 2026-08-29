@@ -18,7 +18,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Svg)
 qt_standard_project_setup()
 
 # --- Rust bridge -------------------------------------------------------------
@@ -79,6 +79,8 @@ qt_add_executable(jt-filework
     cpp/placeslist.h
     cpp/headerview.cpp
     cpp/headerview.h
+    cpp/shortcutsdialog.cpp
+    cpp/shortcutsdialog.h
     cpp/theme.cpp
     cpp/theme.h
     cpp/watchdog.cpp
@@ -109,7 +111,7 @@ endif()
 
 add_dependencies(jt-filework rust_bridge)
 target_include_directories(jt-filework PRIVATE cpp)
-target_link_libraries(jt-filework PRIVATE Qt6::Widgets "${BRIDGE_LIB}")
+target_link_libraries(jt-filework PRIVATE Qt6::Widgets Qt6::Svg "${BRIDGE_LIB}")
 
 if(APPLE)
     # Frameworks the Rust standard library needs when linked into a C++ binary.
@@ -178,6 +180,9 @@ if(APPLE)
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${JTF_DATA_ROOT}/keymaps"
             "$<TARGET_BUNDLE_CONTENT_DIR:jt-filework>/Resources/keymaps"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${JTF_DATA_ROOT}/assets/icons"
+            "$<TARGET_BUNDLE_CONTENT_DIR:jt-filework>/Resources/icons"
         COMMENT "Copying locales and keymaps into the bundle")
 else()
     set_target_properties(jt-filework PROPERTIES

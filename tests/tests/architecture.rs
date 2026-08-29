@@ -503,7 +503,11 @@ fn every_stylesheet_token_is_substituted() {
 /// `QStringLiteral("%…%")`, which is how a substitution is written.
 fn token_names(text: &str, in_replace: bool) -> std::collections::BTreeSet<String> {
     let mut found = std::collections::BTreeSet::new();
-    let needle = if in_replace { "QStringLiteral(\"%" } else { "%" };
+    let needle = if in_replace {
+        "QStringLiteral(\"%"
+    } else {
+        "%"
+    };
     let mut rest = text;
     while let Some(at) = rest.find(needle) {
         let after = &rest[at + needle.len()..];
@@ -517,4 +521,72 @@ fn token_names(text: &str, in_replace: bool) -> std::collections::BTreeSet<Strin
         rest = rest.get(1..).unwrap_or("");
     }
     found
+}
+
+/// Every glyph the UI names exists as a real SVG, and every vendored SVG is
+/// named by the UI.
+///
+/// Both halves matter. A name with no file renders a placeholder box — and it
+/// got there because `curl -O` without `-f` writes a 404 body to the target
+/// path, so the file existed and contained "404: Not Found". A file with no
+/// name is a third-party asset carried for nothing, which is a licence
+/// obligation with no benefit.
+#[test]
+fn every_named_glyph_is_a_real_svg() {
+    let root = repo_root();
+    let icons_dir = root.join("assets/icons/iconoir");
+    let source =
+        fs::read_to_string(root.join("src/ui/qt6/cpp/icons.cpp")).expect("icons.cpp is readable");
+
+    // The names in the `{glyph::Shape::X, QStringLiteral("name")}` table.
+    let mut named = std::collections::BTreeSet::new();
+    for line in source.lines().filter(|l| l.contains("glyph::Shape::")) {
+        let Some(open) = line.find("QStringLiteral(\"") else {
+            continue;
+        };
+        let rest = &line[open + "QStringLiteral(\"".len()..];
+        if let Some(end) = rest.find('"') {
+            named.insert(rest[..end].to_string());
+        }
+    }
+    assert!(
+        !named.is_empty(),
+        "no glyph names found; did the table change?"
+    );
+
+    let mut on_disk = std::collections::BTreeSet::new();
+    for entry in fs::read_dir(&icons_dir)
+        .expect("the icon directory exists")
+        .flatten()
+    {
+        let path = entry.path();
+        if path.extension().is_none_or(|e| e != "svg") {
+            continue;
+        }
+        let text = fs::read_to_string(&path).unwrap_or_default();
+        assert!(
+            text.trim_start().starts_with("<svg"),
+            "{} is not an SVG; it is likely a downloaded error page",
+            path.display()
+        );
+        assert!(
+            text.contains("currentColor"),
+            "{} does not stroke with currentColor, so it cannot be themed",
+            path.display()
+        );
+        on_disk.insert(
+            path.file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default(),
+        );
+    }
+
+    let missing: Vec<&String> = named.difference(&on_disk).collect();
+    assert!(
+        missing.is_empty(),
+        "named in icons.cpp with no SVG: {missing:?}"
+    );
+
+    let unused: Vec<&String> = on_disk.difference(&named).collect();
+    assert!(unused.is_empty(), "vendored but never used: {unused:?}");
 }

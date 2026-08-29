@@ -209,11 +209,22 @@ QString PaneWidget::chordFor(const QKeyEvent *key) {
 
     QString name = named.value(key->key());
     if (name.isEmpty()) {
-        const QString text = key->text();
-        if (text.size() != 1 || !text.at(0).isLetterOrNumber()) {
-            return {};
+        // From the key code, not from the text. On macOS Option is a text
+        // modifier: Option+T types a dagger, so reading text() here made the
+        // chord `alt+†`, which matches nothing and left Alt-T - CView's mark
+        // all - silently dead.
+        const int code = key->key();
+        if (code >= Qt::Key_A && code <= Qt::Key_Z) {
+            name = QChar(QLatin1Char('a' + (code - Qt::Key_A)));
+        } else if (code >= Qt::Key_0 && code <= Qt::Key_9) {
+            name = QChar(QLatin1Char('0' + (code - Qt::Key_0)));
+        } else {
+            const QString text = key->text();
+            if (text.size() != 1 || !text.at(0).isPrint()) {
+                return {};
+            }
+            name = text.toLower();
         }
-        name = text.toLower();
     }
 
     QStringList parts;
@@ -535,9 +546,15 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
                         return true;
                     }
                 }
-                // No binding and no type-ahead: swallow it rather than let
-                // the view treat a letter as cursor movement.
-                if (!key->text().isEmpty() && key->text().at(0).isPrint()) {
+                // Swallow an unbound bare key rather than let the view treat
+                // a letter as cursor movement. A key held with a modifier is
+                // left alone: it may be a window shortcut, and eating it here
+                // is how Alt-T stopped reaching the menu action that runs it.
+                const bool modified =
+                    key->modifiers().testFlag(Qt::ControlModifier) ||
+                    key->modifiers().testFlag(Qt::AltModifier) ||
+                    key->modifiers().testFlag(Qt::MetaModifier);
+                if (!modified && !key->text().isEmpty() && key->text().at(0).isPrint()) {
                     return true;
                 }
                 break;

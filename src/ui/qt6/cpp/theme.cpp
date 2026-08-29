@@ -106,22 +106,29 @@ QHeaderView::section:hover { color: %TEXT%; background: %HOVER%; }
    style cannot bring one back. */
 QHeaderView::up-arrow, QHeaderView::down-arrow { image: none; width: 0; height: 0; }
 
-QTabBar { background: %HEADER%; }
+/* The active tab is marked three ways at once - a lit accent rule along its
+   top, the pane's own background, and full-strength text against dimmed
+   neighbours. One of those alone is what made the tab bar unreadable: a tab
+   that differs from its neighbour only by a hairline border is not a tab bar,
+   it is a row of words. The reference layout uses the same three. */
+QTabBar { background: %HEADER%; qproperty-drawBase: 0; }
 QTabBar::tab {
-    background: transparent;
+    background: %HEADER%;
     color: %DIM%;
-    padding: 5px 12px;
-    margin: 2px 1px 0 1px;
-    border: 1px solid transparent;
-    border-radius: 6px 6px 0 0;
+    padding: 6px 14px;
+    margin: 0;
+    border: none;
+    border-top: 2px solid transparent;
+    border-right: 1px solid %BORDER%;
+    min-width: 60px;
     max-width: 220px;
 }
 QTabBar::tab:hover { background: %HOVER%; color: %TEXT%; }
 QTabBar::tab:selected {
     background: %PANE%;
     color: %TEXT%;
-    border-color: %BORDER%;
-    border-bottom-color: %PANE%;
+    border-top: 2px solid %SEL%;
+    font-weight: 600;
 }
 QTabBar::close-button { subcontrol-position: right; }
 
@@ -137,6 +144,16 @@ QWidget#JtfCrumbs QPushButton {
 QWidget#JtfCrumbs QPushButton:hover { background: %HOVER%; }
 QWidget#JtfCrumbs QLabel { color: %DIM%; padding: 0 1px; }
 QLabel[jtfStatusSummary="true"] { color: %DIM%; padding: 0 10px; }
+QLabel[jtfZoomMark="true"] { color: %DIM%; }
+QSlider#JtfZoom::groove:horizontal { background: %BORDER%; height: 3px; border-radius: 2px; }
+QSlider#JtfZoom::sub-page:horizontal { background: %SEL%; height: 3px; border-radius: 2px; }
+QSlider#JtfZoom::handle:horizontal {
+    background: %TEXT%;
+    width: 10px;
+    height: 10px;
+    margin: -4px 0;
+    border-radius: 5px;
+}
 /* The keyboard-mode switch: a recessed track with two segments, the active
    one raised out of it. The shape says "one of these two", which a pair of
    ordinary buttons would not. */

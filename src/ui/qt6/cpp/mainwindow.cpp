@@ -10,6 +10,7 @@
 #include "operations.h"
 #include "platform/quicklook.h"
 #include "settingsdialog.h"
+#include "shortcutsdialog.h"
 #include "viewerwindow.h"
 #include "theme.h"
 
@@ -30,6 +31,7 @@
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QStyle>
+#include <QSlider>
 #include <QToolBar>
 #include <QToolButton>
 #include <QMenu>
@@ -41,6 +43,11 @@
 #include <QVBoxLayout>
 
 namespace {
+
+// The range the zoom slider offers. Below the minimum the list stops being
+// readable; above the maximum a row is taller than the icons in it.
+constexpr int kMinFontPoints = 9;
+constexpr int kMaxFontPoints = 22;
 constexpr int kPumpIntervalMs = 16; // one frame at 60Hz
 }
 
@@ -132,6 +139,37 @@ MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_ap
     statusBar()->addPermanentWidget(m_statusItems);
     statusBar()->addPermanentWidget(m_statusTasks);
     statusBar()->addPermanentWidget(m_statusKeymap);
+    // Font size, bottom right, as the reference layout has it. The two
+    // commands already exist and are on the keyboard; this is the same thing
+    // for a hand on the mouse, and it shows the current size, which a pair of
+    // shortcuts cannot.
+    auto *zoom = new QWidget(this);
+    auto *zoomRow = new QHBoxLayout(zoom);
+    zoomRow->setContentsMargins(8, 0, 6, 0);
+    zoomRow->setSpacing(6);
+    auto *smaller = new QLabel(QStringLiteral("A"), zoom);
+    smaller->setProperty("jtfZoomMark", true);
+    QFont smallMark = smaller->font();
+    smallMark.setPointSizeF(smallMark.pointSizeF() * 0.85);
+    smaller->setFont(smallMark);
+    m_zoom = new QSlider(Qt::Horizontal, zoom);
+    m_zoom->setObjectName(QStringLiteral("JtfZoom"));
+    m_zoom->setRange(kMinFontPoints, kMaxFontPoints);
+    m_zoom->setFixedWidth(96);
+    m_zoom->setPageStep(1);
+    auto *larger = new QLabel(QStringLiteral("A"), zoom);
+    larger->setProperty("jtfZoomMark", true);
+    QFont bigMark = larger->font();
+    bigMark.setPointSizeF(bigMark.pointSizeF() * 1.25);
+    larger->setFont(bigMark);
+    zoomRow->addWidget(smaller);
+    zoomRow->addWidget(m_zoom);
+    zoomRow->addWidget(larger);
+    connect(m_zoom, &QSlider::valueChanged, this, [this](int points) {
+        setFontPoints(points);
+    });
+    statusBar()->addPermanentWidget(zoom);
+
     statusBar()->addPermanentWidget(m_progress);
     statusBar()->addPermanentWidget(m_cancelButton);
 
@@ -142,6 +180,10 @@ MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_ap
     applyFont();
     setTreeVisible(jtf_tree_visible(m_app) != 0);
     retranslate();
+    // The toolbar was only ever filled in by refreshAll, which does not run
+    // until something changes - so on the first frame the path field and the
+    // mode switch were blank.
+    syncToolbar();
 
     // The file list is where the keyboard belongs. Without this the path
     // field keeps the focus it got by being the first focusable widget built,
@@ -297,6 +339,7 @@ void MainWindow::buildMenus() {
     m_translatableMenus.append({m_viewMenu, "menu.view"});
     command(m_viewMenu, "view.tree", [this] { toggleTree(); });
     command(m_viewMenu, "keymap.toggle", [this] { toggleKeymap(); });
+    command(m_viewMenu, "help.shortcuts", [this] { openShortcuts(); });
     command(m_viewMenu, "view.inspector",
             [this] { setInspectorVisible(!m_inspector->isVisible()); });
     command(m_viewMenu, "view.hidden",
@@ -912,6 +955,7 @@ void MainWindow::buildToolbar() {
     m_hiddenAction = button(
         "view.hidden", glyph::Shape::Hidden,
         [this] { jtf_set_show_hidden(m_app, jtf_show_hidden(m_app) ? 0 : 1); }, true);
+    button("help.shortcuts", glyph::Shape::Keyboard, [this] { openShortcuts(); });
     button("settings.open", glyph::Shape::Settings, [this] { openSettings(); });
 
     // The keyboard-mode switch. A two-segment control rather than one button
@@ -963,6 +1007,19 @@ void MainWindow::syncToolbar() {
 
     // A navigation button that is always enabled teaches people that pressing
     // it does nothing.
+    if (m_zoom) {
+        int points = jtf_font_point_size(m_app);
+        if (points <= 0) {
+            // 0 means "the platform default"; show where that actually lands
+            // rather than pinning the slider to its minimum.
+            points = static_cast<int>(qRound(QApplication::font().pointSizeF()));
+        }
+        QSignalBlocker blocker(m_zoom);
+        m_zoom->setValue(qBound(kMinFontPoints, points, kMaxFontPoints));
+        m_zoom->setToolTip(
+            jtfFill(tr_("status.font_size"), "size", QString::number(m_zoom->value())));
+    }
+
     const QString keymap =
         jtfText([&](char *buf, int len) { return jtf_keymap_name(m_app, buf, len); });
     for (auto *segment : std::as_const(m_modeSegments)) {
@@ -1098,6 +1155,23 @@ void MainWindow::setKeymap(const QString &name) {
     const QByteArray utf8 = name.toUtf8();
     jtf_set_keymap(m_app, utf8.constData());
     announceKeymap(name);
+}
+
+void MainWindow::setFontPoints(int points) {
+    const int clamped = qBound(kMinFontPoints, points, kMaxFontPoints);
+    const QString family =
+        jtfText([&](char *buf, int len) { return jtf_font_family(m_app, buf, len); });
+    const QByteArray utf8 = family.toUtf8();
+    jtf_set_font(m_app, utf8.constData(), clamped, jtf_font_monospace(m_app));
+    jtf_app_save_session(m_app);
+    applyFont();
+    m_zoom->setToolTip(jtfFill(tr_("status.font_size"), "size", QString::number(clamped)));
+}
+
+void MainWindow::openShortcuts() {
+    // Built fresh each time: it reads the active keymap, and that changes.
+    ShortcutsDialog dialog(m_app, this);
+    dialog.exec();
 }
 
 void MainWindow::toggleKeymap() {

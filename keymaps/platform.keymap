@@ -68,6 +68,7 @@ primary+alt+i        = view.inspector
 # purpose: a switch that only exists in the mode you left is a door that locks
 # behind you. tests/tests/keymaps.rs proves the two agree.
 primary+shift+k      = keymap.toggle
+primary+slash        = help.shortcuts
 primary+b            = file.bookmark
 
 # --- search and tools
