@@ -236,7 +236,7 @@
 - [x] Copy
 - [x] Move
 - [x] Rename
-- [ ] Duplicate
+- [x] Duplicate
 - [x] Trash (moves to the trash directory; native Put Back metadata pending)
 - [x] Delete
 - [x] Mkdir

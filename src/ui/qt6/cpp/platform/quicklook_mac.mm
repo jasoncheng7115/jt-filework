@@ -93,3 +93,23 @@ void quicklook::hide() {
         }
     }
 }
+
+bool platform::reveal(const QString &path) {
+    if (path.isEmpty()) {
+        return false;
+    }
+    @autoreleasepool {
+        NSString *native = [NSString stringWithUTF8String:path.toUtf8().constData()];
+        if (!native) {
+            return false;
+        }
+        // selectFile: highlights the item; openFile: would only open its
+        // folder, which is not what "reveal" means.
+        return [[NSWorkspace sharedWorkspace] selectFile:native
+                                inFileViewerRootedAtPath:native.stringByDeletingLastPathComponent];
+    }
+}
+
+bool platform::canReveal() {
+    return true;
+}

@@ -256,6 +256,21 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("file.edit", C::File, "command.file.edit"),
     ("file.rename", C::File, "command.file.rename"),
     ("file.undo", C::File, "command.file.undo"),
+    ("file.duplicate", C::File, "command.file.duplicate"),
+    ("file.reveal", C::File, "command.file.reveal"),
+    (
+        "file.clipboard.copy",
+        C::File,
+        "command.file.clipboard.copy",
+    ),
+    ("file.clipboard.cut", C::File, "command.file.clipboard.cut"),
+    (
+        "file.clipboard.paste",
+        C::File,
+        "command.file.clipboard.paste",
+    ),
+    ("file.copy_path", C::File, "command.file.copy_path"),
+    ("file.copy_name", C::File, "command.file.copy_name"),
     ("file.new_folder", C::File, "command.file.new_folder"),
     (
         "file.copy_to_target_pane",

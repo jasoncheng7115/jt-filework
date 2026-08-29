@@ -24,3 +24,17 @@ void toggle(const QString &path);
 void hide();
 
 } // namespace quicklook
+
+namespace platform {
+
+/// Show an entry in the system's own file manager, selected.
+///
+/// `AGENTS.md` §8: users expect "reveal" to open Finder with the item
+/// highlighted, not merely to open its folder.
+bool reveal(const QString &path);
+
+/// Whether this build can reveal at all, so the UI can disable the command
+/// rather than offering something that does nothing.
+bool canReveal();
+
+} // namespace platform

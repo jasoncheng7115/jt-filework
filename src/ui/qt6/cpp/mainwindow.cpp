@@ -15,7 +15,10 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+#include <QClipboard>
+#include <cstring>
 #include <QFontDatabase>
+#include <QMimeData>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QInputDialog>
@@ -138,6 +141,15 @@ void MainWindow::buildMenus() {
         jtf_undo(m_app);
         updateOperationUi();
     });
+    m_fileMenu->addSeparator();
+    command(m_fileMenu, "file.clipboard.copy", [this] { clipboardPut(false); });
+    command(m_fileMenu, "file.clipboard.cut", [this] { clipboardPut(true); });
+    command(m_fileMenu, "file.clipboard.paste", [this] { clipboardPaste(); });
+    command(m_fileMenu, "file.copy_path", [this] { copyText(true); });
+    command(m_fileMenu, "file.copy_name", [this] { copyText(false); });
+    m_fileMenu->addSeparator();
+    command(m_fileMenu, "file.duplicate", [this] { runOperation(OpDuplicate); });
+    command(m_fileMenu, "file.reveal", [this] { revealSelection(); });
     m_fileMenu->addSeparator();
     command(m_fileMenu, "file.copy_to_target_pane", [this] { runOperation(OpCopy); });
     command(m_fileMenu, "file.move_to_target_pane", [this] { runOperation(OpMove); });
@@ -345,6 +357,83 @@ void MainWindow::openSettings() {
     refreshAll();
 }
 
+QStringList MainWindow::targetPaths() const {
+    const QString joined = jtfText([&](char *buf, int len) {
+        return jtf_target_paths(m_app, jtf_active_pane(m_app), buf, len);
+    });
+    return joined.isEmpty() ? QStringList() : joined.split(QLatin1Char('\n'));
+}
+
+void MainWindow::clipboardPut(bool cut) {
+    const QStringList paths = targetPaths();
+    if (paths.isEmpty()) {
+        return;
+    }
+    QList<QUrl> urls;
+    urls.reserve(paths.size());
+    for (const QString &path : paths) {
+        urls.append(QUrl::fromLocalFile(path));
+    }
+
+    // File URLs, so pasting into the system file manager works. Whether it was
+    // a cut is remembered here rather than encoded in the clipboard: there is
+    // no portable convention for it, and inventing one that another
+    // application misreads would move files nobody asked to move.
+    auto *data = new QMimeData;
+    data->setUrls(urls);
+    data->setText(paths.join(QLatin1Char('\n')));
+    QGuiApplication::clipboard()->setMimeData(data);
+
+    m_clipboardIsCut = cut;
+    m_statusMessage->setText(tr_("status.copied"));
+}
+
+void MainWindow::clipboardPaste() {
+    const QMimeData *data = QGuiApplication::clipboard()->mimeData();
+    if (!data || !data->hasUrls()) {
+        m_statusMessage->setText(tr_("status.clipboard_empty"));
+        return;
+    }
+    QStringList paths;
+    for (const QUrl &url : data->urls()) {
+        if (url.isLocalFile()) {
+            paths << url.toLocalFile();
+        }
+    }
+    if (paths.isEmpty()) {
+        m_statusMessage->setText(tr_("status.clipboard_empty"));
+        return;
+    }
+
+    // A paste from elsewhere copies. Only a cut this application made moves,
+    // and it moves once: after that the clipboard still holds the paths, and
+    // pasting them again would be a second move of files that are no longer
+    // there.
+    const int kind = m_clipboardIsCut ? 1 : 0;
+    m_clipboardIsCut = false;
+    runDrop(jtf_active_pane(m_app), paths, kind);
+}
+
+void MainWindow::copyText(bool fullPath) {
+    const int pane = jtf_active_pane(m_app);
+    const QString text = jtfText([&](char *buf, int len) {
+        return fullPath ? jtf_target_paths(m_app, pane, buf, len)
+                        : jtf_target_names(m_app, pane, buf, len);
+    });
+    if (text.isEmpty()) {
+        return;
+    }
+    QGuiApplication::clipboard()->setText(text);
+    m_statusMessage->setText(tr_("status.copied"));
+}
+
+void MainWindow::revealSelection() {
+    const QStringList paths = targetPaths();
+    if (!paths.isEmpty()) {
+        platform::reveal(paths.first());
+    }
+}
+
 void MainWindow::runDrop(int pane, const QStringList &paths, int kind) {
     if (jtf_op_running(m_app)) {
         return;
@@ -397,6 +486,13 @@ void MainWindow::runOperation(OperationRequest request) {
         break;
     case OpNewFolder:
         started = ops::createFolder(m_app, this, pane, &message);
+        break;
+    case OpDuplicate:
+        // Always "keep both": a duplicate that overwrote the original would
+        // be a contradiction in terms.
+        if (jtf_op_prepare_duplicate(m_app, pane)) {
+            started = jtf_op_start(m_app, 2) != 0;
+        }
         break;
     }
 
@@ -502,6 +598,11 @@ void MainWindow::applyCommandBindings() {
         // A command the registry does not know about cannot be invoked; it is
         // left disabled rather than silently doing nothing.
         if (jtf_has_command(m_app, id) == 0) {
+            action->setEnabled(false);
+        }
+        // A command the platform cannot perform is shown and disabled rather
+        // than offered (docs/PLATFORM_INTEGRATION.md 1.1).
+        if (std::strcmp(id, "file.reveal") == 0 && !platform::canReveal()) {
             action->setEnabled(false);
         }
     }

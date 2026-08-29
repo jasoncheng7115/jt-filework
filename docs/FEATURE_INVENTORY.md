@@ -71,13 +71,13 @@ Status: **done** · **partial** · **planned** · **later** (after Phase 2) ·
 | Progress, cancel, per-entry result | done |
 | Conflicts asked once, with skip as the safe default | done |
 | Drag and drop, in and out, with modifiers | done |
-| Duplicate in place | planned |
+| Duplicate in place | done |
 | Batch rename with a pattern and a preview | planned |
 | Undo for move, rename and trash | done |
 | Per-item conflict prompt with apply-to-all | planned |
 | Create a file from a template | planned |
-| Copy path, copy name to the clipboard | planned |
-| Clipboard cut / copy / paste of files | planned |
+| Copy path, copy name to the clipboard | done |
+| Clipboard cut / copy / paste of files | done |
 | Compare two folders | later |
 | Checksums (hash a file, verify a list) | later |
 | Change permissions and ownership | later |
@@ -148,7 +148,7 @@ Status: **done** · **partial** · **planned** · **later** (after Phase 2) ·
 | Open with the default application | done |
 | Drag to and from the system file manager | done |
 | Quick Look | done |
-| Reveal in Finder / Explorer | planned |
+| Reveal in Finder / Explorer | done (macOS; other platforms disable the command) |
 | Native trash with Put Back metadata | planned |
 | Finder tags | planned |
 | Share / Services | planned |

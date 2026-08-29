@@ -48,12 +48,25 @@ private:
 
     // What a menu item asks for. Kept separate from ops::Kind because rename
     // and new folder are not the same shape as copy and move.
-    enum OperationRequest { OpCopy, OpMove, OpTrash, OpDelete, OpRename, OpNewFolder };
+    enum OperationRequest {
+        OpCopy,
+        OpMove,
+        OpTrash,
+        OpDelete,
+        OpRename,
+        OpNewFolder,
+        OpDuplicate
+    };
     void showEntryMenu(int paneId, const QPoint &global, bool onEntry);
     void openViewer();
     void openSettings();
     void runOperation(OperationRequest request);
     void runDrop(int pane, const QStringList &paths, int kind);
+    QStringList targetPaths() const;
+    void clipboardPut(bool cut);
+    void clipboardPaste();
+    void copyText(bool fullPath);
+    void revealSelection();
     void updateOperationUi();
     void syncToolbar();
     void markActivePane();
@@ -75,6 +88,9 @@ private:
     class QProgressBar *m_progress = nullptr;
     class QPushButton *m_cancelButton = nullptr;
     class QAction *m_undoAction = nullptr;
+    // Whether the last clipboard put was a cut. Remembered here because
+    // there is no portable convention for it in the clipboard itself.
+    bool m_clipboardIsCut = false;
     bool m_applyingTheme = false;
 
     QMenu *m_fileMenu = nullptr;

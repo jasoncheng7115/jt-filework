@@ -82,6 +82,9 @@ int jtf_tr(const JtfApp *app, const char *key, char *buf, int len);
 // operations
 void jtf_set_selection(JtfApp *app, int pane, const int *rows, int count);
 int jtf_op_prepare(JtfApp *app, int pane, int kind); // 0 copy 1 move 2 trash 3 delete
+int jtf_target_paths(const JtfApp *app, int pane, char *buf, int len);
+int jtf_target_names(const JtfApp *app, int pane, char *buf, int len);
+int jtf_op_prepare_duplicate(JtfApp *app, int pane);
 int jtf_op_prepare_drop(JtfApp *app, int pane, int kind, const char *newline_separated);
 int jtf_op_prepare_rename(JtfApp *app, int pane, const char *new_name);
 int jtf_op_prepare_new_folder(JtfApp *app, int pane, const char *name);

@@ -817,6 +817,49 @@ pub unsafe extern "C" fn jtf_op_prepare(app: *mut App, pane_id: c_int, kind: c_i
     })
 }
 
+/// The paths an operation started in this pane would act on.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_target_paths(
+    app: *const App,
+    pane_id: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    unsafe { write_str(&app.target_paths(pane(pane_id)), buf, len) }
+}
+
+/// The names of those entries.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_target_names(
+    app: *const App,
+    pane_id: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    unsafe { write_str(&app.target_names(pane(pane_id)), buf, len) }
+}
+
+/// Plan a duplicate-in-place of the targeted entries.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_prepare_duplicate(app: *mut App, pane_id: c_int) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.prepare_duplicate(pane(pane_id))))
+}
+
 /// Build a plan for dropped sources, newline-separated.
 ///
 /// A newline-separated list rather than an array of pointers: paths cannot

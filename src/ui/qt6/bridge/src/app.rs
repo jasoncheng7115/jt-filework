@@ -640,6 +640,50 @@ impl App {
         }
     }
 
+    /// The paths an operation started here would act on, newline-separated.
+    ///
+    /// Used for the clipboard and for "copy path": the same
+    /// marked-then-selection-then-active resolution as everything else, so
+    /// copying and deleting never disagree about what is targeted.
+    pub(crate) fn target_paths(&self, pane: PaneId) -> String {
+        self.operation_sources(pane)
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// The names of the targeted entries, newline-separated.
+    pub(crate) fn target_names(&self, pane: PaneId) -> String {
+        self.operation_sources(pane)
+            .iter()
+            .filter_map(|path| path.file_name())
+            .map(|name| name.to_string_lossy().into_owned())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// Build a plan that copies the targeted entries beside themselves.
+    ///
+    /// Always "keep both": a duplicate that overwrote the original would be a
+    /// contradiction in terms.
+    pub(crate) fn prepare_duplicate(&mut self, pane: PaneId) -> bool {
+        self.plan_error = None;
+        self.pending_plan = None;
+
+        let sources = self.operation_sources(pane);
+        if sources.is_empty() {
+            return false;
+        }
+        let Some(parent) = sources.first().and_then(|path| path.parent()) else {
+            return false;
+        };
+        self.set_plan(&jtf_ops::Operation::Copy {
+            sources: sources.clone(),
+            destination: parent.to_path_buf(),
+        })
+    }
+
     /// Build a plan for sources that came from somewhere else — a drop from
     /// another pane, or from Finder.
     ///

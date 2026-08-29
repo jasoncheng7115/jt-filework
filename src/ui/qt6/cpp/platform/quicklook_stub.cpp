@@ -13,3 +13,14 @@ bool quicklook::available() {
 void quicklook::toggle(const QString &) {}
 
 void quicklook::hide() {}
+
+bool platform::reveal(const QString &) {
+    // Windows and Linux get their own implementations with the platform
+    // adapters; until then the UI hides the command rather than offering
+    // something that does nothing (docs/PLATFORM_INTEGRATION.md 1).
+    return false;
+}
+
+bool platform::canReveal() {
+    return false;
+}
