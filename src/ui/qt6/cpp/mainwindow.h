@@ -74,6 +74,7 @@ private:
     class QLabel *m_statusMessage = nullptr;
     class QProgressBar *m_progress = nullptr;
     class QPushButton *m_cancelButton = nullptr;
+    class QAction *m_undoAction = nullptr;
     bool m_applyingTheme = false;
 
     QMenu *m_fileMenu = nullptr;

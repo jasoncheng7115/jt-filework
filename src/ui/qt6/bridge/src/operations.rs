@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use jtf_jobs::{CancellationToken, Canceller};
-use jtf_ops::{execute, ConflictPolicy, OpProgress, Operation, Plan, Report};
+use jtf_ops::{execute, ConflictPolicy, OpProgress, Operation, Plan, Report, UndoRecord};
 
 /// What a worker publishes as it goes.
 #[derive(Debug, Default)]
@@ -32,14 +32,42 @@ pub(crate) struct Running {
     shared: Arc<Mutex<Shared>>,
     join: Option<thread::JoinHandle<()>>,
     kind: jtf_jobs::JobKind,
+    /// The operation being run, kept so a record can be built from its report.
+    undo: Option<Operation>,
 }
 
 impl Running {
+    /// Spawn a worker that undoes a recorded operation.
+    pub(crate) fn start_undo(record: UndoRecord) -> Self {
+        let (token, canceller) = CancellationToken::new();
+        let shared = Arc::new(Mutex::new(Shared::default()));
+        let worker_shared = Arc::clone(&shared);
+
+        let join = thread::Builder::new()
+            .name("jtf-undo".to_string())
+            .spawn(move || {
+                let report = jtf_ops::undo(&record, &token);
+                if let Ok(mut guard) = worker_shared.lock() {
+                    guard.report = Some(report);
+                }
+            })
+            .ok();
+
+        Self {
+            canceller,
+            shared,
+            join,
+            kind: jtf_jobs::JobKind::Move,
+            undo: None,
+        }
+    }
+
     /// Spawn a worker for `plan`.
     pub(crate) fn start(plan: Plan, policy: ConflictPolicy) -> Self {
         let (token, canceller) = CancellationToken::new();
         let shared = Arc::new(Mutex::new(Shared::default()));
         let kind = plan.operation.job_kind();
+        let operation = plan.operation.clone();
         let worker_shared = Arc::clone(&shared);
 
         let join = thread::Builder::new()
@@ -63,7 +91,14 @@ impl Running {
             shared,
             join,
             kind,
+            undo: Some(operation),
         }
+    }
+
+    /// The operation this run was for, so a record can be built from its
+    /// report once it finishes.
+    pub(crate) const fn operation(&self) -> Option<&Operation> {
+        self.undo.as_ref()
     }
 
     /// Which job kind is running, for the label.

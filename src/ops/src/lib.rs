@@ -22,8 +22,10 @@ mod conflict;
 mod plan;
 mod run;
 mod trash;
+mod undo;
 
 pub use conflict::{unique_destination, Conflict, ConflictPolicy};
 pub use plan::{Operation, Plan, PlanError};
 pub use run::{execute, Outcome, Progress as OpProgress, Report};
 pub use trash::trash_directory;
+pub use undo::{undo, UndoRecord, UndoStep};

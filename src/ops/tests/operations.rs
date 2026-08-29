@@ -542,3 +542,183 @@ fn a_missing_source_reports_not_found_rather_than_panicking() {
     assert_eq!(failures[0].1.code(), ErrorCode::NotFound);
     let _ = Outcome::Skipped;
 }
+
+// ----------------------------------------------------------------- undo
+
+use jtf_ops::{undo, UndoRecord};
+
+fn run_with_record(
+    operation: &Operation,
+    policy: ConflictPolicy,
+) -> (jtf_ops::Report, Option<UndoRecord>) {
+    let token = CancellationToken::never();
+    let plan = Plan::build(operation, &token).expect("plan");
+    let report = execute(&plan, policy, &token, |_| {});
+    let record = UndoRecord::from_report(operation, &report);
+    (report, record)
+}
+
+#[test]
+fn undoing_a_move_puts_the_file_back() {
+    let f = Fixture::new();
+    let source = f.file("a.txt", b"hello");
+    let target = f.dir("out");
+
+    let (_, record) = run_with_record(
+        &Operation::Move {
+            sources: vec![source.clone()],
+            destination: target.clone(),
+        },
+        ConflictPolicy::Skip,
+    );
+    assert!(!source.exists());
+
+    let record = record.expect("a move is undoable");
+    assert_eq!(record.label_key(), "command.file.move_to_target_pane");
+
+    let report = undo(&record, &CancellationToken::never());
+    assert!(report.is_complete());
+    assert_eq!(read(&source), "hello");
+    assert!(!target.join("a.txt").exists());
+}
+
+#[test]
+fn undoing_a_rename_restores_the_old_name() {
+    let f = Fixture::new();
+    let source = f.file("old.txt", b"x");
+    let (_, record) = run_with_record(
+        &Operation::Rename {
+            source: source.clone(),
+            new_name: "new.txt".into(),
+        },
+        ConflictPolicy::Skip,
+    );
+
+    undo(
+        &record.expect("a rename is undoable"),
+        &CancellationToken::never(),
+    );
+    assert!(source.exists());
+    assert!(!f.path("new.txt").exists());
+}
+
+#[test]
+fn undoing_a_new_folder_removes_it_only_while_it_is_empty() {
+    let f = Fixture::new();
+    let (_, record) = run_with_record(
+        &Operation::NewFolder {
+            parent: f.root.clone(),
+            name: "made".into(),
+        },
+        ConflictPolicy::Skip,
+    );
+    let record = record.expect("a new folder is undoable");
+
+    // Something the user put there afterwards must survive.
+    fs::write(f.path("made/mine.txt"), b"do not delete").unwrap();
+    let report = undo(&record, &CancellationToken::never());
+    assert_eq!(report.skipped(), 1, "a non-empty directory is left alone");
+    assert!(f.path("made/mine.txt").exists());
+
+    fs::remove_file(f.path("made/mine.txt")).unwrap();
+    undo(&record, &CancellationToken::never());
+    assert!(!f.path("made").exists(), "an empty one is removed");
+}
+
+#[test]
+fn a_copy_is_not_undoable_and_says_so_rather_than_deleting_files() {
+    let f = Fixture::new();
+    let source = f.file("a.txt", b"x");
+    let target = f.dir("out");
+
+    let (_, record) = run_with_record(
+        &Operation::Copy {
+            sources: vec![source],
+            destination: target.clone(),
+        },
+        ConflictPolicy::Skip,
+    );
+    assert!(
+        record.is_none(),
+        "undoing a copy would delete files the user may have edited"
+    );
+    assert!(target.join("a.txt").exists());
+}
+
+#[test]
+fn a_delete_is_not_undoable() {
+    let f = Fixture::new();
+    let doomed = f.file("gone.txt", b"x");
+    let (_, record) = run_with_record(
+        &Operation::Delete {
+            sources: vec![doomed],
+        },
+        ConflictPolicy::Skip,
+    );
+    assert!(record.is_none());
+}
+
+#[test]
+fn undo_refuses_to_overwrite_something_that_took_the_old_place() {
+    // The case undo exists to avoid causing: putting a file back over one that
+    // was created in the meantime.
+    let f = Fixture::new();
+    let source = f.file("a.txt", b"original");
+    let target = f.dir("out");
+
+    let (_, record) = run_with_record(
+        &Operation::Move {
+            sources: vec![source.clone()],
+            destination: target.clone(),
+        },
+        ConflictPolicy::Skip,
+    );
+    fs::write(&source, b"something new").unwrap();
+
+    let report = undo(&record.unwrap(), &CancellationToken::never());
+    assert_eq!(report.skipped(), 1);
+    assert_eq!(read(&source), "something new", "the newer file survives");
+    assert!(
+        target.join("a.txt").exists(),
+        "and the moved file stays where it is"
+    );
+}
+
+#[test]
+fn undo_reports_an_entry_that_has_since_vanished() {
+    let f = Fixture::new();
+    let source = f.file("a.txt", b"x");
+    let target = f.dir("out");
+    let (_, record) = run_with_record(
+        &Operation::Move {
+            sources: vec![source],
+            destination: target.clone(),
+        },
+        ConflictPolicy::Skip,
+    );
+
+    fs::remove_file(target.join("a.txt")).unwrap();
+    let report = undo(&record.unwrap(), &CancellationToken::never());
+    assert_eq!(report.failures().len(), 1);
+    assert_eq!(report.failures()[0].1.code(), ErrorCode::NotFound);
+}
+
+#[test]
+fn only_steps_that_actually_happened_are_recorded() {
+    let f = Fixture::new();
+    let good = f.file("good.txt", b"1");
+    let target = f.dir("out");
+    f.file("out/clash.txt", b"existing");
+    let clash = f.file("clash.txt", b"new");
+
+    let (_, record) = run_with_record(
+        &Operation::Move {
+            sources: vec![good, clash],
+            destination: target,
+        },
+        ConflictPolicy::Skip,
+    );
+
+    let record = record.expect("one of the two moved");
+    assert_eq!(record.len(), 1, "a skipped entry has nothing to undo");
+}

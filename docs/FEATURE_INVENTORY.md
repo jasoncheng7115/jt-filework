@@ -73,7 +73,7 @@ Status: **done** · **partial** · **planned** · **later** (after Phase 2) ·
 | Drag and drop, in and out, with modifiers | done |
 | Duplicate in place | planned |
 | Batch rename with a pattern and a preview | planned |
-| Undo for move, rename and trash | planned |
+| Undo for move, rename and trash | done |
 | Per-item conflict prompt with apply-to-all | planned |
 | Create a file from a template | planned |
 | Copy path, copy name to the clipboard | planned |

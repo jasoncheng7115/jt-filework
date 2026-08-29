@@ -13,7 +13,7 @@ use jtf_core::theme::{Palette, ResolvedTheme, SystemAppearance, ThemeMode, Theme
 use jtf_core::{Error, FileEntry, FileKind, Location};
 use jtf_fs::{Batch, EnumerationHandle, LocalProvider, Provider};
 use jtf_jobs::CancellationToken;
-use jtf_ops::{ConflictPolicy, Plan, PlanError};
+use jtf_ops::{ConflictPolicy, Plan, PlanError, UndoRecord};
 use jtf_search::{SearchHandle, SearchUpdate};
 use jtf_viewer::{detect, ContentKind, Encoding, HexView, TextView};
 use jtf_workspace::{
@@ -111,6 +111,7 @@ pub struct App {
     running: Option<crate::operations::Running>,
     viewer: Option<ViewerSession>,
     last_summary: Option<crate::operations::Summary>,
+    undo_stack: Vec<UndoRecord>,
     registry: CommandRegistry,
     keymap: Keymap,
     dropped_bindings: usize,
@@ -150,6 +151,7 @@ impl App {
             running: None,
             viewer: None,
             last_summary: None,
+            undo_stack: Vec::new(),
             registry: CommandRegistry::baseline(),
             dropped_bindings: 0,
             keymap: load_keymap(&repo_root, &settings.keymap),
@@ -761,6 +763,29 @@ impl App {
         true
     }
 
+    /// Whether there is anything to undo.
+    pub(crate) fn can_undo(&self) -> bool {
+        !self.undo_stack.is_empty() && self.running.is_none()
+    }
+
+    /// Localization key naming what undo would reverse.
+    pub(crate) fn undo_label_key(&self) -> &'static str {
+        self.undo_stack.last().map_or("", UndoRecord::label_key)
+    }
+
+    /// Undo the most recent reversible operation.
+    pub(crate) fn undo_last(&mut self) -> bool {
+        if self.running.is_some() {
+            return false;
+        }
+        let Some(record) = self.undo_stack.pop() else {
+            return false;
+        };
+        self.last_summary = None;
+        self.running = Some(crate::operations::Running::start_undo(record));
+        true
+    }
+
     /// Whether an operation is in flight.
     pub(crate) const fn operation_running(&self) -> bool {
         self.running.is_some()
@@ -1236,7 +1261,18 @@ impl App {
             .is_some_and(crate::operations::Running::is_finished)
         {
             if let Some(running) = self.running.take() {
+                let operation = running.operation().cloned();
                 if let Some(report) = running.finish() {
+                    if let Some(operation) = operation {
+                        if let Some(record) = UndoRecord::from_report(&operation, &report) {
+                            // A bounded history: undo is for the mistake you
+                            // just made, not an archive.
+                            if self.undo_stack.len() >= 32 {
+                                self.undo_stack.remove(0);
+                            }
+                            self.undo_stack.push(record);
+                        }
+                    }
                     self.last_summary = Some(crate::operations::Summary::from_report(&report));
                 }
             }

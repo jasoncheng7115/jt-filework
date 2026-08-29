@@ -101,8 +101,13 @@ impl JobKind {
     /// Conservative on purpose: `docs/UI_UX_SPEC.md` §10 requires the UI to
     /// say *before* the action when undo is impossible, so a wrong `true` here
     /// would be a lie to the user.
+    ///
+    /// Copy is deliberately excluded. Undoing a copy means deleting what it
+    /// created, which is fine until the user edited one of those files in the
+    /// seconds before pressing undo — and then it is data loss dressed up as
+    /// a convenience.
     pub const fn is_undoable(self) -> bool {
-        matches!(self, Self::Copy | Self::Move | Self::Rename | Self::Trash)
+        matches!(self, Self::Move | Self::Rename | Self::Trash)
     }
 
     /// Localization key for the job's label.
@@ -373,6 +378,10 @@ mod tests {
             "permanent delete must never claim undo"
         );
         assert!(JobKind::Trash.is_undoable());
+        assert!(
+            !JobKind::Copy.is_undoable(),
+            "undoing a copy would delete files the user may have edited"
+        );
         assert!(!JobKind::Search.mutates_filesystem());
         assert!(
             JobKind::ExternalAgent.mutates_filesystem(),

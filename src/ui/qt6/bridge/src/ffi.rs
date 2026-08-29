@@ -981,6 +981,40 @@ pub unsafe extern "C" fn jtf_op_start(app: *mut App, policy: c_int) -> c_int {
     unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.start_operation(policy)))
 }
 
+/// Whether there is anything to undo.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_can_undo(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.can_undo()))
+}
+
+/// Localization key naming what undo would reverse.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_undo_label_key(
+    app: *const App,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    unsafe { write_str(app.undo_label_key(), buf, len) }
+}
+
+/// Undo the most recent reversible operation.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_undo(app: *mut App) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.undo_last()))
+}
+
 /// Whether an operation is in flight.
 ///
 /// # Safety

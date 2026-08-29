@@ -255,6 +255,7 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("file.view", C::File, "command.file.view"),
     ("file.edit", C::File, "command.file.edit"),
     ("file.rename", C::File, "command.file.rename"),
+    ("file.undo", C::File, "command.file.undo"),
     ("file.new_folder", C::File, "command.file.new_folder"),
     (
         "file.copy_to_target_pane",

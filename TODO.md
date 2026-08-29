@@ -155,7 +155,7 @@
 - [x] Per-entry result summary, naming the first failing entry
 - [x] Selection synced into the model so targets resolve correctly
 - [ ] Per-item conflict prompting with apply-to-all
-- [ ] Undo for move, rename and trash
+- [x] Undo for move, rename and trash
 - [ ] Operation log window
 
 ## P0 — Drag & Drop

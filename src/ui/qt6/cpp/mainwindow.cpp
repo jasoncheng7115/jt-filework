@@ -134,6 +134,11 @@ void MainWindow::buildMenus() {
     command(m_fileMenu, "file.new_folder", [this] { runOperation(OpNewFolder); });
     command(m_fileMenu, "file.rename", [this] { runOperation(OpRename); });
     m_fileMenu->addSeparator();
+    m_undoAction = command(m_fileMenu, "file.undo", [this] {
+        jtf_undo(m_app);
+        updateOperationUi();
+    });
+    m_fileMenu->addSeparator();
     command(m_fileMenu, "file.copy_to_target_pane", [this] { runOperation(OpCopy); });
     command(m_fileMenu, "file.move_to_target_pane", [this] { runOperation(OpMove); });
     m_fileMenu->addSeparator();
@@ -405,6 +410,26 @@ void MainWindow::runOperation(OperationRequest request) {
 
 void MainWindow::updateOperationUi() {
     const bool running = jtf_op_running(m_app) != 0;
+
+    // Undo names what it would reverse, so the menu says "Undo Rename" rather
+    // than an unqualified "Undo" that could mean anything.
+    if (m_undoAction) {
+        const bool can = jtf_can_undo(m_app) != 0;
+        m_undoAction->setEnabled(can);
+        QString label = tr_("command.file.undo");
+        if (can) {
+            const QString key =
+                jtfText([&](char *buf, int len) { return jtf_undo_label_key(m_app, buf, len); });
+            if (!key.isEmpty()) {
+                const QByteArray utf8 = key.toUtf8();
+                label = jtfFill(tr_("command.file.undo_named"), "what",
+                                jtfText([&](char *buf, int len) {
+                                    return jtf_tr(m_app, utf8.constData(), buf, len);
+                                }));
+            }
+        }
+        m_undoAction->setText(label);
+    }
     m_progress->setVisible(running);
     m_cancelButton->setVisible(running);
 
