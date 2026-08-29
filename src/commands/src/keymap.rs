@@ -244,6 +244,43 @@ impl core::fmt::Display for KeymapError {
 impl std::error::Error for KeymapError {}
 
 impl KeyChord {
+    /// Render in the keymap file's own syntax, so a saved keymap reloads.
+    pub fn to_source_text(&self) -> String {
+        let mut parts = Vec::new();
+        if self.modifiers.primary {
+            parts.push("primary".to_string());
+        }
+        if self.modifiers.control {
+            parts.push("ctrl".to_string());
+        }
+        if self.modifiers.alt {
+            parts.push("alt".to_string());
+        }
+        if self.modifiers.shift {
+            parts.push("shift".to_string());
+        }
+        parts.push(match &self.key {
+            Key::Char(c) => c.to_lowercase().to_string(),
+            Key::Function(n) => format!("f{n}"),
+            Key::Up => "up".into(),
+            Key::Down => "down".into(),
+            Key::Left => "left".into(),
+            Key::Right => "right".into(),
+            Key::Enter => "enter".into(),
+            Key::Escape => "escape".into(),
+            Key::Space => "space".into(),
+            Key::Tab => "tab".into(),
+            Key::Backspace => "backspace".into(),
+            Key::Delete => "delete".into(),
+            Key::Home => "home".into(),
+            Key::End => "end".into(),
+            Key::PageUp => "pageup".into(),
+            Key::PageDown => "pagedown".into(),
+            Key::Insert => "insert".into(),
+        });
+        parts.join("+")
+    }
+
     /// Render as a string `QKeySequence` accepts.
     ///
     /// `primary` becomes Qt's `Ctrl`, which Qt itself maps to Command on
@@ -346,6 +383,54 @@ impl Keymap {
     /// This returns an **id**, never a handler: `AGENTS.md` §9.
     pub fn resolve(&self, chord: &KeyChord) -> Option<&CommandId> {
         self.bindings.get(chord)
+    }
+
+    /// Which command a chord is bound to, if any.
+    pub fn command_for(&self, chord: &KeyChord) -> Option<&CommandId> {
+        self.bindings.get(chord)
+    }
+
+    /// Remove every chord bound to a command.
+    ///
+    /// Returns how many bindings were removed.
+    pub fn unbind_command(&mut self, command: &CommandId) -> usize {
+        let before = self.bindings.len();
+        self.bindings.retain(|_, bound| bound != command);
+        before - self.bindings.len()
+    }
+
+    /// Give a command a chord, replacing whatever it had.
+    ///
+    /// # Errors
+    ///
+    /// [`KeymapError::Conflict`] when another command already owns the chord.
+    /// Nothing is changed in that case: a rebinding that half-applied would
+    /// leave the user with neither shortcut working.
+    pub fn rebind(&mut self, command: &CommandId, chord: KeyChord) -> Result<(), KeymapError> {
+        if let Some(existing) = self.bindings.get(&chord) {
+            if existing != command {
+                return Err(KeymapError::Conflict {
+                    chord: chord.to_portable_shortcut(),
+                    existing: existing.clone(),
+                    incoming: command.clone(),
+                });
+            }
+        }
+        self.unbind_command(command);
+        self.bindings.insert(chord, command.clone());
+        Ok(())
+    }
+
+    /// Serialize back to the `chord = command.id` format.
+    ///
+    /// Used to save a user's overrides, so what is written is the same thing
+    /// the loader reads — no second format to drift out of step.
+    pub fn to_text(&self) -> String {
+        let mut lines = Vec::with_capacity(self.bindings.len());
+        for (chord, command) in &self.bindings {
+            lines.push(format!("{} = {command}", chord.to_source_text()));
+        }
+        lines.join("\n") + "\n"
     }
 
     /// Every chord bound to a command, for showing shortcuts in menus.
@@ -537,6 +622,73 @@ primary+f          = search.open
         assert_eq!(shortcut("space"), "Space");
         // "really Control" stays distinct from the platform accelerator.
         assert_eq!(shortcut("ctrl+r"), "Meta+R");
+    }
+
+    #[test]
+    fn rebinding_moves_a_chord_and_reports_a_conflict_without_changing_anything() {
+        let mut map = Keymap::parse("test", "primary+t = tab.new\nprimary+w = tab.close").unwrap();
+
+        // Moving a command to a free chord takes its old one away.
+        map.rebind(
+            &CommandId::new("tab.new"),
+            KeyChord::parse("primary+n").unwrap(),
+        )
+        .unwrap();
+        assert!(map
+            .resolve(&KeyChord::parse("primary+t").unwrap())
+            .is_none());
+        assert_eq!(
+            map.resolve(&KeyChord::parse("primary+n").unwrap())
+                .unwrap()
+                .as_str(),
+            "tab.new"
+        );
+
+        // Claiming an occupied chord fails, and leaves both bindings intact.
+        let err = map
+            .rebind(
+                &CommandId::new("tab.new"),
+                KeyChord::parse("primary+w").unwrap(),
+            )
+            .unwrap_err();
+        assert!(matches!(err, KeymapError::Conflict { .. }));
+        assert_eq!(
+            map.resolve(&KeyChord::parse("primary+n").unwrap())
+                .unwrap()
+                .as_str(),
+            "tab.new"
+        );
+        assert_eq!(
+            map.resolve(&KeyChord::parse("primary+w").unwrap())
+                .unwrap()
+                .as_str(),
+            "tab.close"
+        );
+    }
+
+    #[test]
+    fn a_saved_keymap_reloads_to_the_same_bindings() {
+        // What is written is what the loader reads: no second format to drift.
+        let original = Keymap::parse(
+            "test",
+            "primary+t = tab.new\nf5 = file.copy_to_target_pane\nalt+left = nav.back\n\
+             ctrl+shift+r = view.refresh\ninsert = file.mark.toggle",
+        )
+        .unwrap();
+
+        let reloaded = Keymap::parse("test", &original.to_text()).unwrap();
+        assert_eq!(reloaded.len(), original.len());
+        for (chord, command) in original.iter() {
+            assert_eq!(reloaded.resolve(chord), Some(command));
+        }
+    }
+
+    #[test]
+    fn unbinding_leaves_the_command_with_no_shortcut() {
+        let mut map = Keymap::parse("test", "primary+t = tab.new").unwrap();
+        assert_eq!(map.unbind_command(&CommandId::new("tab.new")), 1);
+        assert!(map.chords_for(&CommandId::new("tab.new")).is_empty());
+        assert!(map.is_empty());
     }
 
     #[test]

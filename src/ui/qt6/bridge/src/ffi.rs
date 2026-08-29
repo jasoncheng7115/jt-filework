@@ -936,6 +936,179 @@ pub unsafe extern "C" fn jtf_set_keymap(app: *mut App, name: *const c_char) {
     }
 }
 
+// --------------------------------------------------------------- settings
+
+/// How many commands the registry holds.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_command_count(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::try_from(a.command_count()).unwrap_or(0))
+}
+
+/// One command's id, label key and category key, for a settings list.
+///
+/// # Safety
+/// See [`jtf_app_free`]; the buffers must be writable or null.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_command_at(
+    app: *const App,
+    index: c_int,
+    id_buf: *mut c_char,
+    id_len: c_int,
+    label_buf: *mut c_char,
+    label_len: c_int,
+    category_buf: *mut c_char,
+    category_len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let Some((id, label, category)) = app.command_at(usize::try_from(index).unwrap_or(0)) else {
+        return 0;
+    };
+    unsafe { write_str(&id, id_buf, id_len) };
+    unsafe { write_str(label, label_buf, label_len) };
+    unsafe { write_str(category, category_buf, category_len) };
+    1
+}
+
+/// Whether a command can destroy data.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_command_is_destructive(app: *const App, index: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        c_int::from(a.command_is_destructive(usize::try_from(index).unwrap_or(0)))
+    })
+}
+
+/// Bind a chord to a command.
+///
+/// Returns 1 on success. On a conflict returns 0 and writes the id of the
+/// command that already owns the chord into `conflict_buf`, so the UI can name
+/// it rather than merely refusing.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `command` and `chord` must be valid C strings.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_bind_shortcut(
+    app: *mut App,
+    command: *const c_char,
+    chord: *const c_char,
+    conflict_buf: *mut c_char,
+    conflict_len: c_int,
+) -> c_int {
+    let Some(command) = (unsafe { read_str(command) }) else {
+        return 0;
+    };
+    let Some(chord) = (unsafe { read_str(chord) }) else {
+        return 0;
+    };
+    let Some(app) = (unsafe { app_mut(app) }) else {
+        return 0;
+    };
+
+    match app.bind_shortcut(command, chord) {
+        Ok(()) => 1,
+        Err(conflict) => {
+            unsafe { write_str(&conflict, conflict_buf, conflict_len) };
+            0
+        }
+    }
+}
+
+/// Remove a command's shortcut.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `command` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_clear_shortcut(app: *mut App, command: *const c_char) {
+    let Some(command) = (unsafe { read_str(command) }) else {
+        return;
+    };
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.clear_shortcut(command);
+    }
+}
+
+/// Discard every customisation and go back to the preset.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_reset_shortcuts(app: *mut App) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.reset_shortcuts();
+    }
+}
+
+/// Startup behaviour: 0 last session, 1 home, 2 a fixed location.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_startup_mode(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, App::startup_mode)
+}
+
+/// The fixed start location, when there is one.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_startup_location(
+    app: *const App,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    unsafe { write_str(&app.startup_location(), buf, len) }
+}
+
+/// Set startup behaviour. Switching away from the last session erases it.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `location` must be null or a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_startup(app: *mut App, mode: c_int, location: *const c_char) {
+    let location = unsafe { read_str(location) }.unwrap_or("");
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_startup(mode, location);
+    }
+}
+
+/// Whether closed tabs are remembered between runs.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_remember_closed_tabs(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(1, |a| c_int::from(a.remember_closed_tabs()))
+}
+
+/// Whether marks are remembered between runs.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_remember_marks(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(1, |a| c_int::from(a.remember_marks()))
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_remember(app: *mut App, closed_tabs: c_int, marks: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_remember(closed_tabs != 0, marks != 0);
+    }
+}
+
 /// List font family, empty for the platform's own fixed-width font.
 ///
 /// # Safety

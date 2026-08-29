@@ -297,6 +297,7 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("ai.ask", C::Ai, "command.ai.ask"),
     ("jobs.show", C::Jobs, "command.jobs.show"),
     ("jobs.cancel_active", C::Jobs, "command.jobs.cancel_active"),
+    ("settings.open", C::Settings, "command.settings.open"),
     ("theme.set", C::Settings, "command.theme.set"),
     ("locale.set", C::Settings, "command.locale.set"),
 ];

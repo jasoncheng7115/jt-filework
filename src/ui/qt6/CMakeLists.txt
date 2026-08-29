@@ -70,6 +70,8 @@ qt_add_executable(jt-filework
     cpp/icons.h
     cpp/operations.cpp
     cpp/operations.h
+    cpp/settingsdialog.cpp
+    cpp/settingsdialog.h
     cpp/bridge.h
     cpp/jtfstring.h)
 

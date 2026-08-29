@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
-use jtf_commands::{CommandId, CommandRegistry, Keymap};
+use jtf_commands::{Command, CommandId, CommandRegistry, KeyChord, Keymap, KeymapError};
 use jtf_core::i18n::{Catalog, LocaleId, Localizer};
 use jtf_core::theme::{Palette, ResolvedTheme, SystemAppearance, ThemeMode, ThemeToken};
 use jtf_core::{Error, FileEntry, FileKind, Location};
@@ -119,7 +119,11 @@ impl App {
             running: None,
             last_summary: None,
             registry: CommandRegistry::baseline(),
-            keymap: load_keymap(&repo_root, &settings.keymap),
+            keymap: {
+                let mut keymap = load_keymap(&repo_root, &settings.keymap);
+                apply_user_overrides(&mut keymap);
+                keymap
+            },
             settings,
             repo_root,
             session_path,
@@ -858,7 +862,136 @@ impl App {
     /// rather than leaving the application with no shortcuts at all.
     pub(crate) fn set_keymap(&mut self, name: &str) {
         self.keymap = load_keymap(&self.repo_root, name);
+        apply_user_overrides(&mut self.keymap);
         self.settings.keymap = self.keymap.name().to_string();
+    }
+
+    /// Commands, in registry order, for a settings list.
+    pub(crate) fn command_count(&self) -> usize {
+        self.registry.len()
+    }
+
+    /// One command's id, label key and category key.
+    pub(crate) fn command_at(&self, index: usize) -> Option<(String, &'static str, &'static str)> {
+        self.registry.iter().nth(index).map(|command| {
+            (
+                command.id().as_str().to_string(),
+                command.label_key(),
+                command.category().label_key(),
+            )
+        })
+    }
+
+    /// Whether a command can destroy data, so the settings list can mark it.
+    pub(crate) fn command_is_destructive(&self, index: usize) -> bool {
+        self.registry
+            .iter()
+            .nth(index)
+            .is_some_and(Command::is_destructive)
+    }
+
+    /// Bind a chord to a command.
+    ///
+    /// Returns `Ok(())`, or the id of the command that already owns the
+    /// chord. `docs/UI_TEST_PLAN.md` KEY-005 wants the conflict named, not
+    /// merely refused.
+    pub(crate) fn bind_shortcut(&mut self, command: &str, chord: &str) -> Result<(), String> {
+        let id = CommandId::new(command);
+        if !self.registry.contains(&id) {
+            return Err(String::new());
+        }
+        let parsed = KeyChord::parse(chord).map_err(|_| String::new())?;
+
+        match self.keymap.rebind(&id, parsed) {
+            Ok(()) => {
+                self.save_user_keymap();
+                Ok(())
+            }
+            Err(KeymapError::Conflict { existing, .. }) => Err(existing.as_str().to_string()),
+            Err(_) => Err(String::new()),
+        }
+    }
+
+    /// Remove a command's shortcut.
+    pub(crate) fn clear_shortcut(&mut self, command: &str) {
+        self.keymap.unbind_command(&CommandId::new(command));
+        self.save_user_keymap();
+    }
+
+    /// Forget every customisation and go back to the preset.
+    pub(crate) fn reset_shortcuts(&mut self) {
+        let _ = fs::remove_file(user_keymap_path());
+        let name = self.settings.keymap.clone();
+        self.keymap = load_keymap(&self.repo_root, &name);
+    }
+
+    /// Persist the whole keymap as the user's own.
+    ///
+    /// The full map rather than a diff: a preset that changes underneath a
+    /// stored diff would silently move the user's shortcuts around.
+    fn save_user_keymap(&self) {
+        let path = user_keymap_path();
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let temporary = path.with_extension("tmp");
+        if fs::write(&temporary, self.keymap.to_text()).is_ok() {
+            let _ = fs::rename(&temporary, &path);
+        }
+    }
+
+    // ------------------------------------------------------------- settings
+
+    /// Startup behaviour: 0 last session, 1 home, 2 a fixed location.
+    pub(crate) const fn startup_mode(&self) -> i32 {
+        match self.settings.restore_on_launch {
+            jtf_workspace::RestoreOnLaunch::LastSession => 0,
+            jtf_workspace::RestoreOnLaunch::HomeLocation => 1,
+            jtf_workspace::RestoreOnLaunch::FixedLocation { .. } => 2,
+        }
+    }
+
+    /// The fixed start location, when there is one.
+    pub(crate) fn startup_location(&self) -> String {
+        match &self.settings.restore_on_launch {
+            jtf_workspace::RestoreOnLaunch::FixedLocation { location } => location
+                .as_path()
+                .map_or_else(String::new, |path| path.display().to_string()),
+            _ => String::new(),
+        }
+    }
+
+    /// Set startup behaviour.
+    ///
+    /// Switching away from remembering the last session **erases** what was
+    /// stored, immediately: an off switch that leaves yesterday's paths on
+    /// disk is not an off switch (`docs/UI_UX_SPEC.md` §16.2).
+    pub(crate) fn set_startup(&mut self, mode: i32, location: &str) {
+        self.settings.restore_on_launch = match mode {
+            1 => jtf_workspace::RestoreOnLaunch::HomeLocation,
+            2 => jtf_workspace::RestoreOnLaunch::FixedLocation {
+                location: Location::local(location),
+            },
+            _ => jtf_workspace::RestoreOnLaunch::LastSession,
+        };
+        self.save_session();
+    }
+
+    /// Whether closed tabs are remembered between runs.
+    pub(crate) const fn remember_closed_tabs(&self) -> bool {
+        self.settings.remember_closed_tabs
+    }
+
+    /// Whether marks are remembered between runs.
+    pub(crate) const fn remember_marks(&self) -> bool {
+        self.settings.remember_marks
+    }
+
+    /// Set the two finer memory switches.
+    pub(crate) fn set_remember(&mut self, closed_tabs: bool, marks: bool) {
+        self.settings.remember_closed_tabs = closed_tabs;
+        self.settings.remember_marks = marks;
+        self.save_session();
     }
 
     /// The shortcut bound to a command, rendered for the toolkit.
@@ -1045,6 +1178,26 @@ fn locate_repo_root() -> PathBuf {
 /// Keymaps are data (`docs/UI_UX_SPEC.md` §7), so switching preset is reading
 /// a different file rather than running different code — which is what makes
 /// a settings screen for them a matter of editing data later.
+/// Where a user's own keymap lives, separate from the shipped presets.
+fn user_keymap_path() -> PathBuf {
+    let base = std::env::var_os("HOME").map_or_else(std::env::temp_dir, PathBuf::from);
+    base.join("Library/Application Support/jt-filework/user.keymap")
+}
+
+/// Layer the user's own bindings over the preset.
+fn apply_user_overrides(keymap: &mut Keymap) {
+    let Ok(text) = fs::read_to_string(user_keymap_path()) else {
+        return;
+    };
+    let Ok(user) = Keymap::parse(keymap.name(), &text) else {
+        return;
+    };
+    // The user's file is authoritative where it says anything at all.
+    for (chord, command) in user.iter() {
+        let _ = keymap.rebind(command, chord.clone());
+    }
+}
+
 fn load_keymap(repo_root: &std::path::Path, name: &str) -> Keymap {
     let wanted = if name.is_empty() { "platform" } else { name };
     let path = repo_root.join("keymaps").join(format!("{wanted}.keymap"));

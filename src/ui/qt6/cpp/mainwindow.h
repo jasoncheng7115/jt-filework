@@ -47,6 +47,7 @@ private:
     // What a menu item asks for. Kept separate from ops::Kind because rename
     // and new folder are not the same shape as copy and move.
     enum OperationRequest { OpCopy, OpMove, OpTrash, OpDelete, OpRename, OpNewFolder };
+    void openSettings();
     void runOperation(OperationRequest request);
     void updateOperationUi();
     void syncToolbar();

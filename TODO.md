@@ -32,8 +32,8 @@
 - [x] Add `zh-TW`
 - [ ] No hard-coded visible strings
 - [x] English fallback
-- [ ] Persist language preference
-- [ ] Runtime language switch PoC
+- [x] Persist language preference
+- [x] Runtime language switch PoC
 - [x] CI translation-key parity check
 - [x] Verify Taiwan terminology
 
@@ -54,11 +54,11 @@
 ## P0 — Theme
 
 - [x] Implement ThemeMode enum/model
-- [ ] Follow System
-- [ ] Light
-- [ ] Dark
-- [ ] Persist setting
-- [ ] Runtime switch
+- [x] Follow System
+- [x] Light
+- [x] Dark
+- [x] Persist setting
+- [x] Runtime switch
 - [x] Semantic theme tokens
 - [ ] Theme-safe icons
 - [ ] Active pane visibility in both modes
@@ -139,8 +139,8 @@
 - [x] Menu labels from the catalogue, shortcuts from the active keymap
 - [x] Switch preset at runtime; preference persisted
 - [x] Monospace list font, configurable family and size, persisted
-- [ ] Settings window (keymap editor, font picker, startup, theme, locale)
-- [ ] Per-command rebinding UI with conflict reporting
+- [x] Settings window (keymap editor, font picker, startup, theme, locale)
+- [x] Per-command rebinding UI with conflict reporting
 - [ ] Import/export a keymap
 - [ ] Command palette
 

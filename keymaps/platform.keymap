@@ -46,6 +46,8 @@ primary+shift+period = view.hidden
 primary+minus      = view.font.smaller
 primary+equal      = view.font.larger
 
+primary+comma       = settings.open
+
 # search and tools
 primary+f          = search.open
 primary+shift+f    = search.ai

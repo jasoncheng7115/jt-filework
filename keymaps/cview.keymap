@@ -54,5 +54,7 @@ primary+shift+v    = workspace.split.vertical
 primary+1          = workspace.preset.single
 primary+4          = workspace.preset.quad
 
+primary+comma      = settings.open
+
 # search
 primary+f          = search.open

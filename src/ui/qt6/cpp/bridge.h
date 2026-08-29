@@ -89,6 +89,22 @@ int jtf_shortcut_for(const JtfApp *app, const char *command, char *buf, int len)
 int jtf_has_command(const JtfApp *app, const char *command);
 int jtf_keymap_name(const JtfApp *app, char *buf, int len);
 void jtf_set_keymap(JtfApp *app, const char *name);
+// settings
+int jtf_command_count(const JtfApp *app);
+int jtf_command_at(const JtfApp *app, int index, char *id_buf, int id_len, char *label_buf,
+                   int label_len, char *category_buf, int category_len);
+int jtf_command_is_destructive(const JtfApp *app, int index);
+int jtf_bind_shortcut(JtfApp *app, const char *command, const char *chord, char *conflict_buf,
+                      int conflict_len);
+void jtf_clear_shortcut(JtfApp *app, const char *command);
+void jtf_reset_shortcuts(JtfApp *app);
+int jtf_startup_mode(const JtfApp *app);
+int jtf_startup_location(const JtfApp *app, char *buf, int len);
+void jtf_set_startup(JtfApp *app, int mode, const char *location);
+int jtf_remember_closed_tabs(const JtfApp *app);
+int jtf_remember_marks(const JtfApp *app);
+void jtf_set_remember(JtfApp *app, int closed_tabs, int marks);
+
 int jtf_font_family(const JtfApp *app, char *buf, int len);
 int jtf_font_point_size(const JtfApp *app);
 int jtf_font_monospace(const JtfApp *app);

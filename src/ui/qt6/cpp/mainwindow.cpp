@@ -3,6 +3,7 @@
 #include "panewidget.h"
 #include "icons.h"
 #include "operations.h"
+#include "settingsdialog.h"
 #include "theme.h"
 
 #include <QAction>
@@ -187,6 +188,9 @@ void MainWindow::buildMenus() {
     setting(keymapMenu, "keymap.platform", [this] { jtf_set_keymap(m_app, "platform"); });
     setting(keymapMenu, "keymap.cview", [this] { jtf_set_keymap(m_app, "cview"); });
 
+    m_viewMenu->addSeparator();
+    command(m_viewMenu, "settings.open", [this] { openSettings(); });
+
     auto *localeMenu = m_viewMenu->addMenu(QString());
     m_translatableMenus.append({localeMenu, "menu.language"});
     setting(localeMenu, "language.english", [this] { jtf_set_locale(m_app, "en"); });
@@ -203,6 +207,19 @@ void MainWindow::buildMenus() {
             jtf_navigate(m_app, jtf_active_pane(m_app), home.constData());
         }
     });
+}
+
+void MainWindow::openSettings() {
+    SettingsDialog dialog(m_app, this);
+    // Changes apply as they are made, so the window follows along live rather
+    // than waiting for the dialog to close.
+    connect(&dialog, &SettingsDialog::changed, this, [this] {
+        applyTheme();
+        applyFont();
+        refreshAll();
+    });
+    dialog.exec();
+    refreshAll();
 }
 
 void MainWindow::runOperation(OperationRequest request) {
