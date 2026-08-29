@@ -176,6 +176,8 @@ int jtf_can_undo(const JtfApp *app);
 int jtf_undo_label_key(const JtfApp *app, char *buf, int len);
 int jtf_undo(JtfApp *app);
 int jtf_op_running(const JtfApp *app);
+int jtf_op_queued(const JtfApp *app);
+void jtf_op_clear_queue(JtfApp *app);
 int jtf_op_percent(const JtfApp *app);
 int jtf_op_label_key(const JtfApp *app, char *buf, int len);
 int jtf_op_current(const JtfApp *app, char *buf, int len);

@@ -1067,6 +1067,26 @@ fn native_trash_bridge(path: &std::path::Path) -> Option<std::path::PathBuf> {
     Some(std::path::PathBuf::from(text))
 }
 
+/// How many operations are waiting behind the running one.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_queued(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::try_from(a.queued_count()).unwrap_or(0))
+}
+
+/// Drop everything waiting. The running operation is untouched.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_clear_queue(app: *mut App) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.clear_queue();
+    }
+}
+
 /// The pane's view mode: 0 list, 1 grid.
 ///
 /// # Safety

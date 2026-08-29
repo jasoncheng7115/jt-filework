@@ -640,9 +640,6 @@ void MainWindow::revealSelection() {
 }
 
 void MainWindow::runDrop(int pane, const QStringList &paths, int kind) {
-    if (jtf_op_running(m_app)) {
-        return;
-    }
     const QByteArray joined = paths.join(QLatin1Char('\n')).toUtf8();
     if (!jtf_op_prepare_drop(m_app, pane, kind, joined.constData()) ||
         !ops::awaitPlan(m_app, this)) {
@@ -1718,9 +1715,12 @@ void MainWindow::updateStatusSummary() {
     m_statusKeymap->setText(profileLabel(keymap));
     m_statusKeymap->setToolTip(
         jtfText([&](char *buf, int len) { return jtf_tr(m_app, "command.keymap.toggle", buf, len); }));
-    m_statusTasks->setText(jtf_op_running(m_app)
-                               ? jtfFill(tr_("status.tasks_running"), "count", QStringLiteral("1"))
-                               : QString());
+    // One running, plus whatever is waiting behind it.
+    const int queued = jtf_op_queued(m_app);
+    const int active = (jtf_op_running(m_app) ? 1 : 0) + queued;
+    m_statusTasks->setText(
+        active > 0 ? jtfFill(tr_("status.tasks_running"), "count", QString::number(active))
+                   : QString());
     // Tracked with a flag rather than by testing for an empty string: after
     // a language change the label still holds the *previous* language's
     // "Ready", which is not empty and would never be replaced.

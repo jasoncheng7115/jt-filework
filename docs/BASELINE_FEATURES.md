@@ -73,7 +73,7 @@ Status is one of **Done**, **Partial** (works, with the gap named), or
 | Feature | Status | Note |
 | --- | --- | --- |
 | 進度列 | Done | |
-| 檔案操作工作佇列 | Partial | One operation at a time; no queue view |
+| 檔案操作工作佇列 | Partial | Operations queue and run in turn, bounded; the status bar counts them, but there is no panel listing them |
 | Skip / Replace / Rename 同名處理 | Done | Plus "keep both" and abort |
 | Copy / Move 可取消 | Done | Cancellation is irreversible by design |
 | 右鍵選單 | Done | |

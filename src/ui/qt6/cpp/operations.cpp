@@ -126,9 +126,6 @@ bool ops::awaitPlan(JtfApp *app, QWidget *parent) {
 }
 
 bool ops::confirmAndStart(JtfApp *app, QWidget *parent, int pane, Kind kind, QString *message) {
-    if (jtf_op_running(app)) {
-        return false;
-    }
     if (!jtf_op_prepare(app, pane, static_cast<int>(kind)) || !ops::awaitPlan(app, parent)) {
         if (message) {
             *message = errorMessage(app);

@@ -45,6 +45,12 @@ pub(crate) const COLUMN_KIND: i32 = 3;
 #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 pub(crate) const COLUMN_COUNT: i32 = jtf_workspace::Column::ALL.len() as i32;
 
+/// How many operations may wait behind the running one.
+///
+/// Bounded because each holds a whole plan, and a plan holds every step it
+/// will take (`docs/SECURITY.md` §13).
+const MAX_QUEUED: usize = 64;
+
 /// An open viewer.
 ///
 /// One at a time: the UI shows one viewer window, and holding several open
@@ -143,6 +149,8 @@ pub struct App {
     planning: Option<crate::operations::Planning>,
     plan_error: Option<PlanError>,
     running: Option<crate::operations::Running>,
+    /// Operations waiting for the running one to finish.
+    queue: std::collections::VecDeque<(Plan, ConflictPolicy)>,
     viewer: Option<ViewerSession>,
     /// A second, independent read for the inspector's preview.
     ///
@@ -205,6 +213,7 @@ impl App {
             planning: None,
             plan_error: None,
             running: None,
+            queue: std::collections::VecDeque::new(),
             viewer: None,
             preview: None,
             last_summary: None,
@@ -1530,11 +1539,30 @@ impl App {
             return false;
         };
         if self.running.is_some() {
-            return false;
+            // Queued rather than refused. Being told "no, something else is
+            // copying" is the answer a file manager should never have to
+            // give: the second copy is work the user has already decided on.
+            if self.queue.len() >= MAX_QUEUED {
+                self.plan_error = Some(PlanError::NothingToDo);
+                return false;
+            }
+            self.queue.push_back((plan, policy));
+            return true;
         }
         self.last_summary = None;
         self.running = Some(crate::operations::Running::start(plan, policy));
         true
+    }
+
+    /// How many operations are waiting behind the running one.
+    pub(crate) fn queued_count(&self) -> usize {
+        self.queue.len()
+    }
+
+    /// Drop everything waiting. The running one is not touched: stopping it
+    /// is cancellation, which is a different decision.
+    pub(crate) fn clear_queue(&mut self) {
+        self.queue.clear();
     }
 
     /// Whether there is anything to undo.
@@ -2243,6 +2271,10 @@ impl App {
                     }
                     self.last_summary = Some(crate::operations::Summary::from_report(&report));
                 }
+            }
+            // Then the next one, if anything is waiting.
+            if let Some((plan, policy)) = self.queue.pop_front() {
+                self.running = Some(crate::operations::Running::start(plan, policy));
             }
             // Both panes may have changed on disk.
             let panes = self.workspace.pane_order();
