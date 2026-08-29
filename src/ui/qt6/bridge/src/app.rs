@@ -555,6 +555,52 @@ impl App {
         }
     }
 
+    /// Build a plan for sources that came from somewhere else — a drop from
+    /// another pane, or from Finder.
+    ///
+    /// The destination is the pane being dropped **on**, which is the only
+    /// reading of a drop that matches what the user pointed at.
+    pub(crate) fn prepare_drop(
+        &mut self,
+        pane: PaneId,
+        kind: crate::operations::OperationKind,
+        sources: Vec<PathBuf>,
+    ) -> bool {
+        self.plan_error = None;
+        self.pending_plan = None;
+        if sources.is_empty() {
+            return false;
+        }
+
+        let destination = if kind.needs_destination() {
+            match self
+                .workspace
+                .pane(pane)
+                .and_then(jtf_workspace::Pane::active_tab)
+                .and_then(|tab| tab.location().as_path())
+                .map(std::path::Path::to_path_buf)
+            {
+                Some(path) => Some(path),
+                None => return false,
+            }
+        } else {
+            None
+        };
+
+        // Dropping a thing onto the folder it already lives in is a no-op the
+        // user almost certainly did by accident, not a request to duplicate.
+        if let Some(destination) = &destination {
+            if sources
+                .iter()
+                .all(|source| source.parent() == Some(destination.as_path()))
+            {
+                return false;
+            }
+        }
+
+        self.set_plan(&kind.build(sources, destination))
+    }
+
     /// Build a rename plan.
     pub(crate) fn prepare_rename(&mut self, pane: PaneId, new_name: &str) -> bool {
         self.plan_error = None;

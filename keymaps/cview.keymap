@@ -39,9 +39,10 @@ alt+left           = nav.back
 alt+right          = nav.forward
 primary+home       = nav.home
 
-# marking: Space marks and Insert marks, as both tools allowed
+# marking: Space marks, as CView and WinCV always did. Quick Look moves to
+# Finder's own shortcut so that Space keeps its original meaning.
 space              = file.mark.toggle
-insert             = file.mark.toggle
+primary+y          = preview.quicklook
 primary+a          = file.mark.all
 primary+z          = file.mark.none
 primary+i          = file.mark.invert

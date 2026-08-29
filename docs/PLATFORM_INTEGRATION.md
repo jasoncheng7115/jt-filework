@@ -41,7 +41,10 @@ limitation, never a silent no-op.
 ## 2. macOS (first shipping target)
 
 ### 2.1 Preview
-- **Quick Look panel** via `QLPreviewPanel` for the Space shortcut
+- **Quick Look panel** via `QLPreviewPanel` for the Space shortcut —
+  implemented in `src/ui/qt6/cpp/platform/quicklook_mac.mm`, behind the
+  platform-neutral `quicklook::` interface, with a null implementation
+  elsewhere so no call site needs an `#ifdef`
 - **embedded preview** via `QLPreviewView` for the tool area
 - **thumbnails** via `QuickLookThumbnailing`
 - all of it out-of-band from the UI thread; generation is a Job

@@ -1,8 +1,13 @@
 #include "panewidget.h"
 #include "filelistmodel.h"
 #include "jtfstring.h"
+#include "platform/quicklook.h"
 
+#include <QDragMoveEvent>
+#include <QDropEvent>
 #include <QElapsedTimer>
+#include <QMimeData>
+#include <QUrl>
 #include <QItemSelectionModel>
 #include <QFontMetrics>
 #include <QEvent>
@@ -54,6 +59,13 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_view->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     m_view->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     m_view->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    // Dragging out reaches Finder; dropping in accepts from another pane or
+    // from Finder, because both speak text/uri-list.
+    m_view->setDragEnabled(true);
+    m_view->setAcceptDrops(true);
+    m_view->setDropIndicatorShown(true);
+    m_view->setDragDropMode(QAbstractItemView::DragDrop);
+    m_view->setDefaultDropAction(Qt::MoveAction);
     layout->addWidget(m_view, 1);
 
     m_status = new QLabel(this);
@@ -118,27 +130,83 @@ void PaneWidget::openRow(int row) {
     }
 }
 
+namespace {
+
+// What the drop should do, from the action Qt resolved out of the platform's
+// own modifier conventions. Respecting Qt here is what makes Option-drag mean
+// copy on macOS and Ctrl-drag mean copy elsewhere without this code knowing
+// which platform it is on.
+int dropKind(Qt::DropAction action) {
+    return action == Qt::CopyAction ? 0 : 1; // ops::Copy : ops::Move
+}
+
+} // namespace
+
+int PaneWidget::currentRow() const {
+    const QModelIndex current = m_view->currentIndex();
+    return current.isValid() ? current.row() : -1;
+}
+
+void PaneWidget::advanceCurrentRow() {
+    const int next = qMin(currentRow() + 1, m_model->rowCount() - 1);
+    if (next >= 0) {
+        m_view->setCurrentIndex(m_model->index(next, 0));
+    }
+}
+
+bool PaneWidget::handleDrop(QDropEvent *event) {
+    const QMimeData *data = event->mimeData();
+    if (!data->hasUrls()) {
+        return false;
+    }
+
+    QStringList paths;
+    for (const QUrl &url : data->urls()) {
+        // Only local files. A drop of an http URL is a download, which is a
+        // different feature and not one to fake.
+        if (url.isLocalFile()) {
+            paths << url.toLocalFile();
+        }
+    }
+    if (paths.isEmpty()) {
+        return false;
+    }
+
+    emit focusRequested(m_pane);
+    emit dropRequested(paths, dropKind(event->dropAction()));
+    return true;
+}
+
 bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     if (event->type() == QEvent::FocusIn || event->type() == QEvent::MouseButtonPress) {
         emit focusRequested(m_pane);
     }
 
+    switch (event->type()) {
+    case QEvent::DragEnter:
+    case QEvent::DragMove: {
+        auto *drag = static_cast<QDragMoveEvent *>(event);
+        if (drag->mimeData()->hasUrls()) {
+            drag->acceptProposedAction();
+            return true;
+        }
+        return false;
+    }
+    case QEvent::Drop: {
+        auto *drop = static_cast<QDropEvent *>(event);
+        if (handleDrop(drop)) {
+            drop->acceptProposedAction();
+            return true;
+        }
+        return false;
+    }
+    default:
+        break;
+    }
+
     if (event->type() == QEvent::KeyPress && watched == m_view) {
         auto *key = static_cast<QKeyEvent *>(event);
         switch (key->key()) {
-        case Qt::Key_Space: {
-            // Space marks. Marking is not selecting (AGENTS.md 10), so this
-            // must not disturb the view's own selection.
-            const QModelIndex current = m_view->currentIndex();
-            if (current.isValid()) {
-                jtf_toggle_mark(m_app, m_pane, current.row());
-                m_model->refresh();
-                const int next = qMin(current.row() + 1, m_model->rowCount() - 1);
-                m_view->setCurrentIndex(m_model->index(next, 0));
-                emit stateChanged();
-            }
-            return true;
-        }
         case Qt::Key_Return:
         case Qt::Key_Enter: {
             const QModelIndex current = m_view->currentIndex();

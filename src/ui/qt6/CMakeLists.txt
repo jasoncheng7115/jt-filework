@@ -5,7 +5,14 @@
 # replaceable, and this build file is the seam.
 
 cmake_minimum_required(VERSION 3.21)
-project(jt-filework-qt6 LANGUAGES CXX)
+
+# Objective-C++ is enabled on Apple only; the platform-neutral build never
+# sees it (AGENTS.md 5).
+if(APPLE)
+    project(jt-filework-qt6 LANGUAGES CXX OBJCXX)
+else()
+    project(jt-filework-qt6 LANGUAGES CXX)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -72,8 +79,17 @@ qt_add_executable(jt-filework
     cpp/operations.h
     cpp/settingsdialog.cpp
     cpp/settingsdialog.h
+    cpp/platform/quicklook.h
     cpp/bridge.h
     cpp/jtfstring.h)
+
+# One platform implementation, chosen here rather than by an #ifdef inside a
+# shared file.
+if(APPLE)
+    target_sources(jt-filework PRIVATE cpp/platform/quicklook_mac.mm)
+else()
+    target_sources(jt-filework PRIVATE cpp/platform/quicklook_stub.cpp)
+endif()
 
 add_dependencies(jt-filework rust_bridge)
 target_include_directories(jt-filework PRIVATE cpp)
@@ -84,7 +100,9 @@ if(APPLE)
     target_link_libraries(jt-filework PRIVATE
         "-framework CoreFoundation"
         "-framework Security"
-        "-framework SystemConfiguration")
+        "-framework SystemConfiguration"
+        "-framework AppKit"
+        "-framework Quartz")
 endif()
 
 # --- hardening ---------------------------------------------------------------

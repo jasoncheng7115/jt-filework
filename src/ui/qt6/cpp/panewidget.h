@@ -7,6 +7,7 @@
 #include "bridge.h"
 
 #include <QColor>
+#include <QStringList>
 #include <QFont>
 #include <QWidget>
 
@@ -26,6 +27,10 @@ public:
     void refresh();
     // Rows and status only: what changes while a directory streams in.
     void refreshRows();
+    // Row the keyboard is on, or -1. The window needs it for commands that
+    // act on the focused entry.
+    int currentRow() const;
+    void advanceCurrentRow();
     void retranslate();
     void setListFont(const QFont &font);
     void applyTheme(const QColor &mark, const QColor &directory, const QColor &indicator,
@@ -36,12 +41,15 @@ signals:
     void focusRequested(int paneId);
     void stateChanged();
     void selectionChanged();
+    // Paths dropped on this pane, and 0 for copy or 1 for move.
+    void dropRequested(const QStringList &paths, int kind);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void openRow(int row);
+    bool handleDrop(class QDropEvent *event);
     // Typing letters jumps to a matching row. docs/UI_UX_SPEC.md 5.4: it must
     // never start a rename and never trigger a destructive command.
     bool typeAhead(const QString &text);

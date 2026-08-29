@@ -34,8 +34,11 @@ f2                 = file.rename
 primary+backspace  = file.trash
 primary+shift+n    = file.new_folder
 
+# preview: Space is Quick Look on a Mac, which is what people press
+space              = preview.quicklook
+
 # marking
-space              = file.mark.toggle
+insert             = file.mark.toggle
 primary+shift+a    = file.mark.all
 primary+shift+z    = file.mark.none
 primary+shift+i    = file.mark.invert

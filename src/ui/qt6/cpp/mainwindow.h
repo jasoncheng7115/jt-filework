@@ -11,6 +11,7 @@
 #include "theme.h"
 
 #include <QHash>
+#include <QStringList>
 #include <QByteArray>
 #include <QFont>
 #include <QMainWindow>
@@ -49,9 +50,11 @@ private:
     enum OperationRequest { OpCopy, OpMove, OpTrash, OpDelete, OpRename, OpNewFolder };
     void openSettings();
     void runOperation(OperationRequest request);
+    void runDrop(int pane, const QStringList &paths, int kind);
     void updateOperationUi();
     void syncToolbar();
     void markActivePane();
+    PaneWidget *activePane() const;
     QString tr_(const char *key) const;
     QByteArray familyUtf8() const;
 

@@ -27,4 +27,8 @@ bool createFolder(JtfApp *app, QWidget *parent, int pane, QString *message);
 // Localized one-line summary of the finished operation, cleared as it is read.
 QString takeResult(JtfApp *app);
 
+// Asks how to resolve conflicts. Returns the policy, or -1 if the user backed
+// out. Shared with the drop path, which prepares its own plan.
+int askConflictPolicy(JtfApp *app, QWidget *parent, int conflicts);
+
 } // namespace ops

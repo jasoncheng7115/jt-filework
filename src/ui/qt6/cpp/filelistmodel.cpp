@@ -2,7 +2,10 @@
 #include "jtfstring.h"
 
 #include <QBrush>
+#include <QMimeData>
+#include <QUrl>
 #include <QFont>
+#include <QSet>
 
 FileListModel::FileListModel(JtfApp *app, int paneId, QObject *parent)
     : QAbstractTableModel(parent), m_app(app), m_pane(paneId) {
@@ -105,6 +108,56 @@ QVariant FileListModel::headerData(int section, Qt::Orientation orientation, int
     return jtfText([&](char *buf, int len) {
         return jtf_tr(m_app, keyUtf8.constData(), buf, len);
     });
+}
+
+Qt::ItemFlags FileListModel::flags(const QModelIndex &index) const {
+    Qt::ItemFlags base = QAbstractTableModel::flags(index);
+    if (index.isValid()) {
+        base |= Qt::ItemIsDragEnabled;
+        // Only a directory row is itself a drop target; dropping between rows
+        // means "into this folder", which the view handles as the empty area.
+        if (jtf_row_is_directory(m_app, m_pane, index.row())) {
+            base |= Qt::ItemIsDropEnabled;
+        }
+    } else {
+        base |= Qt::ItemIsDropEnabled;
+    }
+    return base;
+}
+
+QStringList FileListModel::mimeTypes() const {
+    return {QStringLiteral("text/uri-list")};
+}
+
+QMimeData *FileListModel::mimeData(const QModelIndexList &indexes) const {
+    QList<QUrl> urls;
+    QSet<int> seen;
+    for (const QModelIndex &index : indexes) {
+        if (!index.isValid() || seen.contains(index.row())) {
+            continue; // one URL per row, not one per selected cell
+        }
+        seen.insert(index.row());
+        const QString path = jtfText([&](char *buf, int len) {
+            return jtf_row_path(m_app, m_pane, index.row(), buf, len);
+        });
+        if (!path.isEmpty()) {
+            urls.append(QUrl::fromLocalFile(path));
+        }
+    }
+    if (urls.isEmpty()) {
+        return nullptr;
+    }
+    auto *data = new QMimeData;
+    data->setUrls(urls);
+    return data;
+}
+
+Qt::DropActions FileListModel::supportedDragActions() const {
+    return Qt::CopyAction | Qt::MoveAction;
+}
+
+Qt::DropActions FileListModel::supportedDropActions() const {
+    return Qt::CopyAction | Qt::MoveAction;
 }
 
 void FileListModel::refresh() {

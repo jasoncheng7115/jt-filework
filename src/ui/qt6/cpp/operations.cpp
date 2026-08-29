@@ -22,8 +22,10 @@ QString errorMessage(const JtfApp *app) {
     return jtfText([&](char *buf, int len) { return jtf_tr(app, utf8.constData(), buf, len); });
 }
 
+} // namespace
+
 // Asks about conflicts. Returns the policy, or -1 if the user backed out.
-int askConflictPolicy(JtfApp *app, QWidget *parent, int conflicts) {
+int ops::askConflictPolicy(JtfApp *app, QWidget *parent, int conflicts) {
     QMessageBox box(parent);
     box.setIcon(QMessageBox::Question);
     box.setWindowTitle(tr_(app, "operation.confirm_title"));
@@ -53,6 +55,8 @@ int askConflictPolicy(JtfApp *app, QWidget *parent, int conflicts) {
     }
     return -1;
 }
+
+namespace {
 
 bool confirmIrreversible(JtfApp *app, QWidget *parent, int entries) {
     QMessageBox box(parent);
@@ -89,7 +93,7 @@ bool ops::confirmAndStart(JtfApp *app, QWidget *parent, int pane, Kind kind, QSt
     int policy = 0;
     const int conflicts = jtf_op_conflicts(app);
     if (conflicts > 0) {
-        policy = askConflictPolicy(app, parent, conflicts);
+        policy = ops::askConflictPolicy(app, parent, conflicts);
         if (policy < 0) {
             return false;
         }
@@ -119,7 +123,7 @@ bool nameThenStart(JtfApp *app, QWidget *parent, int pane, const char *titleKey,
         return false;
     }
     if (jtf_op_conflicts(app) > 0) {
-        const int policy = askConflictPolicy(app, parent, jtf_op_conflicts(app));
+        const int policy = ops::askConflictPolicy(app, parent, jtf_op_conflicts(app));
         if (policy < 0) {
             return false;
         }

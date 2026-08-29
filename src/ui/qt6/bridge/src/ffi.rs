@@ -615,6 +615,37 @@ pub unsafe extern "C" fn jtf_op_prepare(app: *mut App, pane_id: c_int, kind: c_i
     })
 }
 
+/// Build a plan for dropped sources, newline-separated.
+///
+/// A newline-separated list rather than an array of pointers: paths cannot
+/// contain a newline on any platform this targets, the encoding is obvious in
+/// a debugger, and there is no array lifetime to get wrong across the
+/// boundary.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `paths` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_prepare_drop(
+    app: *mut App,
+    pane_id: c_int,
+    kind: c_int,
+    paths: *const c_char,
+) -> c_int {
+    let Some(paths) = (unsafe { read_str(paths) }) else {
+        return 0;
+    };
+    let sources: Vec<std::path::PathBuf> = paths
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(std::path::PathBuf::from)
+        .collect();
+
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        c_int::from(a.prepare_drop(pane(pane_id), OperationKind::from_code(kind), sources))
+    })
+}
+
 /// # Safety
 /// See [`jtf_app_free`]; `new_name` must be a valid C string.
 #[no_mangle]

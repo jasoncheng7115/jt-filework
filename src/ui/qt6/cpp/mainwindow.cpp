@@ -3,6 +3,7 @@
 #include "panewidget.h"
 #include "icons.h"
 #include "operations.h"
+#include "platform/quicklook.h"
 #include "settingsdialog.h"
 #include "theme.h"
 
@@ -156,6 +157,28 @@ void MainWindow::buildMenus() {
     command(m_viewMenu, "workspace.preset.single", [this] { jtf_apply_preset(m_app, 0); });
     command(m_viewMenu, "workspace.preset.quad", [this] { jtf_apply_preset(m_app, 3); });
     m_viewMenu->addSeparator();
+    // Which key marks and which key previews is the keymap's decision, not
+    // this file's: the platform preset gives Space to Quick Look because that
+    // is what a Mac user expects, and the CView preset gives it to marking
+    // because that is what a CView user expects.
+    command(m_viewMenu, "file.mark.toggle", [this] {
+        PaneWidget *pane = activePane();
+        if (!pane || pane->currentRow() < 0) {
+            return;
+        }
+        jtf_toggle_mark(m_app, pane->paneId(), pane->currentRow());
+        pane->advanceCurrentRow();
+    });
+    command(m_viewMenu, "preview.quicklook", [this] {
+        PaneWidget *pane = activePane();
+        if (!pane || pane->currentRow() < 0) {
+            return;
+        }
+        const int row = pane->currentRow();
+        quicklook::toggle(jtfText([&](char *buf, int len) {
+            return jtf_row_path(m_app, pane->paneId(), row, buf, len);
+        }));
+    });
     command(m_viewMenu, "file.mark.all",
             [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 0); });
     command(m_viewMenu, "file.mark.none",
@@ -220,6 +243,35 @@ void MainWindow::openSettings() {
     });
     dialog.exec();
     refreshAll();
+}
+
+void MainWindow::runDrop(int pane, const QStringList &paths, int kind) {
+    if (jtf_op_running(m_app)) {
+        return;
+    }
+    const QByteArray joined = paths.join(QLatin1Char('\n')).toUtf8();
+    if (!jtf_op_prepare_drop(m_app, pane, kind, joined.constData())) {
+        // Dropping into the folder something already lives in is the common
+        // accident, and produces no plan; saying nothing is right there.
+        const QString key =
+            jtfText([&](char *buf, int len) { return jtf_op_error_key(m_app, buf, len); });
+        if (!key.isEmpty()) {
+            const QByteArray utf8 = key.toUtf8();
+            m_statusMessage->setText(jtfText(
+                [&](char *buf, int len) { return jtf_tr(m_app, utf8.constData(), buf, len); }));
+        }
+        return;
+    }
+
+    int policy = 0;
+    if (jtf_op_conflicts(m_app) > 0) {
+        policy = ops::askConflictPolicy(m_app, this, jtf_op_conflicts(m_app));
+        if (policy < 0) {
+            return;
+        }
+    }
+    jtf_op_start(m_app, policy);
+    updateOperationUi();
 }
 
 void MainWindow::runOperation(OperationRequest request) {
@@ -432,6 +484,10 @@ QWidget *MainWindow::buildNode(const QJsonObject &node) {
             markActivePane();
         });
         connect(pane, &PaneWidget::stateChanged, this, [this] { refreshAll(); });
+        connect(pane, &PaneWidget::dropRequested, this,
+                [this, paneId](const QStringList &paths, int kind) {
+                    runDrop(paneId, paths, kind);
+                });
         m_panes.insert(paneId, pane);
         return pane;
     }
@@ -464,6 +520,10 @@ void MainWindow::rebuildLayout() {
     m_root = widget;
     applyTheme();
     markActivePane();
+}
+
+PaneWidget *MainWindow::activePane() const {
+    return m_panes.value(jtf_active_pane(m_app), nullptr);
 }
 
 void MainWindow::markActivePane() {

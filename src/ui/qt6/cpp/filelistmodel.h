@@ -11,6 +11,8 @@
 
 #include <QAbstractTableModel>
 #include <QColor>
+#include <QMimeData>
+#include <QUrl>
 
 class FileListModel : public QAbstractTableModel {
     Q_OBJECT
@@ -33,6 +35,17 @@ public:
     // happens only when the row set changes identity: a new location, a
     // re-sort, a filter change.
     void refresh();
+
+    // Drag and drop. The model produces and accepts text/uri-list, which is
+    // what Finder, Explorer and every Linux file manager speak, so pane-to-pane
+    // and app-to-Finder are the same code path rather than two
+    // (docs/PRODUCT_SPEC.md 9).
+    Qt::ItemFlags flags(const QModelIndex &index) const override;
+    QStringList mimeTypes() const override;
+    QMimeData *mimeData(const QModelIndexList &indexes) const override;
+    Qt::DropActions supportedDragActions() const override;
+    Qt::DropActions supportedDropActions() const override;
+
 
     void setMarkColor(const QColor &color) { m_markColor = color; }
     void clearIconCache() { m_icons.clear(); }

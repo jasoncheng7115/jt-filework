@@ -160,16 +160,16 @@
 
 ## P0 — Drag & Drop
 
-- [ ] pane -> pane
-- [ ] Finder -> app
-- [ ] app -> Finder
-- [ ] modifiers
-- [ ] multi-file
+- [x] pane -> pane
+- [x] Finder -> app
+- [x] app -> Finder
+- [x] modifiers
+- [x] multi-file
 - [ ] tab -> pane
 
 ## P0 — macOS Native
 
-- [ ] Quick Look panel
+- [x] Quick Look panel
 - [ ] Embedded Quick Look
 - [ ] thumbnails
 - [ ] Open With
@@ -182,6 +182,14 @@
 - [ ] Share/Services research
 - [ ] context menu research
 - [ ] system appearance integration
+
+## P0 — Quick Look / Preview
+
+- [x] Native QLPreviewPanel, toggled by the keymap's preview command
+- [x] Space is Quick Look on the platform preset, marking on the CView preset
+- [ ] Follow the selection with arrow keys while the panel is open
+- [ ] Embedded Quick Look in the tool area
+- [ ] Null implementation verified on Windows and Linux builds
 
 ## P1 — Viewer
 
