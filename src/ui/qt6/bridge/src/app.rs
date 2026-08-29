@@ -531,7 +531,8 @@ impl App {
             .workspace
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
-            .and_then(|t| t.location().parent());
+            .and_then(|t| t.location().parent())
+            .map(Self::containing_folder);
         if let Some(parent) = parent {
             // Remember which folder we are stepping out of, so the cursor
             // lands on it rather than at the top of a list you were just in
@@ -592,11 +593,17 @@ impl App {
         let Some(path) = entry.location().as_path().map(std::path::Path::to_path_buf) else {
             return false;
         };
-        if !path.is_dir() {
-            return false;
+        if path.is_dir() {
+            self.navigate(pane, &path.display().to_string());
+            return true;
         }
-        self.navigate(pane, &path.display().to_string());
-        true
+        // An archive is entered like a folder rather than handed to whatever
+        // application owns .zip - which would extract it, not show it.
+        if matches!(detect(&path), Ok(ContentKind::Archive)) {
+            self.navigate(pane, &path.display().to_string());
+            return true;
+        }
+        false
     }
 
     // ---------------------------------------------------------------- rows
@@ -840,6 +847,7 @@ impl App {
                 .pane(pane)
                 .and_then(jtf_workspace::Pane::active_tab)
                 .and_then(|tab| tab.location().parent())
+                .map(Self::containing_folder)
                 .and_then(|parent| parent.as_path().map(|p| p.display().to_string()))
                 .unwrap_or_default();
         }
@@ -1617,6 +1625,21 @@ impl App {
         is_text
     }
 
+    /// A location, adjusted so it names something you can be *inside*.
+    ///
+    /// Leaving an archive's root gives the archive file itself, which is
+    /// correct as a location and useless as a destination: navigating there
+    /// puts you straight back inside it. The folder holding it is what
+    /// "up" means from there.
+    fn containing_folder(location: Location) -> Location {
+        match location.as_path() {
+            Some(path) if path.is_file() => path
+                .parent()
+                .map_or_else(|| location.clone(), Location::local),
+            _ => location,
+        }
+    }
+
     /// The archive at `path` as display lines, or empty when it is not one.
     ///
     /// Formatted here rather than in the UI so the entry name, which comes
@@ -2004,6 +2027,14 @@ impl App {
                 tab.sort_by(key);
             }
         }
+        // Read before the mutable borrow of the view below.
+        let show_hidden = self.show_hidden;
+        let folders_first = self.settings.folders_first;
+        let needle = self
+            .workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .map_or_else(String::new, |tab| tab.filter().text.to_lowercase());
         let sort = self
             .workspace
             .pane(pane)
@@ -2093,6 +2124,14 @@ impl App {
     /// The header needs this to draw its indicator: sorting is done here, not
     /// by the view, so the view has to be told what it is showing.
     pub(crate) fn sort_column(&self, pane: PaneId) -> i32 {
+        // Read before the mutable borrow of the view below.
+        let show_hidden = self.show_hidden;
+        let folders_first = self.settings.folders_first;
+        let needle = self
+            .workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .map_or_else(String::new, |tab| tab.filter().text.to_lowercase());
         let sort = self
             .workspace
             .pane(pane)
@@ -2262,6 +2301,14 @@ impl App {
         if let Some(path) = location.as_path() {
             self.places.visit(path);
         }
+        // Read before the mutable borrow of the view below.
+        let show_hidden = self.show_hidden;
+        let folders_first = self.settings.folders_first;
+        let needle = self
+            .workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .map_or_else(String::new, |tab| tab.filter().text.to_lowercase());
         let sort = self
             .workspace
             .pane(pane)
@@ -2283,6 +2330,18 @@ impl App {
         view.sort = sort;
         view.loading = true;
         view.generation += 1;
+
+        // An archive is browsed like a folder. CV.HLP 4: pressing Enter on a
+        // ZIP shows what is inside it, and from there you look around. The
+        // listing is synthesised here rather than by the provider, because a
+        // provider enumerates a filesystem and an archive is a file.
+        if let Some(entries) = archive_entries(&location) {
+            view.entries = entries;
+            view.loading = false;
+            sort_entries_with(&mut view.entries, sort, folders_first);
+            Self::recompute_visible(view, &needle, show_hidden);
+            return;
+        }
 
         match self.provider.enumerate_async(&location) {
             Ok(handle) => view.handle = Some(handle),
@@ -2811,5 +2870,130 @@ mod tests {
         );
         assert_eq!(listed_row(true, 1), Some(0));
         assert_eq!(listed_row(true, 8), Some(7));
+    }
+}
+
+/// The entries of an archive, when `location` names one.
+///
+/// Returns `None` for anything that is not an archive we can list, so the
+/// caller falls through to the ordinary filesystem enumeration.
+fn archive_entries(location: &Location) -> Option<Vec<FileEntry>> {
+    let path = location.as_path()?;
+    if path.is_dir() || !path.is_file() {
+        return None;
+    }
+    if !matches!(detect(path), Ok(ContentKind::Archive)) {
+        return None;
+    }
+    let members = jtf_viewer::list_archive(path).ok()?;
+
+    let mut entries = Vec::with_capacity(members.len());
+    for member in members {
+        // Flat, with the stored path as the name, which is what CView's
+        // archive view shows. Synthesising a folder tree from the stored
+        // names would mean inventing directories the archive may not
+        // contain, and would hide the very thing worth seeing: a member
+        // whose name escapes is displayed exactly as it is stored.
+        if member.is_directory {
+            continue;
+        }
+        let name = member.name.trim_end_matches('/');
+        if name.is_empty() {
+            continue;
+        }
+        entries.push(
+            FileEntry::new(
+                Location::archive_member(location.clone(), member.name.clone()),
+                jtf_core::RawName::new(name),
+                FileKind::File,
+            )
+            .with_size(member.size),
+        );
+    }
+    Some(entries)
+}
+
+#[cfg(test)]
+mod archive_browsing_tests {
+    use super::archive_entries;
+    use jtf_core::Location;
+
+    /// Built by the system's own zip, so this checks the real path a user
+    /// takes rather than a fixture shaped to pass.
+    fn sample() -> Option<std::path::PathBuf> {
+        let dir = std::env::temp_dir().join("jtf-archive-browse");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("sub")).ok()?;
+        std::fs::write(dir.join("readme.txt"), b"hello").ok()?;
+        std::fs::write(dir.join("sub/big.log"), vec![b'x'; 4000]).ok()?;
+
+        let archive = std::env::temp_dir().join("jtf-archive-browse.zip");
+        let _ = std::fs::remove_file(&archive);
+        let ok = std::process::Command::new("zip")
+            .arg("-qr")
+            .arg(&archive)
+            .arg(".")
+            .current_dir(&dir)
+            .output()
+            .is_ok_and(|out| out.status.success());
+        let _ = std::fs::remove_dir_all(&dir);
+        ok.then_some(archive)
+    }
+
+    #[test]
+    fn an_archive_lists_as_entries_a_pane_can_show() {
+        let Some(archive) = sample() else {
+            return; // no zip(1) here; nothing to check against
+        };
+        let entries = archive_entries(&Location::local(&archive)).expect("an archive lists");
+        let names: Vec<String> = entries.iter().map(|e| e.display_name()).collect();
+
+        assert!(
+            names.iter().any(|n| n.ends_with("readme.txt")),
+            "expected readme.txt among {names:?}"
+        );
+        assert!(
+            names.iter().any(|n| n.contains("big.log")),
+            "expected sub/big.log among {names:?}"
+        );
+        assert!(
+            names.iter().all(|n| !n.ends_with('/')),
+            "directory entries are not listed; the view is flat: {names:?}"
+        );
+
+        let big = entries
+            .iter()
+            .find(|e| e.display_name().contains("big.log"))
+            .expect("big.log");
+        assert_eq!(
+            big.size(),
+            Some(4000),
+            "the size shown is the uncompressed one, which is what a person \
+             is asking when they look"
+        );
+        assert!(
+            matches!(big.location(), Location::ArchiveMember { .. }),
+            "an entry inside an archive is an archive member, not a path on \
+             disk - operations must not treat it as a file they can open"
+        );
+        let _ = std::fs::remove_file(&archive);
+    }
+
+    #[test]
+    fn an_ordinary_file_is_not_mistaken_for_an_archive() {
+        let path = std::env::temp_dir().join("jtf-not-archive.txt");
+        std::fs::write(&path, b"just text").expect("write");
+        assert!(
+            archive_entries(&Location::local(&path)).is_none(),
+            "falling through to the filesystem is what makes every other \
+             file still open normally"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_directory_is_not_treated_as_an_archive() {
+        let dir = std::env::temp_dir();
+        assert!(archive_entries(&Location::local(&dir)).is_none());
     }
 }

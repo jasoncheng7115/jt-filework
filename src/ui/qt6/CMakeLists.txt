@@ -191,6 +191,13 @@ if(APPLE)
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${JTF_DATA_ROOT}/assets/icons"
             "$<TARGET_BUNDLE_CONTENT_DIR:jt-filework>/Resources/icons"
+        # Empty .lproj directories alongside the declaration above: some of
+        # the system's lookups check for a real directory rather than reading
+        # Info.plist, and an absent one silently means "not localized".
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_BUNDLE_CONTENT_DIR:jt-filework>/Resources/en.lproj"
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_BUNDLE_CONTENT_DIR:jt-filework>/Resources/zh-Hant.lproj"
         COMMENT "Copying locales and keymaps into the bundle")
 else()
     set_target_properties(jt-filework PROPERTIES

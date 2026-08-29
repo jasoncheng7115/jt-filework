@@ -1,5 +1,6 @@
 #include "headerview.h"
 
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 
@@ -11,6 +12,7 @@ constexpr int kCaretGap = 6;
 } // namespace
 
 JtfHeaderView::JtfHeaderView(QWidget *parent) : QHeaderView(Qt::Horizontal, parent) {
+    setMouseTracking(true);
     setSectionsClickable(true);
     setHighlightSections(false);
     // Qt's indicator is replaced, not merely restyled, so it must not also
@@ -71,6 +73,8 @@ void JtfHeaderView::paintSection(QPainter *painter, const QRect &rect, int index
                       Qt::AlignVCenter | Qt::AlignLeft,
                       shown);
 
+    paintDivider(painter, rect, index);
+
     if (!sorted) {
         painter->restore();
         return;
@@ -97,4 +101,48 @@ void JtfHeaderView::paintSection(QPainter *painter, const QRect &rect, int index
     painter->drawPath(caret);
 
     painter->restore();
+}
+
+void JtfHeaderView::paintDivider(QPainter *painter, const QRect &rect, int index) const {
+    // The grab handle has to be visible or the column is not resizable in
+    // practice: people aim at what they can see. A full-height rule between
+    // every column drew the table's structure instead of its contents, so
+    // this is a short one, inset from both edges, and brighter under the
+    // pointer - which is also the moment it matters.
+    if (index >= count() - 1) {
+        return; // nothing to resize past the last column
+    }
+    const int inset = qMax(4, rect.height() / 4);
+    const bool hot = index == m_hoveredDivider;
+    painter->save();
+    painter->setPen(QPen(hot ? m_text : m_dim, hot ? 1.4 : 1.0));
+    painter->drawLine(rect.right(), rect.top() + inset, rect.right(), rect.bottom() - inset);
+    painter->restore();
+}
+
+void JtfHeaderView::mouseMoveEvent(QMouseEvent *event) {
+    // Which divider the pointer is near, by the same margin Qt uses to decide
+    // that a press starts a resize.
+    constexpr int kGrabMargin = 4;
+    int near = -1;
+    for (int i = 0; i < count() - 1; ++i) {
+        const int edge = sectionViewportPosition(i) + sectionSize(i);
+        if (qAbs(event->position().x() - edge) <= kGrabMargin) {
+            near = i;
+            break;
+        }
+    }
+    if (near != m_hoveredDivider) {
+        m_hoveredDivider = near;
+        viewport()->update();
+    }
+    QHeaderView::mouseMoveEvent(event);
+}
+
+void JtfHeaderView::leaveEvent(QEvent *event) {
+    if (m_hoveredDivider != -1) {
+        m_hoveredDivider = -1;
+        viewport()->update();
+    }
+    QHeaderView::leaveEvent(event);
 }

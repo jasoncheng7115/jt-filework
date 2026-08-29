@@ -20,11 +20,20 @@ public:
 
     void applyTheme(const QColor &text, const QColor &dim, const QColor &indicator);
 
+private:
+    void paintDivider(QPainter *painter, const QRect &rect, int index) const;
+
+public:
+
 protected:
     void paintSection(QPainter *painter, const QRect &rect, int index) const override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void leaveEvent(QEvent *event) override;
 
 private:
     QColor m_text;
     QColor m_dim;
     QColor m_indicator;
+    /// Divider the pointer is near, or -1.
+    int m_hoveredDivider = -1;
 };

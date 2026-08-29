@@ -106,6 +106,9 @@ private:
     bool m_active = false;
     QColor m_indicator;
     quint64 m_positionedGeneration = 0;
+    /// Tab being dragged, or -1.
+    int m_dragTab = -1;
+    QPoint m_dragOrigin;
     class JtfHeaderView *m_header = nullptr;
     QColor m_border;
     QString m_typeAhead;

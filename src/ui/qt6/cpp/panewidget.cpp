@@ -246,9 +246,14 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
         }
     });
 
-    // Right-click a tab to move it out. The drag gesture comes next; this is
-    // the same operation reachable without one, which is also how it stays
-    // usable from the keyboard later.
+    // Dragging a tab far enough off the strip tears it into its own window,
+    // as a browser does. Qt's own tab dragging reorders within the strip, so
+    // this watches for the pointer leaving the strip's neighbourhood and
+    // takes over from there.
+    m_tabs->installEventFilter(this);
+
+    // The same operation is on the tab's context menu, so it stays reachable
+    // without the gesture - and reachable from the keyboard later.
     m_tabs->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_tabs, &QWidget::customContextMenuRequested, this, [this](const QPoint &at) {
         const int index = m_tabs->tabAt(at);
@@ -482,6 +487,11 @@ void PaneWidget::fitNameColumn() {
 
 namespace {
 
+// How far below the tab strip the pointer must go before a drag means "tear
+// this out" rather than "reorder these". Generous, because tearing off by
+// accident loses your place.
+constexpr int kTearOffDistance = 28;
+
 // What the drop should do, from the action Qt resolved out of the platform's
 // own modifier conventions. Respecting Qt here is what makes Option-drag mean
 // copy on macOS and Ctrl-drag mean copy elsewhere without this code knowing
@@ -576,6 +586,47 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     // Typing a filter narrows the list; the next thing anyone wants is to act
     // on what is left. Tab, Enter and Down all hand the keyboard to the list
     // rather than leaving it in a box whose work is done.
+    if (watched == m_tabs) {
+        switch (event->type()) {
+        case QEvent::MouseButtonPress: {
+            auto *mouse = static_cast<QMouseEvent *>(event);
+            if (mouse->button() == Qt::LeftButton) {
+                m_dragTab = m_tabs->tabAt(mouse->position().toPoint());
+                m_dragOrigin = mouse->globalPosition().toPoint();
+            }
+            break;
+        }
+        case QEvent::MouseMove: {
+            auto *mouse = static_cast<QMouseEvent *>(event);
+            if (m_dragTab < 0 || !(mouse->buttons() & Qt::LeftButton)) {
+                break;
+            }
+            // Vertical distance, not any distance: dragging sideways along
+            // the strip is Qt reordering the tabs, which is a different and
+            // equally wanted gesture. Only leaving the strip means "out".
+            const int dy = qAbs(mouse->globalPosition().toPoint().y() - m_dragOrigin.y());
+            if (dy > m_tabs->height() + kTearOffDistance) {
+                const int index = m_dragTab;
+                m_dragTab = -1;
+                // Released first, or the new window opens under a pointer
+                // that Qt still believes is dragging a tab in the old one.
+                QMouseEvent release(QEvent::MouseButtonRelease, mouse->position(),
+                                    mouse->globalPosition(), Qt::LeftButton, Qt::NoButton,
+                                    Qt::NoModifier);
+                QApplication::sendEvent(m_tabs, &release);
+                emit tearOffRequested(index);
+                return true;
+            }
+            break;
+        }
+        case QEvent::MouseButtonRelease:
+            m_dragTab = -1;
+            break;
+        default:
+            break;
+        }
+    }
+
     if (event->type() == QEvent::KeyPress && (watched == m_filter || watched == m_search)) {
         auto *key = static_cast<QKeyEvent *>(event);
         switch (key->key()) {

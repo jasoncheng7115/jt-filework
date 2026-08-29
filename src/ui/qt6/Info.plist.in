@@ -22,6 +22,25 @@
     <string>${CMAKE_OSX_DEPLOYMENT_TARGET}</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <!-- The languages this application speaks.
+         macOS picks an application's language from the localizations its
+         bundle declares, intersected with the user's preferred languages. A
+         bundle that declares none is treated as English-only, and everything
+         the system localizes *on the application's behalf* comes back in
+         English: UTType.localizedDescription (the Kind column),
+         NSFileManager displayNameAtPath (the sidebar's Desktop and
+         Downloads), and QLocale::system(), which is why that reported en_TW
+         on a Chinese machine.
+         Declared here rather than by shipping .strings files, because the
+         translations live in locales/ and are resolved by our own catalogue.
+    -->
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>zh-Hant</string>
+    </array>
     <!-- A file manager reads the user's whole disk by definition, so it asks
          for the folders macOS gates rather than failing silently in them. -->
     <key>NSDesktopFolderUsageDescription</key>
