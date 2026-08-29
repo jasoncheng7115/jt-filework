@@ -82,6 +82,13 @@ int jtf_tr(const JtfApp *app, const char *key, char *buf, int len);
 // operations
 void jtf_set_selection(JtfApp *app, int pane, const int *rows, int count);
 int jtf_op_prepare(JtfApp *app, int pane, int kind); // 0 copy 1 move 2 trash 3 delete
+int jtf_batch_preview(JtfApp *app, int pane, const char *template_, const char *find,
+                      const char *replace, int regex, int start);
+int jtf_batch_row(const JtfApp *app, int index, char *from_buf, int from_len, char *to_buf,
+                  int to_len, char *issue_buf, int issue_len);
+int jtf_batch_can_apply(const JtfApp *app, int *changes);
+int jtf_batch_apply(JtfApp *app);
+void jtf_batch_clear(JtfApp *app);
 int jtf_target_paths(const JtfApp *app, int pane, char *buf, int len);
 int jtf_target_names(const JtfApp *app, int pane, char *buf, int len);
 int jtf_op_prepare_duplicate(JtfApp *app, int pane);

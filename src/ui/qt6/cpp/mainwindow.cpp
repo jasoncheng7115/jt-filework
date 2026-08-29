@@ -2,6 +2,7 @@
 #include "jtfstring.h"
 #include "panewidget.h"
 #include "icons.h"
+#include "batchrenamedialog.h"
 #include "operations.h"
 #include "platform/quicklook.h"
 #include "settingsdialog.h"
@@ -148,6 +149,11 @@ void MainWindow::buildMenus() {
     command(m_fileMenu, "file.copy_path", [this] { copyText(true); });
     command(m_fileMenu, "file.copy_name", [this] { copyText(false); });
     m_fileMenu->addSeparator();
+    command(m_fileMenu, "file.batch_rename", [this] {
+        BatchRenameDialog dialog(m_app, jtf_active_pane(m_app), this);
+        dialog.exec();
+        refreshAll();
+    });
     command(m_fileMenu, "file.duplicate", [this] { runOperation(OpDuplicate); });
     command(m_fileMenu, "file.reveal", [this] { revealSelection(); });
     m_fileMenu->addSeparator();

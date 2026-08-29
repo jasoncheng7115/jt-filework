@@ -72,7 +72,7 @@ Status: **done** · **partial** · **planned** · **later** (after Phase 2) ·
 | Conflicts asked once, with skip as the safe default | done |
 | Drag and drop, in and out, with modifiers | done |
 | Duplicate in place | done |
-| Batch rename with a pattern and a preview | planned |
+| Batch rename with a pattern and a preview | done |
 | Undo for move, rename and trash | done |
 | Per-item conflict prompt with apply-to-all | planned |
 | Create a file from a template | planned |

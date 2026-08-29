@@ -13,7 +13,7 @@ use jtf_core::theme::{Palette, ResolvedTheme, SystemAppearance, ThemeMode, Theme
 use jtf_core::{Error, FileEntry, FileKind, Location};
 use jtf_fs::{Batch, EnumerationHandle, LocalProvider, Provider};
 use jtf_jobs::CancellationToken;
-use jtf_ops::{ConflictPolicy, Plan, PlanError, UndoRecord};
+use jtf_ops::{ConflictPolicy, Plan, PlanError, RenamePattern, RenamePreview, UndoRecord};
 use jtf_search::{SearchHandle, SearchUpdate};
 use jtf_viewer::{detect, ContentKind, Encoding, HexView, TextView};
 use jtf_workspace::{
@@ -112,6 +112,7 @@ pub struct App {
     viewer: Option<ViewerSession>,
     last_summary: Option<crate::operations::Summary>,
     undo_stack: Vec<UndoRecord>,
+    batch_preview: Option<RenamePreview>,
     registry: CommandRegistry,
     keymap: Keymap,
     dropped_bindings: usize,
@@ -152,6 +153,7 @@ impl App {
             viewer: None,
             last_summary: None,
             undo_stack: Vec::new(),
+            batch_preview: None,
             registry: CommandRegistry::baseline(),
             dropped_bindings: 0,
             keymap: load_keymap(&repo_root, &settings.keymap),
@@ -682,6 +684,98 @@ impl App {
             sources: sources.clone(),
             destination: parent.to_path_buf(),
         })
+    }
+
+    // --------------------------------------------------- batch rename
+
+    /// Recompute the batch-rename preview for the pane's targeted entries.
+    ///
+    /// The preview is the same computation the apply uses, so what the user
+    /// sees is what happens (`jtf_ops::batch`).
+    pub(crate) fn preview_batch(
+        &mut self,
+        pane: PaneId,
+        template: &str,
+        find: &str,
+        replace: &str,
+        regex: bool,
+        start: u64,
+    ) -> usize {
+        let sources = self.operation_sources(pane);
+        let pattern = RenamePattern {
+            template: template.to_string(),
+            find: find.to_string(),
+            replace: replace.to_string(),
+            regex,
+            start,
+        };
+        let preview = jtf_ops::preview_batch_rename(&sources, &pattern);
+        let rows = preview.rows.len();
+        self.batch_preview = Some(preview);
+        rows
+    }
+
+    /// One row of the current preview: original name, new name, issue key.
+    pub(crate) fn batch_row(&self, index: usize) -> Option<(String, String, &'static str)> {
+        let preview = self.batch_preview.as_ref()?;
+        let row = preview.rows.get(index)?;
+        Some((row.from.clone(), row.to.clone(), row.issue.label_key()))
+    }
+
+    /// Whether the preview can be applied, and how many rows would change.
+    pub(crate) fn batch_state(&self) -> (bool, usize) {
+        self.batch_preview.as_ref().map_or((false, 0), |preview| {
+            (
+                !preview.is_blocked() && preview.has_changes(),
+                preview.change_count(),
+            )
+        })
+    }
+
+    /// Apply the preview. Returns how many entries were renamed.
+    pub(crate) fn apply_batch(&mut self) -> usize {
+        let Some(preview) = self.batch_preview.take() else {
+            return 0;
+        };
+        match jtf_ops::apply_batch_rename(&preview) {
+            Ok(done) => {
+                let renamed = done.len();
+                // Reversible like any other rename, through the same stack.
+                if renamed > 0 {
+                    let report = jtf_ops::Report {
+                        outcomes: done
+                            .into_iter()
+                            .map(|(from, to)| {
+                                (
+                                    from,
+                                    jtf_ops::Outcome::Done {
+                                        destination: Some(to),
+                                    },
+                                )
+                            })
+                            .collect(),
+                        cancelled: false,
+                    };
+                    let operation = jtf_ops::Operation::Rename {
+                        source: PathBuf::new(),
+                        new_name: String::new(),
+                    };
+                    if let Some(record) = UndoRecord::from_report(&operation, &report) {
+                        self.undo_stack.push(record);
+                    }
+                }
+                renamed
+            }
+            Err(error) => {
+                self.plan_error = Some(PlanError::Failed(error));
+                0
+            }
+        }
+    }
+
+    /// Discard the preview.
+    pub(crate) fn clear_batch(&mut self) {
+        self.batch_preview = None;
     }
 
     /// Build a plan for sources that came from somewhere else — a drop from

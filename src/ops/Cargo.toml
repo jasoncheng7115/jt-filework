@@ -12,6 +12,10 @@ authors.workspace = true
 jtf-core = { workspace = true }
 jtf-jobs = { workspace = true }
 serde = { workspace = true }
+# A user-supplied find expression in batch rename is untrusted input; the
+# regex crate has no backtracking, so a crafted pattern cannot hang the
+# preview (docs/SECURITY.md 11).
+regex = "1"
 
 [lints]
 workspace = true

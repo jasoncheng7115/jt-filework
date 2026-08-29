@@ -14,6 +14,8 @@
 //!   (`docs/I18N_THEME.md` §3)
 //! - `{name}` marks a placeholder; the set of placeholders is part of the
 //!   message's contract and must match across locales
+//! - `{{` and `}}` are literal braces. A message that documents a pattern
+//!   language needs to be able to show one without it being substituted
 //! - `\n` in a value is an escaped newline; there is no line continuation,
 //!   because multi-line values invite fragment concatenation
 //! - a duplicate key is an error, not a silent last-wins
@@ -82,13 +84,19 @@ impl Message {
     /// sentence with a hole in it.
     pub fn render(&self, args: &BTreeMap<String, String>) -> String {
         if self.placeholders.is_empty() {
-            return self.template.clone();
+            return unescape_braces(&self.template);
         }
         let mut out = String::with_capacity(self.template.len());
         let mut rest = self.template.as_str();
         while let Some(start) = rest.find('{') {
             out.push_str(&rest[..start]);
             let after = &rest[start + 1..];
+            // A doubled brace is a literal one.
+            if let Some(stripped) = after.strip_prefix('{') {
+                out.push('{');
+                rest = stripped;
+                continue;
+            }
             if let Some(end) = after.find('}') {
                 let name = &after[..end];
                 if let Some(value) = args.get(name) {
@@ -105,7 +113,18 @@ impl Message {
             }
         }
         out.push_str(rest);
-        out
+        // The opening halves were consumed while scanning; the closing ones
+        // are collapsed here.
+        out.replace("}}", "}")
+    }
+}
+
+/// `{{` and `}}` become single braces.
+fn unescape_braces(text: &str) -> String {
+    if text.contains('{') || text.contains('}') {
+        text.replace("{{", "{").replace("}}", "}")
+    } else {
+        text.to_string()
     }
 }
 
@@ -268,6 +287,12 @@ fn extract_placeholders(template: &str, line: usize) -> Result<BTreeSet<String>,
     let mut rest = template;
     while let Some(start) = rest.find('{') {
         let after = &rest[start + 1..];
+        // `{{` is a literal brace, not the start of a placeholder: a message
+        // that documents a pattern language has to be able to show one.
+        if let Some(stripped) = after.strip_prefix('{') {
+            rest = stripped;
+            continue;
+        }
         let Some(end) = after.find('}') else {
             return Err(CatalogError {
                 line,
@@ -357,6 +382,39 @@ mod tests {
         assert!(en("a.b = {unterminated").is_err());
         assert!(en("a.b = {}").is_err());
         assert!(en("a.b = {bad-name}").is_err());
+    }
+
+    #[test]
+    fn a_doubled_brace_is_a_literal_one() {
+        // A message that documents a pattern language has to be able to show
+        // a placeholder without it being substituted.
+        let c = en("batch.hint = use {{name}} and {{n:3}} in the template").unwrap();
+        let message = c.get("batch.hint").unwrap();
+        assert!(
+            message.placeholders().is_empty(),
+            "nothing here is a placeholder"
+        );
+        assert_eq!(
+            message.render(&BTreeMap::new()),
+            "use {name} and {n:3} in the template"
+        );
+    }
+
+    #[test]
+    fn literal_and_real_placeholders_coexist() {
+        let c = en("mixed = {count} items match {{name}}").unwrap();
+        let message = c.get("mixed").unwrap();
+        assert_eq!(
+            message
+                .placeholders()
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            vec!["count"]
+        );
+        let mut args = BTreeMap::new();
+        args.insert("count".to_string(), "3".to_string());
+        assert_eq!(message.render(&args), "3 items match {name}");
     }
 
     #[test]

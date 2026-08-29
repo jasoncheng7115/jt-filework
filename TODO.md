@@ -240,7 +240,7 @@
 - [x] Trash (moves to the trash directory; native Put Back metadata pending)
 - [x] Delete
 - [x] Mkdir
-- [ ] Batch rename
+- [x] Batch rename
 - [x] Conflict resolver (asked once, up front, from a pre-flight scan)
 - [ ] Per-item conflict prompting with apply-to-all
 - [x] Cancel

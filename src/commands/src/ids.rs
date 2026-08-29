@@ -257,6 +257,7 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("file.rename", C::File, "command.file.rename"),
     ("file.undo", C::File, "command.file.undo"),
     ("file.duplicate", C::File, "command.file.duplicate"),
+    ("file.batch_rename", C::File, "command.file.batch_rename"),
     ("file.reveal", C::File, "command.file.reveal"),
     (
         "file.clipboard.copy",

@@ -65,3 +65,4 @@ primary+alt+c      = file.copy_path
 primary+shift+c    = file.copy_name
 primary+d          = file.duplicate
 primary+shift+r    = file.reveal
+primary+shift+m    = file.batch_rename

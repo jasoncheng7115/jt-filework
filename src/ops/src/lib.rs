@@ -18,12 +18,17 @@
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
+mod batch;
 mod conflict;
 mod plan;
 mod run;
 mod trash;
 mod undo;
 
+pub use batch::{
+    apply as apply_batch_rename, preview as preview_batch_rename, RenameIssue, RenamePattern,
+    RenamePreview, RenameRow,
+};
 pub use conflict::{unique_destination, Conflict, ConflictPolicy};
 pub use plan::{Operation, Plan, PlanError};
 pub use run::{execute, Outcome, Progress as OpProgress, Report};

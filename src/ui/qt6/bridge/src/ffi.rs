@@ -817,6 +817,99 @@ pub unsafe extern "C" fn jtf_op_prepare(app: *mut App, pane_id: c_int, kind: c_i
     })
 }
 
+/// Recompute the batch-rename preview. Returns how many rows it has.
+///
+/// # Safety
+/// See [`jtf_app_free`]; the string arguments must be valid C strings.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_batch_preview(
+    app: *mut App,
+    pane_id: c_int,
+    template: *const c_char,
+    find: *const c_char,
+    replace: *const c_char,
+    regex: c_int,
+    start: c_int,
+) -> c_int {
+    let template = unsafe { read_str(template) }.unwrap_or("");
+    let find = unsafe { read_str(find) }.unwrap_or("");
+    let replace = unsafe { read_str(replace) }.unwrap_or("");
+    let start = u64::try_from(start.max(0)).unwrap_or(1);
+
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        c_int::try_from(a.preview_batch(pane(pane_id), template, find, replace, regex != 0, start))
+            .unwrap_or(0)
+    })
+}
+
+/// One preview row: the old name, the new name and an issue key.
+///
+/// # Safety
+/// See [`jtf_app_free`]; the buffers must be writable or null.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_batch_row(
+    app: *const App,
+    index: c_int,
+    from_buf: *mut c_char,
+    from_len: c_int,
+    to_buf: *mut c_char,
+    to_len: c_int,
+    issue_buf: *mut c_char,
+    issue_len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let Some((from, to, issue)) = app.batch_row(usize::try_from(index).unwrap_or(0)) else {
+        return 0;
+    };
+    unsafe {
+        write_str(&from, from_buf, from_len);
+        write_str(&to, to_buf, to_len);
+        write_str(issue, issue_buf, issue_len);
+    }
+    1
+}
+
+/// Whether the preview can be applied, and how many rows would change.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `changes` must be writable or null.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_batch_can_apply(app: *const App, changes: *mut c_int) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let (can, count) = app.batch_state();
+    // SAFETY: caller contract; checked before writing.
+    unsafe {
+        if !changes.is_null() {
+            *changes = c_int::try_from(count).unwrap_or(0);
+        }
+    }
+    c_int::from(can)
+}
+
+/// Apply the preview. Returns how many entries were renamed.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_batch_apply(app: *mut App) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| c_int::try_from(a.apply_batch()).unwrap_or(0))
+}
+
+/// Discard the preview.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_batch_clear(app: *mut App) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.clear_batch();
+    }
+}
+
 /// The paths an operation started in this pane would act on.
 ///
 /// # Safety
