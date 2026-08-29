@@ -14,7 +14,7 @@ Status is one of **Done**, **Partial** (works, with the gap named), or
 | 開啟資料夾、切換目錄 | Done | |
 | TreeView 目錄樹 | Done | Resizable, hideable, shares the list's font |
 | 詳細列表 | Done | |
-| 圖示檢視 | Planned | `ViewMode::Grid` exists in the model, no view yet |
+| 圖示檢視 | Done | A second view over the same model and selection |
 | 顯示名稱、大小、修改時間、類型 | Done | Type comes from the platform |
 | 排序 | Done | Folders-first is a preference |
 | 篩選 | Done | Filters the current folder, separate from search |
@@ -32,23 +32,23 @@ Status is one of **Done**, **Partial** (works, with the gap named), or
 | Feature | Status | Note |
 | --- | --- | --- |
 | 新增資料夾 | Done | |
-| 新增檔案 | Planned | Only folders can be created |
+| 新增檔案 | Done | Its own operation; create_new, so it cannot empty an existing file |
 | 開啟檔案 | Done | Hands to the platform's default application |
-| Open With | Planned | Needs the platform's application list |
+| Open With | Done | From Launch Services on macOS; absent where we cannot ask |
 | 重新命名 | Done | Single and batch |
 | 複製 / 移動 | Done | Through the job engine |
 | 剪下 / 貼上 | Done | File URLs, so Finder understands them |
 | Duplicate | Done | |
 | 丟到垃圾桶 | Done | The real Trash on macOS |
 | 永久刪除 | Done | Confirmed first |
-| 復原刪除 | Partial | `file.undo` reverses a move or rename; restoring from the Trash is Planned — see below |
+| 復原刪除 | Partial | `file.undo` reverses a move or rename; Trash *Put Back* is still planned |
 | 取得檔案/目錄資訊 | Done | The inspector |
 | 檔案權限基本顯示 | Partial | A column exists; not shown by default |
 | 檔案路徑複製 | Done | Path and name |
 | Reveal in Finder | Done | macOS; Windows and Linux are stubs |
-| 資料夾大小背景計算 | Planned | The inspector says "not calculated" rather than lying |
+| 資料夾大小背景計算 | Done | On demand, cached with an mtime and time bound |
 | 檔案預覽 | Done | Text and hex, Quick Look on macOS, inspector preview |
-| 壓縮檔內容清單預覽 | Planned | CView / WinCV both do this — see below |
+| 壓縮檔內容清單預覽 | Done | Browsed like a folder; listing only, no decompressor |
 
 ## Selection
 
@@ -66,7 +66,7 @@ Status is one of **Done**, **Partial** (works, with the gap named), or
 | 拖放檔案 | Done | |
 | Pane 與 Pane 間拖放 | Done | |
 | Finder ↔ jt-filework 拖放 | Done | Both directions, via `text/uri-list` |
-| 頁籤拖出成新視窗 / 拖回合併 | Planned | See below |
+| 頁籤拖出成新視窗 | Done | Drag off the strip, or the tab's context menu |
 
 ## Operations
 
@@ -79,21 +79,25 @@ Status is one of **Done**, **Partial** (works, with the gap named), or
 | 右鍵選單 | Done | |
 | 原生系統右鍵功能整合 | Planned | The platform's own Services / shell menu |
 
-## The four not yet started
+## Added since this list was written
 
-**壓縮檔內容清單預覽.** `CV.HLP` §四: pressing Enter on a ZIP / ARJ / LZH /
-RAR shows its contents, and from there `C` extracts one file, `X` extracts all,
-`D` deletes and `G` runs. `Location::archive_member` already exists in the core
-for exactly this, so the model is ready; what is missing is a provider that
-lists an archive and the UI that treats it as a folder. Extraction must treat
-every entry name as hostile — an archive is untrusted input and a member
-called `../../etc/passwd` is the oldest trick there is (`docs/SECURITY.md`).
+Not on the original list, but worth recording as done: a key hint strip that
+changes with what the cursor is on, image thumbnails decoded off the UI
+thread, a breadcrumb whose segments carry their own menu, multiple windows,
+and a keyboard-mode switch with two profiles.
 
-**頁籤拖出成新視窗 / 拖回合併.** Browser-style tab tear-off. Needs a second
-top-level window sharing one model, which the workspace tree does not yet
-express: today a `Workspace` is one window's worth of panes. The right shape is
-probably a window id on the split tree, so a torn-off tab is a move within one
-model rather than a transfer between two.
+## Still to do
+
+**壓縮檔 extraction.** Browsing inside an archive is done; taking things *out*
+is not. `CV.HLP` §四 gives `C` to extract one member, `X` to extract all, `D`
+to delete and `G` to run. Extraction must treat every entry name as hostile —
+a member called `../../etc/passwd` is the oldest trick there is, which is why
+`ArchiveEntry` already carries `unsafe_name` and why the listing shows such a
+name marked rather than quietly normalized (`docs/SECURITY.md`).
+
+**拖回合併.** Tearing a tab into its own window works. Dragging one *back*
+onto another window's tab strip does not: `merge_tab_into` exists and is
+tested, but no gesture calls it yet.
 
 **復原刪除.** Neither CView nor WinCV has an undo key — `CV.HLP` lists none.
 Their answer to "get it back" was to use `T` (刪除並備分至垃圾桶目錄) instead of
