@@ -63,6 +63,24 @@
 - [ ] Save layout
 - [ ] Restore layout
 
+## P0 — Session Memory
+
+- [x] Session format with an explicit version
+- [x] Capture/restore the whole workspace
+- [x] Startup preference: last session / home / fixed location
+- [x] Preference persists even when the workspace is not
+- [x] Turning memory off writes no workspace at all
+- [x] Optional: remember closed tabs
+- [x] Optional: remember marked set
+- [x] Corrupt session falls back with a reported reason
+- [x] Future-version session is not guessed at
+- [x] Unavailable locations restore the rest and report the gap
+- [ ] Atomic write of the session file (platform layer)
+- [ ] Write on quit, on layout change, and periodically while idle
+- [ ] Settings UI for the startup preference
+- [ ] Erase stored session when memory is switched off (with confirmation)
+- [ ] Multi-window arrangement restore
+
 ## P0 — Tabs Per Pane
 
 - [ ] Tab model

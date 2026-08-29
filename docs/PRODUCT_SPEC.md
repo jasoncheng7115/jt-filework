@@ -103,6 +103,43 @@ Future:
 - tab groups
 - workspace templates
 
+## 5.1 Session Memory
+
+Closing the application and reopening it returns the user to exactly where
+they were: the split layout, every pane, every tab, each tab's location and
+history, sort, filter, columns, view mode, scroll position, selection, marked
+set, locale and theme.
+
+This is a **preference, not a law.** Some users want a clean window every
+launch, and on a shared or audited machine remembering the last paths is a
+privacy question rather than a convenience.
+
+Startup behaviour options:
+
+- **Restore last session** (default)
+- **Start at home**
+- **Start at a fixed location** the user chooses
+
+Finer-grained switches:
+
+- remember the reopen-closed-tab history
+- remember the marked set
+
+Rules:
+
+- The preference itself is always persisted. Turning memory off must still be
+  remembered next launch.
+- Turning memory off **discards** what was already stored. A switch that
+  leaves yesterday's paths on disk is not an off switch.
+- Nothing that is not remembered is written to disk in the first place.
+- A missing session is a normal first launch and is not reported as a problem.
+- A corrupt or future-version session starts fresh **and says so**. It never
+  silently discards the user's layout.
+- A restored session naming a volume that is no longer mounted restores
+  everything else and reports the gap.
+- Session state is written atomically: a crash mid-write must leave the
+  previous session loadable.
+
 ## 6. File Browsing
 
 - list/detail view

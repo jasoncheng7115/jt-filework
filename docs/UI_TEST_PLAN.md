@@ -359,6 +359,13 @@ used to catch clipping and truncation (`docs/UI_UX_SPEC.md` §14).
 | ID | Case | Layer |
 |---|---|---|
 | SET-001 | Theme mode selector: System / Light / Dark, applied immediately | H2 |
+| SET-008 | Startup selector: Restore last session / Start at home / Start at a fixed location | H2 |
+| SET-009 | Choosing a fixed start location opens a picker and validates the path | H2 |
+| SET-010 | Turning session memory off warns that the stored session will be erased, then erases it | H2/H4 |
+| SET-011 | With memory off, no path from the previous session exists in the stored state | H1/H4 |
+| SET-012 | "Remember closed tabs" off: no closed tab's path is written | H1 |
+| SET-013 | "Remember marks" off: layout still restores, marked set does not | H1 |
+| SET-014 | The startup preference itself persists across relaunch even with memory off | H4 |
 | SET-002 | Language selector applied immediately | H2 |
 | SET-003 | Keymap preset selector and per-command rebinding | H2 |
 | SET-004 | Every setting persists and is restored on relaunch | H1/H4 |
@@ -486,6 +493,16 @@ unbounded growth.
 | SESS-004 | A session referencing a now-missing volume restores the rest and reports the gap | H4 |
 | SESS-005 | Session written atomically: a kill mid-write leaves the previous state loadable | H2 |
 | SESS-006 | Restore of a very large session stays within the UI-thread budget | H4 |
+| SESS-007 | Default install restores the last session — remembering is the default, not opt-in | H1 |
+| SESS-008 | First launch (no stored session) opens at home with no error notice | H1/H4 |
+| SESS-009 | Deliberate fresh start shows no notice; a corrupt session does | H1/H2 |
+| SESS-010 | Corrupt-session notice names the machine-readable code and is dismissible | H2 |
+| SESS-011 | A session from a newer format version is not guessed at; it starts fresh and reports | H1 |
+| SESS-012 | A structurally valid but internally inconsistent session is rejected, and the fallback workspace is sound | H1 |
+| SESS-013 | Saving the session never changes what the user is currently looking at | H1 |
+| SESS-014 | State is written on quit, on layout change, and periodically while idle | H4 |
+| SESS-015 | Session written after a settings change reflects the new preference immediately | H4 |
+| SESS-016 | Quitting from a full-screen or multi-window state restores the same window arrangement | H4 |
 
 ---
 

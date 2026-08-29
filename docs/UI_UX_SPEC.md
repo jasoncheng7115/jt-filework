@@ -250,11 +250,46 @@ not an aspiration (`TESTING.md` §10).
 
 ---
 
-## 16. Persistence
+## 16. Persistence and Session Memory
 
 Restored on launch: workspace split tree, panes, tabs, per-tab location,
 history, sort, filter, columns, view mode, scroll position, selection, marked
 set, locale, theme mode, tool area layout.
 
-A corrupted session file is reported and replaced with a default workspace; it
-never silently discards user state without saying so.
+### 16.1 The user decides
+
+Startup behaviour is a setting (`docs/PRODUCT_SPEC.md` §5.1):
+
+| Option | Behaviour |
+|---|---|
+| Restore last session (default) | Everything above comes back |
+| Start at home | One pane, one tab, at the home location |
+| Start at a fixed location | One pane, one tab, at a chosen path |
+
+Plus two finer switches: remember reopen-closed-tab history, and remember the
+marked set.
+
+### 16.2 Rules the UI must honour
+
+- The preference is persisted even when the workspace is not. Turning memory
+  off is itself remembered.
+- Turning memory off **erases** the stored session. The settings panel says so
+  before it happens, because it is not reversible.
+- Anything the user chose not to remember is never written, not merely ignored
+  on read. A closed tab's path must not sit in the session file after the user
+  turned that off.
+- **Missing session**: normal first launch. No notice, no error.
+- **Deliberate fresh start**: no notice. The user asked for it.
+- **Corrupt or future-version session**: start fresh, and tell the user with a
+  dismissible notice naming the machine-readable code. Never silently lose a
+  layout.
+- **Unavailable location** (an unmounted volume, a deleted directory): restore
+  everything else, put the affected tab at a fallback location, and report
+  which locations could not be restored.
+- Saving a session must never change what the user is looking at.
+
+### 16.3 When state is written
+
+At least: on quit, on a layout change, and periodically while idle — so a
+crash costs seconds of state, not a session. Writes are atomic
+(`docs/UI_TEST_PLAN.md` SESS-005).

@@ -323,6 +323,30 @@ SQLite may store:
 
 Filesystem remains canonical truth.
 
+### 16.1 Session Format
+
+Stored session state carries an explicit format version. A session written by
+a newer version is not guessed at: the application starts fresh and reports
+why.
+
+Two independent things are stored:
+
+```text
+Session
+├── version
+├── settings          always stored
+└── workspace         stored only when the user asked to remember it
+```
+
+Session preferences are returned alongside the restored workspace rather than
+embedded in it: the workspace is what the user is looking at, the settings are
+how the application behaves, and two copies of a preference drift apart.
+
+Reading stored state is parsing untrusted input (`docs/SECURITY.md` §2): it
+may be truncated by a crash, edited by hand, or structurally valid but
+internally inconsistent. All three cases fall back to a sound default
+workspace with a reported reason.
+
 ## 17. WebView Policy
 
 Allowed:
