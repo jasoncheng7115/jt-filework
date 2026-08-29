@@ -98,9 +98,10 @@ Possible future plugin SDK / protocol:
 - `docs/VIEWER_PREVIEW.md`
 - `docs/SEARCH_AI.md`
 - `docs/SECURITY.md`
+- `docs/TESTING.md`
+- `docs/UI_TEST_PLAN.md`
 - `docs/DEVELOPMENT_ENVIRONMENT.md`
 - `docs/DEVELOPMENT_PLAN.md`
-- `docs/TESTING.md`
 - `TODO.md`
 - `AGENTS.md`
 - `docs/adr/*`

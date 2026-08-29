@@ -250,22 +250,26 @@ Tested with a fake CLI binary, never with a real paid API call in CI:
 
 ## 7. L4 — UI and Interaction Tests
 
-The GUI stack is undecided (ADR-0001). These requirements are stack-neutral
-and become a gate on the chosen stack: **a candidate that cannot be tested
-headlessly loses points in the PoC evaluation.**
+**The complete UI coverage plan is `docs/UI_TEST_PLAN.md`.** It enumerates
+every UI surface, state and interaction as numbered `UI-*` cases, assigns each
+one a harness layer, and defines the theme × locale × DPI screenshot matrix.
+This section states only the level's rules; the cases live there.
 
-Required:
-- keyboard-only walkthrough: create split, move focus, open tab, navigate,
-  mark, act on marked set, close tab, close pane — with no mouse event
-- focus never becomes unreachable; focus ring is always resolvable
-- IME composition in a filter/rename field is not interrupted by shortcuts
-- runtime locale switch redraws all visible strings with no restart
-- runtime theme switch redraws with no restart
-- Light and Dark screenshots of: file list, tab bar, active pane indicator,
-  selection, marked rows, preview panel, context menu
-- high-DPI rendering at 1x and 2x
-- text expansion: a pseudo-locale with ~40% longer strings must not clip or
-  overlap any control
+The GUI stack is undecided (ADR-0001). The plan is therefore written against
+behaviour, not against a toolkit API, and it is an input to that decision:
+**a candidate that cannot execute the plan's gate areas automatically is
+eliminated; one that cannot be driven headlessly loses points.**
+
+Harness layers (`docs/UI_TEST_PLAN.md` §0.1): model-level, headless widget,
+screenshot, driven app, manual. Every case is pushed down to the lowest layer
+that can still prove it.
+
+Determinism is mandatory: fake clock, injectable-latency provider, animations
+disabled or clock-driven, fixed window size, font, DPI, locale and theme per
+case, and a settled-state barrier. A UI test that needs a `sleep` is broken.
+
+Gate areas: split layout, tabs, file list at scale, drag and drop, preview,
+runtime locale switch, runtime theme switch, and the UI-thread watchdog below.
 
 ### 7.1 UI-thread blocking test (AGENTS.md §3 — non-negotiable)
 
@@ -286,6 +290,10 @@ test: uithread::no_task_exceeds_budget_during_large_directory_entry
 test: uithread::no_task_exceeds_budget_during_slow_mount_navigation
 test: uithread::no_task_exceeds_budget_during_preview_of_huge_file
 ```
+
+The full scenario list is `docs/UI_TEST_PLAN.md` §18 (`UI-PERF-001` …
+`UI-PERF-014`), which also records peak memory and memory after N cycles to
+prove there is no unbounded growth.
 
 ---
 
@@ -513,7 +521,9 @@ A change is complete only when all of the following hold:
 - [ ] no new UI-thread blocking (§7.1 watchdog unchanged or improved)
 - [ ] no new hard-coded user-visible string
 - [ ] no new literal colour outside the token module
-- [ ] if UI changed: Light and Dark verified, both locales verified
+- [ ] if UI changed: the affected `UI-*` cases in `docs/UI_TEST_PLAN.md` pass,
+      a new interaction has a new case, the screenshot matrix is regenerated
+      and reviewed, and Light/Dark plus both locales are verified
 - [ ] cancellation behaviour considered and tested where applicable
 - [ ] error paths produce typed, machine-readable codes with localized display
 - [ ] architecture boundary tests still pass

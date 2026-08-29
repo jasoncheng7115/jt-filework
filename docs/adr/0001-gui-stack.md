@@ -81,10 +81,14 @@ From `DEVELOPMENT_PLAN.md` Phase 0B:
 **Optional**
 - WebView AI panel embedded in the native shell
 
-**Testability (added by `docs/TESTING.md` §7)**
+**Testability (added by `docs/TESTING.md` §7 and `docs/UI_TEST_PLAN.md`)**
 - can the UI be driven headlessly in CI?
 - can a UI-thread watchdog observe task durations?
-A candidate that cannot be tested automatically is penalised.
+- can the harness layers in `docs/UI_TEST_PLAN.md` §0.1 be implemented:
+  headless widget instantiation, synthetic input events, deterministic
+  screenshot capture, and an accessibility-tree query?
+A candidate that cannot execute the plan's gate areas automatically is
+eliminated; one that cannot be driven headlessly is penalised.
 
 ## Evaluation Rubric
 
@@ -104,7 +108,7 @@ score.**
 | 8 | Runtime theme switch, Light/Dark/System, semantic tokens | **Gate** | 2 |
 | 9 | IME, focus, high-DPI correctness | **Gate** | 2 |
 | 10 | Windows and Linux viability of the same code | Score | 3 |
-| 11 | Headless/automated UI testability | Score | 2 |
+| 11 | Executes `docs/UI_TEST_PLAN.md`: headless widgets, synthetic input, screenshots, a11y tree | Gate (plan's gate areas) + score | 2 |
 | 12 | Accessibility API exposure (role/name/value) | Score | 2 |
 | 13 | Bridge/binding complexity and maintenance risk | Score | 2 |
 | 14 | Build, packaging, signing and notarization friction | Score | 1 |
