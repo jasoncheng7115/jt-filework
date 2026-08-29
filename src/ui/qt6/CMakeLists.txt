@@ -68,6 +68,8 @@ qt_add_executable(jt-filework
     cpp/watchdog.h
     cpp/icons.cpp
     cpp/icons.h
+    cpp/operations.cpp
+    cpp/operations.h
     cpp/bridge.h
     cpp/jtfstring.h)
 

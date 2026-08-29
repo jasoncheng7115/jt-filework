@@ -35,6 +35,7 @@ public:
 signals:
     void focusRequested(int paneId);
     void stateChanged();
+    void selectionChanged();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;

@@ -89,6 +89,7 @@ dependencies = [
  "jtf-core",
  "jtf-fs",
  "jtf-jobs",
+ "jtf-ops",
  "jtf-workspace",
 ]
 

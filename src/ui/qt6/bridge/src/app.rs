@@ -12,6 +12,8 @@ use jtf_core::i18n::{Catalog, LocaleId, Localizer};
 use jtf_core::theme::{Palette, ResolvedTheme, SystemAppearance, ThemeMode, ThemeToken};
 use jtf_core::{Error, FileEntry, FileKind, Location};
 use jtf_fs::{Batch, EnumerationHandle, LocalProvider, Provider};
+use jtf_jobs::CancellationToken;
+use jtf_ops::{ConflictPolicy, Plan, PlanError};
 use jtf_workspace::{
     sort_entries, FontSettings, LayoutPreset, Orientation, PaneId, Session, SessionSettings,
     SortKey, SortSpec, Workspace,
@@ -75,6 +77,10 @@ pub struct App {
     theme_mode: ThemeMode,
     show_hidden: bool,
     settings: SessionSettings,
+    pending_plan: Option<Plan>,
+    plan_error: Option<PlanError>,
+    running: Option<crate::operations::Running>,
+    last_summary: Option<crate::operations::Summary>,
     registry: CommandRegistry,
     keymap: Keymap,
     repo_root: PathBuf,
@@ -108,6 +114,10 @@ impl App {
             locale,
             theme_mode,
             show_hidden: false,
+            pending_plan: None,
+            plan_error: None,
+            running: None,
+            last_summary: None,
             registry: CommandRegistry::baseline(),
             keymap: load_keymap(&repo_root, &settings.keymap),
             settings,
@@ -447,6 +457,220 @@ impl App {
         }
     }
 
+    // ------------------------------------------------------------ selection
+
+    /// Replace a pane's selection with the entries at these row indices.
+    ///
+    /// The UI owns the widget's selection; the model owns what an operation
+    /// will act on. Syncing one into the other is what lets
+    /// `OperationTarget` resolve marked-then-selection-then-active without
+    /// the C++ side deciding anything (`docs/UI_UX_SPEC.md` §6).
+    pub(crate) fn set_selection(&mut self, pane: PaneId, rows: &[usize]) {
+        let locations: Vec<Location> = self
+            .views
+            .get(&pane)
+            .map(|view| {
+                rows.iter()
+                    .filter_map(|row| view.entries.get(*row))
+                    .map(|entry| entry.location().clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        if let Some(p) = self.workspace.pane_mut(pane) {
+            if let Some(tab) = p.active_tab_mut() {
+                let selection = tab.selection_mut();
+                selection.clear();
+                selection.select_range(locations);
+            }
+        }
+    }
+
+    /// What an operation started in this pane would act on, and from where.
+    fn operation_sources(&self, pane: PaneId) -> Vec<PathBuf> {
+        self.workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .map(|tab| {
+                tab.operation_target()
+                    .locations()
+                    .iter()
+                    .filter_map(|location| location.as_path().map(std::path::Path::to_path_buf))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    // ----------------------------------------------------------- operations
+
+    /// Build a plan for a copy, move, trash or delete started in `pane`.
+    ///
+    /// Returns whether there is anything to do. The plan is held until the UI
+    /// either starts it or abandons it.
+    pub(crate) fn prepare_operation(
+        &mut self,
+        pane: PaneId,
+        kind: crate::operations::OperationKind,
+    ) -> bool {
+        self.plan_error = None;
+        self.pending_plan = None;
+
+        let sources = self.operation_sources(pane);
+        if sources.is_empty() {
+            return false;
+        }
+
+        let destination = if kind.needs_destination() {
+            let target = self.workspace.target_pane_id();
+            match target.and_then(|id| {
+                self.workspace
+                    .pane(id)
+                    .and_then(jtf_workspace::Pane::active_tab)
+                    .and_then(|tab| tab.location().as_path())
+                    .map(std::path::Path::to_path_buf)
+            }) {
+                Some(path) => Some(path),
+                // With one pane there is no other pane to copy to
+                // (docs/UI_TEST_PLAN.md PANE-016).
+                None => return false,
+            }
+        } else {
+            None
+        };
+
+        let operation = kind.build(sources, destination);
+        match Plan::build(&operation, &CancellationToken::never()) {
+            Ok(plan) => {
+                self.pending_plan = Some(plan);
+                true
+            }
+            Err(error) => {
+                self.plan_error = Some(error);
+                false
+            }
+        }
+    }
+
+    /// Build a rename plan.
+    pub(crate) fn prepare_rename(&mut self, pane: PaneId, new_name: &str) -> bool {
+        self.plan_error = None;
+        self.pending_plan = None;
+        let Some(source) = self.operation_sources(pane).first().cloned() else {
+            return false;
+        };
+        self.set_plan(&jtf_ops::Operation::Rename {
+            source,
+            new_name: new_name.to_string(),
+        })
+    }
+
+    /// Build a new-folder plan.
+    pub(crate) fn prepare_new_folder(&mut self, pane: PaneId, name: &str) -> bool {
+        self.plan_error = None;
+        self.pending_plan = None;
+        let Some(parent) = self
+            .workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .and_then(|tab| tab.location().as_path())
+            .map(std::path::Path::to_path_buf)
+        else {
+            return false;
+        };
+        self.set_plan(&jtf_ops::Operation::NewFolder {
+            parent,
+            name: name.to_string(),
+        })
+    }
+
+    fn set_plan(&mut self, operation: &jtf_ops::Operation) -> bool {
+        match Plan::build(operation, &CancellationToken::never()) {
+            Ok(plan) => {
+                self.pending_plan = Some(plan);
+                true
+            }
+            Err(error) => {
+                self.plan_error = Some(error);
+                false
+            }
+        }
+    }
+
+    /// The plan waiting for confirmation.
+    pub(crate) const fn pending_plan(&self) -> Option<&Plan> {
+        self.pending_plan.as_ref()
+    }
+
+    /// Why the last prepare failed, as a localization key.
+    pub(crate) fn plan_error_key(&self) -> Option<&'static str> {
+        self.plan_error.as_ref().map(|error| match error {
+            PlanError::DestinationInsideSource(_) => "plan.destination_inside_source",
+            PlanError::SourceIsDestination(_) => "plan.source_is_destination",
+            PlanError::DestinationNotADirectory(_) => "plan.destination_not_a_directory",
+            PlanError::InvalidName(_) => "plan.invalid_name",
+            PlanError::NothingToDo => "plan.nothing_to_do",
+            // PlanError is non_exhaustive: a variant without its own message
+            // reports generically rather than failing to compile here.
+            PlanError::Failed(_) | _ => "plan.failed",
+        })
+    }
+
+    /// Run the pending plan.
+    pub(crate) fn start_operation(&mut self, policy: ConflictPolicy) -> bool {
+        let Some(plan) = self.pending_plan.take() else {
+            return false;
+        };
+        if self.running.is_some() {
+            return false;
+        }
+        self.last_summary = None;
+        self.running = Some(crate::operations::Running::start(plan, policy));
+        true
+    }
+
+    /// Whether an operation is in flight.
+    pub(crate) const fn operation_running(&self) -> bool {
+        self.running.is_some()
+    }
+
+    /// Percent complete, or `None` when the total is not yet known.
+    pub(crate) fn operation_percent(&self) -> Option<u8> {
+        self.running
+            .as_ref()
+            .and_then(crate::operations::Running::percent)
+    }
+
+    /// Localization key for the running operation's label.
+    pub(crate) fn operation_label_key(&self) -> Option<&'static str> {
+        self.running
+            .as_ref()
+            .map(|running| running.kind().label_key())
+    }
+
+    /// The entry being worked on.
+    pub(crate) fn operation_current(&self) -> Option<PathBuf> {
+        self.running
+            .as_ref()
+            .and_then(crate::operations::Running::current)
+    }
+
+    /// Ask the running operation to stop.
+    pub(crate) fn cancel_operation(&self) {
+        if let Some(running) = &self.running {
+            running.cancel();
+        }
+    }
+
+    /// The summary of the last finished operation, if it has not been read.
+    pub(crate) const fn last_summary(&self) -> Option<&crate::operations::Summary> {
+        self.last_summary.as_ref()
+    }
+
+    /// Clear the summary once the UI has shown it.
+    pub(crate) fn take_summary(&mut self) {
+        self.last_summary = None;
+    }
+
     /// Re-read the current location.
     pub(crate) fn refresh(&mut self, pane: PaneId) {
         self.start_enumeration(pane);
@@ -503,6 +727,28 @@ impl App {
     /// (`AGENTS.md` §3).
     pub(crate) fn pump(&mut self) -> bool {
         let mut changed = false;
+
+        // A finished operation is joined here, on the UI's own tick, rather
+        // than by blocking whoever asked about it.
+        if self
+            .running
+            .as_ref()
+            .is_some_and(crate::operations::Running::is_finished)
+        {
+            if let Some(running) = self.running.take() {
+                if let Some(report) = running.finish() {
+                    self.last_summary = Some(crate::operations::Summary::from_report(&report));
+                }
+            }
+            // Both panes may have changed on disk.
+            let panes = self.workspace.pane_order();
+            for pane in panes {
+                self.start_enumeration(pane);
+            }
+            changed = true;
+        } else if self.running.is_some() {
+            changed = true; // progress moved
+        }
         let panes: Vec<PaneId> = self.views.keys().copied().collect();
         for pane in panes {
             let Some(view) = self.views.get_mut(&pane) else {

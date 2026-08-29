@@ -63,6 +63,28 @@ int jtf_show_hidden(const JtfApp *app);
 void jtf_set_locale(JtfApp *app, const char *locale);
 int jtf_locale(const JtfApp *app, char *buf, int len);
 int jtf_tr(const JtfApp *app, const char *key, char *buf, int len);
+// operations
+void jtf_set_selection(JtfApp *app, int pane, const int *rows, int count);
+int jtf_op_prepare(JtfApp *app, int pane, int kind); // 0 copy 1 move 2 trash 3 delete
+int jtf_op_prepare_rename(JtfApp *app, int pane, const char *new_name);
+int jtf_op_prepare_new_folder(JtfApp *app, int pane, const char *name);
+int jtf_op_error_key(const JtfApp *app, char *buf, int len);
+int jtf_op_conflicts(const JtfApp *app);
+int jtf_op_entries(const JtfApp *app);
+uint64_t jtf_op_bytes(const JtfApp *app);
+int jtf_op_is_irreversible(const JtfApp *app);
+int jtf_op_first_conflict(const JtfApp *app, char *buf, int len);
+int jtf_op_start(JtfApp *app, int policy); // 0 skip 1 overwrite 2 keep both 3 abort
+int jtf_op_running(const JtfApp *app);
+int jtf_op_percent(const JtfApp *app);
+int jtf_op_label_key(const JtfApp *app, char *buf, int len);
+int jtf_op_current(const JtfApp *app, char *buf, int len);
+void jtf_op_cancel(const JtfApp *app);
+int jtf_op_has_result(const JtfApp *app);
+int jtf_op_result(const JtfApp *app, char *key_buf, int key_len, char *error_buf, int error_len,
+                  int *succeeded, int *skipped, int *failed);
+void jtf_op_clear_result(JtfApp *app);
+
 int jtf_shortcut_for(const JtfApp *app, const char *command, char *buf, int len);
 int jtf_has_command(const JtfApp *app, const char *command);
 int jtf_keymap_name(const JtfApp *app, char *buf, int len);

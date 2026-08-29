@@ -38,5 +38,6 @@
 
 mod app;
 mod ffi;
+mod operations;
 
 pub use app::App;

@@ -144,6 +144,20 @@
 - [ ] Import/export a keymap
 - [ ] Command palette
 
+## P0 — Operations in the UI
+
+- [x] Copy / move to the other pane, from the menu and the keymap
+- [x] Rename and new folder, with a name prompt
+- [x] Trash and permanent delete
+- [x] Conflicts asked once, up front, with Skip as the safe default
+- [x] Irreversible delete warns before, not after
+- [x] Progress bar and cancel in the status bar
+- [x] Per-entry result summary, naming the first failing entry
+- [x] Selection synced into the model so targets resolve correctly
+- [ ] Per-item conflict prompting with apply-to-all
+- [ ] Undo for move, rename and trash
+- [ ] Operation log window
+
 ## P0 — Drag & Drop
 
 - [ ] pane -> pane

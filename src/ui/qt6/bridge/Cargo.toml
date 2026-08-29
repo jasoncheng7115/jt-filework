@@ -22,6 +22,7 @@ jtf-jobs = { workspace = true }
 jtf-workspace = { workspace = true }
 jtf-commands = { workspace = true }
 jtf-fs = { workspace = true }
+jtf-ops = { workspace = true }
 
 [lints]
 workspace = true

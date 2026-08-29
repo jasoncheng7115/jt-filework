@@ -3,6 +3,7 @@
 #include "jtfstring.h"
 
 #include <QElapsedTimer>
+#include <QItemSelectionModel>
 #include <QFontMetrics>
 #include <QEvent>
 #include <QHeaderView>
@@ -65,6 +66,20 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_view->installEventFilter(this);
     m_view->viewport()->installEventFilter(this);
     m_tabs->installEventFilter(this);
+
+    // The widget owns the visual selection; the model owns what an operation
+    // will act on. Keeping them in step here is what lets Rust resolve
+    // marked-then-selection-then-active without C++ deciding anything.
+    connect(m_view->selectionModel(), &QItemSelectionModel::selectionChanged, this, [this] {
+        QVector<int> rows;
+        const auto indexes = m_view->selectionModel()->selectedRows();
+        rows.reserve(indexes.size());
+        for (const QModelIndex &index : indexes) {
+            rows.append(index.row());
+        }
+        jtf_set_selection(m_app, m_pane, rows.constData(), static_cast<int>(rows.size()));
+        emit selectionChanged();
+    });
 
     connect(m_view, &QTableView::doubleClicked, this,
             [this](const QModelIndex &index) { openRow(index.row()); });

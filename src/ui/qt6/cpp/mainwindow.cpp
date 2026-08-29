@@ -2,6 +2,7 @@
 #include "jtfstring.h"
 #include "panewidget.h"
 #include "icons.h"
+#include "operations.h"
 #include "theme.h"
 
 #include <QAction>
@@ -12,6 +13,8 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QFontDatabase>
+#include <QProgressBar>
+#include <QPushButton>
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QStyle>
@@ -31,6 +34,19 @@ constexpr int kPumpIntervalMs = 16; // one frame at 60Hz
 MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_app(app) {
     setMinimumSize(720, 420);
     resize(1180, 760);
+
+    m_statusMessage = new QLabel(this);
+    m_progress = new QProgressBar(this);
+    m_progress->setMaximumWidth(180);
+    m_progress->setTextVisible(false);
+    m_progress->setVisible(false);
+    m_cancelButton = new QPushButton(this);
+    m_cancelButton->setVisible(false);
+    m_cancelButton->setFlat(true);
+    connect(m_cancelButton, &QPushButton::clicked, this, [this] { jtf_op_cancel(m_app); });
+    statusBar()->addWidget(m_statusMessage, 1);
+    statusBar()->addPermanentWidget(m_progress);
+    statusBar()->addPermanentWidget(m_cancelButton);
 
     buildMenus();
     buildToolbar();
@@ -60,6 +76,7 @@ MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_ap
                 pane->refreshRows();
             }
             updateStatus();
+            updateOperationUi();
         }
     });
     timer->start(kPumpIntervalMs);
@@ -111,15 +128,14 @@ void MainWindow::buildMenus() {
         jtf_close_tab(m_app, pane, jtf_active_tab(m_app, pane));
     });
     m_fileMenu->addSeparator();
-    // Registered commands with no implementation yet. Shown and disabled
-    // rather than hidden, so the keyboard layout and the menu agree about
-    // what exists (docs/UI_UX_SPEC.md 13).
-    for (const char *id : {"file.new_folder", "file.rename", "file.trash"}) {
-        auto *action = new QAction(this);
-        action->setEnabled(false);
-        m_fileMenu->addAction(action);
-        m_commandActions.append({action, id});
-    }
+    command(m_fileMenu, "file.new_folder", [this] { runOperation(OpNewFolder); });
+    command(m_fileMenu, "file.rename", [this] { runOperation(OpRename); });
+    m_fileMenu->addSeparator();
+    command(m_fileMenu, "file.copy_to_target_pane", [this] { runOperation(OpCopy); });
+    command(m_fileMenu, "file.move_to_target_pane", [this] { runOperation(OpMove); });
+    m_fileMenu->addSeparator();
+    command(m_fileMenu, "file.trash", [this] { runOperation(OpTrash); });
+    command(m_fileMenu, "file.delete", [this] { runOperation(OpDelete); });
 
     m_viewMenu = menuBar()->addMenu(QString());
     m_translatableMenus.append({m_viewMenu, "menu.view"});
@@ -187,6 +203,74 @@ void MainWindow::buildMenus() {
             jtf_navigate(m_app, jtf_active_pane(m_app), home.constData());
         }
     });
+}
+
+void MainWindow::runOperation(OperationRequest request) {
+    const int pane = jtf_active_pane(m_app);
+    QString message;
+    bool started = false;
+
+    switch (request) {
+    case OpCopy:
+        started = ops::confirmAndStart(m_app, this, pane, ops::Copy, &message);
+        break;
+    case OpMove:
+        started = ops::confirmAndStart(m_app, this, pane, ops::Move, &message);
+        break;
+    case OpTrash:
+        started = ops::confirmAndStart(m_app, this, pane, ops::Trash, &message);
+        break;
+    case OpDelete:
+        started = ops::confirmAndStart(m_app, this, pane, ops::Delete, &message);
+        break;
+    case OpRename:
+        started = ops::renameSelection(m_app, this, pane, &message);
+        break;
+    case OpNewFolder:
+        started = ops::createFolder(m_app, this, pane, &message);
+        break;
+    }
+
+    // A refusal is explained rather than silently ignored
+    // (docs/UI_UX_SPEC.md 13).
+    if (!started && !message.isEmpty()) {
+        m_statusMessage->setText(message);
+    }
+    updateOperationUi();
+}
+
+void MainWindow::updateOperationUi() {
+    const bool running = jtf_op_running(m_app) != 0;
+    m_progress->setVisible(running);
+    m_cancelButton->setVisible(running);
+
+    if (running) {
+        const int percent = jtf_op_percent(m_app);
+        if (percent < 0) {
+            m_progress->setRange(0, 0); // indeterminate: an honest unknown
+        } else {
+            m_progress->setRange(0, 100);
+            m_progress->setValue(percent);
+        }
+        const QString labelKey =
+            jtfText([&](char *buf, int len) { return jtf_op_label_key(m_app, buf, len); });
+        const QByteArray keyUtf8 = labelKey.toUtf8();
+        const QString label = labelKey.isEmpty()
+                                  ? QString()
+                                  : jtfText([&](char *buf, int len) {
+                                        return jtf_tr(m_app, keyUtf8.constData(), buf, len);
+                                    });
+        const QString current =
+            jtfText([&](char *buf, int len) { return jtf_op_current(m_app, buf, len); });
+        m_statusMessage->setText(current.isEmpty() ? label
+                                                   : label + QStringLiteral("   ") + current);
+        return;
+    }
+
+    const QString result = ops::takeResult(m_app);
+    if (!result.isEmpty()) {
+        m_statusMessage->setText(result);
+    }
 }
 
 void MainWindow::stepFontSize(int delta) {
@@ -400,6 +484,7 @@ void MainWindow::retranslate() {
         entry.first->setTitle(tr_(entry.second));
     }
     setWindowTitle(tr_("app.name"));
+    m_cancelButton->setText(tr_("operation.cancel"));
     for (auto *p : std::as_const(m_panes)) {
         p->retranslate();
     }

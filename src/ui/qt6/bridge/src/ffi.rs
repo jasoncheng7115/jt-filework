@@ -23,6 +23,7 @@ use jtf_core::theme::{ThemeMode, ThemeToken};
 use jtf_workspace::{LayoutPreset, PaneId};
 
 use crate::app::{App, MarkAction};
+use crate::operations::OperationKind;
 
 /// Borrow the app, or do nothing.
 ///
@@ -567,6 +568,309 @@ pub unsafe extern "C" fn jtf_tr(
         return 0;
     };
     unsafe { write_str(&app.tr(key), buf, len) }
+}
+
+// ------------------------------------------------------------- operations
+
+/// Tell the model which rows are selected in a pane.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `rows` must point to `count` readable `c_int`s, or be
+/// null when `count` is zero.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_selection(
+    app: *mut App,
+    pane_id: c_int,
+    rows: *const c_int,
+    count: c_int,
+) {
+    let Some(app) = (unsafe { app_mut(app) }) else {
+        return;
+    };
+    let len = usize::try_from(count).unwrap_or(0);
+    let indices: Vec<usize> = if rows.is_null() || len == 0 {
+        Vec::new()
+    } else {
+        // SAFETY: caller contract above.
+        let slice = unsafe { std::slice::from_raw_parts(rows, len) };
+        slice
+            .iter()
+            .filter_map(|row| usize::try_from(*row).ok())
+            .collect()
+    };
+    app.set_selection(pane(pane_id), &indices);
+}
+
+/// Build a plan. 0 copy, 1 move, 2 trash, 3 delete.
+///
+/// Returns 1 when there is a plan waiting, 0 otherwise; in the 0 case
+/// [`jtf_op_error_key`] says why.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_prepare(app: *mut App, pane_id: c_int, kind: c_int) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        c_int::from(a.prepare_operation(pane(pane_id), OperationKind::from_code(kind)))
+    })
+}
+
+/// # Safety
+/// See [`jtf_app_free`]; `new_name` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_prepare_rename(
+    app: *mut App,
+    pane_id: c_int,
+    new_name: *const c_char,
+) -> c_int {
+    let Some(name) = (unsafe { read_str(new_name) }) else {
+        return 0;
+    };
+    unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.prepare_rename(pane(pane_id), name)))
+}
+
+/// # Safety
+/// See [`jtf_app_free`]; `name` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_prepare_new_folder(
+    app: *mut App,
+    pane_id: c_int,
+    name: *const c_char,
+) -> c_int {
+    let Some(name) = (unsafe { read_str(name) }) else {
+        return 0;
+    };
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        c_int::from(a.prepare_new_folder(pane(pane_id), name))
+    })
+}
+
+/// Localization key explaining why the last prepare produced no plan.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_error_key(app: *const App, buf: *mut c_char, len: c_int) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    unsafe { write_str(app.plan_error_key().unwrap_or(""), buf, len) }
+}
+
+/// How many destinations the pending plan would collide with.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_conflicts(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        a.pending_plan()
+            .and_then(|plan| c_int::try_from(plan.conflicts.len()).ok())
+            .unwrap_or(0)
+    })
+}
+
+/// How many entries the pending plan covers.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_entries(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        a.pending_plan()
+            .and_then(|plan| c_int::try_from(plan.total_entries).ok())
+            .unwrap_or(0)
+    })
+}
+
+/// Bytes the pending plan would move.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_bytes(app: *const App) -> u64 {
+    unsafe { app_ref(app) }
+        .and_then(|a| a.pending_plan().map(|plan| plan.total_bytes))
+        .unwrap_or(0)
+}
+
+/// Whether the pending plan destroys data that cannot be recovered.
+///
+/// The UI must warn differently for this: `docs/UI_UX_SPEC.md` §10 asks it to
+/// say so **before** the action, not after.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_is_irreversible(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        c_int::from(
+            a.pending_plan()
+                .is_some_and(|plan| plan.operation.is_irreversible()),
+        )
+    })
+}
+
+/// The first colliding destination, for the conflict dialog.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_first_conflict(
+    app: *const App,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let text = app
+        .pending_plan()
+        .and_then(|plan| plan.conflicts.first())
+        .map_or_else(String::new, |conflict| {
+            conflict.destination.display().to_string()
+        });
+    unsafe { write_str(&text, buf, len) }
+}
+
+/// Run the pending plan. 0 skip, 1 overwrite, 2 keep both, 3 abort.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_start(app: *mut App, policy: c_int) -> c_int {
+    let policy = match policy {
+        1 => jtf_ops::ConflictPolicy::Overwrite,
+        2 => jtf_ops::ConflictPolicy::KeepBoth,
+        3 => jtf_ops::ConflictPolicy::Abort,
+        _ => jtf_ops::ConflictPolicy::Skip,
+    };
+    unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.start_operation(policy)))
+}
+
+/// Whether an operation is in flight.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_running(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.operation_running()))
+}
+
+/// Percent complete, or -1 while the total is unknown.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_percent(app: *const App) -> c_int {
+    unsafe { app_ref(app) }
+        .and_then(App::operation_percent)
+        .map_or(-1, c_int::from)
+}
+
+/// Localization key for the running operation's label.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_label_key(app: *const App, buf: *mut c_char, len: c_int) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    unsafe { write_str(app.operation_label_key().unwrap_or(""), buf, len) }
+}
+
+/// The entry currently being worked on.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_current(app: *const App, buf: *mut c_char, len: c_int) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let text = app
+        .operation_current()
+        .map_or_else(String::new, |path| path.display().to_string());
+    unsafe { write_str(&text, buf, len) }
+}
+
+/// Ask the running operation to stop.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_cancel(app: *const App) {
+    if let Some(app) = unsafe { app_ref(app) } {
+        app.cancel_operation();
+    }
+}
+
+/// Whether a finished operation has a result the UI has not shown yet.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_has_result(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.last_summary().is_some()))
+}
+
+/// The result's message key, its counts, and the first failure.
+///
+/// # Safety
+/// See [`jtf_app_free`]; the out pointers must be writable or null.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_result(
+    app: *const App,
+    key_buf: *mut c_char,
+    key_len: c_int,
+    error_buf: *mut c_char,
+    error_len: c_int,
+    succeeded: *mut c_int,
+    skipped: *mut c_int,
+    failed: *mut c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let Some(summary) = app.last_summary() else {
+        return 0;
+    };
+
+    unsafe { write_str(summary.key, key_buf, key_len) };
+    // The message key and the failing entry together: "permission denied"
+    // without a path is not a report a user can act on.
+    let detail = match (&summary.first_error_key, &summary.first_error_path) {
+        (Some(key), Some(path)) => format!("{key}\t{}", path.display()),
+        (Some(key), None) => (*key).to_string(),
+        _ => String::new(),
+    };
+    unsafe { write_str(&detail, error_buf, error_len) };
+
+    // SAFETY: caller contract; each pointer is checked before writing.
+    unsafe {
+        if !succeeded.is_null() {
+            *succeeded = c_int::try_from(summary.succeeded).unwrap_or(0);
+        }
+        if !skipped.is_null() {
+            *skipped = c_int::try_from(summary.skipped).unwrap_or(0);
+        }
+        if !failed.is_null() {
+            *failed = c_int::try_from(summary.failed).unwrap_or(0);
+        }
+    }
+    1
+}
+
+/// Discard the result once it has been shown.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_clear_result(app: *mut App) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.take_summary();
+    }
 }
 
 /// The shortcut bound to a command id, as a `QKeySequence` string.

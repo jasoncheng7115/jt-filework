@@ -43,6 +43,12 @@ private:
     void applyCommandBindings();
     void stepFontSize(int delta);
     void chooseFontFamily();
+
+    // What a menu item asks for. Kept separate from ops::Kind because rename
+    // and new folder are not the same shape as copy and move.
+    enum OperationRequest { OpCopy, OpMove, OpTrash, OpDelete, OpRename, OpNewFolder };
+    void runOperation(OperationRequest request);
+    void updateOperationUi();
     void syncToolbar();
     void markActivePane();
     QString tr_(const char *key) const;
@@ -58,6 +64,9 @@ private:
     class QAction *m_upAction = nullptr;
     class QAction *m_refreshAction = nullptr;
     Theme m_theme;
+    class QLabel *m_statusMessage = nullptr;
+    class QProgressBar *m_progress = nullptr;
+    class QPushButton *m_cancelButton = nullptr;
     bool m_applyingTheme = false;
 
     QMenu *m_fileMenu = nullptr;
