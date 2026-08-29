@@ -1854,6 +1854,22 @@ pub extern "C" fn jtf_theme_token_count() -> c_int {
     c_int::try_from(ThemeToken::ALL.len()).unwrap_or(0)
 }
 
+/// The stable name of one token.
+///
+/// The count alone is not enough: reordering `ThemeToken::ALL` keeps the count
+/// identical and silently recolours the entire interface. Checking names
+/// against the C++ header turns that into a startup failure.
+///
+/// # Safety
+/// `buf` must be writable for `len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_theme_token_name(index: c_int, buf: *mut c_char, len: c_int) -> c_int {
+    let name = ThemeToken::ALL
+        .get(usize::try_from(index).unwrap_or(usize::MAX))
+        .map_or("", |token| token.as_str());
+    unsafe { write_str(name, buf, len) }
+}
+
 /// Number of list columns.
 #[no_mangle]
 pub extern "C" fn jtf_column_count() -> c_int {

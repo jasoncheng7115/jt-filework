@@ -83,6 +83,8 @@ qt_add_executable(jt-filework
     cpp/settingsdialog.h
     cpp/batchrenamedialog.cpp
     cpp/batchrenamedialog.h
+    cpp/commandpalette.cpp
+    cpp/commandpalette.h
     cpp/viewerwindow.cpp
     cpp/viewerwindow.h
     cpp/platform/quicklook.h

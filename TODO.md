@@ -142,7 +142,7 @@
 - [x] Settings window (keymap editor, font picker, startup, theme, locale)
 - [x] Per-command rebinding UI with conflict reporting
 - [ ] Import/export a keymap
-- [ ] Command palette
+- [x] Command palette
 
 ## P0 — Operations in the UI
 
@@ -364,7 +364,7 @@ Long-lead items: both identities take real time to obtain. See
 - [ ] Move the symlink cfg out of src/ops into the platform adapter
 - [ ] Sanitizer smoke suite for the UI layer
 - [ ] Fuzz targets and a persisted corpus
-- [ ] Hostile fixture set (docs/TESTING.md 9.2)
+- [x] Hostile fixture set (docs/TESTING.md 9.2)
 - [ ] Pin library search order; audit @rpath entries
 - [ ] Directory-relative syscalls for recursive delete (TOCTOU)
 - [ ] Credentials in the platform keychain, never on a command line

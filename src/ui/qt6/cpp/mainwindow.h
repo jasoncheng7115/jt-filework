@@ -11,6 +11,7 @@
 #include "theme.h"
 
 #include <QHash>
+#include <functional>
 #include <QPoint>
 #include <QStringList>
 #include <QByteArray>
@@ -64,6 +65,7 @@ private:
     void openViewer();
     void quickLookSelection();
     void openBatchRename();
+    void openPalette();
     void openSettings();
     void runOperation(OperationRequest request);
     void runDrop(int pane, const QStringList &paths, int kind);
@@ -96,11 +98,14 @@ private:
     // Which glyph each toolbar action draws, so they can be redrawn when the
     // theme changes.
     QHash<class QAction *, glyph::Shape> m_toolbarShapes;
+    // Command id to handler, so anything the menus can do the palette can do.
+    QHash<QString, std::function<void()>> m_handlers;
     Theme m_theme;
     class QLabel *m_statusMessage = nullptr;
     class QProgressBar *m_progress = nullptr;
     class QPushButton *m_cancelButton = nullptr;
     class QAction *m_undoAction = nullptr;
+    class ViewerWindow *m_viewer = nullptr;
     // Whether the last clipboard put was a cut. Remembered here because
     // there is no portable convention for it in the clipboard itself.
     bool m_clipboardIsCut = false;

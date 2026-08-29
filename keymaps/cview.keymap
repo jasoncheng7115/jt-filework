@@ -67,3 +67,4 @@ primary+shift+e      = view.tree
 # --- search
 primary+f            = search.open
 primary+comma        = settings.open
+primary+shift+p    = command.palette

@@ -294,3 +294,6 @@ command.view.tree = Folder Tree
 tree.title = Folders
 menu.edit = Edit
 settings.folders_first = Sort folders before files
+command.command.palette = Command Palette…
+palette.placeholder = Type a command
+palette.unimplemented = That command is not implemented yet

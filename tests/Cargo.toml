@@ -19,6 +19,8 @@ jtf-core = { workspace = true }
 jtf-jobs = { workspace = true }
 jtf-workspace = { workspace = true }
 jtf-commands = { workspace = true }
+jtf-ops = { workspace = true }
+jtf-search = { workspace = true }
 
 [lints]
 workspace = true

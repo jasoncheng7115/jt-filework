@@ -135,10 +135,15 @@ bool nameThenStart(JtfApp *app, QWidget *parent, int pane, const char *titleKey,
 } // namespace
 
 bool ops::renameSelection(JtfApp *app, QWidget *parent, int pane, QString *message) {
-    // Offer the current name as the starting point, which is what every file
-    // manager does and what makes a small edit small.
-    const QString current =
-        jtfText([&](char *buf, int len) { return jtf_op_current(app, buf, len); });
+    // The name of the entry being renamed, which is what makes a small edit
+    // small. This used to read jtf_op_current, which reports the *running
+    // operation's* current entry and is therefore empty whenever nothing is
+    // running - so the field was always blank while a comment claimed
+    // otherwise.
+    const QString names =
+        jtfText([&](char *buf, int len) { return jtf_target_names(app, pane, buf, len); });
+    const QString current = names.section(QLatin1Char('\n'), 0, 0);
+
     return nameThenStart(app, parent, pane, "prompt.rename_title", "prompt.rename_label",
                          current, jtf_op_prepare_rename, message);
 }

@@ -137,7 +137,7 @@ Status: **done** · **partial** · **planned** · **later** (after Phase 2) ·
 | Platform and CView/WinCV presets | done |
 | Rebind any command, with conflicts named | done |
 | Settings window | done |
-| Command palette | planned |
+| Command palette | done |
 | Import and export a keymap | planned |
 | Per-type "open with" preference | planned |
 

@@ -5,6 +5,7 @@
 
 #include <QApplication>
 #include <cstdio>
+#include <cstring>
 
 int main(int argc, char **argv) {
     WatchdogApplication application(argc, argv);
@@ -20,6 +21,20 @@ int main(int argc, char **argv) {
                      "Update JtfToken in cpp/bridge.h to match ThemeToken::ALL.\n",
                      jtf_theme_token_count(), static_cast<int>(TokenCount));
         return 2;
+    }
+    // The count matching is not enough. A reordering in Rust would keep the
+    // count identical and silently recolour everything, so every name is
+    // checked against its index.
+    for (int i = 0; i < TokenCount; ++i) {
+        char name[64] = {};
+        jtf_theme_token_name(i, name, sizeof(name));
+        if (std::strcmp(name, kTokenNames[i]) != 0) {
+            std::fprintf(stderr,
+                         "theme token %d is \"%s\" in Rust but \"%s\" in the C++ header.\n"
+                         "JtfToken and kTokenNames must match ThemeToken::ALL in order.\n",
+                         i, name, kTokenNames[i]);
+            return 2;
+        }
     }
 
     JtfApp *app = jtf_app_new();

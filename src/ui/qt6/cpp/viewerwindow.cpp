@@ -182,8 +182,8 @@ void ViewerWindow::keyPressEvent(QKeyEvent *event) {
 }
 
 void ViewerWindow::closeEvent(QCloseEvent *event) {
-    jtf_viewer_close(m_app);
+    // The destructor releases the session. WA_DeleteOnClose already schedules
+    // the deletion, so calling deleteLater here as well was a second one.
     QWidget::closeEvent(event);
     event->accept();
-    deleteLater();
 }

@@ -166,6 +166,7 @@ void jtf_set_theme_mode(JtfApp *app, int mode);
 int jtf_theme_mode(const JtfApp *app);
 uint32_t jtf_theme_color(const JtfApp *app, int system_is_dark, int token);
 int jtf_theme_token_count(void);
+int jtf_theme_token_name(int index, char *buf, int len);
 int jtf_column_count(void);
 int jtf_column_key(int column, char *buf, int len);
 
@@ -194,4 +195,15 @@ enum JtfToken {
     TokenStatusWarning,
     TokenStatusSuccess,
     TokenCount
+};
+
+// The names Rust gives these, in the same order. main.cpp checks every one at
+// startup: a reordering keeps the count identical and would otherwise recolour
+// the whole interface silently.
+inline const char *const kTokenNames[] = {
+    "surface.window", "surface.pane",   "surface.preview", "surface.header",
+    "row.alternate",  "row.hover",      "text.primary",    "text.secondary",
+    "text.on_accent", "border",         "selection.active", "selection.inactive",
+    "mark.active",    "focus.ring",     "pane.active_indicator",
+    "status.error",   "status.warning", "status.success",
 };

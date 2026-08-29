@@ -608,6 +608,9 @@ impl App {
 
         let sources = self.operation_sources(pane);
         if sources.is_empty() {
+            // A refusal explains itself; silently doing nothing is worse than
+            // an error (docs/UI_CONVENTIONS.md 9).
+            self.plan_error = Some(PlanError::NothingToDo);
             return false;
         }
 
@@ -744,9 +747,11 @@ impl App {
 
         let sources = self.operation_sources(pane);
         if sources.is_empty() {
+            self.plan_error = Some(PlanError::NothingToDo);
             return false;
         }
         let Some(parent) = sources.first().and_then(|path| path.parent()) else {
+            self.plan_error = Some(PlanError::NothingToDo);
             return false;
         };
         self.set_plan(&jtf_ops::Operation::Copy {
@@ -861,6 +866,7 @@ impl App {
         self.plan_error = None;
         self.pending_plan = None;
         if sources.is_empty() {
+            self.plan_error = Some(PlanError::NothingToDo);
             return false;
         }
 
@@ -898,6 +904,7 @@ impl App {
         self.plan_error = None;
         self.pending_plan = None;
         let Some(source) = self.operation_sources(pane).first().cloned() else {
+            self.plan_error = Some(PlanError::NothingToDo);
             return false;
         };
         self.set_plan(&jtf_ops::Operation::Rename {
@@ -1263,6 +1270,10 @@ impl App {
         // an old one to fill the same pane.
         view.handle = None;
         view.search = None;
+        // Listing a directory means the pane is no longer showing results.
+        // Leaving the query set made the status line keep claiming "N results"
+        // for a directory it had navigated to since.
+        view.query.clear();
         view.entries.clear();
         view.visible.clear();
         view.error = None;
@@ -1593,6 +1604,10 @@ impl App {
         // navigation cannot leave two enumerations racing to fill one pane.
         view.handle = None;
         view.search = None;
+        // Listing a directory means the pane is no longer showing results.
+        // Leaving the query set made the status line keep claiming "N results"
+        // for a directory it had navigated to since.
+        view.query.clear();
         view.entries.clear();
         view.visible.clear();
         view.error = None;

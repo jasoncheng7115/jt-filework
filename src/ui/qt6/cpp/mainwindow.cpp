@@ -3,6 +3,7 @@
 #include "panewidget.h"
 #include "icons.h"
 #include "batchrenamedialog.h"
+#include "commandpalette.h"
 #include "foldertree.h"
 #include "operations.h"
 #include "platform/quicklook.h"
@@ -18,6 +19,7 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QClipboard>
+#include <QSet>
 #include <cstring>
 #include <QFontDatabase>
 #include <QMimeData>
@@ -137,6 +139,9 @@ void MainWindow::buildMenus() {
         });
         menu->addAction(action);
         m_commandActions.append({action, id});
+        // The same handler, reachable by id: this is what lets the palette
+        // invoke anything the menus can without a second implementation.
+        m_handlers.insert(QString::fromLatin1(id), handler);
         return action;
     };
 
@@ -276,6 +281,7 @@ void MainWindow::buildMenus() {
     setting(localeMenu, "language.zh_tw", [this] { jtf_set_locale(m_app, "zh-TW"); });
 
     m_viewMenu->addSeparator();
+    command(m_viewMenu, "command.palette", [this] { openPalette(); });
     command(m_viewMenu, "settings.open", [this] { openSettings(); });
 
     // ------------------------------------------------------------------ Go
@@ -544,14 +550,43 @@ void MainWindow::openViewer() {
     if (!jtf_viewer_open(m_app, pane->paneId(), pane->currentRow())) {
         return;
     }
-    // A separate window rather than a panel: AGENTS.md 14 makes the Viewer
-    // stateful, and a stateful thing that disappears when the selection moves
-    // is a preview wearing the wrong name.
-    auto *viewer = new ViewerWindow(m_app, this);
-    viewer->setAttribute(Qt::WA_DeleteOnClose);
-    viewer->show();
-    viewer->raise();
-    viewer->activateWindow();
+
+    // One window, because the bridge holds one viewer session. Two windows
+    // fought over it: closing the first called jtf_viewer_close and killed the
+    // second's session out from under it.
+    if (!m_viewer) {
+        // A separate window rather than a panel: AGENTS.md 14 makes the Viewer
+        // stateful, and a stateful thing that disappears when the selection
+        // moves is a preview wearing the wrong name.
+        m_viewer = new ViewerWindow(m_app, this);
+        m_viewer->setAttribute(Qt::WA_DeleteOnClose);
+        connect(m_viewer, &QObject::destroyed, this, [this] { m_viewer = nullptr; });
+    } else {
+        m_viewer->refresh();
+    }
+    m_viewer->show();
+    m_viewer->raise();
+    m_viewer->activateWindow();
+}
+
+void MainWindow::openPalette() {
+    CommandPalette palette(m_app, this);
+    // Centred on the window, near the top, where every palette is.
+    palette.move(frameGeometry().center().x() - palette.width() / 2,
+                 frameGeometry().top() + 80);
+    if (palette.exec() != QDialog::Accepted) {
+        return;
+    }
+    const QString id = palette.chosen();
+    const auto handler = m_handlers.constFind(id);
+    if (handler != m_handlers.constEnd()) {
+        (*handler)();
+        refreshAll();
+        return;
+    }
+    // A command with no handler yet is a registered intention, not a failure;
+    // saying so beats doing nothing silently.
+    m_statusMessage->setText(tr_("palette.unimplemented"));
 }
 
 void MainWindow::openSettings() {
@@ -660,6 +695,13 @@ void MainWindow::chooseFontFamily() {
 // Labels from the catalogue, shortcuts from the keymap. Called on every
 // retranslate, so switching locale or keymap updates both without a restart.
 void MainWindow::applyCommandBindings() {
+    // A command appears in both the menu and the toolbar. Giving the shortcut
+    // to both QActions makes Qt call it an ambiguous overload and stop
+    // delivering it at all - the shortcut silently dies. Only the first action
+    // registered for an id carries it; the others show it in their tooltip,
+    // which is where a toolbar button should show it anyway.
+    QSet<QString> shortcutAssigned;
+
     for (const auto &entry : std::as_const(m_commandActions)) {
         QAction *action = entry.first;
         const char *id = entry.second;
@@ -672,7 +714,21 @@ void MainWindow::applyCommandBindings() {
 
         const QString shortcut = jtfText(
             [&](char *buf, int len) { return jtf_shortcut_for(m_app, id, buf, len); });
-        action->setShortcut(shortcut.isEmpty() ? QKeySequence() : QKeySequence(shortcut));
+        const QString key = QString::fromLatin1(id);
+
+        if (!shortcut.isEmpty() && !shortcutAssigned.contains(key)) {
+            action->setShortcut(QKeySequence(shortcut));
+            shortcutAssigned.insert(key);
+        } else {
+            action->setShortcut(QKeySequence());
+        }
+
+        // Toolbar buttons have no room for a label, so the tooltip carries the
+        // name and the shortcut.
+        action->setToolTip(shortcut.isEmpty()
+                               ? action->text()
+                               : action->text() + QStringLiteral("  (") + shortcut +
+                                     QStringLiteral(")"));
 
         // A command the registry does not know about cannot be invoked; it is
         // left disabled rather than silently doing nothing.
@@ -708,6 +764,7 @@ void MainWindow::buildToolbar() {
         bar->addAction(action);
         m_commandActions.append({action, id});
         m_toolbarShapes.insert(action, shape);
+        m_handlers.insert(QString::fromLatin1(id), handler);
         return action;
     };
 
