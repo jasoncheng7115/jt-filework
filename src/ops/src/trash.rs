@@ -111,13 +111,17 @@ fn write_restore_record(trash_files: &Path, target: &Path, source: &Path) {
 /// inject `DeletionDate=` is a small injection in a small format, and small
 /// is not the same as harmless.
 fn percent_encode(path: &str) -> String {
+    use std::fmt::Write as _;
+
     let mut out = String::with_capacity(path.len());
     for byte in path.bytes() {
         match byte {
             b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' => {
                 out.push(byte as char);
             }
-            other => out.push_str(&format!("%{other:02X}")),
+            other => {
+                let _ = write!(out, "%{other:02X}");
+            }
         }
     }
     out
@@ -136,7 +140,9 @@ fn iso8601_local(at: std::time::SystemTime) -> String {
     // Civil-from-days, the standard algorithm. UTC: the specification allows
     // it, and guessing a local offset without a timezone database would be
     // guessing.
-    let days = (secs / 86_400) as i64;
+    // Saturating rather than wrapping: a clock far enough in the future to
+    // overflow this would otherwise write a date in the past.
+    let days = i64::try_from(secs / 86_400).unwrap_or(i64::MAX);
     let time_of_day = secs % 86_400;
     let z = days + 719_468;
     let era = z.div_euclid(146_097);
@@ -320,8 +326,11 @@ mod restore_record_tests {
 
     #[test]
     fn a_leap_day_is_not_off_by_one() {
-        // 2024-02-29T12:00:00Z.
-        let at = UNIX_EPOCH + Duration::from_secs(1_709_208_000);
+        // 2024-02-29T12:00:00Z, written as the arithmetic that produces it
+        // rather than as one large number of seconds - which is both what the
+        // lint asks for and clearer about where the noon comes from.
+        // Duration::from_days is still unstable on this toolchain.
+        let at = UNIX_EPOCH + Duration::from_secs(19_782 * 86_400 + 12 * 3_600);
         assert_eq!(iso8601_local(at), "2024-02-29T12:00:00");
     }
 }
