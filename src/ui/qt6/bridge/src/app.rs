@@ -888,6 +888,23 @@ impl App {
         })
     }
 
+    /// Switch to the other keyboard mode, and return its name.
+    ///
+    /// Two presets, one key. The chord that runs this is bound to the same
+    /// command in both of them, which is the whole reason the switch is
+    /// usable: a toggle that exists in only one mode is a door that locks
+    /// behind you.
+    pub(crate) fn toggle_keymap(&mut self) -> String {
+        let current = self.keymap.name().to_string();
+        let next = if current == KEYMAP_PRESETS[0] {
+            KEYMAP_PRESETS[1]
+        } else {
+            KEYMAP_PRESETS[0]
+        };
+        self.set_keymap(next);
+        next.to_string()
+    }
+
     /// Whether a bare printable key jumps to a file name in this keymap.
     pub(crate) const fn type_ahead(&self) -> bool {
         self.keymap.type_ahead()
@@ -2357,8 +2374,22 @@ fn apply_user_overrides(keymap: &mut Keymap, registry: &CommandRegistry) -> usiz
     keymap.apply_diff(&user, |id| registry.contains(id))
 }
 
+/// The preset a fresh install starts with.
+///
+/// CView, not the platform conventions: this program is built for people who
+/// have the CView layout in their fingers, and the platform preset is one
+/// keystroke away for everyone else (`AGENTS.md` §10.2).
+pub(crate) const DEFAULT_KEYMAP: &str = "cview";
+
+/// The two presets the mode toggle switches between.
+pub(crate) const KEYMAP_PRESETS: [&str; 2] = ["cview", "platform"];
+
 fn load_keymap(repo_root: &std::path::Path, name: &str) -> Keymap {
-    let wanted = if name.is_empty() { "platform" } else { name };
+    let wanted = if name.is_empty() {
+        DEFAULT_KEYMAP
+    } else {
+        name
+    };
     let path = repo_root.join("keymaps").join(format!("{wanted}.keymap"));
 
     let parsed = fs::read_to_string(&path)

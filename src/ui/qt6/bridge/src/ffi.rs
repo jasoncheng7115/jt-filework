@@ -1100,6 +1100,16 @@ pub unsafe extern "C" fn jtf_command_for_chord(
     unsafe { write_str(&id, buf, len) }
 }
 
+/// Switch to the other keyboard mode. Writes its name and returns the length.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `buf` must have room for `len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_toggle_keymap(app: *mut App, buf: *mut c_char, len: c_int) -> c_int {
+    let name = unsafe { app_mut(app) }.map_or_else(String::new, App::toggle_keymap);
+    unsafe { write_str(&name, buf, len) }
+}
+
 /// Whether a bare printable key jumps to a file name in the active keymap.
 ///
 /// # Safety

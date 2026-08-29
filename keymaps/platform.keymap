@@ -64,6 +64,10 @@ primary+equal        = view.font.larger
 primary+e            = view.filter
 primary+shift+e      = view.tree
 primary+alt+i        = view.inspector
+# The keyboard-mode toggle. Bound to the same chord in BOTH presets on
+# purpose: a switch that only exists in the mode you left is a door that locks
+# behind you. tests/tests/keymaps.rs proves the two agree.
+primary+shift+k      = keymap.toggle
 primary+b            = file.bookmark
 
 # --- search and tools
@@ -72,5 +76,5 @@ primary+shift+f      = search.ai
 primary+j            = jobs.show
 primary+comma        = settings.open
 primary+shift+p    = command.palette
-primary+shift+plus   = file.mark.pattern
+primary+shift+equal  = file.mark.pattern
 primary+shift+minus  = file.unmark.pattern

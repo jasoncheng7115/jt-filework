@@ -1,86 +1,94 @@
 # jt-filework — CView / WinCV keymap
 #
-# INCOMPLETE. Parts of this map were inferred from the Norton Commander
-# lineage rather than taken from CView's own key table, and at least one
-# inference was wrong: bare letters are commands in CView, which the first
-# draft did not account for. Bindings confirmed by a CView user are marked
-# `# confirmed`; the rest are provisional and should be checked against the
-# real key table before release.
+# Taken from CView's own help file, not inferred: cview/CVIEW/CV.HLP §二
+# (檔案選取畫面) and §三 (觀看檔案時), plus the hint strings in WinCV's
+# 2026-08-14 test build. The full table, with provenance and the two points
+# still unresolved, is docs/design/CVIEW_KEYS.md.
+#
+# CView and WinCV share nearly all of their keys — same author — so the DOS
+# help is the base and WinCV is confirmation.
 #
 # Where a command does not exist yet the binding is simply absent rather than
-# bound to something approximate.
-#
-# On macOS the function row is media keys by default. To use this preset as
-# intended, turn on:
-#   System Settings -> Keyboard -> "Use F1, F2, etc. keys as standard
-#   function keys"
-# Otherwise hold Fn together with the function key.
+# bound to something approximate. docs/design/CVIEW_KEYS.md lists what is
+# missing.
 
-# In CView a bare letter is a command, not a jump to a file name: `e` edits,
-# `v` views. Type-ahead would swallow those keys before the binding below ever
-# saw them, so the preset turns it off.
+# In CView a bare letter is a command, not a jump to a file name. Type-ahead
+# would swallow C, M, R, D, V and E before the bindings below ever saw them.
 !type_ahead          = off
 
-# --- the function row
-f2                   = file.rename
-f3                   = file.view
-f4                   = file.edit
-f5                   = file.copy_to_target_pane
-f6                   = file.move_to_target_pane
-f7                   = file.new_folder
-f8                   = file.trash
-
-# --- panes and tabs
-tab                  = workspace.pane.next
-shift+tab            = workspace.pane.previous
-primary+t            = tab.new
-primary+w            = tab.close
-primary+shift+backslash = workspace.split.vertical
-primary+backslash    = workspace.split.horizontal
-primary+1            = workspace.preset.single
-primary+4            = workspace.preset.quad
-
 # --- navigation
-left                 = nav.up            # confirmed
-right                = file.open
-backspace            = nav.up
-ctrl+pageup          = nav.up
+# CV.HLP: BACKSPACE 相當於 'CD..'  ·  P \ 到所指定的路徑
+# WinCV adds the left arrow for the same thing; right is its counterpart.
+left                 = nav.up                    # wincv
+backspace            = nav.up                    # CV.HLP
+right                = file.open                 # wincv, inferred counterpart
+enter                = file.open                 # CV.HLP 觀看該檔案(或進入該目錄)
+p                    = nav.goto                  # CV.HLP
 alt+left             = nav.back
 alt+right            = nav.forward
 primary+home         = nav.home
 
-# --- marking: Space marks, as CView and WinCV always did. Quick Look moves to
-#     Finder's own shortcut so Space keeps its original meaning.
-space                = file.mark.toggle
-primary+y            = preview.quicklook
-primary+a            = file.mark.all
-primary+z            = file.mark.none
-primary+i            = file.mark.invert
+# --- marking
+# CV.HLP: SPACE 標記 · Alt-T 全標 · Alt-U 全不標 · + - 依條件 · * 反轉
+space                = file.mark.toggle          # CV.HLP
+alt+t                = file.mark.all             # CV.HLP
+alt+u                = file.mark.none            # CV.HLP
+asterisk             = file.mark.invert          # CV.HLP
+plus                 = file.mark.pattern         # CV.HLP
+f9                   = file.mark.pattern         # CV.HLP
+minus                = file.unmark.pattern       # CV.HLP
 
 # --- files
-e                    = file.edit         # confirmed
-v                    = file.view         # confirmed
-primary+d            = file.duplicate
-primary+shift+m      = file.batch_rename
-primary+shift+r      = file.reveal
+# CV.HLP: C/INS 拷貝 · M 移動 · R 改檔名 · D/DEL 刪除 · T 垃圾桶 · V 看檔
+# WinCV: E 編輯
+c                    = file.copy_to_target_pane  # CV.HLP
+insert               = file.copy_to_target_pane  # CV.HLP
+m                    = file.move_to_target_pane  # CV.HLP
+r                    = file.rename               # CV.HLP
+d                    = file.delete               # CV.HLP
+delete               = file.delete               # CV.HLP
+t                    = file.trash                # CV.HLP, see Unresolved
+v                    = file.view                 # CV.HLP
+e                    = file.edit                 # wincv
+alt+r                = file.batch_rename         # wincv 連續編號改名
 primary+u            = file.undo
+primary+shift+r      = file.reveal
+primary+d            = file.duplicate
+f7                   = file.new_folder
 
 # --- clipboard
 primary+c            = file.clipboard.copy
 primary+x            = file.clipboard.cut
 primary+v            = file.clipboard.paste
 
+# --- panes and tabs
+# TAB switches list format in CView; here it moves between panes, because
+# CView had no panes and something has to.
+tab                  = workspace.pane.next
+shift+tab            = workspace.pane.previous
+primary+t            = tab.new
+primary+w            = tab.close
+primary+shift+t      = tab.reopen
+primary+shift+backslash = workspace.split.vertical
+primary+backslash    = workspace.split.horizontal
+primary+1            = workspace.preset.single
+primary+4            = workspace.preset.quad
+
 # --- view
-ctrl+r               = view.refresh
-ctrl+h               = view.hidden
-primary+e            = view.filter
 primary+shift+e      = view.tree
 primary+alt+i        = view.inspector
-primary+b            = file.bookmark
+# The keyboard-mode toggle. Bound to the same chord in BOTH presets on
+# purpose: a switch that only exists in the mode you left is a door that locks
+# behind you. tests/tests/keymaps.rs proves the two agree.
+primary+shift+k      = keymap.toggle
+primary+shift+period = view.hidden
+f5                   = view.refresh
+primary+equal        = view.font.larger
+primary+minus        = view.font.smaller
 
 # --- search
 primary+f            = search.open
+escape               = search.clear
+primary+shift+f      = view.filter
+primary+shift+p      = command.palette
 primary+comma        = settings.open
-primary+shift+p    = command.palette
-plus                 = file.mark.pattern
-minus                = file.unmark.pattern

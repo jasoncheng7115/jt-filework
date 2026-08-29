@@ -279,8 +279,10 @@ QWidget *SettingsDialog::buildKeyboardTab() {
     presetLayout->addWidget(new QLabel(tr_("menu.keymap"), presetRow));
 
     auto *preset = new QComboBox(presetRow);
-    preset->addItem(tr_("keymap.platform"), QStringLiteral("platform"));
+    // CView first: it is the default, and the first entry in a list reads as
+    // the normal one.
     preset->addItem(tr_("keymap.cview"), QStringLiteral("cview"));
+    preset->addItem(tr_("keymap.platform"), QStringLiteral("platform"));
     const QString active =
         jtfText([&](char *buf, int len) { return jtf_keymap_name(m_app, buf, len); });
     preset->setCurrentIndex(active == QLatin1String("cview") ? 1 : 0);

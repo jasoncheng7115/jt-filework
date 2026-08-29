@@ -158,6 +158,7 @@ int jtf_shortcut_for(const JtfApp *app, const char *command, char *buf, int len)
 int jtf_has_command(const JtfApp *app, const char *command);
 int jtf_keymap_name(const JtfApp *app, char *buf, int len);
 void jtf_set_keymap(JtfApp *app, const char *name);
+int jtf_toggle_keymap(JtfApp *app, char *buf, int len);
 // viewer
 int jtf_viewer_open(JtfApp *app, int pane, int row);
 void jtf_viewer_close(JtfApp *app);

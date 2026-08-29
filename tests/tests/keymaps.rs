@@ -15,7 +15,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use jtf_commands::{CommandRegistry, Keymap};
+use jtf_commands::{CommandId, CommandRegistry, KeyChord, Keymap};
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -109,5 +109,52 @@ fn a_keymap_round_trips_through_its_own_format() {
         for (chord, command) in original.iter() {
             assert_eq!(reloaded.resolve(chord), Some(command), "{}", path.display());
         }
+    }
+}
+
+/// Every shipped preset binds the mode toggle to the same chord.
+///
+/// This is the property that makes switching usable rather than a trap. If
+/// `cview` bound the toggle to one chord and `platform` to another, switching
+/// into a mode would leave you with no key to switch back — you would have to
+/// find the settings dialog using a keyboard whose layout had just changed
+/// under you. Both presets agreeing means the escape hatch is always in the
+/// same place.
+#[test]
+fn the_mode_toggle_is_the_same_chord_in_every_preset() {
+    let toggle = CommandId::new("keymap.toggle");
+    let mut chords: Vec<(String, Vec<String>)> = Vec::new();
+
+    for path in shipped_keymaps() {
+        let name = path
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let text = fs::read_to_string(&path).expect("a shipped keymap is readable");
+        let map = Keymap::parse(&name, &text).expect("a shipped keymap parses");
+        let bound: Vec<String> = map
+            .chords_for(&toggle)
+            .into_iter()
+            .map(KeyChord::to_source_text)
+            .collect();
+        assert!(
+            !bound.is_empty(),
+            "{name} does not bind keymap.toggle; switching into it would be \
+             one-way"
+        );
+        chords.push((name, bound));
+    }
+
+    assert!(
+        !chords.is_empty(),
+        "no keymaps found; did the layout change?"
+    );
+    let (first_name, first) = &chords[0];
+    for (name, bound) in &chords[1..] {
+        assert_eq!(
+            bound, first,
+            "{name} binds keymap.toggle to {bound:?} but {first_name} binds it \
+             to {first:?}; the toggle must be in the same place in every mode"
+        );
     }
 }

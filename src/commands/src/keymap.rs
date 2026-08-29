@@ -189,7 +189,13 @@ fn parse_key(text: &str) -> Result<Key, KeymapError> {
         "comma" => Key::Char(','),
         "period" | "dot" => Key::Char('.'),
         "minus" | "dash" => Key::Char('-'),
-        "equal" | "plus" => Key::Char('='),
+        "equal" => Key::Char('='),
+        // CView marks with the numeric keypad's `+`, `-` and `*`, so these
+        // are keys in their own right rather than shifted spellings of
+        // something else. `plus` is the character, not `shift+equal`.
+        "plus" => Key::Char('+'),
+        "asterisk" | "star" => Key::Char('*'),
+        "underscore" => Key::Char('_'),
         "slash" => Key::Char('/'),
         "backslash" => Key::Char('\\'),
         "semicolon" => Key::Char(';'),
@@ -278,6 +284,9 @@ impl KeyChord {
             Key::Char('.') => "period".into(),
             Key::Char('-') => "minus".into(),
             Key::Char('=') => "equal".into(),
+            Key::Char('+') => "plus".into(),
+            Key::Char('*') => "asterisk".into(),
+            Key::Char('_') => "underscore".into(),
             Key::Char('/') => "slash".into(),
             Key::Char('\\') => "backslash".into(),
             Key::Char(';') => "semicolon".into(),

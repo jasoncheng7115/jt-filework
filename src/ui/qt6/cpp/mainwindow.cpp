@@ -113,7 +113,10 @@ MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_ap
     m_statusSelection = new QLabel(this);
     m_statusItems = new QLabel(this);
     m_statusTasks = new QLabel(this);
-    for (QLabel *label : {m_statusPanes, m_statusSelection, m_statusItems, m_statusTasks}) {
+    m_statusKeymap = new QLabel(this);
+    m_statusKeymap->setCursor(Qt::PointingHandCursor);
+    for (QLabel *label :
+         {m_statusPanes, m_statusSelection, m_statusItems, m_statusTasks, m_statusKeymap}) {
         label->setProperty("jtfStatusSummary", true);
     }
     statusBar()->addWidget(m_statusMessage, 1);
@@ -121,6 +124,7 @@ MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_ap
     statusBar()->addPermanentWidget(m_statusSelection);
     statusBar()->addPermanentWidget(m_statusItems);
     statusBar()->addPermanentWidget(m_statusTasks);
+    statusBar()->addPermanentWidget(m_statusKeymap);
     statusBar()->addPermanentWidget(m_progress);
     statusBar()->addPermanentWidget(m_cancelButton);
 
@@ -277,6 +281,7 @@ void MainWindow::buildMenus() {
     m_viewMenu = menuBar()->addMenu(QString());
     m_translatableMenus.append({m_viewMenu, "menu.view"});
     command(m_viewMenu, "view.tree", [this] { toggleTree(); });
+    command(m_viewMenu, "keymap.toggle", [this] { toggleKeymap(); });
     command(m_viewMenu, "view.inspector",
             [this] { setInspectorVisible(!m_inspector->isVisible()); });
     command(m_viewMenu, "view.hidden",
@@ -1026,6 +1031,17 @@ void MainWindow::setTreeVisible(bool visible) {
     jtf_set_tree_state(m_app, visible ? 1 : 0, m_outer->sizes().value(0));
 }
 
+void MainWindow::toggleKeymap() {
+    const QString name =
+        jtfText([&](char *buf, int len) { return jtf_toggle_keymap(m_app, buf, len); });
+    jtf_app_save_session(m_app);
+    // Say which mode you are now in. Switching a keyboard layout silently is
+    // the one change a user cannot see until a key does the wrong thing.
+    const QString label = tr_(QStringLiteral("keymap.%1").arg(name).toUtf8().constData());
+    m_statusMessage->setText(jtfFill(tr_("status.keymap_switched"), "name", label));
+    refreshAll();
+}
+
 void MainWindow::runCommand(const QString &id) {
     // Routed to the same QAction the menu uses, so a key and a menu entry can
     // never drift into doing two different things - and so a command that is
@@ -1190,6 +1206,11 @@ void MainWindow::updateStatusSummary() {
         m_statusSelection->clear();
     }
     m_statusItems->setText(jtfFill(tr_("status.items"), "count", QString::number(items)));
+    const QString keymap =
+        jtfText([&](char *buf, int len) { return jtf_keymap_name(m_app, buf, len); });
+    m_statusKeymap->setText(tr_(QStringLiteral("keymap.%1").arg(keymap).toUtf8().constData()));
+    m_statusKeymap->setToolTip(
+        jtfText([&](char *buf, int len) { return jtf_tr(m_app, "command.keymap.toggle", buf, len); }));
     m_statusTasks->setText(jtf_op_running(m_app)
                                ? jtfFill(tr_("status.tasks_running"), "count", QStringLiteral("1"))
                                : QString());
