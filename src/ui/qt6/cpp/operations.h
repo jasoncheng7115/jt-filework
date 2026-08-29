@@ -13,6 +13,15 @@
 
 namespace ops {
 
+// Wait for a plan the model is building on a worker thread.
+//
+// Returns true when a plan is ready. Shows a cancellable "counting" dialog if
+// it takes long enough to notice - a quick plan never flashes one. The wait
+// runs a nested event loop, so the window keeps painting instead of
+// beachballing; the dialog is modal, so no second operation can start
+// underneath it.
+bool awaitPlan(JtfApp *app, QWidget *parent);
+
 enum Kind { Copy = 0, Move = 1, Trash = 2, Delete = 3 };
 
 // Prepares, asks whatever needs asking, and starts. Returns false if the user

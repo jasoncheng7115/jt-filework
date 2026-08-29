@@ -5,6 +5,7 @@
 // the folder you are in is the one part you always need to see.
 #pragma once
 
+#include <QPixmap>
 #include <QWidget>
 
 class QHBoxLayout;
@@ -16,6 +17,8 @@ public:
     explicit Breadcrumb(QWidget *parent = nullptr);
 
     void setPath(const QString &path);
+    /// A small mark at the head of the trail, so the row reads as a path.
+    void setLeadingIcon(const QPixmap &icon);
 
     /// Switch to the editable full path, selected and focused.
     ///
@@ -43,5 +46,7 @@ private:
     QHBoxLayout *m_layout = nullptr;
     class QLineEdit *m_edit = nullptr;
     class QWidget *m_crumbHost = nullptr;
+    class QLabel *m_leading = nullptr;
+    QPixmap m_leadingIcon;
     QString m_path;
 };

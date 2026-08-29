@@ -63,12 +63,14 @@ public:
     void setMarkColor(const QColor &color) { m_markColor = color; }
     void clearIconCache() { m_icons.clear(); }
     void setDirectoryColor(const QColor &color) { m_dirColor = color; }
+    void setExecutableColor(const QColor &color) { m_execColor = color; }
 
 private:
     JtfApp *m_app;
     int m_pane;
     QColor m_markColor;
     QColor m_dirColor;
+    QColor m_execColor;
     mutable IconProvider m_icons;
     quint64 m_generation = 0;
     /// -2 until looked up; -1 when there is no kind column.

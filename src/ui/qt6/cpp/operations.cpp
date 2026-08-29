@@ -1,6 +1,10 @@
 #include "operations.h"
 #include "jtfstring.h"
 
+#include <QElapsedTimer>
+#include <QEventLoop>
+#include <QProgressDialog>
+#include <QTimer>
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -75,11 +79,57 @@ bool confirmIrreversible(JtfApp *app, QWidget *parent, int entries) {
 
 } // namespace
 
+bool ops::awaitPlan(JtfApp *app, QWidget *parent) {
+    // Below this, a dialog would appear and vanish before it could be read.
+    constexpr int kShowAfterMs = 400;
+    constexpr int kPollMs = 30;
+
+    QElapsedTimer clock;
+    clock.start();
+    QProgressDialog *dialog = nullptr;
+    bool cancelled = false;
+
+    QEventLoop loop;
+    QTimer poll;
+    poll.setInterval(kPollMs);
+    QObject::connect(&poll, &QTimer::timeout, &loop, [&] {
+        const int state = jtf_plan_poll(app);
+        if (state >= 0) {
+            loop.exit(state);
+            return;
+        }
+        if (dialog == nullptr && clock.elapsed() > kShowAfterMs) {
+            dialog = new QProgressDialog(tr_(app, "plan.counting"), tr_(app, "operation.cancel"),
+                                         0, 0, parent);
+            dialog->setWindowModality(Qt::WindowModal);
+            dialog->setMinimumDuration(0);
+            dialog->setAutoClose(false);
+            dialog->setAutoReset(false);
+            QObject::connect(dialog, &QProgressDialog::canceled, &loop, [&] {
+                cancelled = true;
+                jtf_plan_cancel(app);
+                loop.exit(0);
+            });
+            dialog->show();
+        }
+    });
+    poll.start();
+    const int result = loop.exec();
+    poll.stop();
+    delete dialog;
+
+    if (cancelled) {
+        // Cancelling the count is not a failure to report; the user said no.
+        return false;
+    }
+    return result == 1;
+}
+
 bool ops::confirmAndStart(JtfApp *app, QWidget *parent, int pane, Kind kind, QString *message) {
     if (jtf_op_running(app)) {
         return false;
     }
-    if (!jtf_op_prepare(app, pane, static_cast<int>(kind))) {
+    if (!jtf_op_prepare(app, pane, static_cast<int>(kind)) || !ops::awaitPlan(app, parent)) {
         if (message) {
             *message = errorMessage(app);
         }
@@ -116,7 +166,7 @@ bool nameThenStart(JtfApp *app, QWidget *parent, int pane, const char *titleKey,
     }
 
     const QByteArray utf8 = name.trimmed().toUtf8();
-    if (!prepare(app, pane, utf8.constData())) {
+    if (!prepare(app, pane, utf8.constData()) || !ops::awaitPlan(app, parent)) {
         if (message) {
             *message = errorMessage(app);
         }

@@ -21,6 +21,7 @@ pub mod error;
 pub mod file;
 pub mod i18n;
 pub mod location;
+pub mod pathinput;
 pub mod theme;
 
 pub use error::{Error, ErrorCode, Result};

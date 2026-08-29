@@ -24,6 +24,7 @@ Theme Theme::fromApp(const JtfApp *app, bool systemIsDark) {
     t.mark = c(TokenMarkActive);
     t.focusRing = c(TokenFocusRing);
     t.indicator = c(TokenPaneActiveIndicator);
+    t.executable = c(TokenTextExecutable);
     t.error = c(TokenStatusError);
     return t;
 }
@@ -178,6 +179,18 @@ QTabBar::close-button {
 }
 QTabBar::close-button:hover { background: %HOVER%; }
 QWidget#JtfTabRow { background: %HEADER%; border-bottom: 1px solid %BORDER%; }
+
+/* The active pane. The edge marks it, the tab strip brightens with it, and
+   the inactive panes' tabs go quiet so only one strip looks lit at a time. */
+QWidget#JtfPane { border-top: 1px solid %BORDER%; border-right: 1px solid %BORDER%; }
+QWidget#JtfPane[jtfActive="true"] { border-top: 2px solid %SEL%; }
+QTabBar[jtfActive="false"]::tab:selected {
+    background: %HEADER%;
+    color: %DIM%;
+    border-top: 2px solid %BORDER%;
+    font-weight: 500;
+}
+QWidget#JtfCrumbs[jtfActive="true"] { background: %ALT%; }
 QToolButton#JtfNewTab {
     color: %DIM%;
     background: transparent;
@@ -203,7 +216,21 @@ QWidget#JtfCrumbs QLabel { color: %DIM%; padding: 0 1px; }
 QStatusBar { background: %HEADER%; border-top: 1px solid %BORDER%; padding: 2px 4px; }
 QStatusBar QLabel { padding-left: 8px; }
 QStatusBar::item { border: none; }
-QLabel[jtfStatusSummary="true"] { color: %DIM%; padding: 0 10px; }
+QLabel[jtfStatusSummary="true"] {
+    color: %DIM%;
+    padding: 2px 12px;
+    border-left: 1px solid %BORDER%;
+}
+/* The keyboard mode is a state, not a count, so it reads as a chip rather
+   than as another number in the row. */
+QLabel#JtfStatusKeymap {
+    color: %ONSEL%;
+    background: %SEL%;
+    border: none;
+    border-radius: 9px;
+    padding: 2px 10px;
+    margin: 0 6px;
+}
 QLabel[jtfZoomMark="true"] { color: %DIM%; }
 /* Form controls. Qt's defaults leave a spin box's arrows shorter than the
    digits beside them, which reads as a rendering fault rather than a control. */

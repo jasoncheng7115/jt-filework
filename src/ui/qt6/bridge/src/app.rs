@@ -140,6 +140,7 @@ pub struct App {
     show_hidden: bool,
     settings: SessionSettings,
     pending_plan: Option<Plan>,
+    planning: Option<crate::operations::Planning>,
     plan_error: Option<PlanError>,
     running: Option<crate::operations::Running>,
     viewer: Option<ViewerSession>,
@@ -201,6 +202,7 @@ impl App {
             theme_mode,
             show_hidden: false,
             pending_plan: None,
+            planning: None,
             plan_error: None,
             running: None,
             viewer: None,
@@ -444,9 +446,21 @@ impl App {
     }
 
     pub(crate) fn navigate(&mut self, pane: PaneId, path: &str) {
+        // What a person types is not yet a path: `~`, `$HOME`, `..` and a
+        // bare relative name all have to become one first, or typing `~`
+        // navigates to a folder actually named `~`.
+        let home = home_location()
+            .as_path()
+            .map_or_else(|| PathBuf::from("/"), Path::to_path_buf);
+        let current = PathBuf::from(self.current_path(pane));
+        let Some(target) =
+            jtf_core::pathinput::expand(path, &home, &current, &|name| std::env::var(name).ok())
+        else {
+            return;
+        };
         if let Some(p) = self.workspace.pane_mut(pane) {
             if let Some(tab) = p.active_tab_mut() {
-                tab.navigate_to(Location::local(path));
+                tab.navigate_to(Location::local(target));
             }
         }
         self.start_enumeration(pane);
@@ -832,6 +846,17 @@ impl App {
         self.entry_at(pane, row)
             .and_then(|e| e.location().as_path())
             .map_or_else(String::new, |p| p.display().to_string())
+    }
+
+    /// Whether the row is a file the platform would run.
+    ///
+    /// Directories are traversable, which is the same permission bit, so they
+    /// are excluded: colouring every folder as executable would tell nobody
+    /// anything.
+    pub(crate) fn row_is_executable(&self, pane: PaneId, row: usize) -> bool {
+        self.entry_at(pane, row).is_some_and(|entry| {
+            !entry.kind().is_directory_on_disk() && entry.permissions().executable
+        })
     }
 
     pub(crate) fn row_is_directory(&self, pane: PaneId, row: usize) -> bool {
@@ -1363,17 +1388,50 @@ impl App {
         })
     }
 
+    /// Start building a plan on a worker thread.
+    ///
+    /// Returns immediately. The caller polls [`Self::poll_planning`] and shows
+    /// something while it waits: counting a large folder takes as long as
+    /// reading it, and that used to happen on the UI thread.
     fn set_plan(&mut self, operation: &jtf_ops::Operation) -> bool {
-        match Plan::build(operation, &CancellationToken::never()) {
-            Ok(plan) => {
+        self.planning = Some(crate::operations::Running::start_planning(
+            operation.clone(),
+        ));
+        true
+    }
+
+    /// Whether a plan is still being built.
+    pub(crate) const fn is_planning(&self) -> bool {
+        self.planning.is_some()
+    }
+
+    /// Collect a finished plan. Returns 1 when ready, 0 on failure, -1 while
+    /// still counting.
+    pub(crate) fn poll_planning(&mut self) -> i32 {
+        let Some(planning) = self.planning.as_mut() else {
+            return i32::from(self.pending_plan.is_some());
+        };
+        match planning.take() {
+            None => -1,
+            Some(Ok(plan)) => {
+                self.planning = None;
                 self.pending_plan = Some(plan);
-                true
+                1
             }
-            Err(error) => {
+            Some(Err(error)) => {
+                self.planning = None;
                 self.plan_error = Some(error);
-                false
+                0
             }
         }
+    }
+
+    /// Stop counting and discard the half-built plan.
+    pub(crate) fn cancel_planning(&mut self) {
+        if let Some(planning) = self.planning.take() {
+            planning.cancel();
+        }
+        self.pending_plan = None;
     }
 
     /// The plan waiting for confirmation.

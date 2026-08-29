@@ -13,7 +13,7 @@
 struct Theme {
     QColor window, pane, preview, header, rowAlternate, rowHover;
     QColor textPrimary, textSecondary, textOnAccent;
-    QColor border, selection, selectionInactive, mark, focusRing, indicator;
+    QColor border, selection, selectionInactive, mark, focusRing, indicator, executable;
     QColor error;
 
     static Theme fromApp(const JtfApp *app, bool systemIsDark);

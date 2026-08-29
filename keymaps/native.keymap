@@ -19,6 +19,10 @@ ctrl+tab             = tab.next
 ctrl+shift+tab       = tab.previous
 primary+alt+right    = tab.next
 primary+alt+left     = tab.previous
+# Pane switching. Cmd-` cycles windows on macOS, and a pane is the same idea
+# one level down, so the gesture transfers.
+primary+grave        = workspace.pane.next
+primary+shift+grave  = workspace.pane.previous
 primary+shift+d      = tab.duplicate
 
 # --- panes

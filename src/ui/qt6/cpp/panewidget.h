@@ -51,8 +51,8 @@ public:
     void retranslate();
     void setListFont(const QFont &font);
     void applyTheme(const QColor &mark, const QColor &directory, const QColor &dim,
-                    const QColor &indicator,
-                    const QColor &border);
+                    const QColor &indicator, const QColor &border,
+                    const QColor &executable);
     void setActive(bool active);
 
 signals:

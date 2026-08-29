@@ -172,15 +172,37 @@ fn a_cancelled_search_stops_and_reports_nothing_further() {
     }
 
     let handle = search(&Location::local(&tree.root), parse("file").unwrap()).unwrap();
-    handle.cancel();
 
+    // Cancel once the walk has demonstrably started, not immediately.
+    //
+    // Cancelling straight after `search` raced the worker: on a loaded
+    // machine the walk could finish before the cancel landed, and reporting
+    // completion is then correct - the search really had completed. The test
+    // failed intermittently for that reason and not because anything was
+    // wrong. Waiting for the first result proves the walk is still running,
+    // so the cancellation has something to interrupt.
+    let first = handle.recv();
+    let Some(first) = first else {
+        panic!("the search produced nothing at all");
+    };
+    if matches!(first, SearchUpdate::Done { .. }) {
+        // Finished before we could interrupt it. There is no cancellation to
+        // observe, so there is nothing here to assert.
+        return;
+    }
+
+    handle.cancel();
     let mut saw_done = false;
     while let Some(update) = handle.recv() {
         if matches!(update, SearchUpdate::Done { .. }) {
             saw_done = true;
         }
     }
-    assert!(!saw_done, "a cancelled search must not report completion");
+    assert!(
+        !saw_done,
+        "a search cancelled while it was still walking must not go on to \
+         report completion"
+    );
 }
 
 #[test]

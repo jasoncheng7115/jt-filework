@@ -83,6 +83,10 @@ ctrl+tab             = tab.next
 ctrl+shift+tab       = tab.previous
 primary+alt+right    = tab.next
 primary+alt+left     = tab.previous
+# Pane switching. Cmd-` cycles windows on macOS, and a pane is the same idea
+# one level down, so the gesture transfers.
+primary+grave        = workspace.pane.next
+primary+shift+grave  = workspace.pane.previous
 primary+shift+backslash = workspace.split.vertical
 primary+backslash    = workspace.split.horizontal
 primary+1            = workspace.preset.single
@@ -102,8 +106,12 @@ primary+equal        = view.font.larger
 primary+minus        = view.font.smaller
 
 # --- search
+# CV.HLP: F / F6 find a string in the listing. That is what our filter does -
+# it narrows the folder you are in - so it takes those keys, and the recursive
+# search keeps the platform chord.
+f                    = view.filter               # confirmed
+f6                   = view.filter               # confirmed
 primary+f            = search.open
 escape               = search.clear
-primary+shift+f      = view.filter
 primary+shift+p      = command.palette
 primary+comma        = settings.open

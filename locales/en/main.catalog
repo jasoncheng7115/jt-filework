@@ -369,3 +369,5 @@ crumb.reveal = Show in Finder
 crumb.terminal = Open in Terminal
 preview.entries = {count} entries
 tab.tear_off = Move Tab to New Window
+plan.counting = Counting what will be copied…
+filter.close = Clear the filter

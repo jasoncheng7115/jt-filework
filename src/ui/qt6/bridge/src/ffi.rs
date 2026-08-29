@@ -1046,6 +1046,35 @@ pub unsafe extern "C" fn jtf_preview_open(app: *mut App, path: *const c_char) ->
     unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.preview_open(path)))
 }
 
+/// Collect a finished plan: 1 ready, 0 failed, -1 still counting.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_plan_poll(app: *mut App) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, App::poll_planning)
+}
+
+/// Whether a plan is still being built.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_plan_running(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.is_planning()))
+}
+
+/// Stop counting and discard the half-built plan.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_plan_cancel(app: *mut App) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.cancel_planning();
+    }
+}
+
 /// How many top-level windows the workspace has.
 ///
 /// # Safety
@@ -1062,7 +1091,11 @@ pub unsafe extern "C" fn jtf_window_count(app: *const App) -> c_int {
 #[no_mangle]
 pub unsafe extern "C" fn jtf_window_id_at(app: *const App, index: c_int) -> u64 {
     unsafe { app_ref(app) }
-        .and_then(|a| usize::try_from(index).ok().and_then(|i| a.window_ids().get(i).copied()))
+        .and_then(|a| {
+            usize::try_from(index)
+                .ok()
+                .and_then(|i| a.window_ids().get(i).copied())
+        })
         .unwrap_or(0)
 }
 
@@ -1107,8 +1140,9 @@ pub unsafe extern "C" fn jtf_merge_tab_into(
     let Ok(index) = usize::try_from(tab_index) else {
         return 0;
     };
-    unsafe { app_mut(app) }
-        .map_or(0, |a| c_int::from(a.merge_tab_into(pane(from), index, pane(into))))
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        c_int::from(a.merge_tab_into(pane(from), index, pane(into)))
+    })
 }
 
 /// The archive at `path` as display lines. Empty when it is not an archive.
@@ -1229,6 +1263,22 @@ pub unsafe extern "C" fn jtf_toggle_keymap(app: *mut App, buf: *mut c_char, len:
 #[no_mangle]
 pub unsafe extern "C" fn jtf_type_ahead(app: *const App) -> c_int {
     unsafe { app_ref(app) }.map_or(1, |a| c_int::from(a.type_ahead()))
+}
+
+/// Whether the row is an executable file.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_row_is_executable(
+    app: *const App,
+    pane_id: c_int,
+    row: c_int,
+) -> c_int {
+    let Ok(row) = usize::try_from(row) else {
+        return 0;
+    };
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.row_is_executable(pane(pane_id), row)))
 }
 
 /// Whether the pane's row `row` is the synthetic `..` row.

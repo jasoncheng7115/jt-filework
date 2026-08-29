@@ -55,6 +55,7 @@ int jtf_row_count(const JtfApp *app, int pane);
 int jtf_row_text(const JtfApp *app, int pane, int row, int column, char *buf, int len);
 int jtf_row_path(const JtfApp *app, int pane, int row, char *buf, int len);
 int jtf_row_is_directory(const JtfApp *app, int pane, int row);
+int jtf_row_is_executable(const JtfApp *app, int pane, int row);
 int jtf_row_is_marked(const JtfApp *app, int pane, int row);
 void jtf_toggle_mark(JtfApp *app, int pane, int row);
 void jtf_mark_listed(JtfApp *app, int pane, int action);
@@ -153,7 +154,13 @@ int jtf_op_entries(const JtfApp *app);
 uint64_t jtf_op_bytes(const JtfApp *app);
 int jtf_op_is_irreversible(const JtfApp *app);
 int jtf_op_first_conflict(const JtfApp *app, char *buf, int len);
-int jtf_op_start(JtfApp *app, int policy); // 0 skip 1 overwrite 2 keep both 3 abort
+int jtf_op_start(JtfApp *app, int policy);
+
+// Planning runs on a worker thread: counting a large folder takes as long as
+// reading it. Poll returns 1 ready, 0 failed, -1 still counting.
+int jtf_plan_poll(JtfApp *app);
+int jtf_plan_running(const JtfApp *app);
+void jtf_plan_cancel(JtfApp *app); // 0 skip 1 overwrite 2 keep both 3 abort
 int jtf_can_undo(const JtfApp *app);
 int jtf_undo_label_key(const JtfApp *app, char *buf, int len);
 int jtf_undo(JtfApp *app);
@@ -238,6 +245,7 @@ enum JtfToken {
     TokenMarkActive,
     TokenFocusRing,
     TokenPaneActiveIndicator,
+    TokenTextExecutable,
     TokenStatusError,
     TokenStatusWarning,
     TokenStatusSuccess,
@@ -252,5 +260,6 @@ inline const char *const kTokenNames[] = {
     "row.alternate",  "row.hover",      "text.primary",    "text.secondary",
     "text.on_accent", "border",         "selection.active", "selection.inactive",
     "mark.active",    "focus.ring",     "pane.active_indicator",
+    "text.executable",
     "status.error",   "status.warning", "status.success",
 };

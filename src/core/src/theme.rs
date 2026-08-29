@@ -114,6 +114,12 @@ pub enum ThemeToken {
     FocusRing,
     /// Indicator for the active pane.
     PaneActiveIndicator,
+    /// An executable file's row.
+    ///
+    /// CView colours these differently, and the reason holds: on a listing
+    /// where everything else is data, the entries that *run* are the ones you
+    /// want to notice before you double-click.
+    TextExecutable,
     /// Error state.
     StatusError,
     /// Warning state.
@@ -140,6 +146,7 @@ impl ThemeToken {
         Self::MarkActive,
         Self::FocusRing,
         Self::PaneActiveIndicator,
+        Self::TextExecutable,
         Self::StatusError,
         Self::StatusWarning,
         Self::StatusSuccess,
@@ -163,6 +170,7 @@ impl ThemeToken {
             Self::MarkActive => "mark.active",
             Self::FocusRing => "focus.ring",
             Self::PaneActiveIndicator => "pane.active_indicator",
+            Self::TextExecutable => "text.executable",
             Self::StatusError => "status.error",
             Self::StatusWarning => "status.warning",
             Self::StatusSuccess => "status.success",
@@ -293,6 +301,7 @@ impl Palette {
             ThemeToken::MarkActive => Color::rgb(0x7A, 0x2A, 0x00),
             ThemeToken::FocusRing => Color::rgb(0x2C, 0x6B, 0xD8),
             ThemeToken::PaneActiveIndicator => Color::rgb(0x2C, 0x6B, 0xD8),
+            ThemeToken::TextExecutable => Color::rgb(0x1B, 0x6E, 0x3C),
             ThemeToken::StatusError => Color::rgb(0xB3, 0x26, 0x1E),
             ThemeToken::StatusWarning => Color::rgb(0x7A, 0x4E, 0x00),
             ThemeToken::StatusSuccess => Color::rgb(0x14, 0x6C, 0x2E),
@@ -324,6 +333,7 @@ impl Palette {
             ThemeToken::MarkActive => Color::rgb(0xF0, 0xA4, 0x5A),
             ThemeToken::FocusRing => Color::rgb(0x7F, 0xB4, 0xFF),
             ThemeToken::PaneActiveIndicator => Color::rgb(0x7F, 0xB4, 0xFF),
+            ThemeToken::TextExecutable => Color::rgb(0x6F, 0xD1, 0x8C),
             ThemeToken::StatusError => Color::rgb(0xFF, 0x8A, 0x84),
             ThemeToken::StatusWarning => Color::rgb(0xF0, 0xC0, 0x5A),
             ThemeToken::StatusSuccess => Color::rgb(0x6E, 0xD2, 0x8F),

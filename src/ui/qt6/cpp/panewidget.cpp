@@ -2,6 +2,7 @@
 #include "filelistmodel.h"
 #include "breadcrumb.h"
 #include "headerview.h"
+#include "icons.h"
 
 #include <QApplication>
 #include "jtfstring.h"
@@ -23,6 +24,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QHBoxLayout>
+#include <QStyle>
 #include <QTabBar>
 #include <QToolButton>
 #include <QTableView>
@@ -98,10 +100,12 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_filterIcon = new QLabel(m_filterBar);
     m_filterIcon->setObjectName(QStringLiteral("JtfFilterIcon"));
     filterRow->addWidget(m_filterIcon);
+    // Set with the theme, alongside every other tinted glyph.
 
     m_filter = new QLineEdit(m_filterBar);
     m_filter->setObjectName(QStringLiteral("JtfFilter"));
     m_filter->setFrame(false);
+    m_filter->installEventFilter(this);
     filterRow->addWidget(m_filter, 1);
 
     // How much is hidden, live. A filter that silently removes rows is how
@@ -114,6 +118,8 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_filterClose->setObjectName(QStringLiteral("JtfFilterClose"));
     m_filterClose->setAutoRaise(true);
     m_filterClose->setFocusPolicy(Qt::NoFocus);
+    m_filterClose->setToolTip(jtfText(
+        [&](char *b, int l) { return jtf_tr(m_app, "filter.close", b, l); }));
     connect(m_filterClose, &QToolButton::clicked, this, [this] { clearFilter(); });
     filterRow->addWidget(m_filterClose);
     connect(m_filter, &QLineEdit::textChanged, this, [this](const QString &text) {
@@ -567,6 +573,27 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
         break;
     }
 
+    // Typing a filter narrows the list; the next thing anyone wants is to act
+    // on what is left. Tab, Enter and Down all hand the keyboard to the list
+    // rather than leaving it in a box whose work is done.
+    if (event->type() == QEvent::KeyPress && (watched == m_filter || watched == m_search)) {
+        auto *key = static_cast<QKeyEvent *>(event);
+        switch (key->key()) {
+        case Qt::Key_Tab:
+        case Qt::Key_Return:
+        case Qt::Key_Enter:
+        case Qt::Key_Down:
+            focusList();
+            if (m_view->currentIndex().isValid()) {
+                return true;
+            }
+            ensureCurrentRow();
+            return true;
+        default:
+            break;
+        }
+    }
+
     if (event->type() == QEvent::KeyPress && watched == m_view) {
         auto *key = static_cast<QKeyEvent *>(event);
         switch (key->key()) {
@@ -945,11 +972,22 @@ void PaneWidget::retranslate() {
 }
 
 void PaneWidget::applyTheme(const QColor &mark, const QColor &directory, const QColor &dim,
-                            const QColor &indicator,
-                            const QColor &border) {
+                            const QColor &indicator, const QColor &border,
+                            const QColor &executable) {
     m_model->setMarkColor(mark);
     m_model->setDirectoryColor(directory);
+    m_model->setExecutableColor(executable);
     m_indicator = indicator;
+    if (m_filterIcon != nullptr) {
+        m_filterIcon->setPixmap(
+            glyph::make(glyph::Shape::Filter, dim).pixmap(14, 14));
+    }
+    if (m_filterClose != nullptr) {
+        m_filterClose->setIcon(glyph::make(glyph::Shape::Close, dim));
+    }
+    if (m_crumbs != nullptr) {
+        m_crumbs->setLeadingIcon(glyph::make(glyph::Shape::Sidebar, dim).pixmap(14, 14));
+    }
     // The sorted column's header is painted in the primary text colour and
     // the rest in the dim one: that contrast is what makes the sorted column
     // findable without hunting for the caret.
@@ -961,14 +999,21 @@ void PaneWidget::applyTheme(const QColor &mark, const QColor &directory, const Q
 
 void PaneWidget::setActive(bool active) {
     m_active = active;
-    // The active pane must be identifiable at a glance in both themes and
-    // without relying on colour alone (docs/UI_UX_SPEC.md 3.1). A coloured
-    // rule along the top edge reads instantly and, unlike a full border, does
-    // not steal a pixel of list width when it appears.
-    const QColor colour = active ? m_indicator : m_border;
-    setStyleSheet(QStringLiteral("QWidget#JtfPane { border-top: %1px solid %2; "
-                                 "border-right: 1px solid %3; }")
-                      .arg(active ? 2 : 1)
-                      .arg(colour.name(QColor::HexRgb))
-                      .arg(m_border.name(QColor::HexRgb)));
+    // Which pane the keyboard is in has to be obvious, or every command is a
+    // guess about where it will land. One mark was not enough: a rule along
+    // the pane's top edge is easy to miss beside a tab strip that looked
+    // identical in both panes, because the *tab* accent said "this tab is
+    // current in its pane" and every pane has one of those.
+    //
+    // So three marks together, and none of them colour alone
+    // (docs/UI_UX_SPEC.md 3.1): the pane's own edge, its tab strip lit or
+    // dimmed, and the file list's selection drawn active or inactive - which
+    // Qt already does for us once the focus is really there.
+    for (QWidget *widget : {static_cast<QWidget *>(this), static_cast<QWidget *>(m_tabs),
+                            static_cast<QWidget *>(m_crumbs)}) {
+        widget->setProperty("jtfActive", active);
+        widget->style()->unpolish(widget);
+        widget->style()->polish(widget);
+    }
+    update();
 }

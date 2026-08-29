@@ -176,9 +176,9 @@ MainWindow::MainWindow(JtfApp *app, quint64 windowId, QWidget *parent)
     m_statusItems = new QLabel(this);
     m_statusTasks = new QLabel(this);
     m_statusKeymap = new QLabel(this);
+    m_statusKeymap->setObjectName(QStringLiteral("JtfStatusKeymap"));
     m_statusKeymap->setCursor(Qt::PointingHandCursor);
-    for (QLabel *label :
-         {m_statusPanes, m_statusSelection, m_statusItems, m_statusTasks, m_statusKeymap}) {
+    for (QLabel *label : {m_statusPanes, m_statusSelection, m_statusItems, m_statusTasks}) {
         label->setProperty("jtfStatusSummary", true);
     }
     statusBar()->addWidget(m_statusMessage, 1);
@@ -619,7 +619,8 @@ void MainWindow::runDrop(int pane, const QStringList &paths, int kind) {
         return;
     }
     const QByteArray joined = paths.join(QLatin1Char('\n')).toUtf8();
-    if (!jtf_op_prepare_drop(m_app, pane, kind, joined.constData())) {
+    if (!jtf_op_prepare_drop(m_app, pane, kind, joined.constData()) ||
+        !ops::awaitPlan(m_app, this)) {
         // Dropping into the folder something already lives in is the common
         // accident, and produces no plan; saying nothing is right there.
         const QString key =
@@ -671,7 +672,7 @@ void MainWindow::runOperation(OperationRequest request) {
     case OpDuplicate:
         // Always "keep both": a duplicate that overwrote the original would
         // be a contradiction in terms.
-        if (jtf_op_prepare_duplicate(m_app, pane)) {
+        if (jtf_op_prepare_duplicate(m_app, pane) && ops::awaitPlan(m_app, this)) {
             started = jtf_op_start(m_app, 2) != 0;
         }
         break;
@@ -1584,6 +1585,16 @@ void MainWindow::retranslate() {
     });
     setWindowTitle(folder.isEmpty() ? tr_("app.name")
                                     : folder + QStringLiteral(" — ") + tr_("app.name"));
+    // The proxy icon: macOS shows the icon of the file or folder a window
+    // stands for, beside its title, and lets you drag it. Our window stands
+    // for the folder the active pane is showing, so saying which folder gets
+    // that behaviour for free and matches what Finder does.
+    const QString here = jtfText([&](char *buf, int len) {
+        return jtf_current_path(m_app, jtf_active_pane(m_app), buf, len);
+    });
+    if (windowFilePath() != here) {
+        setWindowFilePath(here);
+    }
     m_cancelButton->setText(tr_("operation.cancel"));
     for (auto *p : std::as_const(m_panes)) {
         p->retranslate();
@@ -1657,7 +1668,8 @@ void MainWindow::applyTheme() {
                          m_theme.textPrimary,
                          m_theme.textSecondary,
                          m_theme.indicator,
-                         m_theme.border);
+                         m_theme.border,
+                         m_theme.executable);
     }
     m_applyingTheme = false;
 }

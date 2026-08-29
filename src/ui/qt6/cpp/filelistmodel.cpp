@@ -113,6 +113,11 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const {
         if (jtf_row_is_marked(m_app, m_pane, row)) {
             return QBrush(m_markColor);
         }
+        // The whole row, not just the name: CView colours the line, and the
+        // point is to notice before you double-click something that runs.
+        if (jtf_row_is_executable(m_app, m_pane, row)) {
+            return QBrush(m_execColor);
+        }
         if (column == 0 && jtf_row_is_directory(m_app, m_pane, row)) {
             return QBrush(m_dirColor);
         }

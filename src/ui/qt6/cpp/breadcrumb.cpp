@@ -37,6 +37,11 @@ Breadcrumb::Breadcrumb(QWidget *parent) : QWidget(parent) {
     stack->addWidget(m_edit);
 }
 
+void Breadcrumb::setLeadingIcon(const QPixmap &icon) {
+    m_leadingIcon = icon;
+    rebuild();
+}
+
 void Breadcrumb::beginEditing() {
     m_edit->setText(m_path);
     m_crumbHost->setVisible(false);
@@ -154,6 +159,13 @@ void Breadcrumb::rebuild() {
         m_layout->addWidget(button);
     };
 
+    if (!m_leadingIcon.isNull()) {
+        m_leading = new QLabel(m_crumbHost);
+        m_leading->setPixmap(m_leadingIcon);
+        m_leading->setProperty("jtfCrumbSeparator", true);
+        m_leading->setContentsMargins(2, 0, 6, 0);
+        m_layout->addWidget(m_leading);
+    }
     if (firstShown > 0) {
         addSegment(labels.first(), paths.first());
         auto *ellipsis = new QLabel(QStringLiteral("…"), m_crumbHost);

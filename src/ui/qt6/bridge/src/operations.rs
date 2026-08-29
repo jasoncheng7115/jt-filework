@@ -62,6 +62,36 @@ impl Running {
         }
     }
 
+    /// Spawn a worker that builds a plan.
+    ///
+    /// Planning walks every source to total its bytes and entries, which for
+    /// a large folder takes as long as reading the disk. Doing that on the UI
+    /// thread froze the window with no progress and no way out — the very
+    /// thing the job engine exists to avoid, skipped because planning did not
+    /// look like work.
+    pub(crate) fn start_planning(operation: jtf_ops::Operation) -> Planning {
+        let (token, canceller) = CancellationToken::new();
+        let shared: Arc<Mutex<Option<Result<Plan, jtf_ops::PlanError>>>> =
+            Arc::new(Mutex::new(None));
+        let worker = Arc::clone(&shared);
+
+        let join = thread::Builder::new()
+            .name("jtf-planning".to_string())
+            .spawn(move || {
+                let result = Plan::build(&operation, &token);
+                if let Ok(mut guard) = worker.lock() {
+                    *guard = Some(result);
+                }
+            })
+            .ok();
+
+        Planning {
+            canceller,
+            shared,
+            join,
+        }
+    }
+
     /// Spawn a worker for `plan`.
     pub(crate) fn start(plan: Plan, policy: ConflictPolicy) -> Self {
         let (token, canceller) = CancellationToken::new();
@@ -238,5 +268,40 @@ impl OperationKind {
     /// Whether this needs a destination pane.
     pub(crate) const fn needs_destination(self) -> bool {
         matches!(self, Self::Copy | Self::Move)
+    }
+}
+
+/// A plan being built on a worker thread.
+pub(crate) struct Planning {
+    canceller: Canceller,
+    shared: Arc<Mutex<Option<Result<Plan, jtf_ops::PlanError>>>>,
+    join: Option<thread::JoinHandle<()>>,
+}
+
+impl Planning {
+    /// The finished result, or `None` while it is still working.
+    pub(crate) fn take(&mut self) -> Option<Result<Plan, jtf_ops::PlanError>> {
+        let done = self.shared.lock().ok().and_then(|mut g| g.take());
+        if done.is_some() {
+            if let Some(handle) = self.join.take() {
+                let _ = handle.join();
+            }
+        }
+        done
+    }
+
+    /// Stop counting. The worker checks between entries.
+    pub(crate) fn cancel(&self) {
+        self.canceller.cancel();
+    }
+}
+
+impl Drop for Planning {
+    fn drop(&mut self) {
+        // A dropped planner must not leave a thread walking the disk.
+        self.canceller.cancel();
+        if let Some(handle) = self.join.take() {
+            let _ = handle.join();
+        }
     }
 }
