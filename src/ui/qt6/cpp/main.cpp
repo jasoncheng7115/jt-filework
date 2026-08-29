@@ -10,6 +10,12 @@
 
 int main(int argc, char **argv) {
     WatchdogApplication application(argc, argv);
+    // macOS's guidelines discourage icons in menus, so Qt turns them off for
+    // the whole application there - which silently dropped every icon we set
+    // on a menu action. This program shows them deliberately: its menus are
+    // long, and the picture is what makes a command findable in a list of
+    // thirty (docs/UI_CONVENTIONS.md).
+    QApplication::setAttribute(Qt::AA_DontShowIconsInMenus, false);
     QApplication::setApplicationName(QStringLiteral("jt-filework"));
     QApplication::setOrganizationName(QStringLiteral("jt-filework"));
 
