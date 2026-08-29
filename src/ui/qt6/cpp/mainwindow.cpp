@@ -23,6 +23,7 @@
 #include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QDialog>
+#include <QElapsedTimer>
 #include <QDir>
 #include <QCloseEvent>
 #include <QJsonDocument>
@@ -268,9 +269,37 @@ MainWindow::MainWindow(JtfApp *app, quint64 windowId, QWidget *parent)
     connect(QApplication::styleHints(), &QStyleHints::colorSchemeChanged, this,
             [this](Qt::ColorScheme) { applyTheme(); });
 
+    // The session is written periodically, not only when the window closes.
+    // Closing is the one exit that was covered: a crash, a force quit, or a
+    // machine losing power all lost the layout the user had arranged, and
+    // "remember where I was" that forgets under exactly those circumstances
+    // is not much of a promise. Saving is writing a small file to a temporary
+    // and renaming it, so doing it on a timer costs nothing worth measuring.
+    if (m_windowId == 1) {
+        auto *persist = new QTimer(this);
+        connect(persist, &QTimer::timeout, this, [this] { jtf_app_save_session(m_app); });
+        persist->start(30'000);
+    }
+
     auto *timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, [this] {
-        if (jtf_app_pump(m_app)) {
+        // Under the watchdog, the model's share of a tick is timed apart from
+        // the repaint that follows it. A slow tick is one or the other, and
+        // "Timer took 200ms" does not say which.
+        QElapsedTimer tick;
+        const bool timing = !qEnvironmentVariableIsEmpty("JTF_WATCHDOG");
+        if (timing) {
+            tick.start();
+        }
+        const bool pumped = jtf_app_pump(m_app);
+        if (timing) {
+            const qint64 modelMicros = tick.nsecsElapsed() / 1000;
+            if (modelMicros > 16'000) {
+                qWarning("[jtf] model pump %lldus", static_cast<long long>(modelMicros));
+            }
+            tick.restart();
+        }
+        if (pumped) {
             // While a directory streams in, only the rows and the counters
             // change. Rebuilding splitters and re-resolving every menu label
             // on each of four hundred batches is work nobody asked for.
@@ -279,6 +308,12 @@ MainWindow::MainWindow(JtfApp *app, quint64 windowId, QWidget *parent)
             }
             updateStatus();
             updateOperationUi();
+        }
+        if (timing && pumped) {
+            const qint64 viewMicros = tick.nsecsElapsed() / 1000;
+            if (viewMicros > 16'000) {
+                qWarning("[jtf] view refresh %lldus", static_cast<long long>(viewMicros));
+            }
         }
     });
     timer->start(kPumpIntervalMs);

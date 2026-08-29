@@ -35,8 +35,9 @@ public:
     /// The thumbnail for `path`, or a null pixmap while one is being made.
     ///
     /// Asking is what schedules the work; a path nobody asks about is never
-    /// decoded.
-    QPixmap thumbnail(const QString &path, int edge);
+    /// decoded. `row` is remembered so the answer can be delivered back to
+    /// the row that asked, rather than searched for.
+    QPixmap thumbnail(const QString &path, int edge, int row);
 
     /// Whether this file is worth trying at all.
     static bool canThumbnail(const QString &path);
@@ -45,16 +46,23 @@ public:
     void clear();
 
 signals:
-    /// A thumbnail arrived; the view should repaint the row.
-    void ready(const QString &path);
+    /// A thumbnail arrived for the row that asked, which should repaint.
+    ///
+    /// The row is carried rather than the path alone: finding the row by path
+    /// meant scanning the whole model, and in a directory of a hundred
+    /// thousand that was a hundred thousand lookups on the UI thread to
+    /// repaint one line - far more work than the decoding it was there to
+    /// keep off the thread. The receiver still checks the row holds the path
+    /// it expects, because rows move.
+    void ready(int row, const QString &path);
 
 private slots:
-    void store(const QString &key, const QString &path, const QPixmap &pixmap);
+    void store(const QString &key, const QString &path, int row, const QPixmap &pixmap);
 
 private:
     QString keyFor(const QString &path, int edge) const;
 
     QCache<QString, QPixmap> m_cache;
-    QSet<QString> m_pending;
+    QHash<QString, int> m_pending;
     QThreadPool *m_pool = nullptr;
 };

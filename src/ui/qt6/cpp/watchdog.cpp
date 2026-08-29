@@ -1,6 +1,9 @@
 #include "watchdog.h"
 
 #include <QDebug>
+#include <QTimer>
+
+#include <cstdio>
 #include <QEvent>
 #include <QMetaEnum>
 #include <algorithm>
@@ -52,6 +55,24 @@ bool WatchdogApplication::notify(QObject *receiver, QEvent *event) {
         m_worstEvent = eventName(event->type());
     }
     return handled;
+}
+
+void WatchdogApplication::startPeriodicReports() {
+    if (!m_enabled || m_reportTimer != nullptr) {
+        return;
+    }
+    // Long enough not to be part of what it measures, short enough to be
+    // useful in a session nobody gets to end cleanly.
+    constexpr int kIntervalMs = 10'000;
+    m_reportTimer = new QTimer(this);
+    connect(m_reportTimer, &QTimer::timeout, this, [this] {
+        const QString text = report();
+        if (!text.isEmpty()) {
+            std::fputs(qPrintable(text), stderr);
+            std::fflush(stderr);
+        }
+    });
+    m_reportTimer->start(kIntervalMs);
 }
 
 QString WatchdogApplication::report() const {

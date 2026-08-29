@@ -1,8 +1,9 @@
 # ADR-0001: GUI Technology Stack
 
-- **Status:** Proposed — **blocked on the Phase 0B PoC. Do not implement UI
-  against any candidate before this ADR is Accepted.**
-- **Date:** 2026-08-29 (opened)
+- **Status:** Proposed — the macOS performance gates are now measured and met
+  (see below). What remains before this can be Accepted is a decision by the
+  project owner, plus the same numbers on Windows and Linux.
+- **Date:** 2026-08-29 (opened), 2026-08-30 (performance gates measured)
 - **Deciders:** project owner
 
 ## Context
@@ -220,16 +221,61 @@ for a sort is a statement about 100 000 entries; stated flat it called a
 correct 999 ms sort of a million names a failure while letting a slow sort of
 ten thousand pass.
 
+## UI-thread watchdog — first recorded run
+
+Recorded 2026-08-30, same machine. `JTF_WATCHDOG=1`, session restored into the
+100 000-entry fixture, ~25 s of running, 6 339 events dispatched.
+
+| | |
+|---|---|
+| p50 | 0 µs |
+| p95 | 55 µs |
+| p99 | 486 µs |
+| worst | 187 ms (the first tick after the window appears) |
+| over one 60 Hz frame | 20 events, 0.32 % |
+
+The watchdog earned its keep immediately by finding two real defects.
+
+**A linear scan per thumbnail.** When a decoded thumbnail arrived, the model
+searched the whole list for the row that had asked for it — one FFI call and
+one string allocation per row, on the UI thread. In a directory of a hundred
+thousand that was a hundred thousand lookups to repaint a single line: far
+more work than the decoding it existed to keep off the thread. The row is now
+carried with the request and verified on arrival, which is one lookup. p99
+halved, from 944 µs to 486 µs.
+
+**A hidden view doing full layouts.** The icon grid shares the list's model,
+and a hidden view still receives every model reset and still lays out every
+item. It is now attached only while it is showing.
+
+**Where the remaining time goes.** Timing the model's share of a tick
+separately from the repaint that follows settles it: the model pump never
+exceeded one frame even at 100 000 entries, while the view refresh grew to
+~28 ms as the listing streamed in. The cost is Qt's own bookkeeping for
+incremental insertion into a large table, it is confined to the seconds a
+directory is loading, and first rows are still on screen in under a
+millisecond. Recorded rather than chased.
+
+**Two changes the watchdog also prompted.** It only printed its report on a
+clean exit, so a session that was killed — or that hung, which is when you
+want it most — produced nothing; it now reports as it goes. And the session
+file was written only when the window closed, so a crash or a force quit lost
+the layout the user had arranged. It is now saved periodically as well.
+
 **Not yet measured:** scroll frame times, memory after repeated navigation,
-and the same numbers on Windows and Linux. The UI-thread watchdog is
-implemented (`JTF_WATCHDOG=1`) but has no recorded run yet.
+and the same numbers on Windows and Linux.
 
 ## Decision
 
 **Not yet made.** Qt 6 has been selected by the project owner and is proven to
-build and run natively on Apple Silicon, but this ADR stays *Proposed* until
-the remaining gate rows above are measured and recorded, per
-`AGENTS.md` §18.3.
+build and run natively on Apple Silicon. The performance gates are measured
+and met on macOS at both 100 000 and 1 000 000 entries, including the one that
+matters most — first rows on screen in under 4 ms at a million entries.
+
+This stays *Proposed* rather than Accepted for two reasons, neither of which
+is a measurement: the same numbers have not been taken on Windows or Linux,
+and the decision itself belongs to the project owner rather than to whoever
+ran the benchmark.
 
 The decision must state: the chosen stack, the scores, which gates each
 candidate passed or failed, and the WebView policy that follows.

@@ -22,17 +22,22 @@ FileListModel::FileListModel(JtfApp *app, int paneId, QObject *parent)
     // A thumbnail arrives later than the row that asked for it, so the row is
     // repainted when it does. Only that row: repainting the list would undo
     // the point of decoding off the UI thread.
-    connect(m_thumbnails, &ThumbnailCache::ready, this, [this](const QString &path) {
-        for (int row = 0; row < m_rows; ++row) {
-            const QString rowPath = jtfText([&](char *buf, int len) {
-                return jtf_row_path(m_app, m_pane, row, buf, len);
-            });
-            if (rowPath == path) {
-                const QModelIndex at = index(row, 0);
-                emit dataChanged(at, at, {Qt::DecorationRole});
-                return;
-            }
+    connect(m_thumbnails, &ThumbnailCache::ready, this, [this](int row, const QString &path) {
+        if (row < 0 || row >= m_rows) {
+            return; // the listing shrank; the thumbnail stays cached
         }
+        // Rows move - a re-sort, a new listing - so the row is verified to
+        // still hold the path that asked. One lookup, not one per row.
+        const QString rowPath = jtfText([&](char *buf, int len) {
+            return jtf_row_path(m_app, m_pane, row, buf, len);
+        });
+        if (rowPath != path) {
+            // Whatever is there now will pick the thumbnail up from the cache
+            // the next time it paints, so there is nothing to repair.
+            return;
+        }
+        const QModelIndex at = index(row, 0);
+        emit dataChanged(at, at, {Qt::DecorationRole});
     });
     m_generation = jtf_row_generation(app, paneId);
     m_rows = jtf_row_count(app, paneId);
@@ -141,7 +146,7 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const {
         if (m_showThumbnails && !isDirectory) {
             // A picture of the file beats a picture of its type, when we can
             // have one. The icon stands in until the decode finishes.
-            const QPixmap thumb = m_thumbnails->thumbnail(path, kThumbnailEdge);
+            const QPixmap thumb = m_thumbnails->thumbnail(path, kThumbnailEdge, row);
             if (!thumb.isNull()) {
                 return QIcon(thumb);
             }

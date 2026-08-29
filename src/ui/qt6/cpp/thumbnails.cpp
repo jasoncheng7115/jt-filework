@@ -24,8 +24,9 @@ constexpr int kMaxThreads = 3;
 
 class DecodeTask : public QRunnable {
 public:
-    DecodeTask(ThumbnailCache *cache, QString key, QString path, int edge)
-        : m_cache(cache), m_key(std::move(key)), m_path(std::move(path)), m_edge(edge) {
+    DecodeTask(ThumbnailCache *cache, QString key, QString path, int edge, int row)
+        : m_cache(cache), m_key(std::move(key)), m_path(std::move(path)), m_edge(edge),
+          m_row(row) {
         setAutoDelete(true);
     }
 
@@ -47,11 +48,11 @@ public:
             // file is not retried on every repaint.
             QMetaObject::invokeMethod(m_cache, "store", Qt::QueuedConnection,
                                       Q_ARG(QString, m_key), Q_ARG(QString, m_path),
-                                      Q_ARG(QPixmap, QPixmap()));
+                                      Q_ARG(int, m_row), Q_ARG(QPixmap, QPixmap()));
             return;
         }
         QMetaObject::invokeMethod(m_cache, "store", Qt::QueuedConnection, Q_ARG(QString, m_key),
-                                  Q_ARG(QString, m_path),
+                                  Q_ARG(QString, m_path), Q_ARG(int, m_row),
                                   Q_ARG(QPixmap, QPixmap::fromImage(image)));
     }
 
@@ -60,6 +61,7 @@ private:
     QString m_key;
     QString m_path;
     int m_edge;
+    int m_row;
 };
 
 } // namespace
@@ -98,7 +100,7 @@ QString ThumbnailCache::keyFor(const QString &path, int edge) const {
         .arg(edge);
 }
 
-QPixmap ThumbnailCache::thumbnail(const QString &path, int edge) {
+QPixmap ThumbnailCache::thumbnail(const QString &path, int edge, int row) {
     const QString key = keyFor(path, edge);
     if (QPixmap *cached = m_cache.object(key)) {
         return *cached;
@@ -111,16 +113,17 @@ QPixmap ThumbnailCache::thumbnail(const QString &path, int edge) {
         m_cache.insert(key, new QPixmap());
         return {};
     }
-    m_pending.insert(key);
-    m_pool->start(new DecodeTask(this, key, path, edge));
+    m_pending.insert(key, row);
+    m_pool->start(new DecodeTask(this, key, path, edge, row));
     return {};
 }
 
-void ThumbnailCache::store(const QString &key, const QString &path, const QPixmap &pixmap) {
+void ThumbnailCache::store(const QString &key, const QString &path, int row,
+                           const QPixmap &pixmap) {
     m_pending.remove(key);
     m_cache.insert(key, new QPixmap(pixmap));
     if (!pixmap.isNull()) {
-        emit ready(path);
+        emit ready(row, path);
     }
 }
 

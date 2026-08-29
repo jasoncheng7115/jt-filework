@@ -25,12 +25,20 @@ public:
     // Percentile summary in microseconds. Empty if nothing was recorded.
     QString report() const;
 
+    /// Begin printing the report periodically as well as at exit.
+    ///
+    /// A diagnostic that can only be read by quitting cleanly is one you
+    /// cannot read when it matters: a hang, a crash, or a session someone
+    /// had to kill. This prints as it goes.
+    void startPeriodicReports();
+
     bool enabled() const { return m_enabled; }
 
 private:
     bool m_enabled;
     int m_depth = 0;      // only the outermost dispatch is timed
     QElapsedTimer m_timer;
+    class QTimer *m_reportTimer = nullptr;
     qint64 m_started = 0;
     std::vector<qint64> m_samples; // microseconds
     qint64 m_overBudget = 0;

@@ -222,8 +222,10 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // models would be two answers to "what is in this folder".
     m_grid = new QListView(this);
     m_grid->setObjectName(QStringLiteral("JtfGrid"));
-    m_grid->setModel(m_model);
-    m_grid->setSelectionModel(m_view->selectionModel());
+    // The model is attached only while the grid is showing. A hidden view
+    // still receives every model reset and still lays out every item, so in a
+    // directory of a hundred thousand the grid was doing a full layout on
+    // each listing that nobody would ever see.
     m_grid->setViewMode(QListView::IconMode);
     m_grid->setResizeMode(QListView::Adjust);
     m_grid->setMovement(QListView::Static);
@@ -998,6 +1000,14 @@ void PaneWidget::applyViewMode() {
     // photographs rather than a grid of magnified icons.
     m_grid->setIconSize(QSize(kGridIconEdge, kGridIconEdge));
     m_grid->setGridSize(QSize(kGridIconEdge + 40, kGridIconEdge + 46));
+    if (grid) {
+        // Same model and same selection model, so the cursor and the marks
+        // survive the switch.
+        m_grid->setModel(m_model);
+        m_grid->setSelectionModel(m_view->selectionModel());
+    } else {
+        m_grid->setModel(nullptr);
+    }
     m_grid->setVisible(grid);
     m_view->setVisible(!grid);
     if (grid) {

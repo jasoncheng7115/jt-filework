@@ -69,6 +69,8 @@ int main(int argc, char **argv) {
     });
 
     JtfApp *app = jtf_app_new(systemLocale.constData());
+    application.startPeriodicReports();
+
     MainWindow window(app);
     window.show();
 
