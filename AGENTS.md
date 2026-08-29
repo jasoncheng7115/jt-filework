@@ -307,7 +307,88 @@ adopted, or an ADR changing status.
 The record must be honest about what is *not* done. A status section that
 flatters is worse than none, because the next person plans against it.
 
-## 20. Completion Checklist
+## 20. Security Is a Release Gate
+
+`AGENTS.md` §17 says what to distrust. This says what to do about it, and it
+is a **gate**: no build leaves this project without the checks in §20.5.
+
+### 20.1 Memory safety
+
+- The core is Rust and `unsafe` is denied. The two exceptions are the FFI
+  bridge and platform adapters, where it is unavoidable; every block states
+  the invariant it relies on, in a comment directly above it.
+- The C++ UI layer is the only memory-unsafe surface in the product. It is
+  compiled with stack protector, `_FORTIFY_SOURCE`, and the platform's
+  control-flow mitigations, and it is exercised under AddressSanitizer and
+  UndefinedBehaviorSanitizer in CI.
+- No raw buffer arithmetic without a bound. Strings crossing the FFI boundary
+  are copied into a caller-sized buffer, truncated at a character boundary,
+  and always NUL-terminated.
+
+### 20.2 Recursion is a bound, not a hope
+
+**Any recursion over data that a user or a file can influence must have an
+explicit depth limit**, and the check itself must be iterative so that
+validating hostile input is not the overflow it exists to prevent.
+
+Known instances, each with a bound:
+
+```text
+workspace split tree      MAX_SPLIT_DEPTH   restored from a session file
+archive nesting           bounded           docs/SECURITY.md 4
+symlink resolution        bounded           docs/SECURITY.md 3
+directory recursion       bounded           docs/SECURITY.md 10
+JSON / YAML / XML parsing bounded           docs/SECURITY.md 10
+```
+
+### 20.3 No injection, ever
+
+- Processes are launched with an **argument vector**. A shell command line is
+  never constructed (§16).
+- SQL is parameterized. String-built queries are forbidden.
+- Paths are never built by concatenating untrusted components, and any write
+  derived from untrusted input is verified to resolve inside its destination
+  root after normalization.
+- User data is never a format string, a glob, a regex or a selector without
+  being escaped or bounded first.
+- Text from a file, an archive, an AI response or a remote provider is
+  **data**. It never becomes a command, a setting, or markup with active
+  content.
+
+### 20.4 No hijacking
+
+- Helper binaries are launched by absolute path. No `PATH` lookup for
+  anything privileged.
+- Library search order is pinned: no writable directory on the load path, and
+  no `@rpath` entry an attacker could occupy.
+- Third-party shell extensions run out of process (§17,
+  `docs/SECURITY.md` §6).
+- Destructive operations use directory-relative syscalls rather than
+  re-resolving a path between check and use.
+- Credentials live in the platform keychain and are never passed on a command
+  line, where any local process can read them.
+
+### 20.5 The release gate
+
+Before **any** build is given to anyone outside the project:
+
+- [ ] `cargo audit` and `cargo deny` clean, or every exception justified in
+      writing
+- [ ] sanitizer build of the UI layer runs the smoke suite with no report
+- [ ] fuzz targets run for their scheduled budget with no new crash
+- [ ] the hostile fixture set (`docs/TESTING.md` §9.2) passes
+- [ ] every new recursion over untrusted input has a bound and a test
+- [ ] every new `unsafe` block has a stated invariant
+- [ ] every new dependency that parses untrusted input has a justification
+      and a fuzz target
+- [ ] no secret in the repository, the binary, or the logs
+- [ ] the build is signed and, on macOS, notarized
+      (`docs/SIGNING_RUNBOOK.md`)
+- [ ] verified on a clean machine with the quarantine attribute present
+
+A release that skips a line here is not a release. It is a liability.
+
+## 21. Completion Checklist
 
 Before marking work complete:
 - tests pass
@@ -320,6 +401,7 @@ Before marking work complete:
 - platform impact documented
 - benchmark added for performance-sensitive code
 - native and display performance budgets still met (§18)
+- security obligations met (§20): bounds, no injection, no hijacking
 - implementation state updated (§19)
 - `git diff` reviewed
 
@@ -332,48 +414,65 @@ Before marking work complete:
 ### Gates
 
 ```text
-tests     204 passing, 0 failing
+tests     209 passing, 0 failing
 clippy    clean (-D warnings, workspace-wide)
 rustfmt   clean
-CI        lint / i18n / test on macOS, Windows, Linux / rustdoc
+CI        lint / i18n / security audit / test on macOS, Windows, Linux / rustdoc
 ```
 
-### Working, and exercised by `cargo run -p jtf-cli`
+### Runnable
+
+```bash
+./src/ui/qt6/build.sh          # builds and launches the Qt 6 window
+cargo run -p jtf-cli           # headless walkthrough of the core
+```
+
+The window opens the home folder and does: navigation (double-click, Enter,
+Backspace, back/forward, editable path field), native per-file icons,
+sortable columns, horizontal/vertical/nested splits, the quad preset, tab bars
+per pane, Space to mark, hidden-file toggle, Light/Dark/System following the
+system live, runtime `en` ↔ `zh-TW` switching, and session restore.
+
+### Crates
 
 | Crate | What it does |
 |---|---|
-| `jtf-core` | file model, machine-readable error codes, i18n catalogue + localizer, theme tokens |
+| `jtf-core` | file model, error codes, i18n catalogue + localizer, theme tokens |
 | `jtf-jobs` | job state machine, monotonic progress, cancellation |
 | `jtf-workspace` | recursive split tree, per-pane tabs, selection vs marking, session memory |
 | `jtf-commands` | command registry, keymap, command bus |
 | `jtf-fs` | local provider, cancellable async enumeration in batches |
+| `jtf-qt6-bridge` | C ABI over the core; the only `unsafe` in Rust |
 | `jtf-conformance` | architecture boundary tests, locale parity and coverage |
-| `jtf-cli` | headless walkthrough of all of the above |
+| `jtf-cli` | headless walkthrough |
+| `src/ui/qt6/cpp` | Qt 6 Widgets front end (C++) |
 
-Also: `locales/{en,zh-TW}` (112 keys), application icon, CI, ADR-0002.
+Also: `locales/{en,zh-TW}` (137 keys), application icon, CI, ADR-0002.
 
 ### Not built yet
 
 ```text
-UI                  Qt 6 PoC in progress on this branch
-platform adapters   no Quick Look, drag and drop, trash, or native menus
 file operations     copy, move, rename, trash - the job engine has no work yet
+platform adapters   no Quick Look, drag and drop, trash, or native menus
 viewers / preview   none
 search              no query parser, no scanner, no index
 AI providers        none
 ```
 
+Known PoC shortcuts, each tracked in `TODO.md`: dates are formatted by hand
+rather than by a locale-aware platform API; the list is not yet benchmarked at
+100K rows; there is no drag and drop.
+
 ### Decisions outstanding
 
-- **ADR-0001 (GUI stack)** — Qt 6 selected by the project owner; the PoC on
-  `poc/qt6` must still record the gate results and measurements before the
-  ADR moves to Accepted.
+- **ADR-0001 (GUI stack)** — Qt 6 selected by the project owner and now
+  proven to build and run; the ADR stays *Proposed* until the gate
+  measurements in `docs/TESTING.md` §8.2 are recorded against it.
 - Commercial dual-licensing, which decides whether SignPath Foundation
   signing is available for Windows (`docs/SIGNING_RUNBOOK.md` §B1).
 
 ### Next
 
-1. Qt 6 Widgets shell: window, recursive splitter, per-pane tab bar,
-   virtualized file list bound to `jtf-fs`.
-2. Measure against `docs/TESTING.md` §8.2 and record in ADR-0001.
-3. Runtime locale and theme switching in the real UI.
+1. Benchmark the list at 100K and 1M rows; record the numbers in ADR-0001.
+2. File operations through the job engine: copy, move, rename, trash.
+3. macOS platform adapter: Quick Look, Finder drag and drop, Trash.

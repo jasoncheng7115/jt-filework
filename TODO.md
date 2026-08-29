@@ -292,6 +292,24 @@ Long-lead items: both identities take real time to obtain. See
 - [ ] Honest warning instructions for any pre-signing build shared externally
 - [ ] Confirm GPL-3.0-or-later stance on Mac App Store (assumed: not used)
 
+## Security (AGENTS.md 20)
+
+- [x] Bound recursion over the restored split tree (MAX_SPLIT_DEPTH)
+- [x] Checked conversions for every index and length at the FFI boundary
+- [x] Hardening flags and an opt-in sanitizer build for the C++ layer
+- [x] cargo audit / cargo deny in CI
+- [ ] deny.toml licence and ban policy
+- [ ] Bound archive nesting, symlink chains and directory recursion
+- [ ] Bound recursion in every structured-document parser
+- [ ] Sanitizer smoke suite for the UI layer
+- [ ] Fuzz targets and a persisted corpus
+- [ ] Hostile fixture set (docs/TESTING.md 9.2)
+- [ ] Pin library search order; audit @rpath entries
+- [ ] Directory-relative syscalls for recursive delete (TOCTOU)
+- [ ] Credentials in the platform keychain, never on a command line
+- [ ] Vulnerability reporting process and a published security contact
+- [ ] Release gate checklist wired into the release process
+
 ## Quality
 
 - [ ] fuzz path/archive code

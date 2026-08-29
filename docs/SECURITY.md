@@ -238,9 +238,96 @@ Exceeding a limit is a normal, reported outcome — not a crash and not a hang.
 
 ---
 
-## 12. Release Security
+## 13. Memory Safety and Recursion
+
+`AGENTS.md` §20.1 and §20.2 are the rules; this is what they mean in practice.
+
+### 13.1 The unsafe budget
+
+| Layer | `unsafe` | Why |
+|---|---|---|
+| core, jobs, workspace, commands, fs | denied | there is no reason for it |
+| FFI bridge | allowed, per-block justification | a C ABI cannot exist without raw pointers |
+| platform adapters | allowed, per-block justification | the platform's own API is unsafe |
+| C++ UI layer | the whole layer is unsafe | Qt Widgets is a C++ API |
+
+The C++ layer is therefore the product's only broad memory-unsafety surface,
+and it gets the treatment: hardening flags on every build, sanitizers in CI,
+and no buffer arithmetic without a bound.
+
+### 13.2 Strings across the FFI boundary
+
+Text is copied into a caller-provided buffer. The bridge:
+
+- returns the length the text *needed*, so truncation is detectable
+- never writes past `len - 1`, and always NUL-terminates
+- truncates at a UTF-8 character boundary, never mid-character
+- allocates nothing that crosses the boundary, so there is no free function
+  to forget and no per-row allocation while scrolling
+
+### 13.3 Recursion over untrusted data
+
+Every recursive walk over data a file can influence needs a **bound**, and
+the bound check must itself be iterative.
+
+The worked example is the workspace split tree. It is restored from a session
+file, which is untrusted input, and it is walked recursively in three places:
+serde while deserializing, the model while measuring and rendering, and the
+UI while building widgets. Without a limit, a hand-edited session file is a
+stack overflow before any code gets the chance to validate it.
+
+The fix has three layers, which is what defence in depth actually looks like:
+
+1. `serde_json`'s own recursion limit stops the deserializer.
+2. `MAX_SPLIT_DEPTH` bounds the tree, checked **iteratively** in
+   `WorkspaceNode::depth_within_limit`, and folded into
+   `Workspace::invariants_hold` so `Session::restore` rejects a hostile file
+   through the check it already performs.
+3. The UI layer bounds its own recursion, on the assumption that the layer
+   below it might one day be wrong.
+
+Apply the same pattern to archive nesting, symlink chains, directory
+recursion and every structured-document parser.
+
+### 13.4 Indices and lengths at the boundary
+
+Every index arriving from C++ is treated as hostile: a negative or oversized
+index produces a zero or a no-op, never an out-of-range access. Every length
+is converted with a checked conversion, never a cast.
+
+## 14. Release Security Gate
+
+The checklist is `AGENTS.md` §20.5, and it is a gate rather than a
+suggestion: no build reaches anyone outside the project until every line
+passes.
+
+Automated, in CI:
+
+```text
+cargo audit          known advisories in the dependency tree
+cargo deny           licence policy and duplicate/banned crates
+sanitizer build      ASan + UBSan over the UI smoke suite
+fuzz                 scheduled budget, corpus persisted, no new crash
+hostile fixtures     docs/TESTING.md 9.2
+```
+
+Reviewed by a human, per release:
+
+```text
+new unsafe blocks         each states its invariant
+new recursion             each has a bound and a test
+new dependencies          justified, and fuzzed if they parse untrusted input
+secrets                   none in the repository, the binary, or the logs
+signing and notarization  docs/SIGNING_RUNBOOK.md
+clean-machine check       downloaded, quarantined, opened
+```
+
+## 12. Release Signing
 
 - macOS: hardened runtime, code signing, notarization, stapled ticket.
 - Windows: Authenticode signing.
 - Linux: signed packages and reproducible build direction.
 - A documented process for reporting vulnerabilities and shipping a fix.
+
+The procedure is `docs/SIGNING_RUNBOOK.md`; the decision and its cost are
+`docs/DISTRIBUTION.md`.

@@ -1,7 +1,7 @@
 # jt-filework — Testing Specification
 
 This document defines what "tested" means for jt-filework. It is the concrete
-expansion of `AGENTS.md` §20 (Completion Checklist) and the `TODO.md` Quality
+expansion of `AGENTS.md` §21 (Completion Checklist) and the `TODO.md` Quality
 section.
 
 Testing is not a phase. Every architectural rule in `AGENTS.md` that can be
@@ -301,7 +301,7 @@ prove there is no unbounded growth.
 
 Benchmarks are code, live in the repository, and record baselines. A
 performance-sensitive change without a benchmark does not satisfy
-`AGENTS.md` §20.
+`AGENTS.md` §21.
 
 ### 8.1 Required benchmarks
 

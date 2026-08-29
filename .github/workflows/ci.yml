@@ -75,6 +75,21 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  security:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      # AGENTS.md 20.5: part of the release gate, so it runs on every change
+      # rather than being remembered at release time.
+      - name: install tools
+        run: cargo install --locked cargo-audit cargo-deny
+      - name: cargo audit
+        run: cargo audit
+      - name: cargo deny
+        run: cargo deny check licenses bans sources
+
   # Not yet enabled, and deliberately visible rather than forgotten:
   #
   #   bench   nightly, macOS arm64, baseline comparison and regression alert
@@ -83,4 +98,5 @@ jobs:
   #           (docs/TESTING.md 9.1) - needs the parsers to exist first
   #   ui      the UI-thread watchdog and the UI_TEST_PLAN gate areas
   #           (docs/UI_TEST_PLAN.md) - blocked on ADR-0001
-  #   audit   cargo audit and cargo deny (docs/SECURITY.md 11)
+  #   asan    sanitizer build of the Qt layer over the UI smoke suite
+  #           (AGENTS.md 20.1) - needs the smoke suite to exist first
