@@ -375,3 +375,7 @@ command.view.key_hints = Key Hints
 command.view.thumbnails = Image Thumbnails
 command.view.mode.list = List View
 command.view.mode.grid = Icon View
+command.file.new_file = New File…
+new_file.title = New file
+new_file.label = Name
+file.open_with = Open With

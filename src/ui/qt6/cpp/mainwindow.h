@@ -70,6 +70,7 @@ private:
         OpDelete,
         OpRename,
         OpNewFolder,
+        OpNewFile,
         OpDuplicate
     };
     void showCrumbMenu(int paneId, const QString &path, const QPoint &global);

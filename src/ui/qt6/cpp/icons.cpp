@@ -102,6 +102,7 @@ const QHash<QString, QString> &commandFiles() {
         // Files
         {QStringLiteral("file.open"), QStringLiteral("open-in-browser")},
         {QStringLiteral("file.new_folder"), QStringLiteral("folder-plus")},
+        {QStringLiteral("file.new_file"), QStringLiteral("page-plus")},
         {QStringLiteral("file.rename"), QStringLiteral("edit-pencil")},
         {QStringLiteral("file.batch_rename"), QStringLiteral("multiple-pages")},
         {QStringLiteral("file.duplicate"), QStringLiteral("copy")},

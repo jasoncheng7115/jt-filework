@@ -722,3 +722,80 @@ fn only_steps_that_actually_happened_are_recorded() {
     let record = record.expect("one of the two moved");
     assert_eq!(record.len(), 1, "a skipped entry has nothing to undo");
 }
+
+/// A new file is created empty, and never overwrites one that exists.
+#[test]
+fn new_file_creates_an_empty_file_and_refuses_to_clobber() {
+    let fixture = Fixture::new();
+    let parent = fixture.root.clone();
+
+    let operation = Operation::NewFile {
+        parent: parent.clone(),
+        name: "notes.txt".to_string(),
+    };
+    let plan = Plan::build(&operation, &CancellationToken::never()).expect("a plan");
+    let report = execute(
+        &plan,
+        ConflictPolicy::Skip,
+        &CancellationToken::never(),
+        |_| {},
+    );
+    assert!(report
+        .outcomes
+        .iter()
+        .all(|(_, o)| matches!(o, Outcome::Done { .. })));
+
+    let created = parent.join("notes.txt");
+    assert!(created.is_file());
+    assert_eq!(std::fs::metadata(&created).unwrap().len(), 0);
+
+    // Existing content must survive a second attempt with the same name.
+    std::fs::write(&created, b"important").expect("write");
+    let again = Plan::build(&operation, &CancellationToken::never()).expect("a plan");
+    let report = execute(
+        &again,
+        ConflictPolicy::Skip,
+        &CancellationToken::never(),
+        |_| {},
+    );
+    assert_eq!(
+        std::fs::read(&created).unwrap(),
+        b"important",
+        "creating a file that already exists must not empty it; create_new \
+         is what makes that impossible rather than merely unlikely"
+    );
+    assert!(report
+        .outcomes
+        .iter()
+        .any(|(_, o)| matches!(o, Outcome::Skipped)));
+}
+
+/// Undoing a new file removes it only while it is still empty.
+#[test]
+fn undoing_a_new_file_leaves_anything_written_into_it_alone() {
+    let fixture = Fixture::new();
+    let parent = fixture.root.clone();
+    let operation = Operation::NewFile {
+        parent: parent.clone(),
+        name: "draft.txt".to_string(),
+    };
+    let plan = Plan::build(&operation, &CancellationToken::never()).expect("a plan");
+    let report = execute(
+        &plan,
+        ConflictPolicy::Skip,
+        &CancellationToken::never(),
+        |_| {},
+    );
+    let record = UndoRecord::from_report(&operation, &report).expect("undoable");
+
+    let created = parent.join("draft.txt");
+    std::fs::write(&created, b"the user typed this").expect("write");
+
+    undo(&record, &CancellationToken::never());
+    assert!(
+        created.is_file(),
+        "the file has content now, so it is the user's work rather than an \
+         empty file we made; undo must leave it"
+    );
+    assert_eq!(std::fs::read(&created).unwrap(), b"the user typed this");
+}

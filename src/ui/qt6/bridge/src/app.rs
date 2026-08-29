@@ -1424,6 +1424,23 @@ impl App {
     }
 
     /// Build a new-folder plan.
+    pub(crate) fn prepare_new_file(&mut self, pane: PaneId, name: &str) -> bool {
+        let Some(parent) = self
+            .workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .and_then(|tab| tab.location().as_path())
+            .map(std::path::Path::to_path_buf)
+        else {
+            self.plan_error = Some(PlanError::NothingToDo);
+            return false;
+        };
+        self.set_plan(&jtf_ops::Operation::NewFile {
+            parent,
+            name: name.to_string(),
+        })
+    }
+
     pub(crate) fn prepare_new_folder(&mut self, pane: PaneId, name: &str) -> bool {
         self.plan_error = None;
         self.pending_plan = None;

@@ -19,4 +19,10 @@ QString displayName(const QString &) { return {}; }
 // rather than present and inert.
 bool openInTerminal(const QString &) { return false; }
 
+// Windows: SHAssocEnumHandlers; Linux: the XDG desktop database. Until then
+// the menu offers nothing rather than a list that does nothing.
+QList<Application> applicationsFor(const QString &) { return {}; }
+
+bool openWith(const QString &, const QString &) { return false; }
+
 } // namespace filetype

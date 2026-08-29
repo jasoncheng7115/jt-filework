@@ -33,6 +33,9 @@ bool confirmAndStart(JtfApp *app, QWidget *parent, int pane, Kind kind, QString 
 bool renameSelection(JtfApp *app, QWidget *parent, int pane, QString *message);
 bool createFolder(JtfApp *app, QWidget *parent, int pane, QString *message);
 
+// Asks for a name and creates an empty file.
+bool createFile(JtfApp *app, QWidget *parent, int pane, QString *message);
+
 // Localized one-line summary of the finished operation, cleared as it is read.
 QString takeResult(JtfApp *app);
 

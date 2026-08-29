@@ -42,6 +42,15 @@ pub enum UndoStep {
         /// The directory.
         path: PathBuf,
     },
+    /// Remove a file that was created empty and is still empty.
+    ///
+    /// Still empty is the condition, checked at the moment of undoing: a file
+    /// created by "new file" and then written to is the user's work, and
+    /// undoing its creation must not throw that away.
+    RemoveEmptyFile {
+        /// The file.
+        path: PathBuf,
+    },
 }
 
 /// Everything needed to reverse one completed operation.
@@ -61,6 +70,7 @@ impl UndoRecord {
             Operation::Rename { .. } => "command.file.rename",
             Operation::Trash { .. } => "command.file.trash",
             Operation::NewFolder { .. } => "command.file.new_folder",
+            Operation::NewFile { .. } => "command.file.new_file",
             // Copy and Delete are deliberately absent; see the module note.
             Operation::Copy { .. } | Operation::Delete { .. } => return None,
         };
@@ -76,6 +86,10 @@ impl UndoRecord {
 
             if matches!(operation, Operation::NewFolder { .. }) {
                 steps.push(UndoStep::RemoveEmptyDirectory {
+                    path: destination.clone(),
+                });
+            } else if matches!(operation, Operation::NewFile { .. }) {
+                steps.push(UndoStep::RemoveEmptyFile {
                     path: destination.clone(),
                 });
             } else {
@@ -179,6 +193,21 @@ pub fn undo(record: &UndoRecord, cancel: &CancellationToken) -> Report {
                 // `remove_dir` refuses a non-empty directory, which is the
                 // check: anything the user has since put in there survives.
                 match fs::remove_dir(path) {
+                    Ok(()) => outcomes.push((path.clone(), Outcome::Done { destination: None })),
+                    Err(_) => outcomes.push((path.clone(), Outcome::Skipped)),
+                }
+            }
+            UndoStep::RemoveEmptyFile { path } => {
+                // Only if it is still empty. A file created by "new file" and
+                // then written to is the user's work; undoing the creation
+                // must not throw that away, so this skips instead.
+                let empty =
+                    fs::symlink_metadata(path).is_ok_and(|meta| meta.is_file() && meta.len() == 0);
+                if !empty {
+                    outcomes.push((path.clone(), Outcome::Skipped));
+                    continue;
+                }
+                match fs::remove_file(path) {
                     Ok(()) => outcomes.push((path.clone(), Outcome::Done { destination: None })),
                     Err(_) => outcomes.push((path.clone(), Outcome::Skipped)),
                 }

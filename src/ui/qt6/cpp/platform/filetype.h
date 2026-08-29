@@ -14,6 +14,7 @@
 // needs an #ifdef (AGENTS.md 5).
 #pragma once
 
+#include <QList>
 #include <QString>
 
 namespace filetype {
@@ -39,5 +40,22 @@ QString displayName(const QString &path);
 // building a command line: a folder name containing a quote or a semicolon
 // must be a folder name, not syntax (`AGENTS.md` 20.3).
 bool openInTerminal(const QString &path);
+
+/// One application that can open a file.
+struct Application {
+    /// What to show in the menu.
+    QString name;
+    /// How to identify it when opening. Opaque to the caller.
+    QString identifier;
+};
+
+// Applications the platform says can open `path`, best first.
+//
+// Empty when the platform cannot answer, in which case the caller offers
+// nothing rather than a menu that does nothing.
+QList<Application> applicationsFor(const QString &path);
+
+// Open `path` with the application named by `identifier`.
+bool openWith(const QString &path, const QString &identifier);
 
 } // namespace filetype

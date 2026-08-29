@@ -154,6 +154,7 @@ int jtf_op_prepare_duplicate(JtfApp *app, int pane);
 int jtf_op_prepare_drop(JtfApp *app, int pane, int kind, const char *newline_separated);
 int jtf_op_prepare_rename(JtfApp *app, int pane, const char *new_name);
 int jtf_op_prepare_new_folder(JtfApp *app, int pane, const char *name);
+int jtf_op_prepare_new_file(JtfApp *app, int pane, const char *name);
 int jtf_op_error_key(const JtfApp *app, char *buf, int len);
 int jtf_op_conflicts(const JtfApp *app);
 int jtf_op_entries(const JtfApp *app);

@@ -1005,6 +1005,22 @@ pub unsafe extern "C" fn jtf_set_tree_state(app: *mut App, visible: c_int, width
     }
 }
 
+/// Prepare creating an empty file.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `name` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_prepare_new_file(
+    app: *mut App,
+    pane_id: c_int,
+    name: *const c_char,
+) -> c_int {
+    let Some(name) = (unsafe { read_str(name) }) else {
+        return 0;
+    };
+    unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.prepare_new_file(pane(pane_id), name)))
+}
+
 /// The pane's view mode: 0 list, 1 grid.
 ///
 /// # Safety

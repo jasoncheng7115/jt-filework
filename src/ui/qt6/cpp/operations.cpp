@@ -198,6 +198,11 @@ bool ops::renameSelection(JtfApp *app, QWidget *parent, int pane, QString *messa
                          current, jtf_op_prepare_rename, message);
 }
 
+bool ops::createFile(JtfApp *app, QWidget *parent, int pane, QString *message) {
+    return nameThenStart(app, parent, pane, "new_file.title", "new_file.label", QString(),
+                         jtf_op_prepare_new_file, message);
+}
+
 bool ops::createFolder(JtfApp *app, QWidget *parent, int pane, QString *message) {
     return nameThenStart(app, parent, pane, "prompt.new_folder_title", "prompt.new_folder_label",
                          QString(), jtf_op_prepare_new_folder, message);

@@ -375,3 +375,7 @@ command.view.key_hints = 熱鍵提示列
 command.view.thumbnails = 圖片縮圖
 command.view.mode.list = 清單檢視
 command.view.mode.grid = 圖示檢視
+command.file.new_file = 新增檔案…
+new_file.title = 新增檔案
+new_file.label = 名稱
+file.open_with = 開啟檔案的應用程式

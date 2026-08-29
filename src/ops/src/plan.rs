@@ -37,6 +37,16 @@ pub enum Operation {
         /// The new name, not a path.
         new_name: String,
     },
+    /// Create an empty file.
+    ///
+    /// Separate from `NewFolder` rather than a flag on it, so the run step
+    /// cannot create the wrong kind by getting a boolean backwards.
+    NewFile {
+        /// Where.
+        parent: PathBuf,
+        /// Its name.
+        name: String,
+    },
     /// Create a directory.
     NewFolder {
         /// Where.
@@ -62,7 +72,7 @@ impl Operation {
         match self {
             Self::Copy { .. } => JobKind::Copy,
             Self::Move { .. } => JobKind::Move,
-            Self::Rename { .. } | Self::NewFolder { .. } => JobKind::Rename,
+            Self::Rename { .. } | Self::NewFolder { .. } | Self::NewFile { .. } => JobKind::Rename,
             Self::Trash { .. } => JobKind::Trash,
             Self::Delete { .. } => JobKind::Delete,
         }
@@ -171,7 +181,7 @@ impl Plan {
             Operation::Rename { source, new_name } => {
                 Self::build_rename(operation, source, new_name)
             }
-            Operation::NewFolder { parent, name } => {
+            Operation::NewFolder { parent, name } | Operation::NewFile { parent, name } => {
                 Self::build_new_folder(operation, parent, name)
             }
             Operation::Trash { sources } | Operation::Delete { sources } => {

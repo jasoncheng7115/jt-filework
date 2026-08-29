@@ -161,6 +161,21 @@ fn run_step(
             },
             Err(error) => Outcome::Failed(error),
         },
+        Operation::NewFile { .. } => {
+            // create_new, so an existing file is never truncated. "New file"
+            // must not be a way to empty one that is already there.
+            match fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&step.source)
+            {
+                Ok(_) => Outcome::Done {
+                    destination: Some(step.source.clone()),
+                },
+                Err(e) if e.kind() == io::ErrorKind::AlreadyExists => Outcome::Skipped,
+                Err(e) => Outcome::Failed(io_error(&step.source, &e)),
+            }
+        }
         Operation::NewFolder { .. } => match fs::create_dir(&step.source) {
             Ok(()) => Outcome::Done {
                 destination: Some(step.source.clone()),

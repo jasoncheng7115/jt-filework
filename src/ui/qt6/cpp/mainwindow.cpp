@@ -349,6 +349,7 @@ void MainWindow::buildMenus() {
     command(m_fileMenu, "preview.quicklook", [this] { quickLookSelection(); });
     m_fileMenu->addSeparator();
     command(m_fileMenu, "file.new_folder", [this] { runOperation(OpNewFolder); });
+    command(m_fileMenu, "file.new_file", [this] { runOperation(OpNewFile); });
     command(m_fileMenu, "file.rename", [this] { runOperation(OpRename); });
     command(m_fileMenu, "file.batch_rename", [this] { openBatchRename(); });
     command(m_fileMenu, "file.duplicate", [this] { runOperation(OpDuplicate); });
@@ -692,6 +693,9 @@ void MainWindow::runOperation(OperationRequest request) {
     case OpNewFolder:
         started = ops::createFolder(m_app, this, pane, &message);
         break;
+    case OpNewFile:
+        started = ops::createFile(m_app, this, pane, &message);
+        break;
     case OpDuplicate:
         // Always "keep both": a duplicate that overwrote the original would
         // be a contradiction in terms.
@@ -946,6 +950,27 @@ void MainWindow::showEntryMenu(int paneId, const QPoint &global, bool onEntry) {
 
     if (hasTarget) {
         add("file.open", [pane] { pane->openCurrentRow(); });
+
+        // Open With, from the platform's own list - the same one Finder
+        // shows. Building our own from extensions would disagree with the
+        // rest of the system, and disagreeing about which application owns a
+        // file type is worse than not offering the menu.
+        const QString targetPath = jtfText([&](char *buf, int len) {
+            return jtf_row_path(m_app, paneId, pane->currentRow(), buf, len);
+        });
+        const QList<filetype::Application> apps =
+            targetPath.isEmpty() ? QList<filetype::Application>()
+                                 : filetype::applicationsFor(targetPath);
+        if (!apps.isEmpty()) {
+            QMenu *openWith = menu.addMenu(tr_("file.open_with"));
+            for (const filetype::Application &app : apps) {
+                QAction *entry = openWith->addAction(app.name);
+                const QString id = app.identifier;
+                connect(entry, &QAction::triggered, this,
+                        [targetPath, id] { filetype::openWith(targetPath, id); });
+            }
+        }
+
         add("file.view", [this] { openViewer(); });
         add("preview.quicklook", [this] { quickLookSelection(); });
         menu.addSeparator();
@@ -972,6 +997,7 @@ void MainWindow::showEntryMenu(int paneId, const QPoint &global, bool onEntry) {
 
     menu.addSeparator();
     add("file.new_folder", [this] { runOperation(OpNewFolder); });
+    add("file.new_file", [this] { runOperation(OpNewFile); });
     add("view.refresh", [this, paneId] { jtf_refresh(m_app, paneId); });
 
     if (hasTarget) {
