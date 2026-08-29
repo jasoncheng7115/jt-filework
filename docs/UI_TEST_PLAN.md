@@ -464,6 +464,13 @@ exceeds the budget (`docs/TESTING.md` §7.1).
 | PERF-012 | Restore a large session (many panes, many tabs, large marked sets) |
 | PERF-013 | Rapid tab switching between loading tabs |
 | PERF-014 | Theme and locale switch under load |
+| PERF-015 | Scroll 100K rows: frame time p95 and p99 within budget |
+| PERF-016 | Scroll while a background enumeration runs: zero dropped frames |
+| PERF-017 | Splitter drag and window resize hold the frame budget |
+| PERF-018 | 2x DPI costs no measurable frame time over 1x |
+| PERF-019 | Per-frame cost is constant in directory size — proof the list is virtualized |
+| PERF-020 | Cold start to a usable window |
+| PERF-021 | The same budgets hold on Windows and Linux, not only macOS |
 
 Also recorded per scenario: peak memory, and memory after N cycles to prove no
 unbounded growth.

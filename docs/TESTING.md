@@ -1,7 +1,7 @@
 # JT FileWork — Testing Specification
 
 This document defines what "tested" means for JT FileWork. It is the concrete
-expansion of `AGENTS.md` §18 (Completion Checklist) and the `TODO.md` Quality
+expansion of `AGENTS.md` §20 (Completion Checklist) and the `TODO.md` Quality
 section.
 
 Testing is not a phase. Every architectural rule in `AGENTS.md` that can be
@@ -301,7 +301,7 @@ prove there is no unbounded growth.
 
 Benchmarks are code, live in the repository, and record baselines. A
 performance-sensitive change without a benchmark does not satisfy
-`AGENTS.md` §18.
+`AGENTS.md` §20.
 
 ### 8.1 Required benchmarks
 
@@ -319,6 +319,12 @@ bench: search_filename_glob_over_1m_paths
 
 ### 8.2 Targets (Phase 0 provisional, revised after ADR-0001)
 
+`AGENTS.md` §18 makes these a product requirement rather than a goal, and
+requires them to hold **on every platform**, on the lowest hardware the
+project claims to support — not on the author's machine only.
+
+**Responsiveness**
+
 | Scenario | Target |
 |---|---|
 | First rows visible after entering 100K directory | < 150 ms |
@@ -326,7 +332,25 @@ bench: search_filename_glob_over_1m_paths
 | Sort 100K entries | < 250 ms |
 | Keystroke to filter result on 100K entries | < 100 ms |
 | Any UI-thread task | < 16 ms |
+| Cold start to usable window | < 500 ms |
 | Memory for 1M-entry model | documented, bounded, no unbounded growth |
+
+**Display** (`AGENTS.md` §18.2)
+
+| Scenario | Target |
+|---|---|
+| Scroll frame time, 100K rows, p95 | < 16 ms |
+| Scroll frame time, 100K rows, p99 | < 24 ms |
+| Dropped frames while scrolling during a background enumeration | 0 |
+| Window resize / splitter drag frame time, p95 | < 16 ms |
+| Repaint after a theme switch | < 100 ms, no visible stall |
+| Repaint after a locale switch | < 100 ms, no visible stall |
+| Cost of 2x DPI versus 1x, same window size | no measurable regression |
+| Per-row work as a function of directory size | constant — the list is virtualized |
+
+The last row is the one that matters most: if any per-frame cost grows with
+the number of rows in the directory rather than the number on screen, the
+list is not virtualized and no amount of tuning will save it.
 
 ### 8.3 Memory
 
