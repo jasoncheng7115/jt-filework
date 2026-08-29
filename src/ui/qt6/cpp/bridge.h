@@ -97,6 +97,22 @@ int jtf_tree_width(const JtfApp *app);
 int jtf_inspector_visible(const JtfApp *app);
 int jtf_inspector_width(const JtfApp *app);
 void jtf_set_inspector_state(JtfApp *app, int visible, int width);
+
+int jtf_folder_count(const JtfApp *app, int pane);
+uint64_t jtf_visible_bytes(const JtfApp *app, int pane);
+
+// Places: the sidebar's bookmarks and recent locations.
+int jtf_bookmark_count(const JtfApp *app);
+int jtf_bookmark_name(const JtfApp *app, int index, char *buf, int len);
+int jtf_bookmark_path(const JtfApp *app, int index, char *buf, int len);
+int jtf_is_bookmarked(const JtfApp *app, int pane);
+int jtf_toggle_bookmark(JtfApp *app, int pane);
+void jtf_remove_bookmark(JtfApp *app, int index);
+void jtf_rename_bookmark(JtfApp *app, int index, const char *name);
+void jtf_move_bookmark(JtfApp *app, int from, int to);
+int jtf_recent_count(const JtfApp *app);
+int jtf_recent_path(const JtfApp *app, int index, char *buf, int len);
+void jtf_clear_recent(JtfApp *app);
 void jtf_set_tree_state(JtfApp *app, int visible, int width);
 int jtf_mark_pattern(JtfApp *app, int pane, const char *pattern, int mark);
 uint64_t jtf_target_size(const JtfApp *app, int pane);

@@ -1006,6 +1006,176 @@ pub unsafe extern "C" fn jtf_set_inspector_state(app: *mut App, visible: c_int, 
     }
 }
 
+/// How many of the pane's shown rows are folders.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_folder_count(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        c_int::try_from(a.folder_count(pane(pane_id))).unwrap_or(0)
+    })
+}
+
+/// The size of the pane's shown files, folders excluded.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_visible_bytes(app: *const App, pane_id: c_int) -> u64 {
+    unsafe { app_ref(app) }.map_or(0, |a| a.visible_bytes(pane(pane_id)))
+}
+
+/// How many bookmarks there are.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_bookmark_count(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::try_from(a.bookmarks().len()).unwrap_or(0))
+}
+
+/// The name to show for bookmark `index`.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `buf` must have room for `len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_bookmark_name(
+    app: *const App,
+    index: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let text = unsafe { app_ref(app) }
+        .and_then(|a| {
+            usize::try_from(index)
+                .ok()
+                .and_then(|i| a.bookmarks().get(i))
+        })
+        .map_or_else(String::new, jtf_workspace::Bookmark::display_name);
+    unsafe { write_str(&text, buf, len) }
+}
+
+/// Where bookmark `index` goes.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `buf` must have room for `len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_bookmark_path(
+    app: *const App,
+    index: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let text = unsafe { app_ref(app) }
+        .and_then(|a| {
+            usize::try_from(index)
+                .ok()
+                .and_then(|i| a.bookmarks().get(i))
+        })
+        .map_or_else(String::new, |b| b.path.display().to_string());
+    unsafe { write_str(&text, buf, len) }
+}
+
+/// Whether the pane's folder is bookmarked.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_is_bookmarked(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.is_bookmarked(pane(pane_id))))
+}
+
+/// Bookmark the pane's folder, or remove it. Returns the state afterwards.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_toggle_bookmark(app: *mut App, pane_id: c_int) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.toggle_bookmark(pane(pane_id))))
+}
+
+/// Remove bookmark `index`.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_remove_bookmark(app: *mut App, index: c_int) {
+    if let (Some(a), Ok(i)) = (unsafe { app_mut(app) }, usize::try_from(index)) {
+        a.remove_bookmark(i);
+    }
+}
+
+/// Rename bookmark `index`. An empty name restores the folder's own.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `name` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_rename_bookmark(app: *mut App, index: c_int, name: *const c_char) {
+    let Some(name) = (unsafe { read_str(name) }) else {
+        return;
+    };
+    if let (Some(a), Ok(i)) = (unsafe { app_mut(app) }, usize::try_from(index)) {
+        a.rename_bookmark(i, name);
+    }
+}
+
+/// Move bookmark `from` to `to`.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_move_bookmark(app: *mut App, from: c_int, to: c_int) {
+    if let (Some(a), Ok(f), Ok(t)) = (
+        unsafe { app_mut(app) },
+        usize::try_from(from),
+        usize::try_from(to),
+    ) {
+        a.move_bookmark(f, t);
+    }
+}
+
+/// How many recent locations there are.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_recent_count(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::try_from(a.recent().len()).unwrap_or(0))
+}
+
+/// Recent location `index`, most recent first.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `buf` must have room for `len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_recent_path(
+    app: *const App,
+    index: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let text = unsafe { app_ref(app) }
+        .and_then(|a| {
+            usize::try_from(index)
+                .ok()
+                .and_then(|i| a.recent().get(i).cloned())
+        })
+        .unwrap_or_default();
+    unsafe { write_str(&text, buf, len) }
+}
+
+/// Forget where the user has been. Bookmarks are untouched.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_clear_recent(app: *mut App) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.clear_recent();
+    }
+}
+
 /// Mark or unmark listed entries matching a wildcard. Returns how many.
 ///
 /// # Safety

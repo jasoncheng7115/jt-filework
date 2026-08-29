@@ -575,7 +575,23 @@ void PaneWidget::retranslate() {
             status = jtfFill(jtfFill(tr_("status.filtered"), "count", QString::number(rows)),
                              "total", QString::number(total));
         } else {
-            status = jtfFill(tr_("status.items"), "count", QString::number(rows));
+            // "28 items, 3 folders" - the folder count is what tells you at a
+            // glance whether you are in a directory of work or a directory of
+            // directories, and the reference layout shows it for that reason.
+            const int folders = jtf_folder_count(m_app, m_pane);
+            if (folders == 1) {
+                status = jtfFill(tr_("status.items_one_folder"), "count", QString::number(rows));
+            } else if (folders > 1) {
+                status = jtfFill(jtfFill(tr_("status.items_folders"), "count",
+                                         QString::number(rows)),
+                                 "folders", QString::number(folders));
+            } else {
+                status = jtfFill(tr_("status.items"), "count", QString::number(rows));
+            }
+            const quint64 listed = jtf_visible_bytes(m_app, m_pane);
+            if (listed > 0) {
+                status += QStringLiteral("   ") + formatSize(listed);
+            }
         }
         // Selection and marks are different things and are counted
         // separately, because conflating them is exactly what AGENTS.md 10

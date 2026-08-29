@@ -64,6 +64,7 @@ ctrl+h               = view.hidden
 primary+e            = view.filter
 primary+shift+e      = view.tree
 primary+alt+i        = view.inspector
+primary+b            = file.bookmark
 
 # --- search
 primary+f            = search.open

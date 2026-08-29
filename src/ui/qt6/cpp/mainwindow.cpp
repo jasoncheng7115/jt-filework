@@ -6,6 +6,7 @@
 #include "commandpalette.h"
 #include "foldertree.h"
 #include "inspector.h"
+#include "placeslist.h"
 #include "operations.h"
 #include "platform/quicklook.h"
 #include "settingsdialog.h"
@@ -52,10 +53,30 @@ MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_ap
     m_outer->setObjectName(QStringLiteral("JtfOuter"));
     m_outer->setChildrenCollapsible(false);
     m_outer->setHandleWidth(4);
-    m_tree = new FolderTree(m_app, m_outer);
-    m_tree->setMinimumWidth(140);
-    m_tree->setVisible(false);
-    m_outer->addWidget(m_tree);
+    // Places above the tree, in one vertical splitter: the list you use is
+    // short and the tree you explore with wants the rest of the height, and
+    // where the line between them falls is the user's call.
+    m_sidebar = new QSplitter(Qt::Vertical, m_outer);
+    m_sidebar->setObjectName(QStringLiteral("JtfSidebar"));
+    m_sidebar->setChildrenCollapsible(false);
+    m_sidebar->setHandleWidth(4);
+    m_sidebar->setMinimumWidth(140);
+    m_sidebar->setVisible(false);
+    m_places = new PlacesList(m_app, m_sidebar);
+    m_tree = new FolderTree(m_app, m_sidebar);
+    m_sidebar->addWidget(m_places);
+    m_sidebar->addWidget(m_tree);
+    m_sidebar->setStretchFactor(0, 0);
+    m_sidebar->setStretchFactor(1, 1);
+    m_outer->addWidget(m_sidebar);
+
+    connect(m_places, &PlacesList::locationActivated, this, [this](const QString &path) {
+        const QByteArray utf8 = path.toUtf8();
+        jtf_navigate(m_app, jtf_active_pane(m_app), utf8.constData());
+        refreshAll();
+    });
+    connect(m_places, &PlacesList::placesChanged, this,
+            [this] { jtf_app_save_session(m_app); });
     m_inspector = new Inspector(m_app, m_outer);
     m_inspector->setVisible(false);
     connect(m_inspector, &Inspector::closeRequested, this, [this] { setInspectorVisible(false); });
@@ -68,7 +89,7 @@ MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_ap
     });
     // Remember the width as it is dragged, so it survives a restart.
     connect(m_outer, &QSplitter::splitterMoved, this, [this](int, int) {
-        if (m_tree->isVisible()) {
+        if (m_sidebar->isVisible()) {
             jtf_set_tree_state(m_app, 1, m_outer->sizes().value(0));
         }
         if (m_inspector->isVisible()) {
@@ -315,6 +336,8 @@ void MainWindow::buildMenus() {
     command(m_goMenu, "nav.back", [this] { jtf_go_back(m_app, jtf_active_pane(m_app)); });
     command(m_goMenu, "nav.forward", [this] { jtf_go_forward(m_app, jtf_active_pane(m_app)); });
     command(m_goMenu, "nav.up", [this] { jtf_navigate_up(m_app, jtf_active_pane(m_app)); });
+    m_goMenu->addSeparator();
+    command(m_goMenu, "file.bookmark", [this] { toggleBookmark(); });
     m_goMenu->addSeparator();
     command(m_goMenu, "nav.home", [this] {
         const QByteArray home = qgetenv("HOME");
@@ -902,7 +925,7 @@ void MainWindow::syncToolbar() {
     }
     if (m_treeAction) {
         QSignalBlocker blocker(m_treeAction);
-        m_treeAction->setChecked(m_tree && m_tree->isVisible());
+        m_treeAction->setChecked(m_sidebar && m_sidebar->isVisible());
     }
     if (m_hiddenAction) {
         QSignalBlocker blocker(m_hiddenAction);
@@ -941,6 +964,9 @@ void MainWindow::applyFont() {
     }
     if (m_inspector) {
         m_inspector->setListFont(font);
+    }
+    if (m_places) {
+        m_places->setListFont(font);
     }
     if (m_tree) {
         m_tree->setListFont(font);
@@ -982,20 +1008,31 @@ QWidget *MainWindow::buildNode(const QJsonObject &node) {
 }
 
 void MainWindow::toggleTree() {
-    setTreeVisible(!m_tree->isVisible());
+    setTreeVisible(!m_sidebar->isVisible());
 }
 
 void MainWindow::setTreeVisible(bool visible) {
-    m_tree->setVisible(visible);
+    m_sidebar->setVisible(visible);
     if (visible) {
         // Restore the remembered width, or a sensible default the first time.
         const int width = jtf_tree_width(m_app);
         const int total = m_outer->width();
         const int sidebar = width > 0 ? width : 240;
         m_outer->setSizes({sidebar, qMax(200, total - sidebar)});
+        m_places->refresh();
         syncTree();
     }
     jtf_set_tree_state(m_app, visible ? 1 : 0, m_outer->sizes().value(0));
+}
+
+void MainWindow::toggleBookmark() {
+    jtf_toggle_bookmark(m_app, jtf_active_pane(m_app));
+    // Persisted immediately rather than at quit: a bookmark the user made and
+    // then lost to a crash is worse than a write nobody notices.
+    jtf_app_save_session(m_app);
+    if (m_places) {
+        m_places->refresh();
+    }
 }
 
 void MainWindow::setInspectorVisible(bool visible) {
@@ -1043,9 +1080,10 @@ void MainWindow::syncInspector() {
 }
 
 void MainWindow::syncTree() {
-    if (!m_tree->isVisible()) {
+    if (!m_sidebar->isVisible()) {
         return;
     }
+    m_places->refresh();
     const int pane = jtf_active_pane(m_app);
     m_tree->selectPath(
         jtfText([&](char *buf, int len) { return jtf_current_path(m_app, pane, buf, len); }));

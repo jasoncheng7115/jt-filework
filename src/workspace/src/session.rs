@@ -24,6 +24,7 @@
 use jtf_core::{Error, ErrorCode, Location};
 use serde::{Deserialize, Serialize};
 
+use crate::places::Places;
 use crate::workspace::Workspace;
 
 /// Format version of the stored session.
@@ -202,6 +203,14 @@ pub struct Session {
     settings: SessionSettings,
     /// Absent when the user has turned session memory off.
     workspace: Option<Workspace>,
+    /// Bookmarks and recent locations.
+    ///
+    /// Outside the `Option` above on purpose: turning off session memory
+    /// means "do not reopen where I was", not "throw away the bookmarks I
+    /// curated". Recent locations are the part that memory governs, and
+    /// `Session::forgetting` clears those.
+    #[serde(default)]
+    places: Places,
 }
 
 /// Why a launch did or did not restore.
@@ -260,6 +269,8 @@ pub struct Restored {
     pub settings: SessionSettings,
     /// Why (`docs/UI_TEST_PLAN.md` SESS-003).
     pub outcome: RestoreOutcome,
+    /// The bookmarks and recent locations that were stored, or empty.
+    pub places: Places,
 }
 
 impl Session {
@@ -285,7 +296,27 @@ impl Session {
             version: SESSION_FORMAT_VERSION,
             settings,
             workspace: stored,
+            places: Places::new(),
         }
+    }
+
+    /// The same, carrying the user's bookmarks and recent locations.
+    ///
+    /// Recent locations are dropped when session memory is off: where you
+    /// have been is exactly what "do not remember" is about. Bookmarks are
+    /// kept either way, because they were made deliberately.
+    #[must_use]
+    pub fn with_places(mut self, mut places: Places) -> Self {
+        if !self.settings.restore_on_launch.remembers_workspace() {
+            places.clear_recent();
+        }
+        self.places = places;
+        self
+    }
+
+    /// The stored bookmarks and recent locations.
+    pub const fn places(&self) -> &Places {
+        &self.places
     }
 
     /// A session that remembers only the settings.
@@ -294,6 +325,7 @@ impl Session {
             version: SESSION_FORMAT_VERSION,
             settings,
             workspace: None,
+            places: Places::new(),
         }
     }
 
@@ -345,6 +377,7 @@ impl Session {
                 workspace: Workspace::new(home.clone()),
                 settings: SessionSettings::default(),
                 outcome: RestoreOutcome::NothingStored,
+                places: Places::new(),
             };
         };
 
@@ -355,6 +388,7 @@ impl Session {
                     workspace: Workspace::new(home.clone()),
                     settings: SessionSettings::default(),
                     outcome: RestoreOutcome::Unreadable(error.code()),
+                    places: Places::new(),
                 };
             }
         };
@@ -364,6 +398,7 @@ impl Session {
                 workspace: Self::fresh_workspace(&session.settings, home),
                 settings: session.settings,
                 outcome: RestoreOutcome::UnsupportedVersion(session.version),
+                places: session.places,
             };
         }
 
@@ -374,6 +409,7 @@ impl Session {
                         workspace,
                         settings: session.settings,
                         outcome: RestoreOutcome::Restored,
+                        places: session.places,
                     }
                 } else {
                     // Structurally decodable but internally inconsistent, e.g.
@@ -382,6 +418,7 @@ impl Session {
                         workspace: Workspace::new(home.clone()),
                         settings: session.settings,
                         outcome: RestoreOutcome::Unreadable(ErrorCode::ParseFailed),
+                        places: session.places,
                     }
                 }
             }
@@ -391,10 +428,18 @@ impl Session {
                 } else {
                     RestoreOutcome::DisabledByPreference
                 };
+                // Session memory off: the bookmarks are kept, the trail of
+                // where the user has been is not. That is the difference
+                // between a list you built and a list built about you.
+                let mut places = session.places;
+                if !session.settings.restore_on_launch.remembers_workspace() {
+                    places.clear_recent();
+                }
                 Restored {
                     workspace: Self::fresh_workspace(&session.settings, home),
                     settings: session.settings,
                     outcome,
+                    places,
                 }
             }
         }
@@ -675,5 +720,64 @@ mod tests {
         let session = Session::from_json(minimal).unwrap();
         assert!(session.settings().remember_closed_tabs);
         assert!(session.settings().remember_marks);
+    }
+}
+
+#[cfg(test)]
+mod places_tests {
+    use super::*;
+
+    fn home() -> Location {
+        Location::local("/Users/someone")
+    }
+
+    #[test]
+    fn turning_memory_off_keeps_bookmarks_and_forgets_the_trail() {
+        let mut places = Places::new();
+        places.toggle_bookmark("/Users/someone/Projects");
+        places.visit("/Users/someone/Downloads");
+
+        let settings = SessionSettings {
+            restore_on_launch: RestoreOnLaunch::HomeLocation,
+            ..SessionSettings::default()
+        };
+        let stored = Session::settings_only(settings)
+            .with_places(places)
+            .to_json()
+            .expect("a session encodes");
+
+        let restored = Session::restore(Some(&stored), &home());
+        assert_eq!(
+            restored.places.bookmarks().len(),
+            1,
+            "a bookmark was made deliberately; \"do not remember where I was\" \
+             is not a request to delete it"
+        );
+        assert_eq!(
+            restored.places.recent().count(),
+            0,
+            "where the user has been is exactly what memory-off means"
+        );
+    }
+
+    #[test]
+    fn places_survive_a_layout_that_cannot_be_restored() {
+        let mut places = Places::new();
+        places.toggle_bookmark("/Users/someone/Projects");
+        let mut session = Session::settings_only(SessionSettings::default()).with_places(places);
+        session.version = SESSION_FORMAT_VERSION + 1;
+        let stored = session.to_json().expect("a session encodes");
+
+        let restored = Session::restore(Some(&stored), &home());
+        assert!(
+            matches!(restored.outcome, RestoreOutcome::UnsupportedVersion(_)),
+            "the fixture is meant to be unreadable as a layout"
+        );
+        assert_eq!(
+            restored.places.bookmarks().len(),
+            1,
+            "a layout we cannot use is no reason to drop the bookmark list \
+             stored alongside it"
+        );
     }
 }

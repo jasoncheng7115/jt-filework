@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use jtf_commands::{Command, CommandId, CommandRegistry, KeyChord, Keymap, KeymapError};
 use jtf_core::i18n::{Catalog, LocaleId, Localizer};
@@ -17,8 +17,8 @@ use jtf_ops::{ConflictPolicy, Plan, PlanError, RenamePattern, RenamePreview, Und
 use jtf_search::{SearchHandle, SearchUpdate};
 use jtf_viewer::{detect, ContentKind, Encoding, HexView, TextView};
 use jtf_workspace::{
-    sort_entries_with, FontSettings, LayoutPreset, Orientation, PaneId, Session, SessionSettings,
-    SortKey, SortSpec, Workspace,
+    sort_entries_with, Bookmark, FontSettings, LayoutPreset, Orientation, PaneId, Places, Session,
+    SessionSettings, SortKey, SortSpec, Workspace,
 };
 
 /// Columns the PoC shows. Kept in sync with the C++ header by
@@ -75,6 +75,15 @@ struct PaneView {
     error: Option<Error>,
     /// Rows delivered so far; lets the UI say "still loading" honestly.
     loading: bool,
+    /// How many visible rows are directories, and how many bytes the visible
+    /// files add up to.
+    ///
+    /// Counted once when `visible` is rebuilt rather than on every status
+    /// repaint: the status line is refreshed on a frame boundary, and walking
+    /// 100K rows sixty times a second to print one number is exactly the kind
+    /// of display cost `AGENTS.md` 18 rules out.
+    folder_count: usize,
+    visible_bytes: u64,
 }
 
 impl PaneView {
@@ -89,6 +98,8 @@ impl PaneView {
             sort: SortSpec::default(),
             error: None,
             loading: false,
+            folder_count: 0,
+            visible_bytes: 0,
         }
     }
 }
@@ -118,6 +129,7 @@ pub struct App {
     dropped_bindings: usize,
     repo_root: PathBuf,
     session_path: PathBuf,
+    places: Places,
 }
 
 impl App {
@@ -158,6 +170,7 @@ impl App {
             dropped_bindings: 0,
             keymap: load_keymap(&repo_root, &settings.keymap),
             settings,
+            places: restored.places,
             repo_root,
             session_path,
         };
@@ -449,6 +462,30 @@ impl App {
             })
             .map(|(index, _)| index)
             .collect();
+
+        let mut folders = 0;
+        let mut bytes = 0u64;
+        for entry in view.visible.iter().filter_map(|&i| view.entries.get(i)) {
+            if entry.kind() == FileKind::Directory {
+                folders += 1;
+            } else {
+                // Saturating: a filesystem reporting nonsense sizes must not
+                // wrap this into a small number (docs/SECURITY.md 13).
+                bytes = bytes.saturating_add(entry.size().unwrap_or(0));
+            }
+        }
+        view.folder_count = folders;
+        view.visible_bytes = bytes;
+    }
+
+    /// How many of the shown rows are folders.
+    pub(crate) fn folder_count(&self, pane: PaneId) -> usize {
+        self.views.get(&pane).map_or(0, |v| v.folder_count)
+    }
+
+    /// The size of the shown files, folders excluded.
+    pub(crate) fn visible_bytes(&self, pane: PaneId) -> u64 {
+        self.views.get(&pane).map_or(0, |v| v.visible_bytes)
     }
 
     pub(crate) fn is_loading(&self, pane: PaneId) -> bool {
@@ -712,6 +749,54 @@ impl App {
     pub(crate) fn set_tree_state(&mut self, visible: bool, width: u16) {
         self.settings.tree_visible = visible;
         self.settings.tree_width = width;
+    }
+
+    /// The user's bookmarks.
+    pub(crate) fn bookmarks(&self) -> &[Bookmark] {
+        self.places.bookmarks()
+    }
+
+    /// Whether the pane's folder is bookmarked.
+    pub(crate) fn is_bookmarked(&self, pane: PaneId) -> bool {
+        let path = self.current_path(pane);
+        !path.is_empty() && self.places.is_bookmarked(Path::new(&path))
+    }
+
+    /// Bookmark the pane's folder, or remove it. Returns the state afterwards.
+    pub(crate) fn toggle_bookmark(&mut self, pane: PaneId) -> bool {
+        let path = self.current_path(pane);
+        if path.is_empty() {
+            return false;
+        }
+        self.places.toggle_bookmark(path)
+    }
+
+    /// Remove the bookmark at `index`.
+    pub(crate) fn remove_bookmark(&mut self, index: usize) {
+        self.places.remove_bookmark(index);
+    }
+
+    /// Rename the bookmark at `index`; an empty name restores the default.
+    pub(crate) fn rename_bookmark(&mut self, index: usize, name: &str) {
+        self.places.rename_bookmark(index, name);
+    }
+
+    /// Reorder a bookmark, for drag reordering in the sidebar.
+    pub(crate) fn move_bookmark(&mut self, from: usize, to: usize) {
+        self.places.move_bookmark(from, to);
+    }
+
+    /// The recent locations, most recent first.
+    pub(crate) fn recent(&self) -> Vec<String> {
+        self.places
+            .recent()
+            .map(|path| path.display().to_string())
+            .collect()
+    }
+
+    /// Forget where the user has been.
+    pub(crate) fn clear_recent(&mut self) {
+        self.places.clear_recent();
     }
 
     /// Whether the inspector is shown, and how wide.
@@ -1658,6 +1743,12 @@ impl App {
         else {
             return;
         };
+        // Every route into a folder ends here - the path field, a double
+        // click, the tree, a bookmark, back and forward - so this is the one
+        // place the recent list has to be told about.
+        if let Some(path) = location.as_path() {
+            self.places.visit(path);
+        }
         let sort = self
             .workspace
             .pane(pane)
@@ -1935,7 +2026,8 @@ impl App {
     /// Written to a temporary file and renamed, so a crash mid-write leaves
     /// the previous session loadable (`docs/UI_TEST_PLAN.md` SESS-005).
     pub(crate) fn save_session(&self) {
-        let session = Session::capture(&self.workspace, self.settings.clone());
+        let session = Session::capture(&self.workspace, self.settings.clone())
+            .with_places(self.places.clone());
         let Ok(json) = session.to_json() else { return };
         if let Some(parent) = self.session_path.parent() {
             let _ = fs::create_dir_all(parent);

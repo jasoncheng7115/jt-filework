@@ -147,6 +147,11 @@ QWidget#JtfInspectorHeader { background: %HEADER%; border-bottom: 1px solid %BOR
 QLabel#JtfInspectorName { color: %TEXT%; }
 QLabel#JtfInspectorPreview { background: %HEADER%; border-radius: 6px; padding: 10px; }
 QLabel[jtfFactLabel="true"] { color: %DIM%; }
+QTreeWidget#JtfPlacesTree { background: %PANE%; border: none; }
+QTreeWidget#JtfPlacesTree::item { padding: 3px 4px; border-radius: 4px; }
+QTreeWidget#JtfPlacesTree::item:hover { background: %HOVER%; }
+QTreeWidget#JtfPlacesTree::item:selected { background: %SEL%; color: %ONSEL%; }
+QSplitter#JtfSidebar { background: %PANE%; }
 QLabel#JtfStatus { color: %DIM%; padding: 3px 8px; }
 QLabel#JtfError { color: %ERROR%; padding: 3px 8px; }
 

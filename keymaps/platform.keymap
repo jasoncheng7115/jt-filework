@@ -64,6 +64,7 @@ primary+equal        = view.font.larger
 primary+e            = view.filter
 primary+shift+e      = view.tree
 primary+alt+i        = view.inspector
+primary+b            = file.bookmark
 
 # --- search and tools
 primary+f            = search.open

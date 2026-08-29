@@ -304,6 +304,7 @@ fn demo_session(workspace: &Workspace) {
         workspace: fresh,
         outcome,
         settings,
+        ..
     } = Session::restore(Some(&off), &home);
     println!("\nforgetting:   {outcome:?}");
     println!(

@@ -20,6 +20,7 @@
 
 mod ids;
 mod pane;
+mod places;
 mod selection;
 mod session;
 mod sorting;
@@ -30,6 +31,7 @@ mod workspace;
 
 pub use ids::{PaneId, SplitId, TabId};
 pub use pane::Pane;
+pub use places::{Bookmark, Places, MAX_BOOKMARKS, MAX_RECENT};
 pub use selection::{MarkSet, OperationTarget, Selection};
 pub use session::{
     FontSettings, RestoreOnLaunch, RestoreOutcome, Restored, Session, SessionSettings,

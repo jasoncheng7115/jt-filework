@@ -41,10 +41,34 @@ parts of the program the picture does not cover:
 
 These are the qualities to preserve. The exact pixel arrangement is not.
 
-One correction to the image: its title bar reads with capitals and a space.
-The product name is `jt-filework`, lowercase and hyphenated, in the title bar
-and everywhere else — `AGENTS.md` §10.1, enforced by
-`tests/tests/architecture.rs::product_name_has_one_spelling`.
+One correction to the first image: its title bar reads with capitals and a
+space. The product name is `jt-filework`, lowercase and hyphenated, in the
+title bar and everywhere else — `AGENTS.md` §10.1, enforced by
+`tests/tests/architecture.rs::product_name_has_one_spelling`. The second image
+gets this right.
+
+## The single-pane view
+
+![The single-pane layout](reference-single-pane.png)
+
+The same program with one pane, and it fills in what the four-pane picture
+could not show:
+
+- **The sidebar is sections of trees, not one tree.** `Favorites` is a flat
+  list; `Home`, `NAS` and `Logs` are each a named root you expand into. So a
+  bookmark is not only a shortcut — it can be a root the tree grows from.
+- **The status line counts folders**: `28 items, 3 folders`, with the total
+  size of what is listed at the right. Four facts, and the folder count is the
+  one that tells you what kind of directory you are in.
+- **The sort indicator is a caret beside the header text**, not a separate
+  column decoration.
+- **The inspector is a tabbed panel** with a pin, a row of actions, page
+  navigation for paged formats, and rows that go beyond the filesystem: Tags
+  with an add button, and a Description.
+- **A breadcrumb sits in the window status bar**, bottom left, rather than
+  above the list — which is how the layout affords four panes without four
+  breadcrumb rows.
+- **A zoom slider** sits at the bottom right, next to a view-mode control.
 
 ## What the picture commits us to
 
@@ -103,10 +127,15 @@ size, total item count, running task count.
 | Breadcrumb path with clickable segments | Done |
 | Per-pane bookmark star and gear | Planned |
 | List columns `Name · Size · Modified · Type` | Done |
+| Status line: folder count and listed size | Done |
+| Sidebar: bookmarks, volumes, recent | Done |
+| Sidebar: named tree roots per section | Planned |
 | Checkbox marks in the list | Done |
 | Sort indicator | Done |
 | Window status bar aggregate | Done |
-| Inspector panel | Planned |
+| Inspector panel | Done — preview and facts; no tags, tabs or paging |
+| Inspector: tags, description, page navigation | Planned |
+| Zoom slider | Planned |
 | Bottom dock: Tasks, Transfers, Bookmarks, History | Planned |
 | Bottom dock: AI Assistant | Deferred — `docs/SEARCH_AI.md` |
 
