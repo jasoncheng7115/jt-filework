@@ -8,11 +8,19 @@
 # `primary` is the platform accelerator; `ctrl` is the physical Control key,
 # which this preset uses deliberately because that is what the original tools
 # used.
+#
+# On macOS the function row is media keys by default. To use this preset as
+# intended, turn on:
+#   System Settings -> Keyboard -> "Use F1, F2, etc. keys as standard
+#   function keys"
+# Otherwise hold Fn together with the function key.
 
 # the function row
 f2                 = file.rename
 f3                 = file.view
 f4                 = file.edit
+e                  = file.edit
+v                  = file.view
 f5                 = file.copy_to_target_pane
 f6                 = file.move_to_target_pane
 f7                 = file.new_folder

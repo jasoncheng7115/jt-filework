@@ -20,6 +20,7 @@ members = [
     "src/jobs",
     "src/workspace",
     "src/fs",
+    "src/ops",
     "src/commands",
     "src/cli",
     "src/bench",
@@ -40,6 +41,7 @@ jtf-core = { path = "src/core" }
 jtf-jobs = { path = "src/jobs" }
 jtf-workspace = { path = "src/workspace" }
 jtf-fs = { path = "src/fs" }
+jtf-ops = { path = "src/ops" }
 jtf-commands = { path = "src/commands" }
 jtf-search = { path = "src/search" }
 jtf-viewer = { path = "src/viewer" }

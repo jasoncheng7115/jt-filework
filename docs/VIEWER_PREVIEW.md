@@ -115,6 +115,72 @@ rich rendering may use the WebView panel (`ARCHITECTURE.md` §17).
 
 ---
 
+## 4.7 Editing — what `E` / F4 does
+
+`AGENTS.md` §14 separates Preview from Viewer. Editing is a third thing, and
+it needs its own answer because the CView and WinCV muscle memory this product
+targets has `F4` (and `E`) meaning *edit this file now*.
+
+### The three verbs
+
+| Key | Verb | What it opens |
+|---|---|---|
+| Space | **Preview** | disposable, cancelled by the next selection, read-only |
+| Enter / F3 | **View** | internal viewer: stateful, huge files, encodings, search, read-only |
+| F4 / E | **Edit** | something that can write the file back |
+
+### The decision: delegate first, own it later
+
+**Phase 1 and 2: hand the file to the editor the user already chose.** In
+order:
+
+1. an editor configured in settings for that file type
+2. the editor configured in settings generally
+3. `$VISUAL`, then `$EDITOR`, if it names a GUI editor
+4. the platform's default application for the type
+
+This is not laziness. A file manager that ships a mediocre editor and makes it
+the default has taken something away from a user who already has a good one.
+Delegation is also the only honest answer while no internal editor exists —
+better than binding `E` to nothing, and far better than binding it to the
+read-only viewer and letting the user discover their typing did nothing.
+
+**Phase 3: an internal editor for the cases where the round trip is the
+friction** — a one-line change to a config file, a quick note. It reuses the
+text viewer's encoding and line-ending handling, so a file opened as Big5 with
+CRLF is written back as Big5 with CRLF. Anything larger stays delegated.
+
+### Rules
+
+- **Never guess that a file is text.** Check magic bytes, not the extension.
+  Refusing to open a binary with a clear message is right; letting an editor
+  mangle it is not.
+- **Check writability first.** Opening a read-only file for editing and
+  failing at save is a worse experience than being told at the start.
+- **Warn before opening something huge** in an external editor that will load
+  it whole.
+- **Launch by argument vector, never through a shell**, with the editor's
+  absolute path, and the file path as its own argument (`AGENTS.md` §16,
+  §20.3, §20.4). A filename containing a space, a quote or a `$` is a normal
+  filename, not an incident.
+- **Never pass the file through a shell command template** the user typed. If
+  configuration ever accepts an editor command line, it is parsed into an
+  argument vector and validated, not handed to `sh -c`.
+- **The external editor is not trusted.** It runs as an ordinary child
+  process; the application does not wait on it, and its exit status is
+  reported, not acted on.
+- **Watch the file and refresh.** After an external edit, the pane's row for
+  that file updates its size and timestamp without the user reloading.
+- **Preserve the inode where the platform allows it**, so hard links and
+  extended attributes survive an internal-editor save.
+
+### Why `E` as well as `F4`
+
+`F4` is the Norton lineage; `E` is what CView users actually press, because it
+is one key and needs no `Fn` on a Mac. Both are bound in
+`keymaps/cview.keymap`, which is data — a user who wants `E` to mean something
+else changes a line (`docs/UI_UX_SPEC.md` §7).
+
 ## 5. Resource Limits
 
 | Limit | Applies to |

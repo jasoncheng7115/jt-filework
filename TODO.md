@@ -184,20 +184,32 @@
 - [ ] XML
 - [ ] CSV
 
+## P1 — Editing (docs/VIEWER_PREVIEW.md 4.7)
+
+- [ ] Editor resolution: per-type setting, general setting, $VISUAL/$EDITOR, platform default
+- [ ] Magic-byte text check before offering to edit
+- [ ] Writability check before opening
+- [ ] Size warning before handing a huge file to an external editor
+- [ ] Launch by argument vector with an absolute path; never a shell
+- [ ] Refresh the row after an external edit
+- [ ] Internal text editor (Phase 3), reusing the viewer's encoding handling
+- [ ] Preserve inode on save so hard links and xattrs survive
+
 ## P1 — Operations
 
-- [ ] Job Engine
-- [ ] Copy
-- [ ] Move
-- [ ] Rename
+- [x] Job Engine
+- [x] Copy
+- [x] Move
+- [x] Rename
 - [ ] Duplicate
-- [ ] Trash
-- [ ] Delete
-- [ ] Mkdir
+- [x] Trash (moves to the trash directory; native Put Back metadata pending)
+- [x] Delete
+- [x] Mkdir
 - [ ] Batch rename
-- [ ] Conflict resolver
-- [ ] Cancel
-- [ ] Progress
+- [x] Conflict resolver (asked once, up front, from a pre-flight scan)
+- [ ] Per-item conflict prompting with apply-to-all
+- [x] Cancel
+- [x] Progress
 - [ ] Retry
 - [ ] Operation log
 
@@ -313,6 +325,8 @@ Long-lead items: both identities take real time to obtain. See
 - [ ] deny.toml licence and ban policy
 - [ ] Bound archive nesting, symlink chains and directory recursion
 - [ ] Bound recursion in every structured-document parser
+- [x] Symlinks are never followed by copy or delete
+- [ ] Move the symlink cfg out of src/ops into the platform adapter
 - [ ] Sanitizer smoke suite for the UI layer
 - [ ] Fuzz targets and a persisted corpus
 - [ ] Hostile fixture set (docs/TESTING.md 9.2)

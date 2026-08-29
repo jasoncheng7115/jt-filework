@@ -262,6 +262,17 @@ fn no_crate_depends_on_the_ui_layer() {
     }
 }
 
+/// Files outside the platform layer that may use a platform `cfg`, each with
+/// the reason it has not moved yet.
+///
+/// The list exists so an exception is a deliberate, reviewable entry rather
+/// than a habit. Every line is also a `TODO.md` item.
+const CFG_ALLOWLIST: &[(&str, &str)] = &[(
+    "src/ops/src/run.rs",
+    "creating a symbolic link has no portable API; moves to the platform \
+     adapter in Phase 4 together with Windows privilege handling",
+)];
+
 #[test]
 fn no_target_os_cfg_outside_the_platform_layer() {
     let needles = [
@@ -275,6 +286,11 @@ fn no_target_os_cfg_outside_the_platform_layer() {
             continue;
         }
         for file in rust_sources(&dir) {
+            let relative = file.strip_prefix(repo_root()).unwrap_or(&file);
+            let relative_str = relative.to_string_lossy().replace('\\', "/");
+            if CFG_ALLOWLIST.iter().any(|(path, _)| *path == relative_str) {
+                continue;
+            }
             let text = code_only(&fs::read_to_string(&file).unwrap());
             for needle in needles {
                 assert!(
@@ -376,4 +392,25 @@ fn the_comment_stripper_does_not_make_these_tests_vacuous() {
         files >= 15,
         "only {files} source files scanned; the walker is probably broken"
     );
+}
+
+#[test]
+fn every_platform_cfg_exception_is_justified_and_still_needed() {
+    // An allowlist that outlives the thing it excuses is how a rule rots.
+    for (path, reason) in CFG_ALLOWLIST {
+        let full = repo_root().join(path);
+        assert!(full.is_file(), "allowlisted file no longer exists: {path}");
+        assert!(
+            reason.len() > 40,
+            "{path}: the reason must actually explain something"
+        );
+
+        let text = code_only(&fs::read_to_string(&full).unwrap());
+        assert!(
+            text.contains("cfg(unix")
+                || text.contains("cfg(target_os")
+                || text.contains("cfg(windows"),
+            "{path} no longer needs its exception; remove it from CFG_ALLOWLIST"
+        );
+    }
 }
