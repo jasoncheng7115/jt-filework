@@ -326,10 +326,10 @@ mod restore_record_tests {
 
     #[test]
     fn a_leap_day_is_not_off_by_one() {
-        // 2024-02-29T12:00:00Z, written as the arithmetic that produces it
-        // rather than as one large number of seconds - which is both what the
-        // lint asks for and clearer about where the noon comes from.
-        // Duration::from_days is still unstable on this toolchain.
+        // 2024-02-29T12:00:00Z, written as the arithmetic that produces it so
+        // the noon is visible. Clippy would prefer `Duration::from_hours`,
+        // which is still unstable on this toolchain.
+        #[allow(clippy::duration_suboptimal_units)]
         let at = UNIX_EPOCH + Duration::from_secs(19_782 * 86_400 + 12 * 3_600);
         assert_eq!(iso8601_local(at), "2024-02-29T12:00:00");
     }
