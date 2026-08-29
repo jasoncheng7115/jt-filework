@@ -1005,6 +1005,26 @@ pub unsafe extern "C" fn jtf_set_tree_state(app: *mut App, visible: c_int, width
     }
 }
 
+/// Whether the key hint strip is shown.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_key_hints_visible(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.key_hints_visible()))
+}
+
+/// Remember the key hint strip's state.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_key_hints_visible(app: *mut App, visible: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_key_hints_visible(visible != 0);
+    }
+}
+
 /// Whether the inspector panel is shown.
 ///
 /// # Safety

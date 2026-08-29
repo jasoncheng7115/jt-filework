@@ -1164,6 +1164,16 @@ impl App {
         self.keymap.type_ahead()
     }
 
+    /// Whether the key hint strip is shown.
+    pub(crate) const fn key_hints_visible(&self) -> bool {
+        self.settings.key_hints_visible
+    }
+
+    /// Remember the key hint strip's state.
+    pub(crate) fn set_key_hints_visible(&mut self, visible: bool) {
+        self.settings.key_hints_visible = visible;
+    }
+
     /// Whether the inspector is shown, and how wide.
     pub(crate) const fn inspector_state(&self) -> (bool, u16) {
         (
@@ -2027,14 +2037,6 @@ impl App {
                 tab.sort_by(key);
             }
         }
-        // Read before the mutable borrow of the view below.
-        let show_hidden = self.show_hidden;
-        let folders_first = self.settings.folders_first;
-        let needle = self
-            .workspace
-            .pane(pane)
-            .and_then(jtf_workspace::Pane::active_tab)
-            .map_or_else(String::new, |tab| tab.filter().text.to_lowercase());
         let sort = self
             .workspace
             .pane(pane)
@@ -2124,14 +2126,6 @@ impl App {
     /// The header needs this to draw its indicator: sorting is done here, not
     /// by the view, so the view has to be told what it is showing.
     pub(crate) fn sort_column(&self, pane: PaneId) -> i32 {
-        // Read before the mutable borrow of the view below.
-        let show_hidden = self.show_hidden;
-        let folders_first = self.settings.folders_first;
-        let needle = self
-            .workspace
-            .pane(pane)
-            .and_then(jtf_workspace::Pane::active_tab)
-            .map_or_else(String::new, |tab| tab.filter().text.to_lowercase());
         let sort = self
             .workspace
             .pane(pane)
@@ -2913,10 +2907,13 @@ fn archive_entries(location: &Location) -> Option<Vec<FileEntry>> {
     Some(entries)
 }
 
+// A test asserts by panicking, so the workspace's expect/unwrap lints are
+// backwards here: an expect that fails *is* the failure report.
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
 mod archive_browsing_tests {
     use super::archive_entries;
-    use jtf_core::Location;
+    use jtf_core::{FileEntry, Location};
 
     /// Built by the system's own zip, so this checks the real path a user
     /// takes rather than a fixture shaped to pass.
@@ -2946,7 +2943,7 @@ mod archive_browsing_tests {
             return; // no zip(1) here; nothing to check against
         };
         let entries = archive_entries(&Location::local(&archive)).expect("an archive lists");
-        let names: Vec<String> = entries.iter().map(|e| e.display_name()).collect();
+        let names: Vec<String> = entries.iter().map(FileEntry::display_name).collect();
 
         assert!(
             names.iter().any(|n| n.ends_with("readme.txt")),

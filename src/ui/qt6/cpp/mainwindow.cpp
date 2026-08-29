@@ -6,6 +6,7 @@
 #include "commandpalette.h"
 #include "foldertree.h"
 #include "inspector.h"
+#include "keyhintbar.h"
 #include "modeswitch.h"
 #include "placeslist.h"
 #include "platform/filetype.h"
@@ -142,7 +143,18 @@ MainWindow::MainWindow(JtfApp *app, quint64 windowId, QWidget *parent)
     m_outer->addWidget(m_inspector);
     m_inspector->setVisible(false);
     connect(m_inspector, &Inspector::closeRequested, this, [this] { setInspectorVisible(false); });
-    setCentralWidget(m_outer);
+    // The hint strip lives between the panes and the status bar, which is
+    // where CView puts it and where the eye already travels after reading the
+    // list.
+    auto *centre = new QWidget(this);
+    auto *centreLayout = new QVBoxLayout(centre);
+    centreLayout->setContentsMargins(0, 0, 0, 0);
+    centreLayout->setSpacing(0);
+    centreLayout->addWidget(m_outer, 1);
+    m_keyHints = new KeyHintBar(m_app, centre);
+    m_keyHints->setVisible(false);
+    centreLayout->addWidget(m_keyHints);
+    setCentralWidget(centre);
 
     connect(m_tree, &FolderTree::folderActivated, this, [this](const QString &path) {
         const QByteArray utf8 = path.toUtf8();
@@ -227,6 +239,7 @@ MainWindow::MainWindow(JtfApp *app, quint64 windowId, QWidget *parent)
     applyTheme();
     applyFont();
     setTreeVisible(jtf_tree_visible(m_app) != 0);
+    setKeyHintsVisible(jtf_key_hints_visible(m_app) != 0);
     retranslate();
     // The toolbar was only ever filled in by refreshAll, which does not run
     // until something changes - so on the first frame the path field and the
@@ -397,6 +410,8 @@ void MainWindow::buildMenus() {
     command(m_viewMenu, "view.tree", [this] { toggleTree(); });
     command(m_viewMenu, "keymap.toggle", [this] { toggleKeymap(); });
     command(m_viewMenu, "help.shortcuts", [this] { openShortcuts(); });
+    command(m_viewMenu, "view.key_hints",
+            [this] { setKeyHintsVisible(!m_keyHints->isVisible()); });
     command(m_viewMenu, "view.inspector",
             [this] { setInspectorVisible(!m_inspector->isVisible()); });
     command(m_viewMenu, "view.hidden",
@@ -1099,6 +1114,9 @@ void MainWindow::buildToolbar() {
     m_inspectorAction = button(
         "view.inspector", glyph::Shape::Inspector,
         [this] { setInspectorVisible(!m_inspector->isVisible()); }, true);
+    m_keyHintsAction = button(
+        "view.key_hints", glyph::Shape::Keyboard,
+        [this] { setKeyHintsVisible(!m_keyHints->isVisible()); }, true);
     button("workspace.split.horizontal", glyph::Shape::SplitHorizontal,
            [this] { jtf_split_active(m_app, 0); });
     button("workspace.split.vertical", glyph::Shape::SplitVertical,
@@ -1203,6 +1221,10 @@ void MainWindow::syncToolbar() {
     if (m_inspectorAction) {
         QSignalBlocker blocker(m_inspectorAction);
         m_inspectorAction->setChecked(m_inspector && m_inspector->isVisible());
+    }
+    if (m_keyHintsAction) {
+        QSignalBlocker blocker(m_keyHintsAction);
+        m_keyHintsAction->setChecked(m_keyHints && m_keyHints->isVisible());
     }
     if (m_treeAction) {
         QSignalBlocker blocker(m_treeAction);
@@ -1420,6 +1442,40 @@ void MainWindow::setInspectorVisible(bool visible) {
     syncToolbar();
 }
 
+void MainWindow::setKeyHintsVisible(bool visible) {
+    m_keyHints->setVisible(visible);
+    if (m_keyHintsAction) {
+        QSignalBlocker blocker(m_keyHintsAction);
+        m_keyHintsAction->setChecked(visible);
+    }
+    jtf_set_key_hints_visible(m_app, visible ? 1 : 0);
+    syncKeyHints();
+}
+
+void MainWindow::syncKeyHints() {
+    if (m_keyHints == nullptr || !m_keyHints->isVisible()) {
+        return;
+    }
+    PaneWidget *pane = activePane();
+    if (pane == nullptr) {
+        return;
+    }
+    const int id = pane->paneId();
+    // More than one marked is its own situation: the useful keys are the ones
+    // that act on a set, and "rename" is not among them.
+    KeyHintBar::Context context = KeyHintBar::Context::Nothing;
+    if (jtf_marked_count(m_app, id) > 1) {
+        context = KeyHintBar::Context::Several;
+    } else {
+        const int row = pane->currentRow();
+        if (row >= 0 && !jtf_row_is_parent(m_app, id, row)) {
+            context = jtf_row_is_directory(m_app, id, row) ? KeyHintBar::Context::Folder
+                                                           : KeyHintBar::Context::File;
+        }
+    }
+    m_keyHints->update(context);
+}
+
 void MainWindow::syncInspector() {
     if (!m_inspector->isVisible()) {
         return;
@@ -1507,6 +1563,7 @@ void MainWindow::refreshAll() {
     syncToolbar();
     syncTree();
     syncInspector();
+    syncKeyHints();
     retranslate();
 }
 
@@ -1563,6 +1620,10 @@ void MainWindow::updateStatusSummary() {
 }
 
 void MainWindow::retranslate() {
+    if (m_keyHints) {
+        m_keyHints->invalidate();
+        syncKeyHints();
+    }
     // Everything with words in it, including the parts the frame pump owns:
     // changing the language is exactly the case where nothing else changed.
     updateStatusSummary();
@@ -1648,6 +1709,9 @@ void MainWindow::applyTheme() {
     }
     if (m_places) {
         m_places->applyTheme(m_theme.textSecondary);
+    }
+    if (m_keyHints) {
+        m_keyHints->applyTheme(m_theme.textPrimary, m_theme.textSecondary, m_theme.header);
     }
     if (m_modeSwitch) {
         m_modeSwitch->applyTheme(m_theme.window, m_theme.border, m_theme.selection,

@@ -142,6 +142,9 @@ pub struct SessionSettings {
     /// after moving the machine to another country.
     #[serde(default)]
     pub locale: String,
+    /// Whether the key hint strip is shown.
+    #[serde(default)]
+    pub key_hints_visible: bool,
     /// Whether the inspector panel is shown.
     #[serde(default)]
     pub inspector_visible: bool,
@@ -175,6 +178,7 @@ impl Default for SessionSettings {
             tree_visible: false,
             tree_width: 0,
             locale: String::new(),
+            key_hints_visible: false,
             inspector_visible: false,
             inspector_width: 0,
         }
@@ -201,6 +205,7 @@ impl SessionSettings {
             tree_visible: false,
             tree_width: 0,
             locale: String::new(),
+            key_hints_visible: false,
             inspector_visible: false,
             inspector_width: 0,
         }

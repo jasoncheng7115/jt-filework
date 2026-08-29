@@ -86,6 +86,8 @@ private:
     void runCommand(const QString &id);
     void toggleBookmark();
     void setInspectorVisible(bool visible);
+    void setKeyHintsVisible(bool visible);
+    void syncKeyHints();
     void syncInspector();
     void openViewer();
     void quickLookSelection();
@@ -122,6 +124,8 @@ private:
     class QAction *m_refreshAction = nullptr;
     class QAction *m_treeAction = nullptr;
     class QAction *m_inspectorAction = nullptr;
+    class QAction *m_keyHintsAction = nullptr;
+    class KeyHintBar *m_keyHints = nullptr;
     class Inspector *m_inspector = nullptr;
     class PlacesList *m_places = nullptr;
     class QSplitter *m_sidebar = nullptr;

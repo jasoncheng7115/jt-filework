@@ -213,6 +213,19 @@ QWidget#JtfCrumbs QPushButton:hover { background: %HOVER%; }
 QWidget#JtfCrumbs QLabel { color: %DIM%; padding: 0 1px; }
 /* The message sits in from the window edge; text flush against the frame
    reads as a rendering slip rather than as a layout. */
+/* The key hint strip. The key is a chip and the word beside it is quiet, so
+   a row of them reads as pairs rather than as a sentence. */
+QWidget#JtfKeyHints { background: %ALT%; border-top: 1px solid %BORDER%; }
+QLabel[jtfHintKey="true"] {
+    color: %TEXT%;
+    background: %HEADER%;
+    border: 1px solid %BORDER%;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-weight: 600;
+}
+QLabel[jtfHintLabel="true"] { color: %DIM%; }
+
 QStatusBar { background: %HEADER%; border-top: 1px solid %BORDER%; padding: 2px 4px; }
 QStatusBar QLabel { padding-left: 8px; }
 QStatusBar::item { border: none; }
@@ -318,6 +331,19 @@ QSplitter::handle { background: %BORDER%; }
 QSplitter::handle:horizontal { width: 1px; }
 QSplitter::handle:vertical { height: 1px; }
 QSplitter::handle:hover { background: %FOCUS%; }
+
+/* The key hint strip. The key is a chip and the word beside it is quiet, so
+   a row of them reads as pairs rather than as a sentence. */
+QWidget#JtfKeyHints { background: %ALT%; border-top: 1px solid %BORDER%; }
+QLabel[jtfHintKey="true"] {
+    color: %TEXT%;
+    background: %HEADER%;
+    border: 1px solid %BORDER%;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-weight: 600;
+}
+QLabel[jtfHintLabel="true"] { color: %DIM%; }
 
 QStatusBar { background: %HEADER%; color: %DIM%; border-top: 1px solid %BORDER%; }
 QStatusBar::item { border: none; }

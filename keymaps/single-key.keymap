@@ -100,6 +100,7 @@ primary+alt+i        = view.inspector
 # behind you. tests/tests/keymaps.rs proves the two agree.
 primary+shift+k      = keymap.toggle
 primary+slash        = help.shortcuts
+primary+shift+slash  = view.key_hints
 primary+shift+period = view.hidden
 f5                   = view.refresh
 primary+equal        = view.font.larger

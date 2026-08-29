@@ -81,6 +81,8 @@ qt_add_executable(jt-filework
     cpp/headerview.h
     cpp/modeswitch.cpp
     cpp/modeswitch.h
+    cpp/keyhintbar.cpp
+    cpp/keyhintbar.h
     cpp/shortcutsdialog.cpp
     cpp/shortcutsdialog.h
     cpp/theme.cpp
