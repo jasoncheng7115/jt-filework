@@ -13,10 +13,11 @@
 //! offers it.
 //!
 //! Without a hook, the fallback moves the entry into the platform's trash
-//! directory. That is where the trash is, but it writes no Put Back metadata
-//! and cannot handle another volume properly. The fallback is not papered
-//! over: it is still preferable to `delete` because the file remains, and it
-//! is what runs anywhere the adapter has nothing to offer.
+//! directory and, where that trash is freedesktop-shaped, writes the
+//! `.trashinfo` record every Linux file manager reads to offer Restore. What
+//! it still cannot do is pick another volume's trash, which needs the
+//! platform. The fallback is not papered over: it is what runs anywhere the
+//! adapter has nothing to offer.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -68,6 +69,94 @@ pub fn trash_directory() -> Option<PathBuf> {
     None
 }
 
+/// Record where a trashed entry came from, per the freedesktop trash
+/// specification.
+///
+/// `Trash/files/NAME` gets a matching `Trash/info/NAME.trashinfo` naming the
+/// original path and the time. Every Linux file manager reads these, so
+/// writing one is what makes "Restore" work there — the same thing macOS gets
+/// from `NSFileManager.trashItem`, which is why this runs only in the
+/// fallback.
+///
+/// Best effort by design: failing to write the note must not stop the file
+/// reaching the trash, because a trashed file without a note is still safer
+/// than a file left where the user asked for it to be removed.
+fn write_restore_record(trash_files: &Path, target: &Path, source: &Path) {
+    // Only for a freedesktop-shaped trash: macOS's `~/.Trash` has no `info`
+    // directory and inventing one there would litter it.
+    let Some(root) = trash_files.parent() else {
+        return;
+    };
+    let info_dir = root.join("info");
+    if !info_dir.is_dir() {
+        return;
+    }
+    let Some(name) = target.file_name().and_then(|n| n.to_str()) else {
+        return;
+    };
+
+    let deleted_at = std::time::SystemTime::now();
+    let record = format!(
+        "[Trash Info]\nPath={}\nDeletionDate={}\n",
+        percent_encode(&source.to_string_lossy()),
+        iso8601_local(deleted_at)
+    );
+    let _ = fs::write(info_dir.join(format!("{name}.trashinfo")), record);
+}
+
+/// Percent-encode a path for a `.trashinfo` file.
+///
+/// The specification requires it, and it is what stops a path containing a
+/// newline from writing a second key into the file — a `Path=` value that can
+/// inject `DeletionDate=` is a small injection in a small format, and small
+/// is not the same as harmless.
+fn percent_encode(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    for byte in path.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' => {
+                out.push(byte as char);
+            }
+            other => out.push_str(&format!("%{other:02X}")),
+        }
+    }
+    out
+}
+
+/// `YYYY-MM-DDThh:mm:ss`, which is what the specification asks for.
+///
+/// Computed here rather than pulled in with a date library: this is the only
+/// place the program formats a date for a machine to read, and a dependency
+/// for one format string is a dependency to audit for one format string.
+fn iso8601_local(at: std::time::SystemTime) -> String {
+    let secs = at
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+
+    // Civil-from-days, the standard algorithm. UTC: the specification allows
+    // it, and guessing a local offset without a timezone database would be
+    // guessing.
+    let days = (secs / 86_400) as i64;
+    let time_of_day = secs % 86_400;
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = if m <= 2 { y + 1 } else { y };
+
+    format!(
+        "{year:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}",
+        time_of_day / 3_600,
+        (time_of_day % 3_600) / 60,
+        time_of_day % 60
+    )
+}
+
 /// Move one entry to the trash.
 ///
 /// # Errors
@@ -98,6 +187,11 @@ pub(crate) fn trash_entry(source: &Path) -> Result<PathBuf, Error> {
     // trashed file.
     let target = crate::conflict::unique_destination(&directory.join(name))
         .ok_or_else(|| Error::new(ErrorCode::AlreadyExists, "no free name in the trash"))?;
+
+    // The restore record is written *before* the move, so a crash between the
+    // two leaves an orphaned info file rather than a trashed file nobody can
+    // put back. An orphan is tidy-up; a file with no record is lost work.
+    write_restore_record(&directory, &target, source);
 
     match fs::rename(source, &target) {
         Ok(()) => Ok(target),
@@ -130,5 +224,104 @@ mod tests {
                 "reported a trash directory that is not one"
             );
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod restore_record_tests {
+    use super::{iso8601_local, percent_encode, write_restore_record};
+    use std::path::{Path, PathBuf};
+    use std::time::{Duration, UNIX_EPOCH};
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("jtf-trashinfo-{name}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("files")).unwrap();
+        std::fs::create_dir_all(dir.join("info")).unwrap();
+        dir
+    }
+
+    #[test]
+    fn a_freedesktop_trash_gets_its_record() {
+        let root = scratch("writes");
+        let files = root.join("files");
+        write_restore_record(
+            &files,
+            &files.join("gone.txt"),
+            Path::new("/home/me/gone.txt"),
+        );
+
+        let info = root.join("info/gone.txt.trashinfo");
+        assert!(
+            info.is_file(),
+            "this record is what makes Restore work in every Linux file manager"
+        );
+        let text = std::fs::read_to_string(&info).unwrap();
+        assert!(text.starts_with("[Trash Info]\n"), "{text}");
+        assert!(text.contains("Path=/home/me/gone.txt"), "{text}");
+        assert!(text.contains("DeletionDate="), "{text}");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_trash_with_no_info_directory_is_left_alone() {
+        // macOS's ~/.Trash is a plain directory. Inventing an `info` folder
+        // there would litter somewhere the user looks.
+        let root = std::env::temp_dir().join("jtf-trashinfo-plain");
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+
+        write_restore_record(
+            &root,
+            &root.join("gone.txt"),
+            Path::new("/home/me/gone.txt"),
+        );
+        let stray: Vec<_> = std::fs::read_dir(&root).unwrap().flatten().collect();
+        assert!(stray.is_empty(), "nothing was written beside the trash");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_path_that_could_inject_a_second_key_is_encoded() {
+        let hostile = "/tmp/a\nDeletionDate=1999-01-01T00:00:00";
+        let encoded = percent_encode(hostile);
+        assert!(
+            !encoded.contains('\n'),
+            "a newline in a path must not be able to write a second key into \
+             the record: {encoded}"
+        );
+        assert!(encoded.starts_with("/tmp/a%0A"));
+    }
+
+    #[test]
+    fn ordinary_paths_stay_readable() {
+        assert_eq!(
+            percent_encode("/home/someone/notes-2026.txt"),
+            "/home/someone/notes-2026.txt",
+            "encoding everything would be correct and unreadable; the \
+             specification's unreserved set is left alone"
+        );
+        assert_eq!(percent_encode("/tmp/a b"), "/tmp/a%20b");
+        assert_eq!(percent_encode("/tmp/檔案"), "/tmp/%E6%AA%94%E6%A1%88");
+    }
+
+    #[test]
+    fn the_date_is_the_shape_the_specification_asks_for() {
+        // 2001-09-09T01:46:40Z, a value with a known answer.
+        let at = UNIX_EPOCH + Duration::from_secs(1_000_000_000);
+        assert_eq!(iso8601_local(at), "2001-09-09T01:46:40");
+    }
+
+    #[test]
+    fn the_epoch_itself_formats() {
+        assert_eq!(iso8601_local(UNIX_EPOCH), "1970-01-01T00:00:00");
+    }
+
+    #[test]
+    fn a_leap_day_is_not_off_by_one() {
+        // 2024-02-29T12:00:00Z.
+        let at = UNIX_EPOCH + Duration::from_secs(1_709_208_000);
+        assert_eq!(iso8601_local(at), "2024-02-29T12:00:00");
     }
 }
