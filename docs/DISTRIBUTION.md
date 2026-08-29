@@ -33,7 +33,73 @@ bypasses this on current macOS; the user has to go to
 **System Settings → Privacy & Security** and click *Open Anyway*. Expecting
 users to do that is not shipping.
 
-### 1.2 What it takes
+### 1.2 Does this have to cost money?
+
+Not always. It depends on what "give it to someone" means.
+
+**Gatekeeper only inspects quarantined files.** The `com.apple.quarantine`
+attribute is attached by browsers, Mail, Messages and AirDrop — not by `scp`,
+`rsync`, `git clone`, or a local build. That single fact is what the free
+paths below rest on.
+
+#### Free, and genuinely warning-free
+
+- **Distribute source.** This is a `GPL-3.0-or-later` project, so shipping
+  source is the natural form anyway. A user who runs `cargo build --release`
+  has a binary the toolchain ad-hoc signed, with no quarantine attribute, and
+  it simply runs. Cost: nothing.
+- **A Homebrew formula that builds from source**, or MacPorts. Same
+  mechanism, packaged conveniently. Note that a Homebrew **cask** — a
+  pre-built binary — applies quarantine by default, so a cask does not avoid
+  signing; a build-from-source formula does.
+- **Hand the binary over without a browser**: `scp`, `rsync`, a git checkout,
+  a `tar` on a USB stick opened from Terminal. No quarantine, no prompt. Fine
+  for a handful of colleagues, useless as a release channel.
+
+#### Free, but with friction you are pushing onto the user
+
+Ship an unsigned `.dmg` or `.zip` and tell people how to get past Gatekeeper:
+**System Settings → Privacy & Security → Open Anyway**, once per app. It
+works. The costs are real:
+
+- current macOS removed the old Control-click → Open shortcut, so this is now
+  a trip into System Settings rather than a right-click
+- it teaches users to wave through a security warning, which is a habit worth
+  not teaching
+- the alternative advice people copy from forums —
+  `sudo spctl --master-disable`, or `xattr -dr com.apple.quarantine` — turns
+  the protection off far more broadly than intended. Do not put that in a
+  README.
+
+#### What is *not* a free route
+
+- A **free Apple ID** gives you a development certificate. It signs apps for
+  your own machines and devices. It cannot produce a Developer ID signature
+  and **cannot be notarized**.
+- There is **no free notarization tier**. `notarytool` authenticates against a
+  paid membership.
+
+#### Fee waiver
+
+Apple waives the fee for eligible **nonprofit organizations, accredited
+educational institutions and government entities** in qualifying countries.
+It requires organizational status and paperwork, not just intent — see
+Apple's fee waiver documentation. Not applicable to an individual developer.
+
+#### What this project should do
+
+Nothing, for now. Phase 0 through Phase 2 is development on the author's own
+machine, where the cost is zero. Pay the US$99 at the point where a
+ready-to-run build is first handed to someone who is not you and is expected
+to double-click it — realistically at the first public preview. Until then,
+source and build instructions cover every case honestly.
+
+Worth noting that **Windows is the more expensive platform**, not macOS: a
+code signing certificate plus hardware token costs more per year than Apple's
+membership, and there is no equivalent free path, because SmartScreen warns
+on any unsigned binary however it arrived.
+
+### 1.3 What it takes
 
 1. **Apple Developer Program** membership — roughly **US$99/year** (verify
    current pricing and terms with Apple). An individual membership is enough;
@@ -52,7 +118,7 @@ users to do that is not shipping.
    `spctl -a -vvv` and `stapler validate` are the checks; a real download is
    the proof.
 
-### 1.3 Notarization constrains the design
+### 1.4 Notarization constrains the design
 
 Notarization requires the hardened runtime, and the hardened runtime blocks
 some things by default. Decisions elsewhere in this project touch it:
@@ -65,7 +131,7 @@ some things by default. Decisions elsewhere in this project touch it:
   binary we did not sign — allowed, but the entitlements and the security
   story need to be written down before Phase 3
 
-### 1.4 Mac App Store is a separate question
+### 1.5 Mac App Store is a separate question
 
 The App Store is a different certificate, a mandatory sandbox, and a review
 process. The sandbox would cripple a file manager: arbitrary filesystem
@@ -134,13 +200,17 @@ No operating-system gatekeeper, so no warning to remove.
 
 ## 4. Cost Summary
 
-| Platform | Recurring | One-off / effort |
-|---|---|---|
-| macOS | ~US$99/year (Apple Developer Program) | notarization pipeline, CI secrets |
-| Windows | OV or EV code signing certificate, annual | hardware token or cloud HSM, identity validation |
-| Linux | none | packaging and repository maintenance |
+| Platform | Recurring | One-off / effort | Free path? |
+|---|---|---|---|
+| macOS | US$99/year (Apple Developer Program) | notarization pipeline, CI secrets | yes — source / build-from-source (§1.2) |
+| Windows | OV or EV code signing certificate, annual | hardware token or cloud HSM, identity validation | no — SmartScreen warns on any unsigned binary |
+| Linux | none | packaging and repository maintenance | n/a — no gatekeeper to satisfy |
 
-All figures are indicative and must be re-checked before budgeting.
+Apple's figure is confirmed; the Windows figure is indicative and must be
+re-checked with a CA before budgeting.
+
+**Nothing needs to be bought until a ready-to-run build is first handed to
+someone outside the project.** See §1.2.
 
 ---
 

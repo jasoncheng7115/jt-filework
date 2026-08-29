@@ -268,7 +268,10 @@
 Long-lead items: both identities take real time to obtain. See
 `docs/DISTRIBUTION.md`.
 
-- [ ] Join the Apple Developer Program
+- [ ] Decide the release channel: source / Homebrew formula / signed .dmg
+      (nothing needs buying until a ready-to-run build leaves the project —
+      docs/DISTRIBUTION.md 1.2)
+- [ ] Join the Apple Developer Program (US$99/yr, only when the above says so)
 - [ ] Obtain a Developer ID Application certificate
 - [ ] Build with the hardened runtime and a minimal entitlement set
 - [ ] codesign all nested binaries, then the bundle
