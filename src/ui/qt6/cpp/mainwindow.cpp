@@ -1250,7 +1250,11 @@ void MainWindow::applyTheme() {
         m_inspector->applyTheme(m_theme.textSecondary);
     }
     for (auto *pane : std::as_const(m_panes)) {
-        pane->applyTheme(m_theme.mark, m_theme.textPrimary, m_theme.indicator, m_theme.border);
+        pane->applyTheme(m_theme.mark,
+                         m_theme.textPrimary,
+                         m_theme.textSecondary,
+                         m_theme.indicator,
+                         m_theme.border);
     }
     m_applyingTheme = false;
 }

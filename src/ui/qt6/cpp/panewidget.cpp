@@ -1,6 +1,7 @@
 #include "panewidget.h"
 #include "filelistmodel.h"
 #include "breadcrumb.h"
+#include "headerview.h"
 #include "jtfstring.h"
 #include "platform/quicklook.h"
 
@@ -109,7 +110,8 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // Sorting is done in the model, so the header has to be told what it is
     // showing: without this the arrow never appears and clicking a header
     // looks like it did nothing.
-    m_view->horizontalHeader()->setSortIndicatorShown(true);
+    m_header = new JtfHeaderView(m_view);
+    m_view->setHorizontalHeader(m_header);
     m_view->horizontalHeader()->setStretchLastSection(false);
     m_view->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     m_view->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
@@ -627,11 +629,16 @@ void PaneWidget::retranslate() {
     m_status->setText(status);
 }
 
-void PaneWidget::applyTheme(const QColor &mark, const QColor &directory, const QColor &indicator,
+void PaneWidget::applyTheme(const QColor &mark, const QColor &directory, const QColor &dim,
+                            const QColor &indicator,
                             const QColor &border) {
     m_model->setMarkColor(mark);
     m_model->setDirectoryColor(directory);
     m_indicator = indicator;
+    // The sorted column's header is painted in the primary text colour and
+    // the rest in the dim one: that contrast is what makes the sorted column
+    // findable without hunting for the caret.
+    m_header->applyTheme(directory, dim, indicator);
     m_border = border;
     setActive(m_active);
     m_model->refresh();

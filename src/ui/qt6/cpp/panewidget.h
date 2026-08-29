@@ -43,7 +43,8 @@ public:
     void advanceCurrentRow();
     void retranslate();
     void setListFont(const QFont &font);
-    void applyTheme(const QColor &mark, const QColor &directory, const QColor &indicator,
+    void applyTheme(const QColor &mark, const QColor &directory, const QColor &dim,
+                    const QColor &indicator,
                     const QColor &border);
     void setActive(bool active);
 
@@ -82,6 +83,7 @@ private:
     FileListModel *m_model;
     bool m_active = false;
     QColor m_indicator;
+    class JtfHeaderView *m_header = nullptr;
     QColor m_border;
     QString m_typeAhead;
     class QElapsedTimer *m_typeAheadClock = nullptr;

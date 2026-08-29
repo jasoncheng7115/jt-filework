@@ -77,6 +77,8 @@ qt_add_executable(jt-filework
     cpp/inspector.h
     cpp/placeslist.cpp
     cpp/placeslist.h
+    cpp/headerview.cpp
+    cpp/headerview.h
     cpp/theme.cpp
     cpp/theme.h
     cpp/watchdog.cpp

@@ -90,6 +90,8 @@ QTableView::item:selected:!active { background: %SELDIM%; color: %TEXT%; }
 
 QHeaderView::section {
     background: %HEADER%;
+    /* Painted by JtfHeaderView; this is the fallback for any header that is
+       not one of ours. */
     color: %DIM%;
     padding: 4px 8px;
     border: none;
@@ -98,18 +100,11 @@ QHeaderView::section {
     font-weight: 600;
 }
 QHeaderView::section:hover { color: %TEXT%; background: %HOVER%; }
-/* The sort indicator sits just inside the section's right edge, small and
-   quiet. Qt's default places a large triangle that reads as a control rather
-   than as a state. */
-QHeaderView::up-arrow, QHeaderView::down-arrow {
-    subcontrol-origin: padding;
-    subcontrol-position: center right;
-    width: 8px;
-    height: 8px;
-    margin-right: 4px;
-}
-/* Only the sorted column shows one at all. */
-QHeaderView::up-arrow:!enabled, QHeaderView::down-arrow:!enabled { image: none; }
+/* The sort caret is painted by JtfHeaderView, beside the header text rather
+   than at the section's right edge, so it stays next to the word it refers
+   to. Qt's own indicator is switched off there; these rules make sure the
+   style cannot bring one back. */
+QHeaderView::up-arrow, QHeaderView::down-arrow { image: none; width: 0; height: 0; }
 
 QTabBar { background: %HEADER%; }
 QTabBar::tab {
