@@ -413,6 +413,7 @@ void MainWindow::buildMenus() {
     command(m_viewMenu, "help.shortcuts", [this] { openShortcuts(); });
     command(m_viewMenu, "view.key_hints",
             [this] { setKeyHintsVisible(!m_keyHints->isVisible()); });
+    command(m_viewMenu, "view.sort", [this] { showSortMenu(); });
     command(m_viewMenu, "view.mode.list",
             [this] { jtf_set_view_mode(m_app, jtf_active_pane(m_app), 0); });
     command(m_viewMenu, "view.mode.grid",
@@ -832,6 +833,58 @@ void MainWindow::openSettings() {
     });
     dialog.exec();
     refreshAll();
+}
+
+void MainWindow::showSortMenu() {
+    // Built from the columns rather than from a written list, so a column
+    // added to the model is sortable without a second edit. CView reaches
+    // this with S; the header is still the mouse's way in.
+    const int pane = jtf_active_pane(m_app);
+    const int current = jtf_sort_column(m_app, pane);
+    const bool ascending = jtf_sort_ascending(m_app, pane) != 0;
+
+    QMenu menu(this);
+    auto *columns = new QActionGroup(&menu);
+    for (int column = 0; column < jtf_column_count(); ++column) {
+        const QString key =
+            jtfText([&](char *buf, int len) { return jtf_column_key(column, buf, len); });
+        const QByteArray utf8 = key.toUtf8();
+        QAction *entry = menu.addAction(jtfText(
+            [&](char *buf, int len) { return jtf_tr(m_app, utf8.constData(), buf, len); }));
+        entry->setCheckable(true);
+        entry->setChecked(column == current);
+        columns->addAction(entry);
+        connect(entry, &QAction::triggered, this, [this, pane, column] {
+            jtf_sort_by(m_app, pane, column);
+            refreshAll();
+        });
+    }
+
+    menu.addSeparator();
+    // Direction is shown as state, not as a command: clicking the column you
+    // are already sorted by is what reverses it, and this says which way it
+    // currently runs.
+    QAction *up = menu.addAction(tr_("sort.ascending"));
+    QAction *down = menu.addAction(tr_("sort.descending"));
+    auto *direction = new QActionGroup(&menu);
+    for (QAction *entry : {up, down}) {
+        entry->setCheckable(true);
+        direction->addAction(entry);
+    }
+    up->setChecked(ascending);
+    down->setChecked(!ascending);
+    const auto reverse = [this, pane, ascending](bool wanted) {
+        if (wanted != ascending) {
+            jtf_sort_by(m_app, pane, jtf_sort_column(m_app, pane));
+            refreshAll();
+        }
+    };
+    connect(up, &QAction::triggered, this, [reverse] { reverse(true); });
+    connect(down, &QAction::triggered, this, [reverse] { reverse(false); });
+
+    // Under the pointer if it is over the window, else under the active
+    // pane's header - a keyboard-invoked menu must not appear off screen.
+    menu.exec(QCursor::pos());
 }
 
 void MainWindow::showCrumbMenu(int paneId, const QString &path, const QPoint &global) {

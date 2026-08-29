@@ -380,3 +380,6 @@ new_file.title = New file
 new_file.label = Name
 file.open_with = Open With
 inspector.tags = Tags
+command.view.sort = Sort By…
+sort.ascending = Ascending
+sort.descending = Descending

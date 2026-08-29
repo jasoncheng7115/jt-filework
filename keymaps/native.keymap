@@ -84,6 +84,7 @@ primary+slash        = help.shortcuts
 primary+shift+slash  = view.key_hints
 primary+2            = view.mode.list
 primary+3            = view.mode.grid
+primary+shift+o      = view.sort
 primary+b            = file.bookmark
 primary+shift+s      = file.folder_size
 

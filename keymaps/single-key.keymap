@@ -103,6 +103,7 @@ primary+slash        = help.shortcuts
 primary+shift+slash  = view.key_hints
 primary+2            = view.mode.list
 primary+3            = view.mode.grid
+s                    = view.sort               # confirmed
 primary+shift+period = view.hidden
 f5                   = view.refresh
 primary+equal        = view.font.larger

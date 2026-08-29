@@ -325,6 +325,7 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("view.thumbnails", C::View, "command.view.thumbnails"),
     ("view.mode.list", C::View, "command.view.mode.list"),
     ("view.mode.grid", C::View, "command.view.mode.grid"),
+    ("view.sort", C::View, "command.view.sort"),
     ("file.bookmark", C::Navigation, "command.file.bookmark"),
     ("file.folder_size", C::File, "command.file.folder_size"),
     ("view.font.smaller", C::View, "command.view.font.smaller"),

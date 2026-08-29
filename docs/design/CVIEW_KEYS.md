@@ -104,7 +104,7 @@ Confirmed from `WinCV.IMG` strings and by the project owner:
 | `E` | 編輯 | In the DOS help `E` edits only from *inside* the viewer. WinCV puts it on the file list too. |
 | `←` | 回上一層 | Not in the DOS help, which has only `BACKSPACE`. |
 | `→` | 進入目錄 | Confirmed by the project owner. |
-| `S` | 排序 | Confirmed by the DOS hint strip too, though absent from the help file's file-list section. |
+| `S` | 排序 | Confirmed by the DOS hint strip too, though absent from the help file's file-list section. **Built.** |
 | `Alt-R` | 連續編號改名 | Maps to `file.batch_rename`. |
 
 ## Unresolved

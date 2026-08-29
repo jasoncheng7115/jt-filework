@@ -73,6 +73,7 @@ private:
         OpNewFile,
         OpDuplicate
     };
+    void showSortMenu();
     void showCrumbMenu(int paneId, const QString &path, const QPoint &global);
     void showEntryMenu(int paneId, const QPoint &global, bool onEntry);
     void toggleTree();

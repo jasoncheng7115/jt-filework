@@ -380,3 +380,6 @@ new_file.title = 新增檔案
 new_file.label = 名稱
 file.open_with = 開啟檔案的應用程式
 inspector.tags = 標籤
+command.view.sort = 排序方式…
+sort.ascending = 遞增排序
+sort.descending = 遞減排序
