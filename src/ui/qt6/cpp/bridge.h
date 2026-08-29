@@ -98,6 +98,15 @@ int jtf_inspector_visible(const JtfApp *app);
 int jtf_inspector_width(const JtfApp *app);
 void jtf_set_inspector_state(JtfApp *app, int visible, int width);
 
+// The inspector's own read of a file, independent of the viewer window.
+int jtf_preview_open(JtfApp *app, const char *path);
+void jtf_preview_close(JtfApp *app);
+uint64_t jtf_preview_line_count(const JtfApp *app);
+int jtf_preview_row(JtfApp *app, uint64_t row, char *buf, int len);
+int jtf_preview_encoding_key(const JtfApp *app, char *buf, int len);
+int jtf_preview_line_ending_key(const JtfApp *app, char *buf, int len);
+
+int jtf_listed_count(const JtfApp *app, int pane);
 int jtf_folder_count(const JtfApp *app, int pane);
 uint64_t jtf_visible_bytes(const JtfApp *app, int pane);
 

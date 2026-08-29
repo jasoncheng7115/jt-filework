@@ -14,6 +14,7 @@
 #include <QLocale>
 #include <QMimeDatabase>
 #include <QPushButton>
+#include <QPlainTextEdit>
 #include <QScrollArea>
 #include <QVBoxLayout>
 
@@ -22,6 +23,13 @@ namespace {
 // to fill a 220-pixel box is how a file manager freezes on a folder of
 // photographs (docs/SECURITY.md 13: bound what untrusted input can allocate).
 constexpr int kPreviewEdge = 220;
+
+// How many lines of a text file the preview reads.
+//
+// A preview is a glance, not the viewer: reading a 4 GB log into a widget to
+// show its first screenful is the allocation bound docs/SECURITY.md 13 is
+// about, and the viewer window (Enter) is one keystroke away for the rest.
+constexpr int kPreviewLines = 400;
 
 QString humanSize(qint64 bytes) {
     static const char *const units[] = {"B", "KB", "MB", "GB", "TB", "PB"};
@@ -75,6 +83,23 @@ Inspector::Inspector(JtfApp *app, QWidget *parent) : QWidget(parent), m_app(app)
     m_preview->setMinimumHeight(120);
     m_preview->setObjectName(QStringLiteral("JtfInspectorPreview"));
     bodyLayout->addWidget(m_preview);
+
+    // Text gets read, not looked at, so it is a real text widget rather than
+    // a pixmap: selectable, scrollable, and with the line numbers the
+    // reference layout shows.
+    m_text = new QPlainTextEdit(body);
+    m_text->setObjectName(QStringLiteral("JtfInspectorText"));
+    m_text->setReadOnly(true);
+    m_text->setLineWrapMode(QPlainTextEdit::NoWrap);
+    m_text->setFrameShape(QFrame::NoFrame);
+    m_text->setMinimumHeight(200);
+    m_text->setVisible(false);
+    bodyLayout->addWidget(m_text);
+
+    m_textStatus = new QLabel(body);
+    m_textStatus->setObjectName(QStringLiteral("JtfInspectorTextStatus"));
+    m_textStatus->setVisible(false);
+    bodyLayout->addWidget(m_textStatus);
     m_facts = new QFormLayout();
     m_facts->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
     m_facts->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
@@ -144,8 +169,57 @@ void Inspector::addRow(const QString &labelKey, const QString &value) {
     m_facts->addRow(label, field);
 }
 
+bool Inspector::showTextPreview(const QString &path) {
+    const QByteArray utf8 = path.toUtf8();
+    if (!jtf_preview_open(m_app, utf8.constData())) {
+        return false;
+    }
+    const quint64 lines = jtf_preview_line_count(m_app);
+    const int shown = static_cast<int>(qMin<quint64>(lines, kPreviewLines));
+
+    QString body;
+    for (int i = 0; i < shown; ++i) {
+        body += jtfText([&](char *b, int l) {
+            return jtf_preview_row(m_app, static_cast<quint64>(i), b, l);
+        });
+        body += QLatin1Char('\n');
+    }
+    m_text->setPlainText(body);
+    m_text->setFont(m_listFont);
+
+    // Encoding and line ending come from the decoder that produced the text,
+    // not from a second guess made here (AGENTS.md 4).
+    const auto key = [&](int (*fn)(const JtfApp *, char *, int)) {
+        const QString k = jtfText([&](char *b, int l) { return fn(m_app, b, l); });
+        return k.isEmpty() ? QString() : tr_(k.toUtf8().constData());
+    };
+    QString status = QStringLiteral("%1  ·  %2  ·  %3")
+                         .arg(jtfFill(tr_("preview.lines"), "count", QString::number(lines)),
+                              key(jtf_preview_encoding_key),
+                              key(jtf_preview_line_ending_key));
+    if (lines > kPreviewLines) {
+        // Say that it is truncated. A preview that silently stops at line 400
+        // reads as a file that ends at line 400.
+        status += QStringLiteral("  ·  ") +
+                  jtfFill(tr_("preview.truncated"), "count", QString::number(kPreviewLines));
+    }
+    m_textStatus->setText(status);
+    return true;
+}
+
 void Inspector::showPreview(const QString &path) {
     const QFileInfo info(path);
+    m_text->setVisible(false);
+    m_textStatus->setVisible(false);
+    if (!info.isDir() && showTextPreview(path)) {
+        m_preview->setVisible(false);
+        m_text->setVisible(true);
+        m_textStatus->setVisible(true);
+        return;
+    }
+    jtf_preview_close(m_app);
+    m_preview->setVisible(true);
+
     QImageReader reader(path);
     // Ask the decoder what it is before decoding: a reader that cannot read
     // the format tells us so without allocating anything.

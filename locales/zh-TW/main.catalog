@@ -330,3 +330,5 @@ places.clear_recent = 清除最近使用的位置
 command.file.bookmark = 將此資料夾加入書籤
 status.items_folders = {count} 個項目，{folders} 個資料夾
 status.items_one_folder = {count} 個項目，1 個資料夾
+preview.lines = {count} 行
+preview.truncated = 僅顯示前 {count} 行

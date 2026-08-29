@@ -121,6 +121,13 @@ pub struct App {
     plan_error: Option<PlanError>,
     running: Option<crate::operations::Running>,
     viewer: Option<ViewerSession>,
+    /// A second, independent read for the inspector's preview.
+    ///
+    /// Separate from `viewer` rather than shared with it: the inspector
+    /// follows the cursor and the viewer window is where the user parked
+    /// themselves, and one stealing the other's file handle is a bug we have
+    /// already had once. Preview reads only the first screenful.
+    preview: Option<ViewerSession>,
     last_summary: Option<crate::operations::Summary>,
     undo_stack: Vec<UndoRecord>,
     batch_preview: Option<RenamePreview>,
@@ -163,6 +170,7 @@ impl App {
             plan_error: None,
             running: None,
             viewer: None,
+            preview: None,
             last_summary: None,
             undo_stack: Vec::new(),
             batch_preview: None,
@@ -380,6 +388,10 @@ impl App {
 
     /// Enter a row if it is a directory. Returns whether it navigated.
     pub(crate) fn open_row(&mut self, pane: PaneId, row: usize) -> bool {
+        if self.has_parent_row(pane) && row == 0 {
+            self.navigate_up(pane);
+            return true;
+        }
         let Some(entry) = self.entry_at(pane, row) else {
             return false;
         };
@@ -404,6 +416,43 @@ impl App {
     }
 
     pub(crate) fn row_count(&self, pane: PaneId) -> usize {
+        let listed = self.views.get(&pane).map_or(0, |v| v.visible.len());
+        listed + usize::from(self.has_parent_row(pane))
+    }
+
+    /// Whether the pane shows a `..` row above its entries.
+    ///
+    /// Only while browsing a directory that has a parent. It is not shown in
+    /// search results, where there is no single folder to be the parent of,
+    /// and not while a filter is narrowing the list, where a row that matches
+    /// nothing the user typed would be the one exception on screen.
+    pub(crate) fn has_parent_row(&self, pane: PaneId) -> bool {
+        let Some(view) = self.views.get(&pane) else {
+            return false;
+        };
+        if view.search.is_some() || !view.query.is_empty() {
+            return false;
+        }
+        let filtering = self
+            .workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .is_some_and(|tab| tab.filter().is_active());
+        if filtering {
+            return false;
+        }
+        self.workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .and_then(|tab| tab.location().parent())
+            .is_some()
+    }
+
+    /// How many rows are real entries, excluding any `..` row.
+    ///
+    /// The status line counts items; the parent row is a way out of the
+    /// folder, not a thing in it.
+    pub(crate) fn listed_count(&self, pane: PaneId) -> usize {
         self.views.get(&pane).map_or(0, |v| v.visible.len())
     }
 
@@ -415,10 +464,20 @@ impl App {
 
     /// The entry a display row refers to.
     fn entry_at(&self, pane: PaneId, row: usize) -> Option<&FileEntry> {
+        // The `..` row has no entry behind it, and returning None here is what
+        // makes every operation ignore it: marking, sizing, copying and
+        // deleting all resolve rows through this one function, so none of them
+        // can be talked into acting on the parent directory.
+        let row = self.listed_row(pane, row)?;
         let view = self.views.get(&pane)?;
         view.visible
             .get(row)
             .and_then(|index| view.entries.get(*index))
+    }
+
+    /// A display row as an index into the listed entries, or None for `..`.
+    fn listed_row(&self, pane: PaneId, row: usize) -> Option<usize> {
+        listed_row(self.has_parent_row(pane), row)
     }
 
     /// The pane's filter text.
@@ -500,6 +559,16 @@ impl App {
     }
 
     pub(crate) fn row_text(&self, pane: PaneId, row: usize, column: i32) -> String {
+        if self.has_parent_row(pane) && row == 0 {
+            // Two dots, not a translated phrase: `..` is what the shell calls
+            // it and what every file manager shows, and a localized "Parent
+            // folder" would sort and read as a file name.
+            return if column == COLUMN_NAME {
+                "..".to_string()
+            } else {
+                String::new()
+            };
+        }
         let Some(entry) = self.entry_at(pane, row) else {
             return String::new();
         };
@@ -530,12 +599,24 @@ impl App {
     /// native behaviour where users expect it, and a file's icon is the most
     /// visible instance of that.
     pub(crate) fn row_path(&self, pane: PaneId, row: usize) -> String {
+        if self.has_parent_row(pane) && row == 0 {
+            return self
+                .workspace
+                .pane(pane)
+                .and_then(jtf_workspace::Pane::active_tab)
+                .and_then(|tab| tab.location().parent())
+                .and_then(|parent| parent.as_path().map(|p| p.display().to_string()))
+                .unwrap_or_default();
+        }
         self.entry_at(pane, row)
             .and_then(|e| e.location().as_path())
             .map_or_else(String::new, |p| p.display().to_string())
     }
 
     pub(crate) fn row_is_directory(&self, pane: PaneId, row: usize) -> bool {
+        if self.has_parent_row(pane) && row == 0 {
+            return true;
+        }
         self.entry_at(pane, row)
             .is_some_and(|e| e.kind().is_directory_on_disk())
     }
@@ -551,12 +632,11 @@ impl App {
     }
 
     pub(crate) fn toggle_mark(&mut self, pane: PaneId, row: usize) {
-        let Some(location) = self
-            .views
-            .get(&pane)
-            .and_then(|v| v.entries.get(row))
-            .map(|e| e.location().clone())
-        else {
+        // Through `entry_at`, not `entries[row]`: a display row is an index
+        // into what is *shown*, and with a filter active the two lists differ.
+        // Indexing the unfiltered list marked whichever file happened to sit
+        // at that position in the directory.
+        let Some(location) = self.entry_at(pane, row).map(|e| e.location().clone()) else {
             return;
         };
         if let Some(p) = self.workspace.pane_mut(pane) {
@@ -1189,6 +1269,87 @@ impl App {
     /// Close the viewer, releasing its file handle.
     pub(crate) fn close_viewer(&mut self) {
         self.viewer = None;
+    }
+
+    /// Open `path` for the inspector's preview. Returns whether it is text.
+    ///
+    /// Reopening the same path is a no-op, because the inspector is refreshed
+    /// on a frame boundary and re-indexing a log file sixty times a second is
+    /// not a preview, it is a spin loop.
+    pub(crate) fn preview_open(&mut self, path: &str) -> bool {
+        let path = PathBuf::from(path);
+        if self
+            .preview
+            .as_ref()
+            .is_some_and(|session| session.path == path)
+        {
+            return self.preview_is_text();
+        }
+        if path.is_dir() {
+            self.preview = None;
+            return false;
+        }
+        let kind = detect(&path).unwrap_or(ContentKind::Binary);
+        let mut session = ViewerSession {
+            path,
+            kind,
+            text: None,
+            hex: None,
+            forced_hex: false,
+        };
+        // Text only. A preview pane that renders a hex dump of a JPEG is
+        // noise where the icon it replaced was an answer.
+        if session.kind.is_textual() {
+            session.text = TextView::open(&session.path, &CancellationToken::never()).ok();
+        }
+        let is_text = session.text.is_some();
+        self.preview = Some(session);
+        is_text
+    }
+
+    /// Release the preview's file handle.
+    pub(crate) fn preview_close(&mut self) {
+        self.preview = None;
+    }
+
+    /// Whether the preview is showing text.
+    pub(crate) fn preview_is_text(&self) -> bool {
+        self.preview
+            .as_ref()
+            .is_some_and(|session| session.text.is_some())
+    }
+
+    /// How many lines the previewed file has.
+    pub(crate) fn preview_line_count(&self) -> u64 {
+        self.preview
+            .as_ref()
+            .and_then(|s| s.text.as_ref())
+            .map_or(0, TextView::line_count)
+    }
+
+    /// One line of the preview, decoded.
+    pub(crate) fn preview_row(&mut self, row: u64) -> String {
+        let Some(text) = self.preview.as_mut().and_then(|s| s.text.as_mut()) else {
+            return String::new();
+        };
+        text.window(row, 1)
+            .ok()
+            .and_then(|window| window.lines.first().cloned())
+            .unwrap_or_default()
+    }
+
+    /// The preview's encoding, line ending and size, as label keys and bytes.
+    pub(crate) fn preview_status(&self) -> (&'static str, &'static str, u64) {
+        self.preview.as_ref().and_then(|s| s.text.as_ref()).map_or(
+            ("encoding.utf_8", "line_ending.lf", 0),
+            |text| {
+                (
+                    text.effective_encoding().label_key(),
+                    text.line_ending().label_key(),
+                    text.size(),
+                )
+            },
+        )
     }
 
     /// Whether the viewer is showing text rather than hex.
@@ -2218,4 +2379,41 @@ fn load_catalog(repo_root: &std::path::Path, locale: &LocaleId) -> Catalog {
         }
     }
     catalog
+}
+
+/// A display row as an index into the listed entries, or `None` for the `..`
+/// row.
+///
+/// Free-standing and pure so the off-by-one has a test. Every row-to-entry
+/// lookup in the bridge goes through here, which is what keeps a synthetic
+/// row from shifting one caller and not another.
+const fn listed_row(has_parent_row: bool, row: usize) -> Option<usize> {
+    if has_parent_row {
+        row.checked_sub(1)
+    } else {
+        Some(row)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::listed_row;
+
+    #[test]
+    fn without_a_parent_row_display_rows_are_entry_indices() {
+        assert_eq!(listed_row(false, 0), Some(0));
+        assert_eq!(listed_row(false, 7), Some(7));
+    }
+
+    #[test]
+    fn the_parent_row_has_no_entry_and_shifts_the_rest() {
+        assert_eq!(
+            listed_row(true, 0),
+            None,
+            "row 0 is `..`; resolving it to entry 0 is what would let an \
+             operation act on the first file while pointing at the parent"
+        );
+        assert_eq!(listed_row(true, 1), Some(0));
+        assert_eq!(listed_row(true, 8), Some(7));
+    }
 }

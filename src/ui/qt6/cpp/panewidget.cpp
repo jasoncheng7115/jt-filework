@@ -560,14 +560,15 @@ void PaneWidget::retranslate() {
         });
     } else if (jtf_is_loading(m_app, m_pane) && jtf_is_searching(m_app, m_pane)) {
         status = jtfFill(tr_("status.searching"), "count",
-                         QString::number(jtf_row_count(m_app, m_pane)));
+                         QString::number(jtf_listed_count(m_app, m_pane)));
     } else if (jtf_is_loading(m_app, m_pane)) {
         status = tr_("status.loading");
     } else if (jtf_is_searching(m_app, m_pane)) {
         status = jtfFill(tr_("status.results"), "count",
-                         QString::number(jtf_row_count(m_app, m_pane)));
+                         QString::number(jtf_listed_count(m_app, m_pane)));
     } else {
-        const int rows = jtf_row_count(m_app, m_pane);
+        // Items, not rows: a `..` row is a way out of the folder, not a file in it.
+    const int rows = jtf_listed_count(m_app, m_pane);
         const int selected = jtf_selection_count(m_app, m_pane);
         const int marked = jtf_marked_count(m_app, m_pane);
         const int total = jtf_unfiltered_count(m_app, m_pane);

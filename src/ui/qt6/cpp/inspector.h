@@ -37,6 +37,7 @@ private:
     /// the Rust catalogue, not in a .ts file (AGENTS.md 11).
     QString tr_(const char *key) const;
     void clearRows();
+    bool showTextPreview(const QString &path);
     void addRow(const QString &labelKey, const QString &value);
     void showPreview(const QString &path);
     void rebuild();
@@ -44,6 +45,8 @@ private:
     QLabel *m_name = nullptr;
     QPushButton *m_close = nullptr;
     QLabel *m_preview = nullptr;
+    class QPlainTextEdit *m_text = nullptr;
+    QLabel *m_textStatus = nullptr;
     QFormLayout *m_facts = nullptr;
     QScrollArea *m_scroll = nullptr;
     JtfApp *m_app = nullptr;

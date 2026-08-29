@@ -1006,6 +1006,92 @@ pub unsafe extern "C" fn jtf_set_inspector_state(app: *mut App, visible: c_int, 
     }
 }
 
+/// Open `path` for the inspector preview. Returns whether it is text.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `path` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_preview_open(app: *mut App, path: *const c_char) -> c_int {
+    let Some(path) = (unsafe { read_str(path) }) else {
+        return 0;
+    };
+    unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.preview_open(path)))
+}
+
+/// Release the preview's file handle.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_preview_close(app: *mut App) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.preview_close();
+    }
+}
+
+/// How many lines the previewed file has.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_preview_line_count(app: *const App) -> u64 {
+    unsafe { app_ref(app) }.map_or(0, App::preview_line_count)
+}
+
+/// One decoded line of the preview.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `buf` must have room for `len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_preview_row(
+    app: *mut App,
+    row: u64,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let text = unsafe { app_mut(app) }.map_or_else(String::new, |a| a.preview_row(row));
+    unsafe { write_str(&text, buf, len) }
+}
+
+/// The preview's encoding label key.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `buf` must have room for `len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_preview_encoding_key(
+    app: *const App,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let key = unsafe { app_ref(app) }.map_or("", |a| a.preview_status().0);
+    unsafe { write_str(key, buf, len) }
+}
+
+/// The preview's line-ending label key.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `buf` must have room for `len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_preview_line_ending_key(
+    app: *const App,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let key = unsafe { app_ref(app) }.map_or("", |a| a.preview_status().1);
+    unsafe { write_str(key, buf, len) }
+}
+
+/// How many of the pane's rows are real entries, excluding any `..` row.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_listed_count(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        c_int::try_from(a.listed_count(pane(pane_id))).unwrap_or(0)
+    })
+}
+
 /// How many of the pane's shown rows are folders.
 ///
 /// # Safety

@@ -142,6 +142,15 @@ QWidget#JtfInspectorHeader { background: %HEADER%; border-bottom: 1px solid %BOR
 QLabel#JtfInspectorName { color: %TEXT%; }
 QLabel#JtfInspectorPreview { background: %HEADER%; border-radius: 6px; padding: 10px; }
 QLabel[jtfFactLabel="true"] { color: %DIM%; }
+QPlainTextEdit#JtfInspectorText {
+    background: %HEADER%;
+    color: %TEXT%;
+    border-radius: 6px;
+    padding: 6px;
+    selection-background-color: %SEL%;
+    selection-color: %ONSEL%;
+}
+QLabel#JtfInspectorTextStatus { color: %DIM%; }
 QTreeWidget#JtfPlacesTree { background: %PANE%; border: none; }
 QTreeWidget#JtfPlacesTree::item { padding: 3px 4px; border-radius: 4px; }
 QTreeWidget#JtfPlacesTree::item:hover { background: %HOVER%; }

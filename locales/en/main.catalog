@@ -330,3 +330,5 @@ places.clear_recent = Clear recent locations
 command.file.bookmark = Bookmark This Folder
 status.items_folders = {count} items, {folders} folders
 status.items_one_folder = {count} items, 1 folder
+preview.lines = {count} lines
+preview.truncated = first {count} shown
