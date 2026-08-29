@@ -321,6 +321,7 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("keymap.toggle", C::View, "command.keymap.toggle"),
     ("help.shortcuts", C::View, "command.help.shortcuts"),
     ("file.bookmark", C::Navigation, "command.file.bookmark"),
+    ("file.folder_size", C::File, "command.file.folder_size"),
     ("view.font.smaller", C::View, "command.view.font.smaller"),
     ("view.font.larger", C::View, "command.view.font.larger"),
     ("preview.toggle", C::View, "command.preview.toggle"),

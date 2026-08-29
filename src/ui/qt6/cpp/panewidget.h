@@ -84,6 +84,7 @@ private:
     int m_pane;
     QTabBar *m_tabs;
     class Breadcrumb *m_crumbs = nullptr;
+    class QToolButton *m_newTab = nullptr;
     class QLineEdit *m_filter = nullptr;
     class QLineEdit *m_search = nullptr;
     QLabel *m_status;

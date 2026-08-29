@@ -22,7 +22,9 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
+#include <QHBoxLayout>
 #include <QTabBar>
+#include <QToolButton>
 #include <QTableView>
 #include <QVBoxLayout>
 
@@ -41,7 +43,30 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_tabs->setMovable(true);
     m_tabs->setDrawBase(false);
     m_tabs->setElideMode(Qt::ElideMiddle);
-    layout->addWidget(m_tabs);
+
+    // The tab bar and its "+" share a row: the button sits immediately after
+    // the last tab, where a browser puts it and where the eye already is
+    // after reading the tabs. The bar does not expand, so the button stays
+    // beside the tabs rather than drifting to the far edge.
+    auto *tabRow = new QWidget(this);
+    tabRow->setObjectName(QStringLiteral("JtfTabRow"));
+    auto *tabRowLayout = new QHBoxLayout(tabRow);
+    tabRowLayout->setContentsMargins(0, 0, 0, 0);
+    tabRowLayout->setSpacing(0);
+    tabRowLayout->addWidget(m_tabs);
+    m_newTab = new QToolButton(tabRow);
+    m_newTab->setObjectName(QStringLiteral("JtfNewTab"));
+    m_newTab->setAutoRaise(true);
+    m_newTab->setText(QStringLiteral("+"));
+    m_newTab->setFocusPolicy(Qt::NoFocus);
+    connect(m_newTab, &QToolButton::clicked, this, [this] {
+        jtf_focus_pane(m_app, m_pane);
+        jtf_new_tab(m_app);
+        emit stateChanged();
+    });
+    tabRowLayout->addWidget(m_newTab);
+    tabRowLayout->addStretch(1);
+    layout->addWidget(tabRow);
 
     m_crumbs = new Breadcrumb(this);
     connect(m_crumbs, &Breadcrumb::navigate, this, [this](const QString &path) {
@@ -630,7 +655,10 @@ void PaneWidget::syncTabs() {
                            }));
     }
     m_tabs->setCurrentIndex(jtf_active_tab(m_app, m_pane));
-    m_tabs->setVisible(count > 1);
+    // Always shown, even for a single tab. Hiding the bar there left the "+"
+    // beside it floating on an otherwise empty row, and a lone plus with
+    // nothing to add to reads as a stray control rather than as a tab strip.
+    m_tabs->setVisible(true);
 }
 
 void PaneWidget::syncSortIndicator() {
@@ -720,8 +748,11 @@ void PaneWidget::setListFont(const QFont &font) {
     m_view->horizontalHeader()->setFont(font);
     // Row height follows the font, or descenders clip and the list looks
     // cramped at larger sizes.
-    const int rowHeight = QFontMetrics(font).height() + 6;
-    m_view->verticalHeader()->setDefaultSectionSize(qMax(20, rowHeight));
+    // Generous rather than tight: the reference layouts get their calm from
+    // row height more than from anything else, and a list at the minimum
+    // legible spacing is the single thing that makes an interface look cheap.
+    const int rowHeight = QFontMetrics(font).height() + 12;
+    m_view->verticalHeader()->setDefaultSectionSize(qMax(26, rowHeight));
 
     QFont chrome = font;
     chrome.setPointSizeF(font.pointSizeF() * 0.95);

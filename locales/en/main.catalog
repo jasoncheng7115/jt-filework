@@ -350,3 +350,6 @@ keyboard.profile.single_key.description = Execute common file commands directly 
 keyboard.profile.custom.description = Customize all supported key bindings.
 keyboard.profile = Keyboard Profile
 language.system = Follow system
+command.file.folder_size = Calculate Folder Sizes
+status.measured_folders = Measured {count} folders
+status.no_folders_selected = Select a folder to measure

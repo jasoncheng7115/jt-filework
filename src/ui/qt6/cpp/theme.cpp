@@ -36,6 +36,8 @@ QMainWindow, QWidget#JtfRoot { background: %WINDOW%; }
 
 QToolBar#JtfToolbar {
     background: %HEADER%;
+    padding: 5px 8px;
+    spacing: 3px;
     border: none;
     border-bottom: 1px solid %BORDER%;
     spacing: 4px;
@@ -47,6 +49,7 @@ QToolBar#JtfToolbar QToolButton {
     border: 1px solid transparent;
     border-radius: 6px;
 }
+QToolBar#JtfToolbar QToolButton { padding: 5px; border-radius: 6px; }
 QToolBar#JtfToolbar QToolButton:hover { background: %HOVER%; }
 QToolBar#JtfToolbar QToolButton:pressed { background: %ALT%; }
 QToolBar#JtfToolbar QToolButton:disabled { color: %DIM%; }
@@ -83,21 +86,43 @@ QTableView {
     selection-background-color: %SEL%;
     selection-color: %ONSEL%;
 }
-QTableView::item { padding: 2px 6px; border: none; }
+/* Rows breathe. 2px of padding puts the text against its own row edge, which
+   is what makes a dense list read as cramped rather than as compact. */
+QTableView::item { padding: 5px 8px; border: none; }
 QTableView::item:hover { background: %HOVER%; }
 QTableView::item:selected { background: %SEL%; color: %ONSEL%; }
 QTableView::item:selected:!active { background: %SELDIM%; color: %TEXT%; }
+
+/* The mark checkbox. Qt's default is a heavy platform box that dominates the
+   first column; this is a quiet square that reads as part of the row until it
+   is ticked, and then reads as the accent colour everything else selected
+   uses. */
+QTableView::indicator {
+    width: 13px;
+    height: 13px;
+    border: 1px solid %BORDER%;
+    border-radius: 3px;
+    background: transparent;
+}
+QTableView::indicator:hover { border-color: %DIM%; }
+QTableView::indicator:checked {
+    background: %SEL%;
+    border-color: %SEL%;
+    image: none;
+}
 
 QHeaderView::section {
     background: %HEADER%;
     /* Painted by JtfHeaderView; this is the fallback for any header that is
        not one of ours. */
     color: %DIM%;
-    padding: 4px 8px;
+    padding: 6px 8px;
     border: none;
-    border-right: 1px solid %BORDER%;
+    /* One rule under the whole header, not a grid of dividers. A vertical
+       line between every column draws the table's structure instead of its
+       contents, and the columns are already legible from their alignment. */
     border-bottom: 1px solid %BORDER%;
-    font-weight: 600;
+    font-weight: 500;
 }
 QHeaderView::section:hover { color: %TEXT%; background: %HOVER%; }
 /* The sort caret is painted by JtfHeaderView, beside the header text rather
@@ -131,6 +156,15 @@ QTabBar::tab:selected {
     font-weight: 600;
 }
 QTabBar::close-button { subcontrol-position: right; }
+QWidget#JtfTabRow { background: %HEADER%; border-bottom: 1px solid %BORDER%; }
+QToolButton#JtfNewTab {
+    color: %DIM%;
+    background: transparent;
+    border: none;
+    padding: 0 10px;
+    font-size: 15px;
+}
+QToolButton#JtfNewTab:hover { color: %TEXT%; background: %HOVER%; }
 
 QLineEdit#JtfFilter, QLineEdit#JtfSearch { margin: 2px 6px 4px 6px; }
 QWidget#JtfCrumbs { background: %HEADER%; border-bottom: 1px solid %BORDER%; }
@@ -143,6 +177,8 @@ QWidget#JtfCrumbs QPushButton {
 }
 QWidget#JtfCrumbs QPushButton:hover { background: %HOVER%; }
 QWidget#JtfCrumbs QLabel { color: %DIM%; padding: 0 1px; }
+QStatusBar { background: %HEADER%; border-top: 1px solid %BORDER%; }
+QStatusBar::item { border: none; }
 QLabel[jtfStatusSummary="true"] { color: %DIM%; padding: 0 10px; }
 QLabel[jtfZoomMark="true"] { color: %DIM%; }
 /* Form controls. Qt's defaults leave a spin box's arrows shorter than the

@@ -350,3 +350,6 @@ keyboard.profile.single_key.description = 可直接使用單一按鍵執行常�
 keyboard.profile.custom.description = 自行設定支援的快捷鍵與命令。
 keyboard.profile = 鍵盤設定檔
 language.system = 跟隨系統
+command.file.folder_size = 計算資料夾大小
+status.measured_folders = 已計算 {count} 個資料夾
+status.no_folders_selected = 請先選取要計算的資料夾

@@ -1158,6 +1158,28 @@ pub unsafe extern "C" fn jtf_row_is_parent(app: *const App, pane_id: c_int, row:
     })
 }
 
+/// Measure the folders among the pane's targets. Returns how many.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_measure_folder_sizes(app: *mut App, pane_id: c_int) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        c_int::try_from(a.measure_folder_sizes(pane(pane_id))).unwrap_or(0)
+    })
+}
+
+/// Forget every folder measurement.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_clear_folder_sizes(app: *mut App) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.clear_folder_sizes();
+    }
+}
+
 /// The row the cursor should move to after a navigation, or -1.
 ///
 /// # Safety

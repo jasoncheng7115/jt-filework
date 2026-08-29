@@ -18,8 +18,10 @@
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
+mod folder_size;
 mod local;
 mod provider;
 
+pub use folder_size::{measure, FolderSize, SizeCache, FRESH_FOR, MAX_CACHED, MAX_DEPTH};
 pub use local::LocalProvider;
 pub use provider::{Batch, EnumerationHandle, Provider};

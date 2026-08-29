@@ -72,6 +72,7 @@ primary+alt+i        = view.inspector
 primary+shift+k      = keymap.toggle
 primary+slash        = help.shortcuts
 primary+b            = file.bookmark
+primary+shift+s      = file.folder_size
 
 # --- search and tools
 primary+f            = search.open

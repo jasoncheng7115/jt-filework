@@ -87,3 +87,8 @@ credentials.json
 # binaries, kept locally as a reference; docs/design/CVIEW_KEYS.md is the
 # extracted table and is what the repository carries.
 /cview/
+
+# Design references and third-party originals the work was derived from.
+# Kept locally; not part of what is published. The extracted, citable results
+# live in docs/design/ instead.
+/preimages/

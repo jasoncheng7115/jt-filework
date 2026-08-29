@@ -11,7 +11,7 @@ use jtf_commands::{Command, CommandId, CommandRegistry, KeyChord, Keymap, Keymap
 use jtf_core::i18n::{Catalog, LocaleId, Localizer};
 use jtf_core::theme::{Palette, ResolvedTheme, SystemAppearance, ThemeMode, ThemeToken};
 use jtf_core::{Error, FileEntry, FileKind, Location};
-use jtf_fs::{Batch, EnumerationHandle, LocalProvider, Provider};
+use jtf_fs::{Batch, EnumerationHandle, LocalProvider, Provider, SizeCache};
 use jtf_jobs::CancellationToken;
 use jtf_ops::{ConflictPolicy, Plan, PlanError, RenamePattern, RenamePreview, UndoRecord};
 use jtf_search::{SearchHandle, SearchUpdate};
@@ -146,6 +146,7 @@ pub struct App {
     /// The platform's ordered language preferences, comma-separated, so
     /// "follow the system" can be re-resolved without asking Qt again.
     system_locale: String,
+    folder_sizes: SizeCache,
 }
 
 impl App {
@@ -197,6 +198,7 @@ impl App {
             settings,
             places: restored.places,
             system_locale: system_locale.to_string(),
+            folder_sizes: SizeCache::new(),
             repo_root,
             session_path,
         };
@@ -364,6 +366,41 @@ impl App {
             }
         }
         self.start_enumeration(pane);
+    }
+
+    /// Measure the folders among the pane's targets, and remember the totals.
+    ///
+    /// Every marked folder is measured separately, because "how big is each of
+    /// these" is the question people actually have when they select several.
+    /// Returns how many were measured.
+    ///
+    /// Runs synchronously: this is a deliberate action on a chosen set, not
+    /// something that happens on arrival, and the alternative - a job with
+    /// progress - is worth building only once someone points it at a folder
+    /// large enough to notice.
+    pub(crate) fn measure_folder_sizes(&mut self, pane: PaneId) -> usize {
+        let folders: Vec<PathBuf> = self
+            .operation_sources(pane)
+            .into_iter()
+            .filter(|path| path.is_dir())
+            .collect();
+        let mut measured = 0;
+        for path in folders {
+            let size = jtf_fs::measure(&path, &CancellationToken::never());
+            self.folder_sizes.insert(path, size);
+            measured += 1;
+        }
+        measured
+    }
+
+    /// The remembered size of a folder, or None if it has not been measured.
+    pub(crate) fn folder_size(&self, path: &Path) -> Option<u64> {
+        self.folder_sizes.get(path).map(|size| size.bytes)
+    }
+
+    /// Forget every measurement, so the next request re-measures.
+    pub(crate) fn clear_folder_sizes(&mut self) {
+        self.folder_sizes.clear();
     }
 
     /// The row the cursor should move to, or -1. Consumed by the call.
@@ -633,7 +670,14 @@ impl App {
             COLUMN_SIZE => entry.size().map_or_else(
                 || {
                     if entry.kind().is_directory_on_disk() {
-                        String::new()
+                        // Blank until measured. A folder's size costs a walk
+                        // of everything beneath it, so it is asked for rather
+                        // than assumed (`docs/BASELINE_FEATURES.md`).
+                        entry
+                            .location()
+                            .as_path()
+                            .and_then(|path| self.folder_size(path))
+                            .map_or_else(String::new, format_size)
                     } else {
                         "--".to_string()
                     }

@@ -312,6 +312,15 @@ void MainWindow::buildMenus() {
     command(m_editMenu, "file.clipboard.copy", [this] { clipboardPut(false); });
     command(m_editMenu, "file.clipboard.paste", [this] { clipboardPaste(); });
     m_editMenu->addSeparator();
+    command(m_fileMenu, "file.folder_size", [this] {
+        const int measured = jtf_measure_folder_sizes(m_app, jtf_active_pane(m_app));
+        m_statusIsIdle = false;
+        m_statusMessage->setText(
+            measured > 0
+                ? jtfFill(tr_("status.measured_folders"), "count", QString::number(measured))
+                : tr_("status.no_folders_selected"));
+        refreshAll();
+    });
     command(m_editMenu, "file.copy_path", [this] { copyText(true); });
     command(m_editMenu, "file.copy_name", [this] { copyText(false); });
     m_editMenu->addSeparator();
