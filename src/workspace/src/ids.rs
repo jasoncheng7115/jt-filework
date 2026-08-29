@@ -33,6 +33,11 @@ macro_rules! define_id {
     };
 }
 
+define_id!(
+    WindowId,
+    "window",
+    "Identifies a top-level window. Panes belong to exactly one."
+);
 define_id!(PaneId, "pane", "Identifies a pane within a workspace.");
 define_id!(TabId, "tab", "Identifies a tab within a workspace.");
 define_id!(

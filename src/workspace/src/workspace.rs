@@ -9,7 +9,7 @@ use jtf_core::theme::ThemeMode;
 use jtf_core::Location;
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{PaneId, SplitId, TabId};
+use crate::ids::{PaneId, SplitId, TabId, WindowId};
 use crate::pane::Pane;
 use crate::tab::Tab;
 use crate::tree::{Orientation, WorkspaceNode};
@@ -61,7 +61,15 @@ pub enum LayoutPreset {
 /// preferences.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Workspace {
-    root: WorkspaceNode,
+    /// One layout tree per top-level window.
+    ///
+    /// Panes stay in a single flat map keyed by an id that is unique across
+    /// every window, so moving a pane between windows moves a tree entry and
+    /// nothing else — the pane, its tabs and its state are untouched. Tearing
+    /// a tab into its own window is therefore a change of tree, not a
+    /// transfer between two separate models that then have to be kept in
+    /// step.
+    windows: BTreeMap<WindowId, WorkspaceNode>,
     panes: BTreeMap<PaneId, Pane>,
     active_pane: PaneId,
     locale: LocaleId,
@@ -69,6 +77,13 @@ pub struct Workspace {
     next_pane: u64,
     next_tab: u64,
     next_split: u64,
+    #[serde(default = "next_window_default")]
+    next_window: u64,
+}
+
+/// Sessions written before windows existed have one window, numbered 1.
+const fn next_window_default() -> u64 {
+    2
 }
 
 impl Workspace {
@@ -78,8 +93,10 @@ impl Workspace {
         let tab = Tab::new(TabId::new(1), location);
         let mut panes = BTreeMap::new();
         panes.insert(pane_id, Pane::new(pane_id, tab));
+        let mut windows = BTreeMap::new();
+        windows.insert(Self::MAIN_WINDOW, WorkspaceNode::pane(pane_id));
         Self {
-            root: WorkspaceNode::pane(pane_id),
+            windows,
             panes,
             active_pane: pane_id,
             locale: LocaleId::english(),
@@ -87,17 +104,62 @@ impl Workspace {
             next_pane: 2,
             next_tab: 2,
             next_split: 1,
+            next_window: 2,
         }
     }
 
-    /// The layout tree.
-    pub const fn root(&self) -> &WorkspaceNode {
-        &self.root
+    /// The first window, which always exists.
+    pub const MAIN_WINDOW: WindowId = WindowId::new(1);
+
+    /// The layout tree of the main window, which always exists.
+    ///
+    /// # Panics
+    ///
+    /// Never in practice: the main window is created with the workspace and
+    /// `close_window` refuses to remove it. The expect states that invariant
+    /// rather than hiding it behind a default tree that would be wrong.
+    pub fn root(&self) -> &WorkspaceNode {
+        self.windows
+            .get(&Self::MAIN_WINDOW)
+            .expect("the main window always exists")
     }
 
-    /// Panes in visual order.
+    /// The layout tree of one window.
+    pub fn root_of(&self, window: WindowId) -> Option<&WorkspaceNode> {
+        self.windows.get(&window)
+    }
+
+    /// Every window, in creation order.
+    pub fn window_ids(&self) -> Vec<WindowId> {
+        self.windows.keys().copied().collect()
+    }
+
+    /// How many windows there are.
+    pub fn window_count(&self) -> usize {
+        self.windows.len()
+    }
+
+    /// The window whose tree contains `pane`.
+    pub fn window_of(&self, pane: PaneId) -> Option<WindowId> {
+        self.windows
+            .iter()
+            .find(|(_, root)| root.pane_order().contains(&pane))
+            .map(|(id, _)| *id)
+    }
+
+    /// Panes in visual order, across every window.
     pub fn pane_order(&self) -> Vec<PaneId> {
-        self.root.pane_order()
+        self.windows
+            .values()
+            .flat_map(WorkspaceNode::pane_order)
+            .collect()
+    }
+
+    /// Panes in visual order within one window.
+    pub fn pane_order_in(&self, window: WindowId) -> Vec<PaneId> {
+        self.root_of(window)
+            .map(WorkspaceNode::pane_order)
+            .unwrap_or_default()
     }
 
     /// How many panes exist.
@@ -252,7 +314,13 @@ impl Workspace {
             WorkspaceNode::pane(target),
             WorkspaceNode::pane(new_pane_id),
         );
-        self.root.replace_pane(target, split);
+        // Into the tree that already holds the target, so a split in a
+        // torn-off window stays in that window.
+        if let Some(window) = self.window_of(target) {
+            if let Some(root) = self.windows.get_mut(&window) {
+                root.replace_pane(target, split);
+            }
+        }
         self.active_pane = new_pane_id;
         new_pane_id
     }
@@ -272,8 +340,27 @@ impl Workspace {
             return Err(WorkspaceError::LastPane);
         }
         let previous_order = self.pane_order();
-        let root = core::mem::replace(&mut self.root, WorkspaceNode::pane(id));
-        self.root = root.remove_pane(id).ok_or(WorkspaceError::LastPane)?;
+        let window = self.window_of(id).ok_or(WorkspaceError::NoSuchPane(id))?;
+        let root = self
+            .windows
+            .remove(&window)
+            .ok_or(WorkspaceError::NoSuchPane(id))?;
+        // Cloned before the move, so the main window can be restored intact
+        // if it turns out this was its last pane.
+        let original = root.clone();
+        match root.remove_pane(id) {
+            Some(remaining) => {
+                self.windows.insert(window, remaining);
+            }
+            None if window == Self::MAIN_WINDOW => {
+                // The main window cannot be emptied; put it back untouched.
+                self.windows.insert(window, original);
+                return Err(WorkspaceError::LastPane);
+            }
+            None => {
+                // A torn-off window whose last pane closed simply goes away.
+            }
+        }
         self.panes.remove(&id);
 
         if self.active_pane == id {
@@ -287,14 +374,105 @@ impl Workspace {
         Ok(())
     }
 
-    /// Set a split's ratio. Returns whether the split exists.
-    pub fn resize_split(&mut self, split: SplitId, ratio: f32) -> bool {
-        self.root.set_ratio(split, ratio)
+    /// Move a tab out of its pane into a window of its own.
+    ///
+    /// The browser gesture: drag a tab off the strip and it becomes its own
+    /// window. Returns the new window and the pane now holding the tab.
+    ///
+    /// # Errors
+    ///
+    /// [`WorkspaceError::NoSuchPane`] when the pane does not exist, and
+    /// [`WorkspaceError::LastPane`] when the tab is the only one in the only
+    /// pane of the main window — tearing that off would leave an empty window
+    /// behind, which is a way of doing nothing with extra steps.
+    pub fn tear_off_tab(
+        &mut self,
+        from: PaneId,
+        tab: TabId,
+    ) -> Result<(WindowId, PaneId), WorkspaceError> {
+        let source = self
+            .panes
+            .get(&from)
+            .ok_or(WorkspaceError::NoSuchPane(from))?;
+        if source.tabs().len() == 1 && self.panes.len() == 1 {
+            return Err(WorkspaceError::LastPane);
+        }
+
+        let pane = self
+            .panes
+            .get_mut(&from)
+            .ok_or(WorkspaceError::NoSuchPane(from))?;
+        let taken = pane.take_tab(tab).ok_or(WorkspaceError::NoSuchPane(from))?;
+
+        let window = WindowId::new(self.next_window);
+        self.next_window += 1;
+        let pane_id = PaneId::new(self.next_pane);
+        self.next_pane += 1;
+
+        self.panes.insert(pane_id, Pane::new(pane_id, taken));
+        self.windows.insert(window, WorkspaceNode::pane(pane_id));
+        self.active_pane = pane_id;
+
+        // The source pane may now be empty. A pane with no tabs cannot be
+        // shown, so it closes, which may in turn close its window.
+        if self.panes.get(&from).is_some_and(|p| p.tabs().is_empty()) {
+            let _ = self.close_pane(from);
+        }
+        Ok((window, pane_id))
     }
 
-    /// Every split id, in tree order.
+    /// Move a tab into another pane, which may be in another window.
+    ///
+    /// The other half of the gesture: dragging a torn-off tab back onto a tab
+    /// strip merges it there.
+    ///
+    /// # Errors
+    ///
+    /// [`WorkspaceError::NoSuchPane`] when either pane does not exist.
+    pub fn merge_tab_into(
+        &mut self,
+        from: PaneId,
+        tab: TabId,
+        into: PaneId,
+    ) -> Result<(), WorkspaceError> {
+        if from == into {
+            return Ok(());
+        }
+        if !self.panes.contains_key(&into) {
+            return Err(WorkspaceError::NoSuchPane(into));
+        }
+        let source = self
+            .panes
+            .get_mut(&from)
+            .ok_or(WorkspaceError::NoSuchPane(from))?;
+        let taken = source
+            .take_tab(tab)
+            .ok_or(WorkspaceError::NoSuchPane(from))?;
+        let emptied = source.tabs().is_empty();
+
+        if let Some(target) = self.panes.get_mut(&into) {
+            target.push_tab(taken);
+        }
+        self.active_pane = into;
+        if emptied {
+            let _ = self.close_pane(from);
+        }
+        Ok(())
+    }
+
+    /// Set a split's ratio. Returns whether the split exists.
+    pub fn resize_split(&mut self, split: SplitId, ratio: f32) -> bool {
+        self.windows
+            .values_mut()
+            .any(|root| root.set_ratio(split, ratio))
+    }
+
+    /// Every split id, in tree order, across every window.
     pub fn split_ids(&self) -> Vec<SplitId> {
-        self.root.split_ids()
+        self.windows
+            .values()
+            .flat_map(WorkspaceNode::split_ids)
+            .collect()
     }
 
     /// Open a new tab in the active pane.
@@ -490,11 +668,25 @@ impl Workspace {
     /// [`crate::Session::restore`] before a stored workspace is trusted.
     pub fn invariants_hold(&self) -> bool {
         // Checked first, and iteratively: everything below recurses.
-        if !self.root.depth_within_limit() {
+        if !self.windows.values().all(WorkspaceNode::depth_within_limit) {
             return false;
         }
-        let in_tree = self.root.pane_order();
+        // The main window must exist: everything else assumes it.
+        if !self.windows.contains_key(&Self::MAIN_WINDOW) {
+            return false;
+        }
+        let in_tree: Vec<PaneId> = self
+            .windows
+            .values()
+            .flat_map(WorkspaceNode::pane_order)
+            .collect();
         if in_tree.len() != self.panes.len() {
+            return false;
+        }
+        // A pane in two windows' trees would pass a count check but is a
+        // corrupt layout: the same pane cannot be in two places.
+        let unique: std::collections::BTreeSet<PaneId> = in_tree.iter().copied().collect();
+        if unique.len() != in_tree.len() {
             return false;
         }
         if !in_tree.iter().all(|id| self.panes.contains_key(id)) {
@@ -797,5 +989,115 @@ mod tests {
             third, second,
             "a stale reference must not resolve to a new pane"
         );
+    }
+}
+
+#[cfg(test)]
+mod window_tests {
+    use super::*;
+    use jtf_core::Location;
+
+    fn workspace() -> Workspace {
+        Workspace::new(Location::local("/tmp"))
+    }
+
+    #[test]
+    fn tearing_off_a_tab_gives_it_a_window_and_leaves_the_rest_alone() {
+        let mut ws = workspace();
+        let pane = ws.active_pane_id();
+        let moved = ws.new_tab(Location::local("/tmp/second"));
+
+        let (window, new_pane) = ws.tear_off_tab(pane, moved).expect("tears off");
+        assert_ne!(window, Workspace::MAIN_WINDOW);
+        assert_eq!(ws.window_count(), 2);
+        assert_eq!(ws.window_of(new_pane), Some(window));
+        assert_eq!(
+            ws.pane_order_in(Workspace::MAIN_WINDOW),
+            vec![pane],
+            "the pane the tab left is still in the main window"
+        );
+        assert!(ws.invariants_hold());
+    }
+
+    #[test]
+    fn the_only_tab_of_the_only_pane_cannot_be_torn_off() {
+        let mut ws = workspace();
+        let pane = ws.active_pane_id();
+        let tab = ws.pane(pane).expect("pane").tabs()[0].id();
+        assert!(
+            matches!(ws.tear_off_tab(pane, tab), Err(WorkspaceError::LastPane)),
+            "tearing off the only tab would leave an empty window behind, \
+             which is doing nothing with extra steps"
+        );
+        assert_eq!(ws.window_count(), 1);
+        assert!(ws.invariants_hold());
+    }
+
+    #[test]
+    fn a_torn_off_window_disappears_when_its_tab_merges_back() {
+        let mut ws = workspace();
+        let pane = ws.active_pane_id();
+        let moved = ws.new_tab(Location::local("/tmp/second"));
+        let (window, new_pane) = ws.tear_off_tab(pane, moved).expect("tears off");
+        assert_eq!(ws.window_count(), 2);
+
+        ws.merge_tab_into(new_pane, moved, pane)
+            .expect("merges back");
+        assert_eq!(
+            ws.window_count(),
+            1,
+            "the window emptied by the merge closes; an empty window has \
+             nothing to show"
+        );
+        assert_eq!(ws.pane_count(), 1);
+        assert_eq!(ws.pane(pane).expect("pane").tabs().len(), 2);
+        assert!(ws.invariants_hold());
+    }
+
+    #[test]
+    fn a_pane_belongs_to_exactly_one_window() {
+        let mut ws = workspace();
+        let pane = ws.active_pane_id();
+        let moved = ws.new_tab(Location::local("/tmp/second"));
+        let (_, new_pane) = ws.tear_off_tab(pane, moved).expect("tears off");
+
+        let windows = ws.window_ids();
+        for id in &windows {
+            let order = ws.pane_order_in(*id);
+            for other in &windows {
+                if other == id {
+                    continue;
+                }
+                for p in &order {
+                    assert!(
+                        !ws.pane_order_in(*other).contains(p),
+                        "{p} appears in two windows"
+                    );
+                }
+            }
+        }
+        assert_ne!(ws.window_of(pane), ws.window_of(new_pane));
+        assert!(ws.invariants_hold());
+    }
+
+    #[test]
+    fn splitting_inside_a_torn_off_window_stays_in_that_window() {
+        let mut ws = workspace();
+        let pane = ws.active_pane_id();
+        let moved = ws.new_tab(Location::local("/tmp/second"));
+        let (window, new_pane) = ws.tear_off_tab(pane, moved).expect("tears off");
+
+        // The active pane is the torn-off one, which is what split_active
+        // acts on.
+        assert_eq!(ws.active_pane_id(), new_pane);
+        let split_pane = ws.split_active(Orientation::Horizontal);
+        assert_eq!(
+            ws.window_of(split_pane),
+            Some(window),
+            "a split belongs to the window whose pane was split, not to the \
+             main window"
+        );
+        assert_eq!(ws.pane_order_in(Workspace::MAIN_WINDOW), vec![pane]);
+        assert!(ws.invariants_hold());
     }
 }

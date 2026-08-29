@@ -29,7 +29,7 @@ mod tree;
 mod view;
 mod workspace;
 
-pub use ids::{PaneId, SplitId, TabId};
+pub use ids::{PaneId, SplitId, TabId, WindowId};
 pub use pane::Pane;
 pub use places::{Bookmark, Places, MAX_BOOKMARKS, MAX_RECENT};
 pub use selection::{MarkSet, OperationTarget, Selection};
