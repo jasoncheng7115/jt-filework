@@ -21,6 +21,10 @@ class PaneWidget : public QWidget {
     Q_OBJECT
 
 public:
+    /// Human-readable byte count, shared with the window's status bar so the
+    /// two never disagree about units.
+    static QString formatSize(quint64 bytes);
+
     PaneWidget(JtfApp *app, int paneId, QWidget *parent = nullptr);
     ~PaneWidget() override;
 
@@ -70,7 +74,7 @@ private:
     JtfApp *m_app;
     int m_pane;
     QTabBar *m_tabs;
-    QLabel *m_path;
+    class Breadcrumb *m_crumbs = nullptr;
     class QLineEdit *m_filter = nullptr;
     class QLineEdit *m_search = nullptr;
     QLabel *m_status;

@@ -17,6 +17,9 @@
 class FileListModel : public QAbstractTableModel {
     Q_OBJECT
 
+signals:
+    void markChanged();
+
 public:
     FileListModel(JtfApp *app, int paneId, QObject *parent = nullptr);
 
@@ -40,6 +43,7 @@ public:
     // what Finder, Explorer and every Linux file manager speak, so pane-to-pane
     // and app-to-Finder are the same code path rather than two
     // (docs/PRODUCT_SPEC.md 9).
+    bool setData(const QModelIndex &index, const QVariant &value, int role) override;
     Qt::ItemFlags flags(const QModelIndex &index) const override;
     QStringList mimeTypes() const override;
     QMimeData *mimeData(const QModelIndexList &indexes) const override;

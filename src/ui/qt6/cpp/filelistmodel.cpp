@@ -50,6 +50,15 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const {
             return jtf_row_text(m_app, m_pane, row, column, buf, len);
         });
 
+    case Qt::CheckStateRole:
+        // Marks are shown as a checkbox on the name column, which is what a
+        // person expects to be able to click. The keyboard route (space) and
+        // this one set the same state - there is one mark set, not two.
+        if (column != 0) {
+            return {};
+        }
+        return jtf_row_is_marked(m_app, m_pane, row) ? Qt::Checked : Qt::Unchecked;
+
     case Qt::DecorationRole: {
         // The name column carries the file's own icon, the one the platform
         // would show for it (AGENTS.md 8).
@@ -119,10 +128,28 @@ QVariant FileListModel::headerData(int section, Qt::Orientation orientation, int
     });
 }
 
+bool FileListModel::setData(const QModelIndex &index, const QVariant &value, int role) {
+    if (role != Qt::CheckStateRole || !index.isValid() || index.column() != 0) {
+        return false;
+    }
+    Q_UNUSED(value);
+    jtf_toggle_mark(m_app, m_pane, index.row());
+    // The whole row is repainted, not just the box: a mark also changes the
+    // row's colour and weight.
+    emit dataChanged(index.siblingAtColumn(0),
+                     index.siblingAtColumn(columnCount() - 1),
+                     {Qt::CheckStateRole, Qt::ForegroundRole, Qt::FontRole});
+    emit markChanged();
+    return true;
+}
+
 Qt::ItemFlags FileListModel::flags(const QModelIndex &index) const {
     Qt::ItemFlags base = QAbstractTableModel::flags(index);
     if (index.isValid()) {
         base |= Qt::ItemIsDragEnabled;
+        if (index.column() == 0) {
+            base |= Qt::ItemIsUserCheckable;
+        }
         // Only a directory row is itself a drop target; dropping between rows
         // means "into this folder", which the view handles as the empty area.
         if (jtf_row_is_directory(m_app, m_pane, index.row())) {

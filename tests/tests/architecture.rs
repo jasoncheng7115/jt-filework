@@ -414,3 +414,61 @@ fn every_platform_cfg_exception_is_justified_and_still_needed() {
         );
     }
 }
+
+/// The product name is `jt-filework`, always, everywhere — `AGENTS.md` §10.1.
+///
+/// This is not pedantry about capitals. The name appears in the window title,
+/// the bundle, the signing identity and the update feed, and a second spelling
+/// in any one of them is a different product to the operating system.
+#[test]
+fn product_name_has_one_spelling() {
+    // Assembled rather than written out, so this file is not itself an
+    // offender against the rule it enforces.
+    let (jt, file, work) = ("JT", "File", "Work");
+    let wrong = [
+        format!("{jt} {file}{work}"),
+        format!("{jt}{file}{work}"),
+        format!("{jt}-{file}{work}"),
+        format!("Jt-{file}work"),
+    ];
+    let root = repo_root();
+    let mut offences = Vec::new();
+    walk_text_files(&root, &mut |path, text| {
+        // AGENTS.md is where the rule is written down, so it necessarily
+        // quotes the spellings it forbids.
+        if path.file_name().is_some_and(|n| n == "AGENTS.md") {
+            return;
+        }
+        for spelling in &wrong {
+            if text.contains(spelling.as_str()) {
+                offences.push(format!("{}: {spelling}", path.display()));
+            }
+        }
+    });
+    assert!(
+        offences.is_empty(),
+        "the product name is `jt-filework`; found:\n  {}",
+        offences.join("\n  ")
+    );
+}
+
+/// Every checked-in text file, skipping build output and version control.
+fn walk_text_files(dir: &Path, visit: &mut impl FnMut(&Path, &str)) {
+    const SKIP: &[&str] = &["target", "build", ".git", "node_modules"];
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if SKIP.contains(&name.as_ref()) {
+            continue;
+        }
+        if path.is_dir() {
+            walk_text_files(&path, visit);
+        } else if let Ok(text) = fs::read_to_string(&path) {
+            visit(&path, &text);
+        }
+    }
+}

@@ -68,3 +68,5 @@ primary+shift+e      = view.tree
 primary+f            = search.open
 primary+comma        = settings.open
 primary+shift+p    = command.palette
+plus                 = file.mark.pattern
+minus                = file.unmark.pattern

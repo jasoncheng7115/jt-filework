@@ -977,6 +977,34 @@ pub unsafe extern "C" fn jtf_set_tree_state(app: *mut App, visible: c_int, width
     }
 }
 
+/// Mark or unmark listed entries matching a wildcard. Returns how many.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `pattern` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_mark_pattern(
+    app: *mut App,
+    pane_id: c_int,
+    pattern: *const c_char,
+    mark: c_int,
+) -> c_int {
+    let Some(pattern) = (unsafe { read_str(pattern) }) else {
+        return 0;
+    };
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        c_int::try_from(a.mark_pattern(pane(pane_id), pattern, mark != 0)).unwrap_or(0)
+    })
+}
+
+/// Total size of what an operation started here would act on.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_target_size(app: *const App, pane_id: c_int) -> u64 {
+    unsafe { app_ref(app) }.map_or(0, |a| a.target_size(pane(pane_id)))
+}
+
 /// The paths an operation started in this pane would act on.
 ///
 /// # Safety

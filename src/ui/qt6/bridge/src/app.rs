@@ -1317,6 +1317,57 @@ impl App {
         self.start_enumeration(pane);
     }
 
+    /// Mark or unmark every listed entry whose name matches a wildcard.
+    ///
+    /// The CView and WinCV `+` and `-` keys. The pattern applies to what the
+    /// pane is showing, filter included, for the same reason "mark all" does:
+    /// marking entries the user cannot see would be a surprise.
+    ///
+    /// Returns how many entries changed.
+    pub(crate) fn mark_pattern(&mut self, pane: PaneId, pattern: &str, mark: bool) -> usize {
+        let Ok(query) = jtf_search::parse(&format!("glob:{pattern}")) else {
+            return 0;
+        };
+        let now = std::time::SystemTime::now();
+
+        let matched: Vec<Location> = (0..self.row_count(pane))
+            .filter_map(|row| self.entry_at(pane, row))
+            .filter(|entry| query.matches(entry, now))
+            .map(|entry| entry.location().clone())
+            .collect();
+        let count = matched.len();
+
+        if let Some(p) = self.workspace.pane_mut(pane) {
+            if let Some(tab) = p.active_tab_mut() {
+                if mark {
+                    tab.marks_mut().mark_all(matched);
+                } else {
+                    tab.marks_mut().unmark_all(matched);
+                }
+            }
+        }
+        count
+    }
+
+    /// Total size of what an operation started here would act on.
+    ///
+    /// Files only: a directory's size needs a recursive scan, which is a job
+    /// rather than a number the status bar can produce while painting.
+    pub(crate) fn target_size(&self, pane: PaneId) -> u64 {
+        let targets: std::collections::HashSet<Location> = self
+            .workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .map(|tab| tab.operation_target().locations().into_iter().collect())
+            .unwrap_or_default();
+
+        (0..self.row_count(pane))
+            .filter_map(|row| self.entry_at(pane, row))
+            .filter(|entry| targets.contains(entry.location()))
+            .filter_map(jtf_core::FileEntry::size)
+            .sum()
+    }
+
     /// Re-read the current location.
     pub(crate) fn refresh(&mut self, pane: PaneId) {
         self.start_enumeration(pane);

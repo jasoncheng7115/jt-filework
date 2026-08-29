@@ -78,7 +78,21 @@ MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_ap
     m_cancelButton->setVisible(false);
     m_cancelButton->setFlat(true);
     connect(m_cancelButton, &QPushButton::clicked, this, [this] { jtf_op_cancel(m_app); });
+    // The right-hand side of the status bar answers "what is the workspace
+    // as a whole doing" - counts summed over every pane, not just the active
+    // one, because the panes are the reason you opened four of them.
+    m_statusPanes = new QLabel(this);
+    m_statusSelection = new QLabel(this);
+    m_statusItems = new QLabel(this);
+    m_statusTasks = new QLabel(this);
+    for (QLabel *label : {m_statusPanes, m_statusSelection, m_statusItems, m_statusTasks}) {
+        label->setProperty("jtfStatusSummary", true);
+    }
     statusBar()->addWidget(m_statusMessage, 1);
+    statusBar()->addPermanentWidget(m_statusPanes);
+    statusBar()->addPermanentWidget(m_statusSelection);
+    statusBar()->addPermanentWidget(m_statusItems);
+    statusBar()->addPermanentWidget(m_statusTasks);
     statusBar()->addPermanentWidget(m_progress);
     statusBar()->addPermanentWidget(m_cancelButton);
 
@@ -224,6 +238,8 @@ void MainWindow::buildMenus() {
             [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 1); });
     command(m_editMenu, "file.mark.invert",
             [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 2); });
+    command(m_editMenu, "file.mark.pattern", [this] { markByPattern(true); });
+    command(m_editMenu, "file.unmark.pattern", [this] { markByPattern(false); });
     m_editMenu->addSeparator();
     command(m_editMenu, "search.open", paneAction([](PaneWidget *pane) { pane->toggleSearch(); }));
     command(m_editMenu, "search.clear", paneAction([](PaneWidget *pane) { pane->clearSearch(); }));
@@ -367,6 +383,30 @@ void MainWindow::clipboardPut(bool cut) {
 
     m_clipboardIsCut = cut;
     m_statusMessage->setText(tr_("status.copied"));
+}
+
+void MainWindow::markByPattern(bool mark) {
+    // The pattern language is the one the search box already uses, so there is
+    // only one wildcard syntax in the program to learn (docs/SEARCH_AI.md 3).
+    bool accepted = false;
+    const QString pattern =
+        QInputDialog::getText(this,
+                              mark ? tr("prompt.pattern_title") : tr("prompt.unmark_title"),
+                              tr("prompt.pattern_label"),
+                              QLineEdit::Normal,
+                              QStringLiteral("*"),
+                              &accepted);
+    if (!accepted || pattern.isEmpty()) {
+        return;
+    }
+    const QByteArray utf8 = pattern.toUtf8();
+    const int count =
+        jtf_mark_pattern(m_app, jtf_active_pane(m_app), utf8.constData(), mark ? 1 : 0);
+    // Say how many matched: a pattern that matched nothing looks identical to
+    // one that was ignored, and the difference matters.
+    statusBar()->showMessage(jtfFill(tr("status.marked_count"), "count", QString::number(count)),
+                             4000);
+    refreshAll();
 }
 
 void MainWindow::clipboardPaste() {
@@ -1002,6 +1042,42 @@ void MainWindow::updateStatus() {
     // about the pane you are looking at rather than about one of them.
     for (auto *pane : std::as_const(m_panes)) {
         pane->retranslate();
+    }
+    updateStatusSummary();
+}
+
+void MainWindow::updateStatusSummary() {
+    const int panes = m_panes.size();
+    int marked = 0;
+    int items = 0;
+    quint64 bytes = 0;
+    for (auto *pane : std::as_const(m_panes)) {
+        const int id = pane->paneId();
+        marked += jtf_marked_count(m_app, id);
+        items += jtf_row_count(m_app, id);
+        bytes += jtf_target_size(m_app, id);
+    }
+
+    m_statusPanes->setText(panes == 1
+                               ? tr_("status.pane_one")
+                               : jtfFill(tr_("status.panes"), "count", QString::number(panes)));
+    // Zero of something is not worth a slot on the bar; the label goes away
+    // rather than sitting there saying nothing.
+    if (marked > 0) {
+        QString text = jtfFill(tr_("status.selected"), "count", QString::number(marked));
+        if (bytes > 0) {
+            text += QStringLiteral(" (") + PaneWidget::formatSize(bytes) + QLatin1Char(')');
+        }
+        m_statusSelection->setText(text);
+    } else {
+        m_statusSelection->clear();
+    }
+    m_statusItems->setText(jtfFill(tr_("status.items"), "count", QString::number(items)));
+    m_statusTasks->setText(jtf_op_running(m_app)
+                               ? jtfFill(tr_("status.tasks_running"), "count", QStringLiteral("1"))
+                               : QString());
+    if (m_statusMessage->text().isEmpty()) {
+        m_statusMessage->setText(tr_("status.ready"));
     }
 }
 

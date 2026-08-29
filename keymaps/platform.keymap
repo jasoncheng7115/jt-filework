@@ -70,3 +70,5 @@ primary+shift+f      = search.ai
 primary+j            = jobs.show
 primary+comma        = settings.open
 primary+shift+p    = command.palette
+primary+shift+plus   = file.mark.pattern
+primary+shift+minus  = file.unmark.pattern

@@ -95,6 +95,8 @@ void jtf_set_folders_first(JtfApp *app, int folders_first);
 int jtf_tree_visible(const JtfApp *app);
 int jtf_tree_width(const JtfApp *app);
 void jtf_set_tree_state(JtfApp *app, int visible, int width);
+int jtf_mark_pattern(JtfApp *app, int pane, const char *pattern, int mark);
+uint64_t jtf_target_size(const JtfApp *app, int pane);
 int jtf_target_paths(const JtfApp *app, int pane, char *buf, int len);
 int jtf_target_names(const JtfApp *app, int pane, char *buf, int len);
 int jtf_op_prepare_duplicate(JtfApp *app, int pane);

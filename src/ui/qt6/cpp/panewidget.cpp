@@ -1,5 +1,6 @@
 #include "panewidget.h"
 #include "filelistmodel.h"
+#include "breadcrumb.h"
 #include "jtfstring.h"
 #include "platform/quicklook.h"
 
@@ -12,6 +13,7 @@
 #include <QItemSelectionModel>
 #include <QMenu>
 #include <QFontMetrics>
+#include <QStorageInfo>
 #include <QEvent>
 #include <QHeaderView>
 #include <QKeyEvent>
@@ -38,10 +40,13 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_tabs->setElideMode(Qt::ElideMiddle);
     layout->addWidget(m_tabs);
 
-    m_path = new QLabel(this);
-    m_path->setObjectName(QStringLiteral("JtfPath"));
-    m_path->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    layout->addWidget(m_path);
+    m_crumbs = new Breadcrumb(this);
+    connect(m_crumbs, &Breadcrumb::navigate, this, [this](const QString &path) {
+        const QByteArray utf8 = path.toUtf8();
+        jtf_navigate(m_app, m_pane, utf8.constData());
+        emit stateChanged();
+    });
+    layout->addWidget(m_crumbs);
 
     // Filtering narrows what is already listed. It is instant because it
     // touches no disk, which is what separates it from search
@@ -319,6 +324,20 @@ void PaneWidget::advanceCurrentRow() {
     }
 }
 
+QString PaneWidget::formatSize(quint64 bytes) {
+    // Binary units, matching what the list shows, so two numbers on one line
+    // cannot be in two different systems.
+    static const char *const units[] = {"B", "KB", "MB", "GB", "TB", "PB"};
+    double value = static_cast<double>(bytes);
+    int unit = 0;
+    while (value >= 1024.0 && unit < 5) {
+        value /= 1024.0;
+        ++unit;
+    }
+    return unit == 0 ? QStringLiteral("%1 B").arg(bytes)
+                     : QStringLiteral("%1 %2").arg(value, 0, 'f', 1).arg(QLatin1String(units[unit]));
+}
+
 bool PaneWidget::handleDrop(QDropEvent *event) {
     const QMimeData *data = event->mimeData();
     if (!data->hasUrls()) {
@@ -490,7 +509,7 @@ void PaneWidget::syncSortIndicator() {
 }
 
 void PaneWidget::syncPath() {
-    m_path->setText(
+    m_crumbs->setPath(
         jtfText([&](char *buf, int len) { return jtf_current_path(m_app, m_pane, buf, len); }));
 }
 
@@ -517,7 +536,7 @@ void PaneWidget::setListFont(const QFont &font) {
 
     QFont chrome = font;
     chrome.setPointSizeF(font.pointSizeF() * 0.95);
-    m_path->setFont(chrome);
+    m_crumbs->setFont(chrome);
     m_status->setFont(chrome);
 }
 
@@ -565,6 +584,25 @@ void PaneWidget::retranslate() {
         if (marked > 0) {
             status += QStringLiteral("   ") +
                       jtfFill(tr("status.marked"), "count", QString::number(marked));
+        }
+        // The size of what an operation would act on, which is the number
+        // people are actually looking for before they copy something.
+        const quint64 bytes = jtf_target_size(m_app, m_pane);
+        if (bytes > 0) {
+            status += QStringLiteral("   ") +
+                      jtfFill(tr("status.size"), "size", formatSize(bytes));
+        }
+        // Free space comes from Qt, which asks the platform, exactly as the
+        // file icons do. It moves to the platform adapter with the rest of
+        // the native services (docs/PLATFORM_INTEGRATION.md 1).
+        const QString here =
+            jtfText([&](char *b, int l) { return jtf_current_path(m_app, m_pane, b, l); });
+        const QStorageInfo storage(here);
+        if (storage.isValid() && storage.bytesAvailable() > 0) {
+            status += QStringLiteral("   ") +
+                      jtfFill(tr("status.free"),
+                              "size",
+                              formatSize(static_cast<quint64>(storage.bytesAvailable())));
         }
     }
     m_status->setText(status);

@@ -39,6 +39,7 @@ private:
     void refreshAll();
     void retranslate();
     void updateStatus();
+    void updateStatusSummary();
     void applyTheme();
     void applyFont();
     QFont listFont() const;
@@ -71,6 +72,7 @@ private:
     void runDrop(int pane, const QStringList &paths, int kind);
     QStringList targetPaths() const;
     void clipboardPut(bool cut);
+    void markByPattern(bool mark);
     void clipboardPaste();
     void copyText(bool fullPath);
     void revealSelection();
@@ -102,6 +104,10 @@ private:
     QHash<QString, std::function<void()>> m_handlers;
     Theme m_theme;
     class QLabel *m_statusMessage = nullptr;
+    class QLabel *m_statusPanes = nullptr;
+    class QLabel *m_statusSelection = nullptr;
+    class QLabel *m_statusItems = nullptr;
+    class QLabel *m_statusTasks = nullptr;
     class QProgressBar *m_progress = nullptr;
     class QPushButton *m_cancelButton = nullptr;
     class QAction *m_undoAction = nullptr;

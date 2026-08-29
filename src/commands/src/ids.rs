@@ -303,6 +303,16 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
         C::SelectionAndMarks,
         "command.file.mark.invert",
     ),
+    (
+        "file.mark.pattern",
+        C::SelectionAndMarks,
+        "command.file.mark.pattern",
+    ),
+    (
+        "file.unmark.pattern",
+        C::SelectionAndMarks,
+        "command.file.unmark.pattern",
+    ),
     ("view.refresh", C::View, "command.view.refresh"),
     ("view.hidden", C::View, "command.view.hidden"),
     ("view.filter", C::View, "command.view.filter"),
@@ -409,6 +419,18 @@ mod tests {
             .in_category(CommandCategory::SelectionAndMarks)
             .map(|c| c.id().as_str().to_string())
             .collect();
-        assert_eq!(marks.len(), 4, "toggle, all, none, invert");
+        assert_eq!(
+            marks,
+            [
+                "file.mark.all",
+                "file.mark.invert",
+                "file.mark.none",
+                "file.mark.pattern",
+                "file.mark.toggle",
+                "file.unmark.pattern",
+            ],
+            "listed by id, not by menu order; a new mark command shows up \
+             here first, as a reminder that it also needs a menu entry"
+        );
     }
 }

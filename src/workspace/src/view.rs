@@ -202,8 +202,8 @@ pub(crate) fn default_columns() -> Vec<ColumnSpec> {
     vec![
         ColumnSpec::visible(Column::Name, 320.0),
         ColumnSpec::visible(Column::Size, 90.0),
-        ColumnSpec::visible(Column::Kind, 120.0),
         ColumnSpec::visible(Column::Modified, 160.0),
+        ColumnSpec::visible(Column::Kind, 120.0),
         ColumnSpec {
             column: Column::Created,
             width: 160.0,

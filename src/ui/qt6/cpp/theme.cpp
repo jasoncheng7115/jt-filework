@@ -131,7 +131,17 @@ QTabBar::tab:selected {
 QTabBar::close-button { subcontrol-position: right; }
 
 QLineEdit#JtfFilter, QLineEdit#JtfSearch { margin: 2px 6px 4px 6px; }
-QLabel#JtfPath { color: %DIM%; padding: 3px 8px; }
+QWidget#JtfCrumbs { background: %HEADER%; border-bottom: 1px solid %BORDER%; }
+QWidget#JtfCrumbs QPushButton {
+    color: %TEXT%;
+    background: transparent;
+    border: none;
+    padding: 2px 7px;
+    border-radius: 4px;
+}
+QWidget#JtfCrumbs QPushButton:hover { background: %HOVER%; }
+QWidget#JtfCrumbs QLabel { color: %DIM%; padding: 0 1px; }
+QLabel[jtfStatusSummary="true"] { color: %DIM%; padding: 0 10px; }
 QLabel#JtfStatus { color: %DIM%; padding: 3px 8px; }
 QLabel#JtfError { color: %ERROR%; padding: 3px 8px; }
 
