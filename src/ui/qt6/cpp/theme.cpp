@@ -137,6 +137,20 @@ QWidget#JtfCrumbs QPushButton {
 QWidget#JtfCrumbs QPushButton:hover { background: %HOVER%; }
 QWidget#JtfCrumbs QLabel { color: %DIM%; padding: 0 1px; }
 QLabel[jtfStatusSummary="true"] { color: %DIM%; padding: 0 10px; }
+/* The keyboard-mode switch: a recessed track with two segments, the active
+   one raised out of it. The shape says "one of these two", which a pair of
+   ordinary buttons would not. */
+QWidget#JtfModeSwitch { background: %WINDOW%; border: 1px solid %BORDER%; border-radius: 7px; }
+QToolButton[jtfModeSegment="true"] {
+    color: %DIM%;
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+    padding: 2px 10px;
+    font-size: 11px;
+}
+QToolButton[jtfModeSegment="true"]:hover { color: %TEXT%; background: %HOVER%; }
+QToolButton[jtfModeSegment="true"]:checked { color: %ONSEL%; background: %SEL%; }
 QWidget#JtfInspector { background: %PANE%; border-left: 1px solid %BORDER%; }
 QWidget#JtfInspectorHeader { background: %HEADER%; border-bottom: 1px solid %BORDER%; }
 QLabel#JtfInspectorName { color: %TEXT%; }

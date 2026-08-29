@@ -334,3 +334,4 @@ status.items_one_folder = {count} items, 1 folder
 preview.lines = {count} lines
 preview.truncated = first {count} shown
 status.keymap_switched = Keyboard mode: {name}
+keymap.switch_to = Switch to {name} keys

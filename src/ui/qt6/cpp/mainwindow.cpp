@@ -31,6 +31,7 @@
 #include <QLineEdit>
 #include <QStyle>
 #include <QToolBar>
+#include <QToolButton>
 #include <QMenu>
 #include <QMenuBar>
 #include <QSplitter>
@@ -899,6 +900,32 @@ void MainWindow::buildToolbar() {
         [this] { jtf_set_show_hidden(m_app, jtf_show_hidden(m_app) ? 0 : 1); }, true);
     button("settings.open", glyph::Shape::Settings, [this] { openSettings(); });
 
+    // The keyboard-mode switch. A two-segment control rather than one button
+    // that changes label: a lone button reading "CView" cannot say whether
+    // that is the mode you are in or the mode you would get by pressing it.
+    // Both modes are on screen, and the lit one is the answer.
+    auto *modeHolder = new QWidget(bar);
+    auto *modeRow = new QHBoxLayout(modeHolder);
+    modeRow->setContentsMargins(6, 0, 2, 0);
+    modeRow->setSpacing(0);
+    m_modeSwitch = new QWidget(modeHolder);
+    m_modeSwitch->setObjectName(QStringLiteral("JtfModeSwitch"));
+    auto *modeInner = new QHBoxLayout(m_modeSwitch);
+    modeInner->setContentsMargins(2, 2, 2, 2);
+    modeInner->setSpacing(2);
+    for (const char *name : {"cview", "platform"}) {
+        auto *segment = new QToolButton(m_modeSwitch);
+        segment->setCheckable(true);
+        segment->setAutoRaise(true);
+        segment->setProperty("jtfModeSegment", true);
+        segment->setProperty("jtfKeymap", QString::fromLatin1(name));
+        connect(segment, &QToolButton::clicked, this, [this, name] { setKeymap(name); });
+        modeInner->addWidget(segment);
+        m_modeSegments.append(segment);
+    }
+    modeRow->addWidget(m_modeSwitch);
+    bar->addWidget(modeHolder);
+
     auto *focusPath = new QAction(this);
     focusPath->setShortcut(QKeySequence(QStringLiteral("Ctrl+L")));
     connect(focusPath, &QAction::triggered, this, [this] {
@@ -918,6 +945,16 @@ void MainWindow::syncToolbar() {
 
     // A navigation button that is always enabled teaches people that pressing
     // it does nothing.
+    const QString keymap =
+        jtfText([&](char *buf, int len) { return jtf_keymap_name(m_app, buf, len); });
+    for (auto *segment : std::as_const(m_modeSegments)) {
+        const QString name = segment->property("jtfKeymap").toString();
+        QSignalBlocker blocker(segment);
+        segment->setChecked(name == keymap);
+        segment->setText(tr_(QStringLiteral("keymap.%1").arg(name).toUtf8().constData()));
+        segment->setToolTip(jtfFill(tr_("keymap.switch_to"), "name", segment->text()));
+    }
+
     m_backAction->setEnabled(jtf_can_go_back(m_app, pane) != 0);
     m_forwardAction->setEnabled(jtf_can_go_forward(m_app, pane) != 0);
     m_upAction->setEnabled(jtf_can_go_up(m_app, pane) != 0);
@@ -1031,9 +1068,27 @@ void MainWindow::setTreeVisible(bool visible) {
     jtf_set_tree_state(m_app, visible ? 1 : 0, m_outer->sizes().value(0));
 }
 
+void MainWindow::setKeymap(const QString &name) {
+    const QString current =
+        jtfText([&](char *buf, int len) { return jtf_keymap_name(m_app, buf, len); });
+    if (current == name) {
+        // Already there. Re-loading would be harmless but the announcement
+        // would not: saying "switched" when nothing switched is a lie.
+        syncToolbar();
+        return;
+    }
+    const QByteArray utf8 = name.toUtf8();
+    jtf_set_keymap(m_app, utf8.constData());
+    announceKeymap(name);
+}
+
 void MainWindow::toggleKeymap() {
     const QString name =
         jtfText([&](char *buf, int len) { return jtf_toggle_keymap(m_app, buf, len); });
+    announceKeymap(name);
+}
+
+void MainWindow::announceKeymap(const QString &name) {
     jtf_app_save_session(m_app);
     // Say which mode you are now in. Switching a keyboard layout silently is
     // the one change a user cannot see until a key does the wrong thing.

@@ -64,6 +64,8 @@ private:
     void setTreeVisible(bool visible);
     void syncTree();
     void toggleKeymap();
+    void setKeymap(const QString &name);
+    void announceKeymap(const QString &name);
     void runCommand(const QString &id);
     void toggleBookmark();
     void setInspectorVisible(bool visible);
@@ -118,6 +120,8 @@ private:
     class QLabel *m_statusItems = nullptr;
     class QLabel *m_statusTasks = nullptr;
     class QLabel *m_statusKeymap = nullptr;
+    class QWidget *m_modeSwitch = nullptr;
+    QList<class QToolButton *> m_modeSegments;
     class QProgressBar *m_progress = nullptr;
     class QPushButton *m_cancelButton = nullptr;
     class QAction *m_undoAction = nullptr;

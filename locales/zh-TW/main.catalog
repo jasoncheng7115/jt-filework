@@ -334,3 +334,4 @@ status.items_one_folder = {count} 個項目，1 個資料夾
 preview.lines = {count} 行
 preview.truncated = 僅顯示前 {count} 行
 status.keymap_switched = 鍵盤模式：{name}
+keymap.switch_to = 切換為 {name} 按鍵
