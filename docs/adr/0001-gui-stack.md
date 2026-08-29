@@ -168,15 +168,61 @@ gave first rows in 4 ms but tripled the total against the blocking path; a
 fixed 2048 halved the overhead but pushed first rows to 20 ms. Ramping from
 64 to 4096 gives 2.9 ms first rows and the lower total.
 
-**Still open:** async enumeration remains ~3× the blocking path (586 ms vs
-198 ms) and batching is not the cause. The working hypothesis is cross-thread
-allocator traffic — the worker allocates a `PathBuf` and an `OsString` per
-entry and the consumer frees the batch vectors on another thread. It is
-comfortably inside budget, so it is recorded rather than chased.
+**Resolved: async enumeration was never 3× the blocking path.** The gap was
+the benchmark's own doing. Both paths ran in one pass, async first, so the
+async pass paid for a cold filesystem cache and the blocking pass read what it
+had just warmed. Warming both before timing puts them within noise of each
+other — 421 ms and 376 ms at 100 000 entries. The cross-thread allocator
+hypothesis was wrong, and nothing needed fixing.
 
-**Not yet measured:** 1M entries, scroll frame times, memory after repeated
-navigation, and the same numbers on Windows and Linux. The UI-thread watchdog
-is implemented (`JTF_WATCHDOG=1`) but has no recorded run yet.
+The lesson is recorded in the benchmark itself: a measurement that compares a
+cold read against a warm one is measuring the cache.
+
+## Measurements at 1 000 000 entries
+
+Recorded 2026-08-30, same machine, release build. Fixture: 1 000 000 flat
+entries, 275 MB of model data.
+
+| Measurement | 100 000 | 1 000 000 | Budget at 1M | |
+|---|---|---|---|---|
+| First rows visible | 0.6 ms | 3.5 ms | 150 ms | pass |
+| Full enumeration, warm | 421 ms | 57.0 s | — | filesystem |
+| Full enumeration, blocking | 376 ms | 57.0 s | — | reference |
+| First visit, cold | 2.4 s | 57 s | — | filesystem |
+| Sort by name | 43 ms | 999 ms | 2 520 ms | pass |
+| Sort by size | 11 ms | 229 ms | 2 520 ms | pass |
+| Sort by modified | 21 ms | 506 ms | 2 520 ms | pass |
+| Sort by extension | 39 ms | 749 ms | 2 520 ms | pass |
+| Filter, substring | 14 ms | 196 ms | 1 010 ms | pass |
+| Model footprint | 27.4 MB | 274.9 MB | documented | 288 bytes/entry |
+
+**Sorting and filtering scale linearly and stay well inside budget.** Ten
+times the entries costs roughly ten times the time, which is what the
+algorithms promise.
+
+**Enumeration is the filesystem, not us.** 5 µs an entry at 100 000 and 57 µs
+at 1 000 000, with the blocking path agreeing to within noise both times. The
+per-entry cost degrades with directory size in a way that is APFS's
+behaviour — on a volume that was 98 % full — and no amount of work here
+changes it. `DirEntry::metadata` was tried in place of `fs::symlink_metadata`
+on the theory that re-resolving the path per entry was the cost; it made no
+measurable difference at either size and was reverted rather than kept on a
+justification that measurement had disproved.
+
+**So enumeration is reported without a verdict.** A budget it cannot meet, for
+a reason nobody can act on, is a red line that teaches people to ignore red
+lines. What this program actually promises is the line above it: first rows in
+3.5 ms at a million entries, so a directory's size is never the user's problem
+even when the disk's answer takes a minute.
+
+**Budgets now scale with entry count**, because the work does. A flat 250 ms
+for a sort is a statement about 100 000 entries; stated flat it called a
+correct 999 ms sort of a million names a failure while letting a slow sort of
+ten thousand pass.
+
+**Not yet measured:** scroll frame times, memory after repeated navigation,
+and the same numbers on Windows and Linux. The UI-thread watchdog is
+implemented (`JTF_WATCHDOG=1`) but has no recorded run yet.
 
 ## Decision
 

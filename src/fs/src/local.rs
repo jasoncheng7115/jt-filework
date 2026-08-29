@@ -67,6 +67,13 @@ impl LocalProvider {
     fn entry_from(dir_entry: &DirEntry) -> FileEntry {
         let path = dir_entry.path();
         let raw_name = RawName::new(dir_entry.file_name());
+        // Never follows a symlink (`docs/SECURITY.md` §3): the entry is
+        // described as it is, not as what it points at.
+        //
+        // `DirEntry::metadata` was tried here on the theory that resolving
+        // the path again per entry was costing something. Measured at 100 000
+        // and 1 000 000 entries it made no difference: the time is the
+        // filesystem's lookup, not the path resolution. Left as it was.
         let link_meta = fs::symlink_metadata(&path);
         let kind = classify(&path, link_meta.as_ref().ok());
 
