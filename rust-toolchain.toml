@@ -1,0 +1,6 @@
+# Pinned so every contributor and every CI job uses the same compiler,
+# rustfmt and clippy. See docs/DEVELOPMENT_ENVIRONMENT.md.
+[toolchain]
+channel = "1.98.0"
+components = ["rustfmt", "clippy"]
+profile = "default"

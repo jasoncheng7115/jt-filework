@@ -1,0 +1,11 @@
+# Product and platform names that legitimately appear in prose. Without this,
+# clippy::doc_markdown demands backticks around "FileWork", "AppKit" and every
+# other CamelCase proper noun in our documentation.
+# ".." keeps clippy's own default list.
+doc-valid-idents = [
+    "FileWork",
+    "AppKit", "WinUI", "WebView", "LaunchServices", "QuickLook", "VoiceOver",
+    "CView", "WinCV", "QSpace", "QDir", "TotalCommander",
+    "OneDrive", "Nextcloud", "Dolphin", "Nautilus",
+    "..",
+]

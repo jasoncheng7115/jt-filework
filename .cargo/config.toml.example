@@ -1,0 +1,12 @@
+# Copy to .cargo/config.toml and adjust for your machine.
+#
+# This working copy may live inside a file-sync directory (Nextcloud, Dropbox,
+# iCloud). Rust build output is large and changes on every build, which is
+# pathological for a sync client. Redirect it outside the synced tree.
+#
+# See docs/DEVELOPMENT_ENVIRONMENT.md -> "Build Output Location".
+#
+# .cargo/config.toml is machine-specific and is NOT committed.
+
+[build]
+target-dir = "/absolute/path/outside/the/synced/tree/jt-filework-target"
