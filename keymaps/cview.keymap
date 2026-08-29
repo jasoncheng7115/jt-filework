@@ -59,3 +59,4 @@ primary+comma      = settings.open
 
 # search
 primary+f          = search.open
+primary+e          = view.filter

@@ -191,6 +191,11 @@ void MainWindow::buildMenus() {
     command(m_viewMenu, "view.hidden",
             [this] { jtf_set_show_hidden(m_app, jtf_show_hidden(m_app) ? 0 : 1); });
     command(m_viewMenu, "view.refresh", [this] { jtf_refresh(m_app, jtf_active_pane(m_app)); });
+    command(m_viewMenu, "view.filter", [this] {
+        if (PaneWidget *pane = activePane()) {
+            pane->toggleFilter();
+        }
+    });
 
     auto *themeMenu = m_viewMenu->addMenu(QString());
     m_translatableMenus.append({themeMenu, "menu.theme"});

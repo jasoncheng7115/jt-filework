@@ -173,6 +173,16 @@ They are not preferences. They are what a desktop application is expected to
 do, they are noticed only when missing, and they are cheap now and expensive
 later. Walk that document's checklist before calling a UI change done.
 
+## 10.3 Know What Is Missing
+
+`docs/FEATURE_INVENTORY.md` lists everything a file manager is expected to do,
+with an honest status for each. It exists so that a gap is visible rather than
+discovered by a user.
+
+Adding a feature means moving a row, not adding one that was forgotten. If
+something a file manager obviously needs is not on that list, that is a bug in
+the document; fix it before building anything else.
+
 ## 11. i18n Is Mandatory
 
 No user-visible string literals in UI implementation.

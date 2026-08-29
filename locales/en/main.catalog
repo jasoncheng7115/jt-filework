@@ -244,3 +244,5 @@ viewer.not_found = Not found
 viewer.goto = Go to line
 viewer.rows = {count} lines
 status.selected = {count} selected
+command.view.filter = Filter This Folder
+status.filtered = {count} of {total}

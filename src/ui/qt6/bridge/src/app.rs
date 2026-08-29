@@ -51,7 +51,13 @@ pub(crate) enum MarkAction {
 
 /// What one pane is currently showing.
 struct PaneView {
+    /// Everything the enumeration produced.
     entries: Vec<FileEntry>,
+    /// Indices into `entries` that pass the filter, in display order.
+    ///
+    /// A filter narrows what is shown without discarding what was read, so
+    /// clearing it is instant and does not re-scan the directory.
+    visible: Vec<usize>,
     /// Bumped whenever the row set changes identity rather than merely
     /// growing: a new location, a re-sort, a filter change. The UI uses it to
     /// decide between inserting rows and rebuilding the whole model, which is
@@ -69,6 +75,7 @@ impl PaneView {
     fn new() -> Self {
         Self {
             entries: Vec::new(),
+            visible: Vec::new(),
             generation: 0,
             handle: None,
             sort: SortSpec::default(),
@@ -346,7 +353,7 @@ impl App {
 
     /// Enter a row if it is a directory. Returns whether it navigated.
     pub(crate) fn open_row(&mut self, pane: PaneId, row: usize) -> bool {
-        let Some(entry) = self.views.get(&pane).and_then(|v| v.entries.get(row)) else {
+        let Some(entry) = self.entry_at(pane, row) else {
             return false;
         };
         if !entry.kind().is_navigable_by_default() && entry.kind() != FileKind::Symlink {
@@ -370,7 +377,64 @@ impl App {
     }
 
     pub(crate) fn row_count(&self, pane: PaneId) -> usize {
+        self.views.get(&pane).map_or(0, |v| v.visible.len())
+    }
+
+    /// How many entries the directory has before filtering, so the UI can say
+    /// "12 of 3400" rather than pretending the rest are not there.
+    pub(crate) fn unfiltered_count(&self, pane: PaneId) -> usize {
         self.views.get(&pane).map_or(0, |v| v.entries.len())
+    }
+
+    /// The entry a display row refers to.
+    fn entry_at(&self, pane: PaneId, row: usize) -> Option<&FileEntry> {
+        let view = self.views.get(&pane)?;
+        view.visible
+            .get(row)
+            .and_then(|index| view.entries.get(*index))
+    }
+
+    /// The pane's filter text.
+    pub(crate) fn filter_text(&self, pane: PaneId) -> String {
+        self.workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .map_or_else(String::new, |tab| tab.filter().text.clone())
+    }
+
+    /// Narrow the pane to entries whose name contains `text`.
+    ///
+    /// Applied to what has already been read, so it is instant and does not
+    /// touch the disk. Search — which walks a tree — is a different feature
+    /// with a different cost, and conflating them would make a filter feel
+    /// slow (`docs/SEARCH_AI.md` §1).
+    pub(crate) fn set_filter(&mut self, pane: PaneId, text: &str) {
+        if let Some(p) = self.workspace.pane_mut(pane) {
+            if let Some(tab) = p.active_tab_mut() {
+                tab.filter_mut().text = text.to_string();
+            }
+        }
+        let show_hidden = self.show_hidden;
+        let needle = text.to_lowercase();
+        if let Some(view) = self.views.get_mut(&pane) {
+            Self::recompute_visible(view, &needle, show_hidden);
+            view.generation += 1;
+        }
+    }
+
+    /// Rebuild the visible index from the entries, the filter and the
+    /// hidden-file setting.
+    fn recompute_visible(view: &mut PaneView, needle: &str, show_hidden: bool) {
+        view.visible = view
+            .entries
+            .iter()
+            .enumerate()
+            .filter(|(_, entry)| show_hidden || !entry.attributes().hidden)
+            .filter(|(_, entry)| {
+                needle.is_empty() || entry.display_name().to_lowercase().contains(needle)
+            })
+            .map(|(index, _)| index)
+            .collect();
     }
 
     pub(crate) fn is_loading(&self, pane: PaneId) -> bool {
@@ -385,7 +449,7 @@ impl App {
     }
 
     pub(crate) fn row_text(&self, pane: PaneId, row: usize, column: i32) -> String {
-        let Some(entry) = self.views.get(&pane).and_then(|v| v.entries.get(row)) else {
+        let Some(entry) = self.entry_at(pane, row) else {
             return String::new();
         };
         match column {
@@ -415,22 +479,18 @@ impl App {
     /// native behaviour where users expect it, and a file's icon is the most
     /// visible instance of that.
     pub(crate) fn row_path(&self, pane: PaneId, row: usize) -> String {
-        self.views
-            .get(&pane)
-            .and_then(|v| v.entries.get(row))
+        self.entry_at(pane, row)
             .and_then(|e| e.location().as_path())
             .map_or_else(String::new, |p| p.display().to_string())
     }
 
     pub(crate) fn row_is_directory(&self, pane: PaneId, row: usize) -> bool {
-        self.views
-            .get(&pane)
-            .and_then(|v| v.entries.get(row))
+        self.entry_at(pane, row)
             .is_some_and(|e| e.kind().is_directory_on_disk())
     }
 
     pub(crate) fn row_is_marked(&self, pane: PaneId, row: usize) -> bool {
-        let Some(entry) = self.views.get(&pane).and_then(|v| v.entries.get(row)) else {
+        let Some(entry) = self.entry_at(pane, row) else {
             return false;
         };
         self.workspace
@@ -461,11 +521,13 @@ impl App {
     /// whole filesystem and not on some remembered set
     /// (`docs/UI_TEST_PLAN.md` MARK-003).
     pub(crate) fn mark_listed(&mut self, pane: PaneId, action: MarkAction) {
-        let listed: Vec<Location> = self
-            .views
-            .get(&pane)
-            .map(|v| v.entries.iter().map(|e| e.location().clone()).collect())
-            .unwrap_or_default();
+        // "All" means what the pane is showing, filter included: marking
+        // three thousand hidden entries the user cannot see would be a
+        // surprise (docs/UI_TEST_PLAN.md MARK-003).
+        let listed: Vec<Location> = (0..self.row_count(pane))
+            .filter_map(|row| self.entry_at(pane, row))
+            .map(|entry| entry.location().clone())
+            .collect();
         if let Some(p) = self.workspace.pane_mut(pane) {
             if let Some(tab) = p.active_tab_mut() {
                 match action {
@@ -486,16 +548,11 @@ impl App {
     /// `OperationTarget` resolve marked-then-selection-then-active without
     /// the C++ side deciding anything (`docs/UI_UX_SPEC.md` §6).
     pub(crate) fn set_selection(&mut self, pane: PaneId, rows: &[usize]) {
-        let locations: Vec<Location> = self
-            .views
-            .get(&pane)
-            .map(|view| {
-                rows.iter()
-                    .filter_map(|row| view.entries.get(*row))
-                    .map(|entry| entry.location().clone())
-                    .collect()
-            })
-            .unwrap_or_default();
+        let locations: Vec<Location> = rows
+            .iter()
+            .filter_map(|row| self.entry_at(pane, *row))
+            .map(|entry| entry.location().clone())
+            .collect();
 
         if let Some(p) = self.workspace.pane_mut(pane) {
             if let Some(tab) = p.active_tab_mut() {
@@ -746,9 +803,7 @@ impl App {
     /// as hex — which is always available and never wrong.
     pub(crate) fn open_viewer(&mut self, pane: PaneId, row: usize) -> bool {
         let Some(path) = self
-            .views
-            .get(&pane)
-            .and_then(|view| view.entries.get(row))
+            .entry_at(pane, row)
             .and_then(|entry| entry.location().as_path())
             .map(std::path::Path::to_path_buf)
         else {
@@ -965,9 +1020,12 @@ impl App {
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
             .map_or_else(SortSpec::default, jtf_workspace::Tab::sort);
+        let needle = self.filter_text(pane).to_lowercase();
+        let show_hidden = self.show_hidden;
         if let Some(view) = self.views.get_mut(&pane) {
             view.sort = sort;
             sort_entries(&mut view.entries, sort);
+            Self::recompute_visible(view, &needle, show_hidden);
             view.generation += 1;
         }
     }
@@ -1109,7 +1167,9 @@ impl App {
             changed = true; // progress moved
         }
         let panes: Vec<PaneId> = self.views.keys().copied().collect();
+        let show_hidden = self.show_hidden;
         for pane in panes {
+            let filter = self.filter_text(pane).to_lowercase();
             let Some(view) = self.views.get_mut(&pane) else {
                 continue;
             };
@@ -1121,12 +1181,10 @@ impl App {
             for batch in handle.poll() {
                 changed = true;
                 match batch {
-                    Batch::Rows(rows) => {
-                        view.entries.extend(
-                            rows.into_iter()
-                                .filter(|e| self.show_hidden || !e.attributes().hidden),
-                        );
-                    }
+                    // Hidden entries are kept and excluded from the visible
+                    // index instead, so toggling the setting is instant and
+                    // does not re-scan the directory.
+                    Batch::Rows(rows) => view.entries.extend(rows),
                     Batch::Done { .. } => finished = true,
                     Batch::Failed(error) => {
                         view.error = Some(error);
@@ -1134,11 +1192,15 @@ impl App {
                     }
                 }
             }
+            if changed {
+                Self::recompute_visible(view, &filter, show_hidden);
+            }
             if finished {
                 view.loading = false;
                 view.handle = None;
                 let sort = view.sort;
                 sort_entries(&mut view.entries, sort);
+                Self::recompute_visible(view, &filter, show_hidden);
                 // The final sort reorders everything, so the row set has a new
                 // identity even though its length did not change.
                 view.generation += 1;
@@ -1167,6 +1229,7 @@ impl App {
         // navigation cannot leave two enumerations racing to fill one pane.
         view.handle = None;
         view.entries.clear();
+        view.visible.clear();
         view.error = None;
         view.sort = sort;
         view.loading = true;

@@ -484,6 +484,46 @@ pub unsafe extern "C" fn jtf_sort_by(app: *mut App, pane_id: c_int, column: c_in
     }
 }
 
+/// The pane's filter text.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_filter(
+    app: *const App,
+    pane_id: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    unsafe { write_str(&app.filter_text(pane(pane_id)), buf, len) }
+}
+
+/// Narrow the pane to entries whose name contains `text`.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `text` must be null or a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_filter(app: *mut App, pane_id: c_int, text: *const c_char) {
+    let text = unsafe { read_str(text) }.unwrap_or("");
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_filter(pane(pane_id), text);
+    }
+}
+
+/// How many entries the directory has before filtering.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_unfiltered_count(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        c_int::try_from(a.unfiltered_count(pane(pane_id))).unwrap_or(0)
+    })
+}
+
 /// Whether the pane can go back, forward or up.
 ///
 /// # Safety

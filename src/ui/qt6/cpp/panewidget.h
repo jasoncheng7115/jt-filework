@@ -32,6 +32,8 @@ public:
     // act on the focused entry.
     int currentRow() const;
     void openCurrentRow();
+    void toggleFilter();
+    void clearFilter();
     void advanceCurrentRow();
     void retranslate();
     void setListFont(const QFont &font);
@@ -67,6 +69,7 @@ private:
     int m_pane;
     QTabBar *m_tabs;
     QLabel *m_path;
+    class QLineEdit *m_filter = nullptr;
     QLabel *m_status;
     QTableView *m_view;
     FileListModel *m_model;

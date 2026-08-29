@@ -244,3 +244,5 @@ viewer.not_found = 找不到
 viewer.goto = 跳至行號
 viewer.rows = {count} 行
 status.selected = 已選取 {count} 個
+command.view.filter = 篩選目前資料夾
+status.filtered = {count} / {total}

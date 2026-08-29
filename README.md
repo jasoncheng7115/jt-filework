@@ -104,6 +104,7 @@ It ends with an honest list of what does not exist yet.
 ## Documentation
 
 - `docs/PRODUCT_SPEC.md`
+- `docs/FEATURE_INVENTORY.md`
 - `docs/ARCHITECTURE.md`
 - `docs/UI_UX_SPEC.md`
 - `docs/UI_CONVENTIONS.md`

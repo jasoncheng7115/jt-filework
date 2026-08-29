@@ -16,6 +16,7 @@
 #include <QHeaderView>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QLineEdit>
 #include <QTabBar>
 #include <QTableView>
 #include <QVBoxLayout>
@@ -41,6 +42,22 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_path->setObjectName(QStringLiteral("JtfPath"));
     m_path->setTextInteractionFlags(Qt::TextSelectableByMouse);
     layout->addWidget(m_path);
+
+    // Filtering narrows what is already listed. It is instant because it
+    // touches no disk, which is what separates it from search
+    // (docs/SEARCH_AI.md 1) and why it belongs in the pane rather than in a
+    // dialog.
+    m_filter = new QLineEdit(this);
+    m_filter->setObjectName(QStringLiteral("JtfFilter"));
+    m_filter->setClearButtonEnabled(true);
+    m_filter->setVisible(false);
+    connect(m_filter, &QLineEdit::textChanged, this, [this](const QString &text) {
+        const QByteArray utf8 = text.toUtf8();
+        jtf_set_filter(m_app, m_pane, utf8.constData());
+        m_model->refresh();
+        retranslate();
+    });
+    layout->addWidget(m_filter);
 
     m_view = new QTableView(this);
     m_model = new FileListModel(app, paneId, this);
@@ -155,6 +172,24 @@ void PaneWidget::openRow(int row) {
         // It is an API call, not a shell command line (AGENTS.md 20.3).
         QDesktopServices::openUrl(QUrl::fromLocalFile(path));
     }
+}
+
+void PaneWidget::toggleFilter() {
+    if (m_filter->isVisible() && m_filter->hasFocus()) {
+        clearFilter();
+        return;
+    }
+    m_filter->setVisible(true);
+    m_filter->setFocus();
+    m_filter->selectAll();
+}
+
+void PaneWidget::clearFilter() {
+    // Escape clears and hides, rather than leaving an empty box that still
+    // looks like a mode the user is in.
+    m_filter->clear();
+    m_filter->setVisible(false);
+    m_view->setFocus();
 }
 
 void PaneWidget::openCurrentRow() {
@@ -303,6 +338,10 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
             return true;
 
         case Qt::Key_Escape:
+            if (m_filter->isVisible()) {
+                clearFilter();
+                return true;
+            }
             m_typeAhead.clear();
             return true;
 
@@ -444,7 +483,15 @@ void PaneWidget::retranslate() {
         const int rows = jtf_row_count(m_app, m_pane);
         const int selected = jtf_selection_count(m_app, m_pane);
         const int marked = jtf_marked_count(m_app, m_pane);
-        status = jtfFill(tr("status.items"), "count", QString::number(rows));
+        const int total = jtf_unfiltered_count(m_app, m_pane);
+        // With a filter on, say how many of how many. Showing only the
+        // filtered count makes a directory look empty when it is not.
+        if (m_filter->isVisible() && !m_filter->text().isEmpty()) {
+            status = jtfFill(jtfFill(tr("status.filtered"), "count", QString::number(rows)),
+                             "total", QString::number(total));
+        } else {
+            status = jtfFill(tr("status.items"), "count", QString::number(rows));
+        }
         // Selection and marks are different things and are counted
         // separately, because conflating them is exactly what AGENTS.md 10
         // forbids in the model.
