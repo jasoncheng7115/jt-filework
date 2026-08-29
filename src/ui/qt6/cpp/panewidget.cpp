@@ -24,6 +24,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QHBoxLayout>
+#include <QListView>
 #include <QStyle>
 #include <QTabBar>
 #include <QToolButton>
@@ -209,6 +210,37 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_view->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_view->horizontalHeader(), &QHeaderView::customContextMenuRequested, this,
             &PaneWidget::showHeaderMenu);
+
+    // The grid is a second view onto the *same* model and the same selection,
+    // so switching between them keeps the cursor, the marks and the sort. Two
+    // models would be two answers to "what is in this folder".
+    m_grid = new QListView(this);
+    m_grid->setObjectName(QStringLiteral("JtfGrid"));
+    m_grid->setModel(m_model);
+    m_grid->setSelectionModel(m_view->selectionModel());
+    m_grid->setViewMode(QListView::IconMode);
+    m_grid->setResizeMode(QListView::Adjust);
+    m_grid->setMovement(QListView::Static);
+    m_grid->setUniformItemSizes(true);
+    m_grid->setWordWrap(true);
+    m_grid->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_grid->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_grid->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_grid->setDragEnabled(true);
+    m_grid->setAcceptDrops(true);
+    m_grid->setDropIndicatorShown(true);
+    m_grid->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_grid->setVisible(false);
+    m_grid->installEventFilter(this);
+    m_grid->viewport()->installEventFilter(this);
+    connect(m_grid, &QAbstractItemView::doubleClicked, this,
+            [this](const QModelIndex &index) { openRow(index.row()); });
+    layout->addWidget(m_grid, 1);
+    connect(m_grid, &QWidget::customContextMenuRequested, this, [this](const QPoint &at) {
+        jtf_focus_pane(m_app, m_pane);
+        emit contextMenuRequested(m_grid->viewport()->mapToGlobal(at),
+                                  m_grid->indexAt(at).isValid());
+    });
 
     m_view->installEventFilter(this);
     m_view->viewport()->installEventFilter(this);
@@ -491,6 +523,10 @@ namespace {
 // this out" rather than "reorder these". Generous, because tearing off by
 // accident loses your place.
 constexpr int kTearOffDistance = 28;
+
+// The icon edge in the grid. Large enough for a photograph to be recognised,
+// small enough that a folder of a thousand files is still navigable.
+constexpr int kGridIconEdge = 72;
 
 // What the drop should do, from the action Qt resolved out of the platform's
 // own modifier conventions. Respecting Qt here is what makes Option-drag mean
@@ -853,6 +889,7 @@ void PaneWidget::refresh() {
     syncPath();
     syncSortIndicator();
     m_model->setThumbnailsEnabled(jtf_thumbnails(m_app) != 0);
+    applyViewMode();
     m_model->refresh();
     ensureCurrentRow();
     retranslate();
@@ -864,8 +901,27 @@ void PaneWidget::refreshRows() {
     retranslate();
 }
 
-void PaneWidget::focusList() {
-    m_view->setFocus(Qt::OtherFocusReason);
+void PaneWidget::focusList() { currentView()->setFocus(Qt::OtherFocusReason); }
+
+QAbstractItemView *PaneWidget::currentView() const {
+    return m_grid->isVisible() ? static_cast<QAbstractItemView *>(m_grid)
+                               : static_cast<QAbstractItemView *>(m_view);
+}
+
+void PaneWidget::applyViewMode() {
+    const bool grid = jtf_view_mode(m_app, m_pane) != 0;
+    if (grid == m_grid->isVisible()) {
+        return;
+    }
+    // The icon size is the thumbnail's, so a grid of photographs shows the
+    // photographs rather than a grid of magnified icons.
+    m_grid->setIconSize(QSize(kGridIconEdge, kGridIconEdge));
+    m_grid->setGridSize(QSize(kGridIconEdge + 40, kGridIconEdge + 46));
+    m_grid->setVisible(grid);
+    m_view->setVisible(!grid);
+    if (grid) {
+        m_grid->setFocus(Qt::OtherFocusReason);
+    }
 }
 
 void PaneWidget::ensureCurrentRow() {
@@ -915,7 +971,7 @@ void PaneWidget::setCurrentRow(int row, QAbstractItemView::ScrollHint hint) {
     m_view->selectionModel()->setCurrentIndex(index,
                                               QItemSelectionModel::ClearAndSelect |
                                                   QItemSelectionModel::Rows);
-    m_view->scrollTo(index, hint);
+    currentView()->scrollTo(index, hint);
 }
 
 void PaneWidget::setListFont(const QFont &font) {

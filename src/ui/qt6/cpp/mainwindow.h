@@ -125,6 +125,8 @@ private:
     class QAction *m_treeAction = nullptr;
     class QAction *m_inspectorAction = nullptr;
     class QAction *m_keyHintsAction = nullptr;
+    class QAction *m_listModeAction = nullptr;
+    class QAction *m_gridModeAction = nullptr;
     class KeyHintBar *m_keyHints = nullptr;
     class Inspector *m_inspector = nullptr;
     class PlacesList *m_places = nullptr;

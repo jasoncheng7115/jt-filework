@@ -103,6 +103,8 @@ int jtf_folders_first(const JtfApp *app);
 void jtf_set_folders_first(JtfApp *app, int folders_first);
 int jtf_tree_visible(const JtfApp *app);
 int jtf_tree_width(const JtfApp *app);
+int jtf_view_mode(const JtfApp *app, int pane);
+void jtf_set_view_mode(JtfApp *app, int pane, int grid);
 int jtf_thumbnails(const JtfApp *app);
 void jtf_set_thumbnails(JtfApp *app, int on);
 int jtf_key_hints_visible(const JtfApp *app);

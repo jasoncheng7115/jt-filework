@@ -1005,6 +1005,26 @@ pub unsafe extern "C" fn jtf_set_tree_state(app: *mut App, visible: c_int, width
     }
 }
 
+/// The pane's view mode: 0 list, 1 grid.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_view_mode(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| a.view_mode(pane(pane_id)))
+}
+
+/// Switch the pane between the list and the grid.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_view_mode(app: *mut App, pane_id: c_int, grid: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_view_mode(pane(pane_id), grid != 0);
+    }
+}
+
 /// Whether image files show a thumbnail.
 ///
 /// # Safety

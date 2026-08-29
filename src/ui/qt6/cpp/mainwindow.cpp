@@ -412,6 +412,10 @@ void MainWindow::buildMenus() {
     command(m_viewMenu, "help.shortcuts", [this] { openShortcuts(); });
     command(m_viewMenu, "view.key_hints",
             [this] { setKeyHintsVisible(!m_keyHints->isVisible()); });
+    command(m_viewMenu, "view.mode.list",
+            [this] { jtf_set_view_mode(m_app, jtf_active_pane(m_app), 0); });
+    command(m_viewMenu, "view.mode.grid",
+            [this] { jtf_set_view_mode(m_app, jtf_active_pane(m_app), 1); });
     command(m_viewMenu, "view.thumbnails", [this] {
         jtf_set_thumbnails(m_app, jtf_thumbnails(m_app) ? 0 : 1);
         jtf_app_save_session(m_app);
@@ -1114,6 +1118,13 @@ void MainWindow::buildToolbar() {
     endGroup();
 
     beginGroup();
+    m_listModeAction = button(
+        "view.mode.list", glyph::Shape::List,
+        [this] { jtf_set_view_mode(m_app, jtf_active_pane(m_app), 0); }, true);
+    m_gridModeAction = button(
+        "view.mode.grid", glyph::Shape::Grid,
+        [this] { jtf_set_view_mode(m_app, jtf_active_pane(m_app), 1); }, true);
+
     m_treeAction = button("view.tree", glyph::Shape::Sidebar, [this] { toggleTree(); }, true);
     m_inspectorAction = button(
         "view.inspector", glyph::Shape::Inspector,
@@ -1229,6 +1240,15 @@ void MainWindow::syncToolbar() {
     if (m_keyHintsAction) {
         QSignalBlocker blocker(m_keyHintsAction);
         m_keyHintsAction->setChecked(m_keyHints && m_keyHints->isVisible());
+    }
+    const bool grid = jtf_view_mode(m_app, pane) != 0;
+    if (m_listModeAction) {
+        QSignalBlocker blocker(m_listModeAction);
+        m_listModeAction->setChecked(!grid);
+    }
+    if (m_gridModeAction) {
+        QSignalBlocker blocker(m_gridModeAction);
+        m_gridModeAction->setChecked(grid);
     }
     if (m_treeAction) {
         QSignalBlocker blocker(m_treeAction);

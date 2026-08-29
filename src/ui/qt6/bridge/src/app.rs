@@ -18,7 +18,7 @@ use jtf_search::{SearchHandle, SearchUpdate};
 use jtf_viewer::{detect, ContentKind, Encoding, HexView, TextView};
 use jtf_workspace::{
     sort_entries_with, Bookmark, FontSettings, LayoutPreset, Orientation, PaneId, Places, Session,
-    SessionSettings, SortKey, SortSpec, Workspace,
+    SessionSettings, SortKey, SortSpec, ViewMode, Workspace,
 };
 
 /// The columns the list can show, in order.
@@ -1172,6 +1172,33 @@ impl App {
     /// Remember the key hint strip's state.
     pub(crate) fn set_key_hints_visible(&mut self, visible: bool) {
         self.settings.key_hints_visible = visible;
+    }
+
+    /// The pane's view mode: 0 list, 1 grid.
+    pub(crate) fn view_mode(&self, pane: PaneId) -> i32 {
+        self.workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .map_or(0, |tab| {
+                // Named rather than wildcarded: ViewMode is non_exhaustive,
+                // and a mode added later should fail to compile here rather
+                // than silently report itself as the list.
+                match tab.view_mode() {
+                    ViewMode::Grid => 1,
+                    ViewMode::List => 0,
+                    _ => 0,
+                }
+            })
+    }
+
+    /// Switch the pane between the list and the grid.
+    pub(crate) fn set_view_mode(&mut self, pane: PaneId, grid: bool) {
+        let mode = if grid { ViewMode::Grid } else { ViewMode::List };
+        if let Some(p) = self.workspace.pane_mut(pane) {
+            if let Some(tab) = p.active_tab_mut() {
+                tab.set_view_mode(mode);
+            }
+        }
     }
 
     /// Whether image files show a thumbnail.

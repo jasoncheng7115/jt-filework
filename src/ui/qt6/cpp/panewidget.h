@@ -79,6 +79,8 @@ private:
     void showHeaderMenu(const QPoint &position);
     void applyColumnVisibility();
     void fitNameColumn();
+    void applyViewMode();
+    class QAbstractItemView *currentView() const;
     void ensureCurrentRow();
     void setCurrentRow(int row, QAbstractItemView::ScrollHint hint);
     static QString chordFor(const class QKeyEvent *key);
@@ -110,6 +112,7 @@ private:
     int m_dragTab = -1;
     QPoint m_dragOrigin;
     class JtfHeaderView *m_header = nullptr;
+    class QListView *m_grid = nullptr;
     QColor m_border;
     QString m_typeAhead;
     class QElapsedTimer *m_typeAheadClock = nullptr;

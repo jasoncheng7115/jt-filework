@@ -102,6 +102,18 @@ QTableView {
 /* Rows breathe. 2px of padding puts the text against its own row edge, which
    is what makes a dense list read as cramped rather than as compact. */
 QTableView::item { padding: 5px 8px; border: none; }
+
+/* The icon grid, over the same model as the list. */
+QListView#JtfGrid {
+    background: %PANE%;
+    color: %TEXT%;
+    border: none;
+    outline: none;
+}
+QListView#JtfGrid::item { padding: 6px; border-radius: 6px; }
+QListView#JtfGrid::item:hover { background: %HOVER%; }
+QListView#JtfGrid::item:selected { background: %SEL%; color: %ONSEL%; }
+QListView#JtfGrid::item:selected:!active { background: %SELDIM%; color: %TEXT%; }
 QTableView::item:hover { background: %HOVER%; }
 QTableView::item:selected { background: %SEL%; color: %ONSEL%; }
 QTableView::item:selected:!active { background: %SELDIM%; color: %TEXT%; }
