@@ -4,65 +4,68 @@
 # macOS, Control elsewhere. `ctrl` means the physical Control key on every
 # platform, and is avoided here because macOS users do not expect it.
 #
-# Format: `chord = command.id`. Conflicts are rejected at load
-# (docs/UI_TEST_PLAN.md KEY-005).
+# Format: `chord = command.id`. A chord bound twice is rejected at load, and
+# a shipped keymap that fails to load fails the build (tests/architecture.rs).
 
-# tabs
-primary+t          = tab.new
-primary+w          = tab.close
-primary+shift+t    = tab.reopen
-primary+d          = tab.duplicate
+# --- tabs
+primary+t            = tab.new
+primary+w            = tab.close
+primary+shift+t      = tab.reopen
+primary+shift+d      = tab.duplicate
 
-# panes
-primary+shift+h    = workspace.split.horizontal
-primary+shift+v    = workspace.split.vertical
-primary+shift+w    = workspace.pane.close
-f6                 = workspace.pane.next
-shift+f6           = workspace.pane.previous
-primary+1          = workspace.preset.single
-primary+4          = workspace.preset.quad
+# --- panes
+primary+backslash    = workspace.split.horizontal
+primary+shift+backslash = workspace.split.vertical
+primary+shift+w      = workspace.pane.close
+f6                   = workspace.pane.next
+shift+f6             = workspace.pane.previous
+primary+1            = workspace.preset.single
+primary+4            = workspace.preset.quad
 
-# navigation
-primary+up         = nav.up
-primary+left       = nav.back
-primary+right      = nav.forward
-primary+down       = file.open
-primary+shift+h    = nav.home
+# --- navigation
+primary+up           = nav.up
+primary+left         = nav.back
+primary+right        = nav.forward
+primary+down         = file.open
+primary+shift+h      = nav.home
+primary+l            = nav.goto
 
-# files
-f2                 = file.rename
-primary+backspace  = file.trash
-primary+shift+n    = file.new_folder
+# --- files
+f2                   = file.rename
+primary+backspace    = file.trash
+primary+shift+n      = file.new_folder
+primary+d            = file.duplicate
+primary+shift+m      = file.batch_rename
+primary+shift+r      = file.reveal
+primary+z            = file.undo
 
-# preview: Space is Quick Look on a Mac, which is what people press
-space              = preview.quicklook
+# --- clipboard
+primary+c            = file.clipboard.copy
+primary+x            = file.clipboard.cut
+primary+v            = file.clipboard.paste
+primary+alt+c        = file.copy_path
+primary+shift+c      = file.copy_name
 
-# marking
-insert             = file.mark.toggle
-primary+shift+a    = file.mark.all
-primary+shift+z    = file.mark.none
-primary+shift+i    = file.mark.invert
+# --- marking
+insert               = file.mark.toggle
+primary+shift+a      = file.mark.all
+primary+shift+z      = file.mark.none
+primary+shift+i      = file.mark.invert
 
-# view
-primary+r          = view.refresh
+# --- preview and viewing
+space                = preview.quicklook
+primary+shift+v      = file.view
+
+# --- view
+primary+r            = view.refresh
 primary+shift+period = view.hidden
-primary+minus      = view.font.smaller
-primary+equal      = view.font.larger
+primary+minus        = view.font.smaller
+primary+equal        = view.font.larger
+primary+e            = view.filter
+primary+shift+e      = view.tree
 
-primary+comma       = settings.open
-
-# search and tools
-primary+f          = search.open
-primary+shift+f    = search.ai
-primary+j          = jobs.show
-primary+shift+v    = file.view
-primary+e          = view.filter
-primary+z          = file.undo
-primary+c          = file.clipboard.copy
-primary+x          = file.clipboard.cut
-primary+v          = file.clipboard.paste
-primary+alt+c      = file.copy_path
-primary+shift+c    = file.copy_name
-primary+d          = file.duplicate
-primary+shift+r    = file.reveal
-primary+shift+m    = file.batch_rename
+# --- search and tools
+primary+f            = search.open
+primary+shift+f      = search.ai
+primary+j            = jobs.show
+primary+comma        = settings.open

@@ -3,6 +3,7 @@
 #include "panewidget.h"
 #include "icons.h"
 #include "batchrenamedialog.h"
+#include "foldertree.h"
 #include "operations.h"
 #include "platform/quicklook.h"
 #include "settingsdialog.h"
@@ -42,6 +43,30 @@ MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_ap
     setMinimumSize(720, 420);
     resize(1180, 760);
 
+    // Built before the layout, because rebuildLayout puts the pane area into
+    // it.
+    m_outer = new QSplitter(Qt::Horizontal, this);
+    m_outer->setObjectName(QStringLiteral("JtfOuter"));
+    m_outer->setChildrenCollapsible(false);
+    m_outer->setHandleWidth(4);
+    m_tree = new FolderTree(m_app, m_outer);
+    m_tree->setMinimumWidth(140);
+    m_tree->setVisible(false);
+    m_outer->addWidget(m_tree);
+    setCentralWidget(m_outer);
+
+    connect(m_tree, &FolderTree::folderActivated, this, [this](const QString &path) {
+        const QByteArray utf8 = path.toUtf8();
+        jtf_navigate(m_app, jtf_active_pane(m_app), utf8.constData());
+        refreshAll();
+    });
+    // Remember the width as it is dragged, so it survives a restart.
+    connect(m_outer, &QSplitter::splitterMoved, this, [this](int, int) {
+        if (m_tree->isVisible()) {
+            jtf_set_tree_state(m_app, 1, m_outer->sizes().value(0));
+        }
+    });
+
     m_statusMessage = new QLabel(this);
     m_progress = new QProgressBar(this);
     m_progress->setMaximumWidth(180);
@@ -60,6 +85,7 @@ MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_ap
     rebuildLayout();
     applyTheme();
     applyFont();
+    setTreeVisible(jtf_tree_visible(m_app) != 0);
     retranslate();
 
     // The pump is the whole "never block the UI thread" contract in one
@@ -224,6 +250,7 @@ void MainWindow::buildMenus() {
             pane->clearSearch();
         }
     });
+    command(m_viewMenu, "view.tree", [this] { toggleTree(); });
     command(m_viewMenu, "view.filter", [this] {
         if (PaneWidget *pane = activePane()) {
             pane->toggleFilter();
@@ -742,6 +769,32 @@ QWidget *MainWindow::buildNode(const QJsonObject &node) {
     return splitter;
 }
 
+void MainWindow::toggleTree() {
+    setTreeVisible(!m_tree->isVisible());
+}
+
+void MainWindow::setTreeVisible(bool visible) {
+    m_tree->setVisible(visible);
+    if (visible) {
+        // Restore the remembered width, or a sensible default the first time.
+        const int width = jtf_tree_width(m_app);
+        const int total = m_outer->width();
+        const int sidebar = width > 0 ? width : 240;
+        m_outer->setSizes({sidebar, qMax(200, total - sidebar)});
+        syncTree();
+    }
+    jtf_set_tree_state(m_app, visible ? 1 : 0, m_outer->sizes().value(0));
+}
+
+void MainWindow::syncTree() {
+    if (!m_tree->isVisible()) {
+        return;
+    }
+    const int pane = jtf_active_pane(m_app);
+    m_tree->selectPath(
+        jtfText([&](char *buf, int len) { return jtf_current_path(m_app, pane, buf, len); }));
+}
+
 void MainWindow::rebuildLayout() {
     const QString json =
         jtfText([&](char *buf, int len) { return jtf_layout_json(m_app, buf, len); });
@@ -753,7 +806,16 @@ void MainWindow::rebuildLayout() {
     const QJsonObject root = QJsonDocument::fromJson(json.toUtf8()).object();
     m_panes.clear();
     auto *widget = buildNode(root);
-    setCentralWidget(widget);
+
+    // The tree lives beside the whole workspace, not inside a pane: it
+    // navigates the active pane, whichever that is.
+    if (m_paneArea) {
+        m_outer->replaceWidget(1, widget);
+        m_paneArea->deleteLater();
+    } else {
+        m_outer->addWidget(widget);
+    }
+    m_paneArea = widget;
     m_root = widget;
     applyTheme();
     markActivePane();
@@ -778,6 +840,7 @@ void MainWindow::refreshAll() {
     }
     markActivePane();
     syncToolbar();
+    syncTree();
     retranslate();
 }
 
@@ -862,6 +925,9 @@ void MainWindow::applyTheme() {
 }
 
 void MainWindow::closeEvent(QCloseEvent *event) {
+    if (m_tree->isVisible()) {
+        jtf_set_tree_state(m_app, 1, m_outer->sizes().value(0));
+    }
     jtf_app_save_session(m_app);
     QMainWindow::closeEvent(event);
 }

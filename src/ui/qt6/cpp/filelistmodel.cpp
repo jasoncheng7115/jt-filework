@@ -97,7 +97,16 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const {
 }
 
 QVariant FileListModel::headerData(int section, Qt::Orientation orientation, int role) const {
-    if (orientation != Qt::Horizontal || role != Qt::DisplayRole) {
+    if (orientation != Qt::Horizontal) {
+        return {};
+    }
+    // Headers align with their data: text left, numbers right. A centred
+    // header over left-aligned rows is what makes a column look crooked.
+    if (role == Qt::TextAlignmentRole) {
+        return section == 1 ? QVariant(Qt::AlignRight | Qt::AlignVCenter)
+                            : QVariant(Qt::AlignLeft | Qt::AlignVCenter);
+    }
+    if (role != Qt::DisplayRole) {
         return {};
     }
     // No English literal here: the header text is a localization key resolved

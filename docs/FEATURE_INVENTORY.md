@@ -44,7 +44,7 @@ Status: **done** · **partial** · **planned** · **later** (after Phase 2) ·
 | Thumbnails for images and video | planned |
 | Folder sizes on demand | planned |
 | Free space on the current volume | planned |
-| Tree view sidebar | later |
+| Tree view sidebar, resizable and toggleable | done |
 
 ## 3. Selecting and marking
 

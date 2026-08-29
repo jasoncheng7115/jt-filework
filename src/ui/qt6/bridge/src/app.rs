@@ -642,6 +642,50 @@ impl App {
         }
     }
 
+    // ----------------------------------------------------------- folder tree
+
+    /// Child directories of `path`, newline-separated and sorted.
+    ///
+    /// The tree asks Rust the same way the list does, so the two cannot
+    /// disagree about what a directory contains, whether a symlink is a
+    /// folder, or whether hidden entries are shown. Two sources of truth about
+    /// one filesystem is exactly the drift `AGENTS.md` §4 exists to prevent.
+    pub(crate) fn child_directories(&self, path: &str) -> String {
+        let location = Location::local(path);
+        let Ok(entries) = self.provider.list(&location, &CancellationToken::never()) else {
+            return String::new();
+        };
+
+        let mut names: Vec<(String, String)> = entries
+            .iter()
+            .filter(|entry| entry.kind().is_directory_on_disk())
+            .filter(|entry| self.show_hidden || !entry.attributes().hidden)
+            .filter_map(|entry| {
+                entry
+                    .location()
+                    .as_path()
+                    .map(|p| (entry.display_name().to_lowercase(), p.display().to_string()))
+            })
+            .collect();
+        names.sort();
+        names
+            .into_iter()
+            .map(|(_, path)| path)
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// Whether the sidebar is shown, and how wide.
+    pub(crate) const fn tree_state(&self) -> (bool, u16) {
+        (self.settings.tree_visible, self.settings.tree_width)
+    }
+
+    /// Remember the sidebar's state.
+    pub(crate) fn set_tree_state(&mut self, visible: bool, width: u16) {
+        self.settings.tree_visible = visible;
+        self.settings.tree_width = width;
+    }
+
     /// The paths an operation started here would act on, newline-separated.
     ///
     /// Used for the clipboard and for "copy path": the same

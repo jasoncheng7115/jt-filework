@@ -5,67 +5,65 @@
 # command does not exist yet the binding is simply absent rather than bound to
 # something approximate.
 #
-# `primary` is the platform accelerator; `ctrl` is the physical Control key,
-# which this preset uses deliberately because that is what the original tools
-# used.
-#
 # On macOS the function row is media keys by default. To use this preset as
 # intended, turn on:
 #   System Settings -> Keyboard -> "Use F1, F2, etc. keys as standard
 #   function keys"
 # Otherwise hold Fn together with the function key.
 
-# the function row
-f2                 = file.rename
-f3                 = file.view
-f4                 = file.edit
-e                  = file.edit
-v                  = file.view
-f5                 = file.copy_to_target_pane
-f6                 = file.move_to_target_pane
-f7                 = file.new_folder
-f8                 = file.trash
+# --- the function row
+f2                   = file.rename
+f3                   = file.view
+f4                   = file.edit
+f5                   = file.copy_to_target_pane
+f6                   = file.move_to_target_pane
+f7                   = file.new_folder
+f8                   = file.trash
 
-# panes and tabs
-tab                = workspace.pane.next
-shift+tab          = workspace.pane.previous
-primary+t          = tab.new
-primary+w          = tab.close
+# --- panes and tabs
+tab                  = workspace.pane.next
+shift+tab            = workspace.pane.previous
+primary+t            = tab.new
+primary+w            = tab.close
+primary+shift+backslash = workspace.split.vertical
+primary+backslash    = workspace.split.horizontal
+primary+1            = workspace.preset.single
+primary+4            = workspace.preset.quad
 
-# navigation
-backspace          = nav.up
-ctrl+pageup        = nav.up
-alt+left           = nav.back
-alt+right          = nav.forward
-primary+home       = nav.home
+# --- navigation
+backspace            = nav.up
+ctrl+pageup          = nav.up
+alt+left             = nav.back
+alt+right            = nav.forward
+primary+home         = nav.home
 
-# marking: Space marks, as CView and WinCV always did. Quick Look moves to
-# Finder's own shortcut so that Space keeps its original meaning.
-space              = file.mark.toggle
-primary+y          = preview.quicklook
-primary+a          = file.mark.all
-primary+z          = file.mark.none
-primary+i          = file.mark.invert
+# --- marking: Space marks, as CView and WinCV always did. Quick Look moves to
+#     Finder's own shortcut so Space keeps its original meaning.
+space                = file.mark.toggle
+primary+y            = preview.quicklook
+primary+a            = file.mark.all
+primary+z            = file.mark.none
+primary+i            = file.mark.invert
 
-# view
-ctrl+r             = view.refresh
-ctrl+h             = view.hidden
-primary+shift+h    = workspace.split.horizontal
-primary+shift+v    = workspace.split.vertical
-primary+1          = workspace.preset.single
-primary+4          = workspace.preset.quad
+# --- files
+e                    = file.edit
+v                    = file.view
+primary+d            = file.duplicate
+primary+shift+m      = file.batch_rename
+primary+shift+r      = file.reveal
+primary+u            = file.undo
 
-primary+comma      = settings.open
+# --- clipboard
+primary+c            = file.clipboard.copy
+primary+x            = file.clipboard.cut
+primary+v            = file.clipboard.paste
 
-# search
-primary+f          = search.open
-primary+e          = view.filter
-primary+z          = file.undo
-primary+c          = file.clipboard.copy
-primary+x          = file.clipboard.cut
-primary+v          = file.clipboard.paste
-primary+alt+c      = file.copy_path
-primary+shift+c    = file.copy_name
-primary+d          = file.duplicate
-primary+shift+r    = file.reveal
-primary+shift+m    = file.batch_rename
+# --- view
+ctrl+r               = view.refresh
+ctrl+h               = view.hidden
+primary+e            = view.filter
+primary+shift+e      = view.tree
+
+# --- search
+primary+f            = search.open
+primary+comma        = settings.open

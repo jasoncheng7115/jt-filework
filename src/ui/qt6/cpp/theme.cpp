@@ -79,13 +79,25 @@ QTableView::item:selected:!active { background: %SELDIM%; color: %TEXT%; }
 QHeaderView::section {
     background: %HEADER%;
     color: %DIM%;
-    padding: 5px 8px;
+    padding: 4px 8px;
     border: none;
     border-right: 1px solid %BORDER%;
     border-bottom: 1px solid %BORDER%;
     font-weight: 600;
 }
 QHeaderView::section:hover { color: %TEXT%; background: %HOVER%; }
+/* The sort indicator sits just inside the section's right edge, small and
+   quiet. Qt's default places a large triangle that reads as a control rather
+   than as a state. */
+QHeaderView::up-arrow, QHeaderView::down-arrow {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    width: 8px;
+    height: 8px;
+    margin-right: 4px;
+}
+/* Only the sorted column shows one at all. */
+QHeaderView::up-arrow:!enabled, QHeaderView::down-arrow:!enabled { image: none; }
 
 QTabBar { background: %HEADER%; }
 QTabBar::tab {
@@ -110,6 +122,19 @@ QLineEdit#JtfFilter, QLineEdit#JtfSearch { margin: 2px 6px 4px 6px; }
 QLabel#JtfPath { color: %DIM%; padding: 3px 8px; }
 QLabel#JtfStatus { color: %DIM%; padding: 3px 8px; }
 QLabel#JtfError { color: %ERROR%; padding: 3px 8px; }
+
+QWidget#JtfTree { background: %PREVIEW%; border-right: 1px solid %BORDER%; }
+QTreeView {
+    background: %PREVIEW%;
+    color: %TEXT%;
+    border: none;
+    outline: none;
+    show-decoration-selected: 1;
+}
+QTreeView::item { padding: 3px 2px; }
+QTreeView::item:hover { background: %HOVER%; }
+QTreeView::item:selected { background: %SEL%; color: %ONSEL%; }
+QTreeView::item:selected:!active { background: %SELDIM%; color: %TEXT%; }
 
 QSplitter::handle { background: %BORDER%; }
 QSplitter::handle:horizontal { width: 1px; }

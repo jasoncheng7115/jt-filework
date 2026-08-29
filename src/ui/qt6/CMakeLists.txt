@@ -69,6 +69,8 @@ qt_add_executable(jt-filework
     cpp/filelistmodel.h
     cpp/iconprovider.cpp
     cpp/iconprovider.h
+    cpp/foldertree.cpp
+    cpp/foldertree.h
     cpp/theme.cpp
     cpp/theme.h
     cpp/watchdog.cpp

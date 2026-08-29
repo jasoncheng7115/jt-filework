@@ -58,6 +58,9 @@ private:
         OpDuplicate
     };
     void showEntryMenu(int paneId, const QPoint &global, bool onEntry);
+    void toggleTree();
+    void setTreeVisible(bool visible);
+    void syncTree();
     void openViewer();
     void openSettings();
     void runOperation(OperationRequest request);
@@ -76,6 +79,9 @@ private:
 
     JtfApp *m_app;
     QWidget *m_root = nullptr;
+    class QSplitter *m_outer = nullptr;
+    class FolderTree *m_tree = nullptr;
+    QWidget *m_paneArea = nullptr;
     QHash<int, PaneWidget *> m_panes;
     QString m_layoutSignature;
     class QLineEdit *m_pathEdit = nullptr;

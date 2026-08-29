@@ -290,3 +290,5 @@ rename.unchanged = Unchanged
 rename.invalid = Not a valid name
 rename.duplicate = Same as another row
 rename.exists = Already exists
+command.view.tree = Folder Tree
+tree.title = Folders

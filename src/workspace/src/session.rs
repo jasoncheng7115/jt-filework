@@ -115,6 +115,12 @@ pub struct SessionSettings {
     /// Which keymap preset is active. Empty means the platform default.
     #[serde(default)]
     pub keymap: String,
+    /// Whether the folder tree sidebar is shown.
+    #[serde(default)]
+    pub tree_visible: bool,
+    /// Its width in logical pixels. 0 means the default.
+    #[serde(default)]
+    pub tree_width: u16,
 }
 
 const fn default_true() -> bool {
@@ -136,6 +142,10 @@ impl Default for SessionSettings {
             remember_marks: true,
             font: FontSettings::default(),
             keymap: String::new(),
+            // Off by default: a sidebar that appears uninvited on first launch
+            // is a decision made for the user rather than by them.
+            tree_visible: false,
+            tree_width: 0,
         }
     }
 }
@@ -154,6 +164,10 @@ impl SessionSettings {
             remember_marks: false,
             font: FontSettings::default(),
             keymap: String::new(),
+            // Off by default: a sidebar that appears uninvited on first launch
+            // is a decision made for the user rather than by them.
+            tree_visible: false,
+            tree_width: 0,
         }
     }
 }

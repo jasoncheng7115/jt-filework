@@ -290,3 +290,5 @@ rename.unchanged = 未變更
 rename.invalid = 名稱無效
 rename.duplicate = 與其他列重複
 rename.exists = 已存在
+command.view.tree = 資料夾樹狀清單
+tree.title = 資料夾

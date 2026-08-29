@@ -910,6 +910,55 @@ pub unsafe extern "C" fn jtf_batch_clear(app: *mut App) {
     }
 }
 
+/// Child directories of a path, newline-separated.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `path` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_child_directories(
+    app: *const App,
+    path: *const c_char,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let Some(path) = (unsafe { read_str(path) }) else {
+        return 0;
+    };
+    unsafe { write_str(&app.child_directories(path), buf, len) }
+}
+
+/// Whether the folder tree is shown.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_tree_visible(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.tree_state().0))
+}
+
+/// Its remembered width, or 0 for the default.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_tree_width(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.tree_state().1))
+}
+
+/// Remember the folder tree's state.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_tree_state(app: *mut App, visible: c_int, width: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_tree_state(visible != 0, u16::try_from(width.max(0)).unwrap_or(0));
+    }
+}
+
 /// The paths an operation started in this pane would act on.
 ///
 /// # Safety

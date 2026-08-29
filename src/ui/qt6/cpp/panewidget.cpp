@@ -182,6 +182,8 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_view->setColumnWidth(2, 128);
     m_view->setColumnWidth(3, 168);
     m_view->horizontalHeader()->setMinimumSectionSize(56);
+    m_view->horizontalHeader()->setHighlightSections(false);
+    m_view->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 }
 
 void PaneWidget::openRow(int row) {

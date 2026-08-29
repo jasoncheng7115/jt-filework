@@ -184,6 +184,19 @@ fn parse_key(text: &str) -> Result<Key, KeymapError> {
         "pageup" => Key::PageUp,
         "pagedown" => Key::PageDown,
         "insert" | "ins" => Key::Insert,
+        // Punctuation by name, because a keymap file that has to contain a
+        // bare comma is a keymap file that cannot be split on commas later.
+        "comma" => Key::Char(','),
+        "period" | "dot" => Key::Char('.'),
+        "minus" | "dash" => Key::Char('-'),
+        "equal" | "plus" => Key::Char('='),
+        "slash" => Key::Char('/'),
+        "backslash" => Key::Char('\\'),
+        "semicolon" => Key::Char(';'),
+        "quote" => Key::Char('\''),
+        "bracketleft" => Key::Char('['),
+        "bracketright" => Key::Char(']'),
+        "grave" | "backtick" => Key::Char('`'),
         other => {
             let mut chars = other.chars();
             match (chars.next(), chars.next()) {
@@ -260,6 +273,18 @@ impl KeyChord {
             parts.push("shift".to_string());
         }
         parts.push(match &self.key {
+            // Written back by name so the file round-trips through the parser.
+            Key::Char(',') => "comma".into(),
+            Key::Char('.') => "period".into(),
+            Key::Char('-') => "minus".into(),
+            Key::Char('=') => "equal".into(),
+            Key::Char('/') => "slash".into(),
+            Key::Char('\\') => "backslash".into(),
+            Key::Char(';') => "semicolon".into(),
+            Key::Char('\'') => "quote".into(),
+            Key::Char('[') => "bracketleft".into(),
+            Key::Char(']') => "bracketright".into(),
+            Key::Char('`') => "grave".into(),
             Key::Char(c) => c.to_lowercase().to_string(),
             Key::Function(n) => format!("f{n}"),
             Key::Up => "up".into(),
@@ -605,6 +630,27 @@ mod tests {
             KeyChord::plain(Key::Space)
         );
         assert_eq!(KeyChord::parse("alt+left").unwrap().key, Key::Left);
+    }
+
+    #[test]
+    fn punctuation_keys_have_names_and_round_trip() {
+        for (name, character) in [
+            ("comma", ','),
+            ("period", '.'),
+            ("minus", '-'),
+            ("equal", '='),
+            ("slash", '/'),
+            ("bracketleft", '['),
+            ("grave", '`'),
+        ] {
+            let chord = KeyChord::parse(&format!("primary+{name}")).unwrap();
+            assert_eq!(chord.key, Key::Char(character), "{name}");
+            assert_eq!(
+                KeyChord::parse(&chord.to_source_text()).unwrap(),
+                chord,
+                "{name} must survive a round trip through the file format"
+            );
+        }
     }
 
     #[test]

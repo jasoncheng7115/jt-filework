@@ -49,8 +49,11 @@ against every screen before calling it done.
 ## 4. Keyboard parity
 
 - Everything reachable by mouse is reachable by keyboard
-  (`AGENTS.md` §9), and the shortcut shown next to a menu item is the one
-  the active keymap actually resolves.
+  (`AGENTS.md` §9), and **the shortcut shown next to a menu item is the one
+  the active keymap actually resolves**. A menu with blank shortcut columns
+  is not a cosmetic problem: it means the keymap did not load. A shipped
+  keymap that fails to parse fails the build
+  (`tests/tests/keymaps.rs`).
 - **Escape backs out** of whatever is in progress: a dialog, a search field,
   a drag, a viewer.
 - **Enter commits** the obvious action.

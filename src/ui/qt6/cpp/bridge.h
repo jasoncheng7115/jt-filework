@@ -89,6 +89,10 @@ int jtf_batch_row(const JtfApp *app, int index, char *from_buf, int from_len, ch
 int jtf_batch_can_apply(const JtfApp *app, int *changes);
 int jtf_batch_apply(JtfApp *app);
 void jtf_batch_clear(JtfApp *app);
+int jtf_child_directories(const JtfApp *app, const char *path, char *buf, int len);
+int jtf_tree_visible(const JtfApp *app);
+int jtf_tree_width(const JtfApp *app);
+void jtf_set_tree_state(JtfApp *app, int visible, int width);
 int jtf_target_paths(const JtfApp *app, int pane, char *buf, int len);
 int jtf_target_names(const JtfApp *app, int pane, char *buf, int len);
 int jtf_op_prepare_duplicate(JtfApp *app, int pane);
