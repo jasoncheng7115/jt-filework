@@ -84,6 +84,11 @@ struct PaneView {
     /// of display cost `AGENTS.md` 18 rules out.
     folder_count: usize,
     visible_bytes: u64,
+    /// The entry the cursor should land on once this listing arrives.
+    ///
+    /// Set when leaving a folder upwards, so stepping out puts the cursor on
+    /// the folder you just left rather than back at the top. Consumed once.
+    focus_name: Option<String>,
 }
 
 impl PaneView {
@@ -100,6 +105,7 @@ impl PaneView {
             loading: false,
             folder_count: 0,
             visible_bytes: 0,
+            focus_name: None,
         }
     }
 }
@@ -348,6 +354,31 @@ impl App {
         self.start_enumeration(pane);
     }
 
+    /// The row the cursor should move to, or -1. Consumed by the call.
+    ///
+    /// Returned as a row rather than a name so the scan happens here, over
+    /// the entries we already hold, instead of the UI asking for every row's
+    /// text across the boundary to find one of them.
+    pub(crate) fn take_focus_row(&mut self, pane: PaneId) -> isize {
+        let parent_row = isize::from(self.has_parent_row(pane));
+        let Some(view) = self.views.get_mut(&pane) else {
+            return -1;
+        };
+        let Some(name) = view.focus_name.take() else {
+            return -1;
+        };
+        view.visible
+            .iter()
+            .position(|&index| {
+                view.entries
+                    .get(index)
+                    .is_some_and(|entry| entry.display_name() == name)
+            })
+            .map_or(-1, |row| {
+                isize::try_from(row).unwrap_or(0).saturating_add(parent_row)
+            })
+    }
+
     pub(crate) fn navigate_up(&mut self, pane: PaneId) {
         let parent = self
             .workspace
@@ -355,12 +386,25 @@ impl App {
             .and_then(jtf_workspace::Pane::active_tab)
             .and_then(|t| t.location().parent());
         if let Some(parent) = parent {
+            // Remember which folder we are stepping out of, so the cursor
+            // lands on it rather than at the top of a list you were just in
+            // the middle of.
+            let leaving = self
+                .workspace
+                .pane(pane)
+                .and_then(jtf_workspace::Pane::active_tab)
+                .and_then(|tab| tab.location().as_path())
+                .and_then(|path| path.file_name())
+                .map(|name| name.to_string_lossy().into_owned());
             if let Some(p) = self.workspace.pane_mut(pane) {
                 if let Some(tab) = p.active_tab_mut() {
                     tab.navigate_to(parent);
                 }
             }
             self.start_enumeration(pane);
+            if let Some(view) = self.views.get_mut(&pane) {
+                view.focus_name = leaving;
+            }
         }
     }
 
@@ -2332,11 +2376,27 @@ fn locate_repo_root() -> PathBuf {
     if let Some(explicit) = std::env::var_os("JTF_REPO_ROOT") {
         return PathBuf::from(explicit);
     }
-    let mut dir = std::env::current_exe()
+    let exe_dir = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(std::path::Path::to_path_buf))
         .unwrap_or_else(|| PathBuf::from("."));
-    for _ in 0..8 {
+
+    // A macOS bundle carries its own data: Contents/MacOS/<exe> sits beside
+    // Contents/Resources. Checked first, because a shipped app must not
+    // depend on finding a source tree above it — and because the walk below
+    // once stopped one directory short of the repository root when the
+    // executable moved into a bundle, which showed the user every string as
+    // its catalogue key.
+    let bundled = exe_dir.join("../Resources");
+    if bundled.join("locales").join("en").is_dir() {
+        return bundled;
+    }
+
+    // Development builds run out of the tree. The bound is generous rather
+    // than tight: the cost of one extra `is_dir` at startup is nothing, and
+    // the cost of stopping one short is a UI full of identifiers.
+    let mut dir = exe_dir;
+    for _ in 0..16 {
         if dir.join("locales").join("en").is_dir() {
             return dir;
         }

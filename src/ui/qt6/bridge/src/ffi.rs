@@ -1119,6 +1119,28 @@ pub unsafe extern "C" fn jtf_type_ahead(app: *const App) -> c_int {
     unsafe { app_ref(app) }.map_or(1, |a| c_int::from(a.type_ahead()))
 }
 
+/// Whether the pane's row `row` is the synthetic `..` row.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_row_is_parent(app: *const App, pane_id: c_int, row: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        c_int::from(row == 0 && a.has_parent_row(pane(pane_id)))
+    })
+}
+
+/// The row the cursor should move to after a navigation, or -1.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_take_focus_row(app: *mut App, pane_id: c_int) -> c_int {
+    unsafe { app_mut(app) }.map_or(-1, |a| {
+        c_int::try_from(a.take_focus_row(pane(pane_id))).unwrap_or(-1)
+    })
+}
+
 /// How many of the pane's rows are real entries, excluding any `..` row.
 ///
 /// # Safety

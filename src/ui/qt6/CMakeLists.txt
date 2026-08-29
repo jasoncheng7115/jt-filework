@@ -142,6 +142,45 @@ if(JTF_SANITIZE AND NOT MSVC)
     target_link_options(jt-filework PRIVATE -fsanitize=address,undefined)
 endif()
 
-set_target_properties(jt-filework PROPERTIES
-    MACOSX_BUNDLE FALSE
-    WIN32_EXECUTABLE FALSE)
+# macOS shows an icon for a bundle, not for a bare executable: a loose binary
+# gets the generic document icon in the Dock however the icon file is named.
+# The bundle is also what signing, notarization and the Dock name all attach
+# to, so it is built from the start rather than bolted on at release time
+# (docs/DISTRIBUTION.md).
+if(APPLE)
+    set(JTF_ICNS "${CMAKE_CURRENT_SOURCE_DIR}/../../../assets/icon/generated/jt-filework.icns")
+    if(NOT EXISTS "${JTF_ICNS}")
+        message(FATAL_ERROR
+            "the application icon is missing: ${JTF_ICNS}\n"
+            "run assets/icon/build-icons.sh to generate it")
+    endif()
+    # Copied into Contents/Resources by being a source file marked as one.
+    target_sources(jt-filework PRIVATE "${JTF_ICNS}")
+    set_source_files_properties("${JTF_ICNS}" PROPERTIES
+        MACOSX_PACKAGE_LOCATION "Resources")
+
+    set(MACOSX_BUNDLE_GUI_IDENTIFIER "tw.jasoncheng.jt-filework")
+    set(MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1.0")
+    set(MACOSX_BUNDLE_BUNDLE_VERSION "0.1.0")
+
+    set_target_properties(jt-filework PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in")
+
+    # The bundle carries its own locales and keymaps. Without this the app
+    # only works while a source tree happens to sit above it, and the failure
+    # is silent: every label falls back to its catalogue key.
+    set(JTF_DATA_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
+    add_custom_command(TARGET jt-filework POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${JTF_DATA_ROOT}/locales"
+            "$<TARGET_BUNDLE_CONTENT_DIR:jt-filework>/Resources/locales"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${JTF_DATA_ROOT}/keymaps"
+            "$<TARGET_BUNDLE_CONTENT_DIR:jt-filework>/Resources/keymaps"
+        COMMENT "Copying locales and keymaps into the bundle")
+else()
+    set_target_properties(jt-filework PROPERTIES
+        MACOSX_BUNDLE FALSE
+        WIN32_EXECUTABLE FALSE)
+endif()

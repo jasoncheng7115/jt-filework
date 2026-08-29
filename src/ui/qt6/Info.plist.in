@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>jt-filework</string>
+    <key>CFBundleDisplayName</key>
+    <string>jt-filework</string>
+    <key>CFBundleExecutable</key>
+    <string>jt-filework</string>
+    <key>CFBundleIdentifier</key>
+    <string>${MACOSX_BUNDLE_GUI_IDENTIFIER}</string>
+    <key>CFBundleIconFile</key>
+    <string>jt-filework</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>${MACOSX_BUNDLE_SHORT_VERSION_STRING}</string>
+    <key>CFBundleVersion</key>
+    <string>${MACOSX_BUNDLE_BUNDLE_VERSION}</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>${CMAKE_OSX_DEPLOYMENT_TARGET}</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <!-- A file manager reads the user's whole disk by definition, so it asks
+         for the folders macOS gates rather than failing silently in them. -->
+    <key>NSDesktopFolderUsageDescription</key>
+    <string>jt-filework shows the files in your Desktop folder.</string>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>jt-filework shows the files in your Documents folder.</string>
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>jt-filework shows the files in your Downloads folder.</string>
+    <key>NSRemovableVolumesUsageDescription</key>
+    <string>jt-filework shows the files on removable volumes.</string>
+    <key>NSNetworkVolumesUsageDescription</key>
+    <string>jt-filework shows the files on network volumes.</string>
+</dict>
+</plist>

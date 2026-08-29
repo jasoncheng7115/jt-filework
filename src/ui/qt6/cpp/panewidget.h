@@ -67,6 +67,7 @@ private:
     void showContextMenu(const QPoint &position);
     void showHeaderMenu(const QPoint &position);
     void applyColumnVisibility();
+    void ensureCurrentRow();
     static QString chordFor(const class QKeyEvent *key);
     // Typing letters jumps to a matching row. docs/UI_UX_SPEC.md 5.4: it must
     // never start a rename and never trigger a destructive command.
@@ -86,6 +87,7 @@ private:
     FileListModel *m_model;
     bool m_active = false;
     QColor m_indicator;
+    quint64 m_positionedGeneration = 0;
     class JtfHeaderView *m_header = nullptr;
     QColor m_border;
     QString m_typeAhead;

@@ -44,8 +44,14 @@ fi
 cmake -S "$here" -B "$build_dir" -DCMAKE_BUILD_TYPE="$build_type" ${extra[@]+"${extra[@]}"}
 cmake --build "$build_dir" --parallel
 
+# On macOS the product is an .app; everywhere else it is the executable.
+app="$build_dir/jt-filework"
+if [ -d "$build_dir/jt-filework.app" ]; then
+    app="$build_dir/jt-filework.app/Contents/MacOS/jt-filework"
+fi
+
 echo
-echo "built: $build_dir/jt-filework"
+echo "built: $app"
 if [ "${JTF_NO_RUN:-0}" != "1" ]; then
-    exec "$build_dir/jt-filework"
+    exec "$app"
 fi

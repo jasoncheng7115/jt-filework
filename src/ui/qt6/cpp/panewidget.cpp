@@ -2,6 +2,8 @@
 #include "filelistmodel.h"
 #include "breadcrumb.h"
 #include "headerview.h"
+
+#include <QApplication>
 #include "jtfstring.h"
 #include "platform/quicklook.h"
 
@@ -601,12 +603,49 @@ void PaneWidget::refresh() {
     syncPath();
     syncSortIndicator();
     m_model->refresh();
+    ensureCurrentRow();
     retranslate();
 }
 
 void PaneWidget::refreshRows() {
     m_model->refresh();
+    ensureCurrentRow();
     retranslate();
+}
+
+void PaneWidget::ensureCurrentRow() {
+    const int rows = m_model->rowCount();
+    if (rows == 0) {
+        return;
+    }
+
+    // A list with no cursor has nothing for Home, End or the arrow keys to
+    // move, so arriving in a folder has to leave one somewhere. Only on a new
+    // listing: repositioning on every refresh would drag the cursor back
+    // while rows are still streaming in.
+    const quint64 generation = m_model->generation();
+    const QModelIndex current = m_view->currentIndex();
+    if (generation == m_positionedGeneration && current.isValid() && current.row() < rows) {
+        return;
+    }
+    m_positionedGeneration = generation;
+
+    // Stepping out of a folder puts the cursor on the folder you left; any
+    // other arrival starts at the first entry, past the `..` row.
+    int row = jtf_take_focus_row(m_app, m_pane);
+    if (row < 0 || row >= rows) {
+        row = rows > 1 && jtf_row_is_parent(m_app, m_pane, 0) ? 1 : 0;
+    }
+    const QModelIndex index = m_model->index(row, 0);
+    m_view->setCurrentIndex(index);
+    m_view->scrollTo(index, QAbstractItemView::PositionAtCenter);
+    // The cursor is only useful if the keys reach it. Never steal focus from
+    // a text field the user is typing in.
+    QWidget *focused = QApplication::focusWidget();
+    const bool typing = qobject_cast<QLineEdit *>(focused) != nullptr;
+    if (!typing && m_active) {
+        m_view->setFocus(Qt::OtherFocusReason);
+    }
 }
 
 void PaneWidget::setListFont(const QFont &font) {

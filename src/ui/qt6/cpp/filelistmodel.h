@@ -21,6 +21,10 @@ signals:
     void markChanged();
 
 public:
+    /// Identity of the current row set; changes on a new location or re-sort.
+    quint64 generation() const { return m_generation; }
+
+public:
     FileListModel(JtfApp *app, int paneId, QObject *parent = nullptr);
 
     void setPane(int paneId);

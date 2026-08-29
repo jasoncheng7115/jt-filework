@@ -54,7 +54,9 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const {
         // Marks are shown as a checkbox on the name column, which is what a
         // person expects to be able to click. The keyboard route (space) and
         // this one set the same state - there is one mark set, not two.
-        if (column != 0) {
+        // The `..` row is a way out of the folder, not a thing you can mark,
+        // so it gets no box rather than an empty one that never ticks.
+        if (column != 0 || jtf_row_is_parent(m_app, m_pane, row)) {
             return {};
         }
         return jtf_row_is_marked(m_app, m_pane, row) ? Qt::Checked : Qt::Unchecked;
@@ -147,7 +149,7 @@ Qt::ItemFlags FileListModel::flags(const QModelIndex &index) const {
     Qt::ItemFlags base = QAbstractTableModel::flags(index);
     if (index.isValid()) {
         base |= Qt::ItemIsDragEnabled;
-        if (index.column() == 0) {
+        if (index.column() == 0 && !jtf_row_is_parent(m_app, m_pane, index.row())) {
             base |= Qt::ItemIsUserCheckable;
         }
         // Only a directory row is itself a drop target; dropping between rows

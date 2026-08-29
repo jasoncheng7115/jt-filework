@@ -472,3 +472,49 @@ fn walk_text_files(dir: &Path, visit: &mut impl FnMut(&Path, &str)) {
         }
     }
 }
+
+/// Every `%TOKEN%` in the Qt stylesheet has a substitution.
+///
+/// Qt does not report a bad declaration and carry on — one unrecognised value
+/// makes it reject the *entire* stylesheet, with a single line on stderr that
+/// nobody watching a GUI ever sees. The program then runs with no theme at
+/// all and simply looks wrong, which is a hard symptom to trace back to a
+/// missing string replacement.
+///
+/// This happened: `%PREVIEW%` was added to the sheet without its `.replace`,
+/// and the whole theme was silently off for several commits.
+#[test]
+fn every_stylesheet_token_is_substituted() {
+    let theme = repo_root().join("src/ui/qt6/cpp/theme.cpp");
+    let text = fs::read_to_string(&theme).expect("theme.cpp is readable");
+
+    let used: std::collections::BTreeSet<String> = token_names(&text, false);
+    let substituted: std::collections::BTreeSet<String> = token_names(&text, true);
+
+    let missing: Vec<&String> = used.difference(&substituted).collect();
+    assert!(
+        missing.is_empty(),
+        "these appear in the stylesheet with no .replace, which makes Qt \
+         reject the whole sheet: {missing:?}"
+    );
+}
+
+/// `%TOKEN%` names in `text`. With `in_replace`, only those inside a
+/// `QStringLiteral("%…%")`, which is how a substitution is written.
+fn token_names(text: &str, in_replace: bool) -> std::collections::BTreeSet<String> {
+    let mut found = std::collections::BTreeSet::new();
+    let needle = if in_replace { "QStringLiteral(\"%" } else { "%" };
+    let mut rest = text;
+    while let Some(at) = rest.find(needle) {
+        let after = &rest[at + needle.len()..];
+        let Some(end) = after.find('%') else { break };
+        let name = &after[..end];
+        if !name.is_empty() && name.chars().all(|c| c.is_ascii_uppercase()) {
+            found.insert(name.to_string());
+        }
+        rest = &after[end..];
+        // Step past the closing % so the next search does not rematch it.
+        rest = rest.get(1..).unwrap_or("");
+    }
+    found
+}

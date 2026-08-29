@@ -231,6 +231,7 @@ QMenu::separator { height: 1px; background: %BORDER%; margin: 4px 8px; }
 )")
         .replace(QStringLiteral("%WINDOW%"), hex(window))
         .replace(QStringLiteral("%PANE%"), hex(pane))
+        .replace(QStringLiteral("%PREVIEW%"), hex(preview))
         .replace(QStringLiteral("%HEADER%"), hex(header))
         .replace(QStringLiteral("%ALT%"), hex(rowAlternate))
         .replace(QStringLiteral("%HOVER%"), hex(rowHover))
