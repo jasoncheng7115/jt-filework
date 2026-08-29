@@ -21,7 +21,7 @@
 # WinCV adds the left arrow for the same thing; right is its counterpart.
 left                 = nav.up                    # wincv
 backspace            = nav.up                    # CV.HLP
-right                = file.open                 # wincv, inferred counterpart
+right                = file.open                 # confirmed
 enter                = file.open                 # CV.HLP 觀看該檔案(或進入該目錄)
 p                    = nav.goto                  # CV.HLP
 alt+left             = nav.back
@@ -47,7 +47,11 @@ m                    = file.move_to_target_pane  # CV.HLP
 r                    = file.rename               # CV.HLP
 d                    = file.delete               # CV.HLP
 delete               = file.delete               # CV.HLP
-t                    = file.trash                # CV.HLP, see Unresolved
+# `T` is deliberately left free. CV.HLP gives it as delete-to-trash, WinCV's
+# strings also show it as mark-all, and the project owner asked to hold it
+# until that is settled. Trash keeps the platform chord meanwhile, so the
+# command is still reachable in this mode.
+primary+backspace    = file.trash
 v                    = file.view                 # CV.HLP
 e                    = file.edit                 # wincv
 alt+r                = file.batch_rename         # wincv 連續編號改名

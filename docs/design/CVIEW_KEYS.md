@@ -42,7 +42,7 @@ Verbatim from the help file, with our command id where one exists.
 | `M` | 移動檔案 | `file.move_to_target_pane` |
 | `R` | 改檔名 | `file.rename` |
 | `D` / `DEL` | 刪除檔案 | `file.delete` |
-| `T` | 刪除檔案並備分至垃圾桶目錄 | `file.trash` |
+| `T` | 刪除檔案並備分至垃圾桶目錄 | held — see Unresolved |
 | `A` | 改變檔案屬性 | not built |
 | `X` | 批次處理檔案 | not built |
 | `Alt-Z` | 壓縮檔案 | not built |
@@ -85,18 +85,18 @@ Confirmed from `WinCV.IMG` strings and by the project owner:
 | --- | --- | --- |
 | `E` | 編輯 | In the DOS help `E` edits only from *inside* the viewer. WinCV puts it on the file list too. |
 | `←` | 回上一層 | Not in the DOS help, which has only `BACKSPACE`. |
-| `→` | 進入目錄 | Implied by `←`; the natural counterpart. |
+| `→` | 進入目錄 | Confirmed by the project owner. |
 | `S` | 排序 | Not in the DOS file-list table. |
 | `Alt-R` | 連續編號改名 | Maps to `file.batch_rename`. |
 
 ## Unresolved
 
-**`T`.** `CV.HLP` says `T` = 刪除檔案並備分至垃圾桶目錄. `WinCV.IMG` also
-contains the string `T 標記所有檔案`. Those cannot both be the file list's
-`T`; the second may belong to a dialog's `&T` accelerator or to the archive
-view. The preset follows the DOS help — `T` = trash — and this note stays
-until a WinCV user confirms which is right.
+**`T` — held, unbound.** `CV.HLP` says `T` = 刪除檔案並備分至垃圾桶目錄.
+`WinCV.IMG` also contains the string `T 標記所有檔案`. Those cannot both be
+the file list's `T`; the second may belong to a dialog's `&T` accelerator or
+to the archive view. The project owner asked to leave `T` unbound until it is
+settled, so the preset binds nothing to it. `file.trash` keeps the platform
+chord in the meantime, so the command is still reachable.
 
-**`→` in the DOS version.** Nothing in `CV.HLP` binds the right arrow. It is
-bound here because the left arrow's counterpart is obvious and because WinCV
-behaves that way, but it is not sourced from the help file.
+`→` is settled: confirmed as 進入目錄 by the project owner, though it is
+still absent from the DOS help.
