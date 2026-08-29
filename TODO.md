@@ -263,6 +263,27 @@
 - [ ] Dolphin
 - [ ] light/dark/system integration
 
+## Distribution / Code Signing
+
+Long-lead items: both identities take real time to obtain. See
+`docs/DISTRIBUTION.md`.
+
+- [ ] Join the Apple Developer Program
+- [ ] Obtain a Developer ID Application certificate
+- [ ] Build with the hardened runtime and a minimal entitlement set
+- [ ] codesign all nested binaries, then the bundle
+- [ ] notarytool submit + stapler staple, for the .app and the .dmg
+- [ ] Verify on a clean machine with the quarantine attribute present
+- [ ] Decide Windows OV vs EV certificate; start identity validation
+- [ ] Solve hardware-token / cloud-HSM signing in CI
+- [ ] Evaluate Microsoft's cloud signing service (Phase 4)
+- [ ] signtool with RFC 3161 timestamp, for the exe and the installer
+- [ ] Linux: Flatpak portal permissions decision
+- [ ] Linux: signed artefacts and published checksums
+- [ ] Keep signing secrets out of the repository; a fork must still build
+- [ ] Honest warning instructions for any pre-signing build shared externally
+- [ ] Confirm GPL-3.0-or-later stance on Mac App Store (assumed: not used)
+
 ## Quality
 
 - [ ] fuzz path/archive code

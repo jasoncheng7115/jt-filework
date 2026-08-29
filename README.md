@@ -100,6 +100,7 @@ Possible future plugin SDK / protocol:
 - `docs/SECURITY.md`
 - `docs/TESTING.md`
 - `docs/UI_TEST_PLAN.md`
+- `docs/DISTRIBUTION.md`
 - `docs/DEVELOPMENT_ENVIRONMENT.md`
 - `docs/DEVELOPMENT_PLAN.md`
 - `TODO.md`
