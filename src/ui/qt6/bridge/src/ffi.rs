@@ -977,6 +977,35 @@ pub unsafe extern "C" fn jtf_set_tree_state(app: *mut App, visible: c_int, width
     }
 }
 
+/// Whether the inspector panel is shown.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_inspector_visible(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.inspector_state().0))
+}
+
+/// Its remembered width, or 0 for the default.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_inspector_width(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.inspector_state().1))
+}
+
+/// Remember the inspector's state.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_inspector_state(app: *mut App, visible: c_int, width: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_inspector_state(visible != 0, u16::try_from(width.max(0)).unwrap_or(0));
+    }
+}
+
 /// Mark or unmark listed entries matching a wildcard. Returns how many.
 ///
 /// # Safety

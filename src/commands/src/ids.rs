@@ -317,6 +317,7 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("view.hidden", C::View, "command.view.hidden"),
     ("view.filter", C::View, "command.view.filter"),
     ("view.tree", C::View, "command.view.tree"),
+    ("view.inspector", C::View, "command.view.inspector"),
     ("view.font.smaller", C::View, "command.view.font.smaller"),
     ("view.font.larger", C::View, "command.view.font.larger"),
     ("preview.toggle", C::View, "command.preview.toggle"),

@@ -27,6 +27,8 @@ enum class Shape {
     Search,
     Hidden,
     Settings,
+    Close,
+    Inspector,
 };
 
 // Rendered at several sizes so the icon stays crisp on any display scale.

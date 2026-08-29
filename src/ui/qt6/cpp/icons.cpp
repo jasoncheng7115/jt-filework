@@ -70,6 +70,19 @@ void drawShape(QPainter &painter, glyph::Shape shape, qreal size) {
         path.moveTo(x(13.25), x(8.75));
         path.lineTo(x(13.25), x(12.25));
         break;
+    case glyph::Shape::Close:
+        path.moveTo(x(4.5), x(4.5));
+        path.lineTo(x(11.5), x(11.5));
+        path.moveTo(x(11.5), x(4.5));
+        path.lineTo(x(4.5), x(11.5));
+        break;
+    case glyph::Shape::Inspector:
+        // The sidebar glyph mirrored: the divider on the right, because that
+        // is the side of the window this panel lives on.
+        path.addRoundedRect(x(2.5), x(3), x(11), x(10), x(1.5), x(1.5));
+        path.moveTo(x(9.5), x(3));
+        path.lineTo(x(9.5), x(13));
+        break;
     case glyph::Shape::Filter:
         path.moveTo(x(2.5), x(4));
         path.lineTo(x(13.5), x(4));

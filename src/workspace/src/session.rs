@@ -132,6 +132,12 @@ pub struct SessionSettings {
     /// Its width in logical pixels. 0 means the default.
     #[serde(default)]
     pub tree_width: u16,
+    /// Whether the inspector panel is shown.
+    #[serde(default)]
+    pub inspector_visible: bool,
+    /// Its width in logical pixels. 0 means the default.
+    #[serde(default)]
+    pub inspector_width: u16,
 }
 
 const fn default_true() -> bool {
@@ -158,6 +164,8 @@ impl Default for SessionSettings {
             // is a decision made for the user rather than by them.
             tree_visible: false,
             tree_width: 0,
+            inspector_visible: false,
+            inspector_width: 0,
         }
     }
 }
@@ -181,6 +189,8 @@ impl SessionSettings {
             // is a decision made for the user rather than by them.
             tree_visible: false,
             tree_width: 0,
+            inspector_visible: false,
+            inspector_width: 0,
         }
     }
 }

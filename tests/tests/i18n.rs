@@ -340,3 +340,57 @@ fn the_localizer_resolves_real_catalogues_with_english_fallback() {
         assert!(!text.is_empty());
     }
 }
+
+/// No Qt widget resolves a catalogue key through `QObject::tr`.
+///
+/// This one is worth a test because it fails *quietly*. `tr("inspector.kind")`
+/// compiles, runs, and returns `"inspector.kind"` — Qt's translation system
+/// has no `.ts` file for us, so it hands the key straight back and the panel
+/// displays a dotted identifier where a word should be. The catalogue lives in
+/// Rust (`AGENTS.md` §11), so every lookup goes through `jtf_tr`, which the
+/// C++ side wraps as `tr_`.
+#[test]
+fn the_qt_layer_never_looks_up_a_catalogue_key_through_qt() {
+    let cpp = repo_root().join("src/ui/qt6/cpp");
+    let mut offences = Vec::new();
+    for entry in fs::read_dir(&cpp)
+        .expect("the Qt sources are missing")
+        .flatten()
+    {
+        let path = entry.path();
+        if path.extension().is_none_or(|e| e != "cpp" && e != "mm") {
+            continue;
+        }
+        let Ok(text) = fs::read_to_string(&path) else {
+            continue;
+        };
+        for (number, line) in text.lines().enumerate() {
+            // A catalogue key is `word.word`; Qt's own tr() is still used for
+            // things like tooltips on standard dialogs, which is fine.
+            let Some(rest) = find_bare_tr(line) else {
+                continue;
+            };
+            if rest.contains('.') && !rest.contains(' ') {
+                offences.push(format!("{}:{}: tr(\"{rest}\")", path.display(), number + 1));
+            }
+        }
+    }
+    assert!(
+        offences.is_empty(),
+        "these resolve to the key itself; use tr_ (jtf_tr):\n  {}",
+        offences.join("\n  ")
+    );
+}
+
+/// The literal inside a `tr("...")` that is not part of a longer identifier.
+fn find_bare_tr(line: &str) -> Option<&str> {
+    let at = line.find("tr(\"")?;
+    // `tr_("...")`, `QObject::tr`, `translate(` and friends all end in a
+    // character that makes the call something other than a bare `tr(`.
+    let preceded_by = line[..at].chars().next_back();
+    if preceded_by.is_some_and(|c| c.is_alphanumeric() || c == '_' || c == ':') {
+        return None;
+    }
+    let rest = &line[at + 4..];
+    rest.find('"').map(|end| &rest[..end])
+}

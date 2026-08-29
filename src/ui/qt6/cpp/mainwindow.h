@@ -63,6 +63,8 @@ private:
     void toggleTree();
     void setTreeVisible(bool visible);
     void syncTree();
+    void setInspectorVisible(bool visible);
+    void syncInspector();
     void openViewer();
     void quickLookSelection();
     void openBatchRename();
@@ -96,6 +98,8 @@ private:
     class QAction *m_upAction = nullptr;
     class QAction *m_refreshAction = nullptr;
     class QAction *m_treeAction = nullptr;
+    class QAction *m_inspectorAction = nullptr;
+    class Inspector *m_inspector = nullptr;
     class QAction *m_hiddenAction = nullptr;
     // Which glyph each toolbar action draws, so they can be redrawn when the
     // theme changes.

@@ -2,10 +2,44 @@
 
 ![The reference layout](reference-layout.png)
 
-This mockup is the target. It is not a screenshot of the program — it is the
-picture the program is being built towards, and where this document and the
-code disagree, the picture wins for *layout* and the written specs win for
-*behaviour*.
+This mockup is a **reference, not a contract**. The user supplied it as a
+direction to head in, explicitly not as something to reproduce pixel for
+pixel. Read it as: this is the density, this is the arrangement, these are the
+parts that should exist.
+
+Where a detail in the picture conflicts with `docs/UI_CONVENTIONS.md`, the
+conventions win — they are the ones written down to be followed. Where the
+picture shows something the program does not have yet, that is a candidate for
+`docs/FEATURE_INVENTORY.md`, ranked with everything else, not a queue jump.
+
+Judgement still applies. A panel in the picture that turns out to be wrong for
+a keyboard-first file manager should not be built merely because it is in the
+picture.
+
+## What it gets right, and why we are copying it
+
+It is a good design, and the reasons are worth naming so they survive into
+parts of the program the picture does not cover:
+
+- **Density without noise.** Four panes, an inspector and a job list on one
+  screen, and it still reads. Achieved with quiet separators and generous row
+  height rather than boxes inside boxes.
+- **Every pane is self-sufficient.** Tabs, navigation, path and status all sit
+  inside the pane. Nothing makes you look at the top of the window to find out
+  what a pane at the bottom is showing.
+- **One accent colour, spent carefully.** Blue marks the active tab, the
+  selected row and the running progress bar — the three things you look for.
+  Everything else is greyscale, which is what makes the blue work.
+- **Numbers are right-aligned and monospaced.** Sizes and dates form clean
+  columns you can scan down, which is the whole reason for the default
+  monospace setting.
+- **Status lines answer three questions in a fixed order**: what is selected,
+  how big it is, how many there are. Same order in every pane, so you learn
+  where to look once.
+- **Work is visible without being modal.** Jobs run in a corner with progress,
+  pause and cancel, instead of a dialog across the middle of the screen.
+
+These are the qualities to preserve. The exact pixel arrangement is not.
 
 One correction to the image: its title bar reads with capitals and a space.
 The product name is `jt-filework`, lowercase and hyphenated, in the title bar
@@ -74,4 +108,7 @@ size, total item count, running task count.
 | Window status bar aggregate | Done |
 | Inspector panel | Planned |
 | Bottom dock: Tasks, Transfers, Bookmarks, History | Planned |
-| Bottom dock: AI Assistant | Planned — `docs/SEARCH_AI.md` |
+| Bottom dock: AI Assistant | Deferred — `docs/SEARCH_AI.md` |
+
+The AI panel is deferred deliberately. It is the largest thing in the picture
+and the least load-bearing for a file manager; the fundamentals come first.

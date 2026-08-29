@@ -447,12 +447,12 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-08-29 · **Branch:** `poc/qt6` · **Phase:** 0B — GUI PoC
+**Updated:** 2026-08-29 · **Branch:** `poc/qt6` · **Phase:** 1 — usable build
 
 ### Gates
 
 ```text
-tests     209 passing, 0 failing
+tests     344 passing, 0 failing, across 33 targets
 clippy    clean (-D warnings, workspace-wide)
 rustfmt   clean
 CI        lint / i18n / security audit / test on macOS, Windows, Linux / rustdoc
@@ -461,15 +461,35 @@ CI        lint / i18n / security audit / test on macOS, Windows, Linux / rustdoc
 ### Runnable
 
 ```bash
-./src/ui/qt6/build.sh          # builds and launches the Qt 6 window
-cargo run -p jtf-cli           # headless walkthrough of the core
+./src/ui/qt6/build.sh            # debug build, then launch
+./src/ui/qt6/build.sh release    # optimised build, then launch
+cargo run -p jtf-cli             # headless walkthrough of the core
+cargo run -p jtf-bench           # performance budgets
 ```
 
-The window opens the home folder and does: navigation (double-click, Enter,
-Backspace, back/forward, editable path field), native per-file icons,
-sortable columns, horizontal/vertical/nested splits, the quad preset, tab bars
-per pane, Space to mark, hidden-file toggle, Light/Dark/System following the
-system live, runtime `en` ↔ `zh-TW` switching, and session restore.
+### What the window does
+
+- **Navigation** — double-click, Enter, Backspace, back/forward, up, home, an
+  editable path field, a clickable breadcrumb that elides its middle, and a
+  resizable folder tree sidebar that can be hidden.
+- **Panes** — horizontal, vertical and nested splits; the quad preset; per-pane
+  tab bars; each pane self-contained with its own path, status and columns.
+- **The list** — native per-file icons, sortable columns with an indicator,
+  `Name · Size · Modified · Type`, checkbox marks, monospace by default,
+  folders-first sorting as a preference, type-ahead, filter and search boxes.
+- **Operations** — copy, move, rename, duplicate, new folder, trash and delete
+  through the job engine, with conflict resolution, progress, cancellation and
+  undo; batch rename; drag and drop; clipboard copy/cut/paste.
+- **Marks** — space to toggle, all/none/invert, and mark or unmark by wildcard
+  using the same pattern language as the search box.
+- **Viewing** — a text and hex viewer with encoding detection, and Quick Look
+  on macOS.
+- **Search** — a query parser, a bounded recursive walker, and live results.
+- **Inspector** — a right-hand panel with a preview and the file's facts.
+- **Chrome** — command palette, settings dialog, menus that show their
+  shortcuts, a toolbar of the common actions, a workspace status bar, Light /
+  Dark / System following the system live, runtime `en` ↔ `zh-TW` switching,
+  and session restore that can be turned off.
 
 ### Crates
 
@@ -477,29 +497,34 @@ system live, runtime `en` ↔ `zh-TW` switching, and session restore.
 |---|---|
 | `jtf-core` | file model, error codes, i18n catalogue + localizer, theme tokens |
 | `jtf-jobs` | job state machine, monotonic progress, cancellation |
-| `jtf-workspace` | recursive split tree, per-pane tabs, selection vs marking, session memory |
+| `jtf-workspace` | recursive split tree, per-pane tabs, selection vs marking, session memory, sorting |
 | `jtf-commands` | command registry, keymap, command bus |
-| `jtf-fs` | local provider, cancellable async enumeration in batches |
+| `jtf-fs` | local provider, cancellable async enumeration in ramped batches |
+| `jtf-ops` | operation planning, conflict policy, execution, trash, undo, batch rename |
+| `jtf-viewer` | format detection, text decoding, line index, hex view |
+| `jtf-search` | query parsing, matching, bounded recursive walk |
 | `jtf-qt6-bridge` | C ABI over the core; the only `unsafe` in Rust |
-| `jtf-conformance` | architecture boundary tests, locale parity and coverage |
+| `jtf-conformance` | architecture boundaries, locale parity, keymap loading, hostile input |
 | `jtf-cli` | headless walkthrough |
-| `src/ui/qt6/cpp` | Qt 6 Widgets front end (C++) |
+| `jtf-bench` | performance budgets |
+| `src/ui/qt6/cpp` | Qt 6 Widgets front end (C++), Objective-C++ for macOS |
 
-Also: `locales/{en,zh-TW}` (137 keys), application icon, CI, ADR-0002.
+Also: `locales/{en,zh-TW}` (296 keys), `keymaps/{platform,cview}.keymap`,
+application icon, CI, ADR-0002, `docs/design/reference-layout.png`.
 
 ### Not built yet
 
 ```text
-file operations     copy, move, rename, trash - the job engine has no work yet
-platform adapters   no Quick Look, drag and drop, trash, or native menus
-viewers / preview   none
-search              no query parser, no scanner, no index
-AI providers        none
+platform adapters   Windows and Linux trash, reveal and preview are stubs
+views               no icon or grid view, no thumbnails
+sidebars            no bookmarks, no recent locations, no volumes list
+viewers             no image, archive, JSON, CSV or syntax-highlighted view
+upgrade             migration chain and version stamps are specified, not built
+AI providers        none - deliberately last, docs/SEARCH_AI.md
 ```
 
-Known PoC shortcuts, each tracked in `TODO.md`: dates are formatted by hand
-rather than by a locale-aware platform API; the list is not yet benchmarked at
-100K rows; there is no drag and drop.
+The rest of the backlog is `docs/FEATURE_INVENTORY.md`, and the layout it is
+heading towards is `docs/design/REFERENCE_LAYOUT.md`.
 
 ### Decisions outstanding
 
@@ -512,5 +537,5 @@ rather than by a locale-aware platform API; the list is not yet benchmarked at
 ### Next
 
 1. Benchmark the list at 100K and 1M rows; record the numbers in ADR-0001.
-2. File operations through the job engine: copy, move, rename, trash.
-3. macOS platform adapter: Quick Look, Finder drag and drop, Trash.
+2. Bookmarks, recent locations and a volumes list in the sidebar.
+3. Windows and Linux platform adapters: trash, reveal, preview.

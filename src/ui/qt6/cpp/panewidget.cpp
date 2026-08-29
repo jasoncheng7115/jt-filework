@@ -541,7 +541,10 @@ void PaneWidget::setListFont(const QFont &font) {
 }
 
 void PaneWidget::retranslate() {
-    const auto tr = [&](const char *key) {
+    // Named tr_ rather than tr: a lambda that shadows QObject::tr reads at a
+    // glance as if it were QObject::tr, and QObject::tr would silently return
+    // the key. One spelling for catalogue lookup across the whole Qt layer.
+    const auto tr_ = [&](const char *key) {
         return jtfText([&](char *buf, int len) { return jtf_tr(m_app, key, buf, len); });
     };
 
@@ -554,12 +557,12 @@ void PaneWidget::retranslate() {
             return jtf_tr(m_app, keyUtf8.constData(), buf, len);
         });
     } else if (jtf_is_loading(m_app, m_pane) && jtf_is_searching(m_app, m_pane)) {
-        status = jtfFill(tr("status.searching"), "count",
+        status = jtfFill(tr_("status.searching"), "count",
                          QString::number(jtf_row_count(m_app, m_pane)));
     } else if (jtf_is_loading(m_app, m_pane)) {
-        status = tr("status.loading");
+        status = tr_("status.loading");
     } else if (jtf_is_searching(m_app, m_pane)) {
-        status = jtfFill(tr("status.results"), "count",
+        status = jtfFill(tr_("status.results"), "count",
                          QString::number(jtf_row_count(m_app, m_pane)));
     } else {
         const int rows = jtf_row_count(m_app, m_pane);
@@ -569,28 +572,28 @@ void PaneWidget::retranslate() {
         // With a filter on, say how many of how many. Showing only the
         // filtered count makes a directory look empty when it is not.
         if (m_filter->isVisible() && !m_filter->text().isEmpty()) {
-            status = jtfFill(jtfFill(tr("status.filtered"), "count", QString::number(rows)),
+            status = jtfFill(jtfFill(tr_("status.filtered"), "count", QString::number(rows)),
                              "total", QString::number(total));
         } else {
-            status = jtfFill(tr("status.items"), "count", QString::number(rows));
+            status = jtfFill(tr_("status.items"), "count", QString::number(rows));
         }
         // Selection and marks are different things and are counted
         // separately, because conflating them is exactly what AGENTS.md 10
         // forbids in the model.
         if (selected > 0) {
             status += QStringLiteral("   ") +
-                      jtfFill(tr("status.selected"), "count", QString::number(selected));
+                      jtfFill(tr_("status.selected"), "count", QString::number(selected));
         }
         if (marked > 0) {
             status += QStringLiteral("   ") +
-                      jtfFill(tr("status.marked"), "count", QString::number(marked));
+                      jtfFill(tr_("status.marked"), "count", QString::number(marked));
         }
         // The size of what an operation would act on, which is the number
         // people are actually looking for before they copy something.
         const quint64 bytes = jtf_target_size(m_app, m_pane);
         if (bytes > 0) {
             status += QStringLiteral("   ") +
-                      jtfFill(tr("status.size"), "size", formatSize(bytes));
+                      jtfFill(tr_("status.size"), "size", formatSize(bytes));
         }
         // Free space comes from Qt, which asks the platform, exactly as the
         // file icons do. It moves to the platform adapter with the rest of
@@ -600,7 +603,7 @@ void PaneWidget::retranslate() {
         const QStorageInfo storage(here);
         if (storage.isValid() && storage.bytesAvailable() > 0) {
             status += QStringLiteral("   ") +
-                      jtfFill(tr("status.free"),
+                      jtfFill(tr_("status.free"),
                               "size",
                               formatSize(static_cast<quint64>(storage.bytesAvailable())));
         }

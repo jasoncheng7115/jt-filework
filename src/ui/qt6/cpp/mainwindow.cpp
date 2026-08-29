@@ -5,6 +5,7 @@
 #include "batchrenamedialog.h"
 #include "commandpalette.h"
 #include "foldertree.h"
+#include "inspector.h"
 #include "operations.h"
 #include "platform/quicklook.h"
 #include "settingsdialog.h"
@@ -55,6 +56,9 @@ MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_ap
     m_tree->setMinimumWidth(140);
     m_tree->setVisible(false);
     m_outer->addWidget(m_tree);
+    m_inspector = new Inspector(m_app, m_outer);
+    m_inspector->setVisible(false);
+    connect(m_inspector, &Inspector::closeRequested, this, [this] { setInspectorVisible(false); });
     setCentralWidget(m_outer);
 
     connect(m_tree, &FolderTree::folderActivated, this, [this](const QString &path) {
@@ -66,6 +70,9 @@ MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_ap
     connect(m_outer, &QSplitter::splitterMoved, this, [this](int, int) {
         if (m_tree->isVisible()) {
             jtf_set_tree_state(m_app, 1, m_outer->sizes().value(0));
+        }
+        if (m_inspector->isVisible()) {
+            jtf_set_inspector_state(m_app, 1, m_outer->sizes().last());
         }
     });
 
@@ -249,6 +256,8 @@ void MainWindow::buildMenus() {
     m_viewMenu = menuBar()->addMenu(QString());
     m_translatableMenus.append({m_viewMenu, "menu.view"});
     command(m_viewMenu, "view.tree", [this] { toggleTree(); });
+    command(m_viewMenu, "view.inspector",
+            [this] { setInspectorVisible(!m_inspector->isVisible()); });
     command(m_viewMenu, "view.hidden",
             [this] { jtf_set_show_hidden(m_app, jtf_show_hidden(m_app) ? 0 : 1); });
     command(m_viewMenu, "view.refresh", [this] { jtf_refresh(m_app, jtf_active_pane(m_app)); });
@@ -391,8 +400,8 @@ void MainWindow::markByPattern(bool mark) {
     bool accepted = false;
     const QString pattern =
         QInputDialog::getText(this,
-                              mark ? tr("prompt.pattern_title") : tr("prompt.unmark_title"),
-                              tr("prompt.pattern_label"),
+                              mark ? tr_("prompt.pattern_title") : tr_("prompt.unmark_title"),
+                              tr_("prompt.pattern_label"),
                               QLineEdit::Normal,
                               QStringLiteral("*"),
                               &accepted);
@@ -404,7 +413,7 @@ void MainWindow::markByPattern(bool mark) {
         jtf_mark_pattern(m_app, jtf_active_pane(m_app), utf8.constData(), mark ? 1 : 0);
     // Say how many matched: a pattern that matched nothing looks identical to
     // one that was ignored, and the difference matters.
-    statusBar()->showMessage(jtfFill(tr("status.marked_count"), "count", QString::number(count)),
+    statusBar()->showMessage(jtfFill(tr_("status.marked_count"), "count", QString::number(count)),
                              4000);
     refreshAll();
 }
@@ -820,6 +829,9 @@ void MainWindow::buildToolbar() {
     bar->addSeparator();
 
     m_treeAction = button("view.tree", glyph::Shape::Sidebar, [this] { toggleTree(); }, true);
+    m_inspectorAction = button(
+        "view.inspector", glyph::Shape::Inspector,
+        [this] { setInspectorVisible(!m_inspector->isVisible()); }, true);
     button("workspace.split.horizontal", glyph::Shape::SplitHorizontal,
            [this] { jtf_split_active(m_app, 0); });
     button("workspace.split.vertical", glyph::Shape::SplitVertical,
@@ -884,6 +896,10 @@ void MainWindow::syncToolbar() {
 
     // A toggle button shows what it is toggling, or it is just a button that
     // sometimes does nothing visible (docs/UI_CONVENTIONS.md 1).
+    if (m_inspectorAction) {
+        QSignalBlocker blocker(m_inspectorAction);
+        m_inspectorAction->setChecked(m_inspector && m_inspector->isVisible());
+    }
     if (m_treeAction) {
         QSignalBlocker blocker(m_treeAction);
         m_treeAction->setChecked(m_tree && m_tree->isVisible());
@@ -922,6 +938,9 @@ void MainWindow::applyFont() {
     const QFont font = listFont();
     for (auto *pane : std::as_const(m_panes)) {
         pane->setListFont(font);
+    }
+    if (m_inspector) {
+        m_inspector->setListFont(font);
     }
     if (m_tree) {
         m_tree->setListFont(font);
@@ -979,6 +998,50 @@ void MainWindow::setTreeVisible(bool visible) {
     jtf_set_tree_state(m_app, visible ? 1 : 0, m_outer->sizes().value(0));
 }
 
+void MainWindow::setInspectorVisible(bool visible) {
+    m_inspector->setVisible(visible);
+    if (visible) {
+        const int width = jtf_inspector_width(m_app);
+        const int panel = width > 0 ? width : 280;
+        QList<int> sizes = m_outer->sizes();
+        // Take the panel's width from the pane area, not from the tree: the
+        // sidebar's width is something the user set, and one panel opening
+        // should not resize another.
+        if (sizes.size() >= 2) {
+            const int last = sizes.size() - 1;
+            sizes[last - 1] = qMax(200, sizes.at(last - 1) - panel);
+            sizes[last] = panel;
+            m_outer->setSizes(sizes);
+        }
+        syncInspector();
+    }
+    jtf_set_inspector_state(m_app, visible ? 1 : 0, m_outer->sizes().last());
+    syncToolbar();
+}
+
+void MainWindow::syncInspector() {
+    if (!m_inspector->isVisible()) {
+        return;
+    }
+    PaneWidget *active = activePane();
+    if (!active) {
+        return;
+    }
+    const int pane = active->paneId();
+    const int marked = jtf_marked_count(m_app, pane);
+    const int row = active->currentRow();
+    QString path;
+    if (row >= 0) {
+        path = jtfText([&](char *buf, int len) { return jtf_row_path(m_app, pane, row, buf, len); });
+    }
+    if (path.isEmpty()) {
+        // Nothing focused: describe the folder itself, which is still the
+        // answer to "what am I looking at".
+        path = jtfText([&](char *buf, int len) { return jtf_current_path(m_app, pane, buf, len); });
+    }
+    m_inspector->setTarget(path, marked);
+}
+
 void MainWindow::syncTree() {
     if (!m_tree->isVisible()) {
         return;
@@ -1034,6 +1097,7 @@ void MainWindow::refreshAll() {
     markActivePane();
     syncToolbar();
     syncTree();
+    syncInspector();
     retranslate();
 }
 
@@ -1144,6 +1208,9 @@ void MainWindow::applyTheme() {
         it.key()->setIcon(glyph::make(it.value(), m_theme.textPrimary));
     }
 
+    if (m_inspector) {
+        m_inspector->applyTheme(m_theme.textSecondary);
+    }
     for (auto *pane : std::as_const(m_panes)) {
         pane->applyTheme(m_theme.mark, m_theme.textPrimary, m_theme.indicator, m_theme.border);
     }

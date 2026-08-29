@@ -714,6 +714,20 @@ impl App {
         self.settings.tree_width = width;
     }
 
+    /// Whether the inspector is shown, and how wide.
+    pub(crate) const fn inspector_state(&self) -> (bool, u16) {
+        (
+            self.settings.inspector_visible,
+            self.settings.inspector_width,
+        )
+    }
+
+    /// Remember the inspector's state.
+    pub(crate) fn set_inspector_state(&mut self, visible: bool, width: u16) {
+        self.settings.inspector_visible = visible;
+        self.settings.inspector_width = width;
+    }
+
     /// The paths an operation started here would act on, newline-separated.
     ///
     /// Used for the clipboard and for "copy path": the same

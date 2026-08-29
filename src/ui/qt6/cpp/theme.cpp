@@ -142,6 +142,11 @@ QWidget#JtfCrumbs QPushButton {
 QWidget#JtfCrumbs QPushButton:hover { background: %HOVER%; }
 QWidget#JtfCrumbs QLabel { color: %DIM%; padding: 0 1px; }
 QLabel[jtfStatusSummary="true"] { color: %DIM%; padding: 0 10px; }
+QWidget#JtfInspector { background: %PANE%; border-left: 1px solid %BORDER%; }
+QWidget#JtfInspectorHeader { background: %HEADER%; border-bottom: 1px solid %BORDER%; }
+QLabel#JtfInspectorName { color: %TEXT%; }
+QLabel#JtfInspectorPreview { background: %HEADER%; border-radius: 6px; padding: 10px; }
+QLabel[jtfFactLabel="true"] { color: %DIM%; }
 QLabel#JtfStatus { color: %DIM%; padding: 3px 8px; }
 QLabel#JtfError { color: %ERROR%; padding: 3px 8px; }
 

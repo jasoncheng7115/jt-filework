@@ -63,6 +63,7 @@ primary+minus        = view.font.smaller
 primary+equal        = view.font.larger
 primary+e            = view.filter
 primary+shift+e      = view.tree
+primary+alt+i        = view.inspector
 
 # --- search and tools
 primary+f            = search.open

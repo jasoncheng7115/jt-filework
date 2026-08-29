@@ -63,6 +63,7 @@ ctrl+r               = view.refresh
 ctrl+h               = view.hidden
 primary+e            = view.filter
 primary+shift+e      = view.tree
+primary+alt+i        = view.inspector
 
 # --- search
 primary+f            = search.open
