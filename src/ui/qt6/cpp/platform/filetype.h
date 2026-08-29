@@ -33,4 +33,11 @@ QString describe(const QString &path);
 // which is not what the user's own file manager does.
 QString displayName(const QString &path);
 
+// Open `path` in the platform's terminal application.
+//
+// Through the platform's "open this with that application" API, never by
+// building a command line: a folder name containing a quote or a semicolon
+// must be a folder name, not syntax (`AGENTS.md` 20.3).
+bool openInTerminal(const QString &path);
+
 } // namespace filetype

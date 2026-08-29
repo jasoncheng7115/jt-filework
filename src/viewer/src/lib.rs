@@ -13,10 +13,14 @@
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
+mod archive;
 mod detect;
 mod hex;
 mod text;
 
+pub use archive::{
+    list as list_archive, ArchiveEntry, MAX_DIRECTORY_BYTES, MAX_ENTRIES, MAX_NAME_BYTES,
+};
 pub use detect::{detect, ContentKind};
 pub use hex::{HexView, HexWindow, ROW_BYTES};
 pub use text::{Encoding, LineEnding, TextView, TextWindow};

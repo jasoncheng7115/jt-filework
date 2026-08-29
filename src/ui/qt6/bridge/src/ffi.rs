@@ -1046,6 +1046,25 @@ pub unsafe extern "C" fn jtf_preview_open(app: *mut App, path: *const c_char) ->
     unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.preview_open(path)))
 }
 
+/// The archive at `path` as display lines. Empty when it is not an archive.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `path` must be a valid C string and `buf` must have
+/// room for `len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_archive_listing(
+    app: *const App,
+    path: *const c_char,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(path) = (unsafe { read_str(path) }) else {
+        return 0;
+    };
+    let text = unsafe { app_ref(app) }.map_or_else(String::new, |a| a.archive_listing(path));
+    unsafe { write_str(&text, buf, len) }
+}
+
 /// Release the preview's file handle.
 ///
 /// # Safety

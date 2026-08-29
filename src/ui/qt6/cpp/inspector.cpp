@@ -169,6 +169,23 @@ void Inspector::addRow(const QString &labelKey, const QString &value) {
     m_facts->addRow(label, field);
 }
 
+bool Inspector::showArchivePreview(const QString &path) {
+    // CView shows what is inside an archive when you open one (CV.HLP 4);
+    // this is the same answer without leaving the folder you are in.
+    const QByteArray utf8 = path.toUtf8();
+    const QString listing = jtfText([&](char *b, int l) {
+        return jtf_archive_listing(m_app, utf8.constData(), b, l);
+    });
+    if (listing.isEmpty()) {
+        return false;
+    }
+    m_text->setPlainText(listing);
+    m_text->setFont(m_listFont);
+    const int lines = listing.count(QLatin1Char('\n'));
+    m_textStatus->setText(jtfFill(tr_("preview.entries"), "count", QString::number(lines)));
+    return true;
+}
+
 bool Inspector::showTextPreview(const QString &path) {
     const QByteArray utf8 = path.toUtf8();
     if (!jtf_preview_open(m_app, utf8.constData())) {
@@ -211,7 +228,7 @@ void Inspector::showPreview(const QString &path) {
     const QFileInfo info(path);
     m_text->setVisible(false);
     m_textStatus->setVisible(false);
-    if (!info.isDir() && showTextPreview(path)) {
+    if (!info.isDir() && (showArchivePreview(path) || showTextPreview(path))) {
         m_preview->setVisible(false);
         m_text->setVisible(true);
         m_textStatus->setVisible(true);

@@ -74,6 +74,11 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
         jtf_navigate(m_app, m_pane, utf8.constData());
         emit stateChanged();
     });
+    connect(m_crumbs, &Breadcrumb::segmentMenuRequested, this,
+            [this](const QString &path, const QPoint &global) {
+                jtf_focus_pane(m_app, m_pane);
+                emit crumbMenuRequested(path, global);
+            });
     layout->addWidget(m_crumbs);
 
     // Filtering narrows what is already listed. It is instant because it

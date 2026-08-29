@@ -1491,6 +1491,40 @@ impl App {
         is_text
     }
 
+    /// The archive at `path` as display lines, or empty when it is not one.
+    ///
+    /// Formatted here rather than in the UI so the entry name, which comes
+    /// from an untrusted file, is never handed across as something the UI
+    /// might treat as markup or a path.
+    #[allow(clippy::unused_self)] // reads only the file, but belongs with the other preview calls
+    pub(crate) fn archive_listing(&self, path: &str) -> String {
+        use std::fmt::Write as _;
+
+        // Bounded: the parser already caps entries, and this caps what is
+        // rendered into one string for a preview pane.
+        const MAX_SHOWN: usize = 2000;
+
+        let Ok(entries) = jtf_viewer::list_archive(Path::new(path)) else {
+            return String::new();
+        };
+        let mut out = String::new();
+        for entry in entries.iter().take(MAX_SHOWN) {
+            let size = if entry.is_directory {
+                String::new()
+            } else {
+                format_size(entry.size)
+            };
+            // A name that would escape on extraction is marked, not hidden:
+            // seeing it is the point.
+            let flag = if entry.unsafe_name { "!" } else { " " };
+            let _ = writeln!(out, "{flag} {size:>10}  {}", entry.name);
+        }
+        if entries.len() > MAX_SHOWN {
+            let _ = writeln!(out, "… {} more", entries.len() - MAX_SHOWN);
+        }
+        out
+    }
+
     /// Release the preview's file handle.
     pub(crate) fn preview_close(&mut self) {
         self.preview = None;

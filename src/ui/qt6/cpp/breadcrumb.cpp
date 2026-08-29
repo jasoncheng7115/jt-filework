@@ -143,6 +143,14 @@ void Breadcrumb::rebuild() {
         button->setCursor(Qt::PointingHandCursor);
         button->setProperty("jtfCrumb", true);
         connect(button, &QPushButton::clicked, this, [this, path] { emit navigate(path); });
+        // Right-click acts on the segment under the pointer, not on the
+        // folder the pane is showing: the whole point of the menu is to do
+        // something with an ancestor without going there first.
+        button->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(button, &QWidget::customContextMenuRequested, this,
+                [this, button, path](const QPoint &at) {
+                    emit segmentMenuRequested(path, button->mapToGlobal(at));
+                });
         m_layout->addWidget(button);
     };
 

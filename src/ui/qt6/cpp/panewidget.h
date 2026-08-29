@@ -64,6 +64,7 @@ signals:
     // Paths dropped on this pane, and 0 for copy or 1 for move.
     void dropRequested(const QStringList &paths, int kind);
     void contextMenuRequested(const QPoint &global, bool onEntry);
+    void crumbMenuRequested(const QString &path, const QPoint &global);
 
 protected:
     void resizeEvent(class QResizeEvent *event) override;

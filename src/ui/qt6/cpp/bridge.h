@@ -102,6 +102,7 @@ void jtf_set_inspector_state(JtfApp *app, int visible, int width);
 // The inspector's own read of a file, independent of the viewer window.
 int jtf_preview_open(JtfApp *app, const char *path);
 void jtf_preview_close(JtfApp *app);
+int jtf_archive_listing(const JtfApp *app, const char *path, char *buf, int len);
 uint64_t jtf_preview_line_count(const JtfApp *app);
 int jtf_preview_row(JtfApp *app, uint64_t row, char *buf, int len);
 int jtf_preview_encoding_key(const JtfApp *app, char *buf, int len);

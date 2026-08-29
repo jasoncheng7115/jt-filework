@@ -14,4 +14,9 @@ QString describe(const QString &) { return {}; }
 // by the caller's fallback.
 QString displayName(const QString &) { return {}; }
 
+// Windows: ShellExecute on wt.exe or cmd.exe; Linux: the XDG terminal. Not
+// built yet, and reported as unavailable so the menu entry can be absent
+// rather than present and inert.
+bool openInTerminal(const QString &) { return false; }
+
 } // namespace filetype

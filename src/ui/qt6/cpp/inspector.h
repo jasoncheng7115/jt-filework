@@ -37,6 +37,7 @@ private:
     /// the Rust catalogue, not in a .ts file (AGENTS.md 11).
     QString tr_(const char *key) const;
     void clearRows();
+    bool showArchivePreview(const QString &path);
     bool showTextPreview(const QString &path);
     void addRow(const QString &labelKey, const QString &value);
     void showPreview(const QString &path);

@@ -27,6 +27,8 @@ public:
 
 signals:
     void navigate(const QString &path);
+    /// Right-click on one segment: the path it names, and where to pop up.
+    void segmentMenuRequested(const QString &path, const QPoint &global);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;

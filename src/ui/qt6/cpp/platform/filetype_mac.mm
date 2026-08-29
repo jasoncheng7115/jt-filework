@@ -1,5 +1,6 @@
 #include "filetype.h"
 
+#import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
@@ -42,6 +43,24 @@ QString displayName(const QString &path) {
         NSString *native = path.toNSString();
         NSString *shown = [[NSFileManager defaultManager] displayNameAtPath:native];
         return shown == nil ? QString() : QString::fromNSString(shown);
+    }
+}
+
+bool openInTerminal(const QString &path) {
+    @autoreleasepool {
+        NSURL *folder = [NSURL fileURLWithPath:path.toNSString()];
+        NSURL *terminal = [[NSWorkspace sharedWorkspace]
+            URLForApplicationWithBundleIdentifier:@"com.apple.Terminal"];
+        if (folder == nil || terminal == nil) {
+            return false;
+        }
+        // The path travels as a URL in an argument list, so it is never
+        // parsed as shell syntax.
+        [[NSWorkspace sharedWorkspace] openURLs:@[ folder ]
+                           withApplicationAtURL:terminal
+                                  configuration:[NSWorkspaceOpenConfiguration configuration]
+                              completionHandler:nil];
+        return true;
     }
 }
 

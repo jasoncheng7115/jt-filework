@@ -8,6 +8,7 @@
 #include "inspector.h"
 #include "modeswitch.h"
 #include "placeslist.h"
+#include "platform/filetype.h"
 #include "operations.h"
 #include "platform/quicklook.h"
 #include "settingsdialog.h"
@@ -18,6 +19,7 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
+#include <QDir>
 #include <QCloseEvent>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -759,6 +761,80 @@ void MainWindow::openSettings() {
     refreshAll();
 }
 
+void MainWindow::showCrumbMenu(int paneId, const QString &path, const QPoint &global) {
+    jtf_focus_pane(m_app, paneId);
+    markActivePane();
+
+    QMenu menu(this);
+    const auto entry = [&](const char *key, const QString &iconId, std::function<void()> run) {
+        QAction *action = menu.addAction(tr_(key));
+        if (!iconId.isEmpty() && glyph::hasCommandIcon(iconId)) {
+            action->setIcon(glyph::forCommand(iconId, m_theme.textSecondary));
+        }
+        connect(action, &QAction::triggered, this, [this, run] {
+            run();
+            refreshAll();
+        });
+        return action;
+    };
+
+    const QByteArray utf8 = path.toUtf8();
+    entry("crumb.open", QStringLiteral("file.open"), [this, paneId, utf8] {
+        jtf_navigate(m_app, paneId, utf8.constData());
+    });
+    entry("crumb.open_tab", QStringLiteral("tab.new"), [this, utf8] {
+        jtf_new_tab(m_app);
+        jtf_navigate(m_app, jtf_active_pane(m_app), utf8.constData());
+    });
+
+    // The folders inside this one, so an ancestor's siblings are reachable
+    // without walking there first - the reason Path Finder's breadcrumb has
+    // a submenu at all.
+    QMenu *contents = menu.addMenu(tr_("crumb.contents"));
+    QDir dir(path);
+    const QFileInfoList children =
+        dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::LocaleAware);
+    if (children.isEmpty()) {
+        contents->addAction(tr_("crumb.no_subfolders"))->setEnabled(false);
+    } else {
+        // Bounded: a folder with ten thousand subdirectories must not build a
+        // ten-thousand-item menu while the pointer waits.
+        constexpr int kMaxSubmenuEntries = 60;
+        int shown = 0;
+        for (const QFileInfo &child : children) {
+            if (shown++ >= kMaxSubmenuEntries) {
+                contents->addSeparator();
+                contents->addAction(tr_("crumb.more"))->setEnabled(false);
+                break;
+            }
+            const QString childPath = child.absoluteFilePath();
+            QAction *action = contents->addAction(child.fileName());
+            connect(action, &QAction::triggered, this, [this, paneId, childPath] {
+                const QByteArray target = childPath.toUtf8();
+                jtf_navigate(m_app, paneId, target.constData());
+                refreshAll();
+            });
+        }
+    }
+
+    menu.addSeparator();
+    entry("crumb.copy_path", QStringLiteral("file.copy_path"), [this, path] {
+        QGuiApplication::clipboard()->setText(path);
+        m_statusIsIdle = false;
+        m_statusMessage->setText(tr_("status.copied"));
+    });
+    if (platform::canReveal()) {
+        entry("crumb.reveal", QStringLiteral("file.reveal"),
+              [path] { platform::reveal(path); });
+    }
+    if (filetype::available()) {
+        entry("crumb.terminal", QStringLiteral("nav.goto"),
+              [path] { filetype::openInTerminal(path); });
+    }
+
+    menu.exec(global);
+}
+
 void MainWindow::showEntryMenu(int paneId, const QPoint &global, bool onEntry) {
     jtf_focus_pane(m_app, paneId);
     markActivePane();
@@ -1142,6 +1218,10 @@ QWidget *MainWindow::buildNode(const QJsonObject &node) {
         });
         connect(pane, &PaneWidget::stateChanged, this, [this] { refreshAll(); });
         connect(pane, &PaneWidget::commandRequested, this, &MainWindow::runCommand);
+        connect(pane, &PaneWidget::crumbMenuRequested, this,
+                [this, paneId](const QString &path, const QPoint &global) {
+                    showCrumbMenu(paneId, path, global);
+                });
         connect(pane, &PaneWidget::contextMenuRequested, this,
                 [this, paneId](const QPoint &global, bool onEntry) {
                     showEntryMenu(paneId, global, onEntry);
