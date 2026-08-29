@@ -1,0 +1,20 @@
+[package]
+name = "jtf-core"
+description = "Platform-neutral core model, error codes, i18n and theme contracts."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+# ADR-0002: this crate must never gain a GUI toolkit or platform SDK
+# dependency. Enforced by tests/architecture.rs.
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[lints]
+workspace = true
