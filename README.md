@@ -104,4 +104,5 @@ Possible future plugin SDK / protocol:
 - `docs/DEVELOPMENT_PLAN.md`
 - `TODO.md`
 - `AGENTS.md`
+- `assets/icon/README.md`
 - `docs/adr/*`

@@ -78,3 +78,7 @@ credentials.json
 
 # Machine-local cargo config (see .cargo/config.toml.example)
 /.cargo/config.toml
+
+# Icon artefacts are generated from the SVG masters by
+# assets/icon/build-icons.sh (AGENTS.md 2: no build artifacts in Git).
+/assets/icon/generated/

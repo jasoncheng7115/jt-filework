@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  JT FileWork icon — 16px artwork.
+
+  At 16px only the silhouette survives: a bright active pane beside a split
+  pair, on a saturated ground. Rows and the mark dot are dropped rather than
+  rendered as noise; the single blue bar is kept because it is what makes the
+  shape read as a file list rather than three blocks.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect x="32" y="32" width="960" height="960" rx="216" ry="216" fill="#2E538C"/>
+
+  <rect x="144" y="192" width="304" height="640" rx="40" fill="#FFFFFF"/>
+  <rect x="512" y="192" width="368" height="288" rx="40" fill="#A9BBD6" opacity="0.62"/>
+  <rect x="512" y="544" width="368" height="288" rx="40" fill="#A9BBD6" opacity="0.62"/>
+
+  <rect x="192" y="296" width="208" height="64" rx="32" fill="#2F6FC4"/>
+</svg>

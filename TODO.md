@@ -37,6 +37,18 @@
 - [ ] CI translation-key parity check
 - [ ] Verify Taiwan terminology
 
+## P0 — Icon / Branding
+
+- [x] Icon concept tied to the product architecture, not a generic folder
+- [x] Master SVG for large sizes
+- [x] Separate 32px and 16px artwork
+- [x] Reproducible build script (.icns, .ico, PNG set, contact sheet)
+- [x] Accent colours sourced from the theme tokens
+- [ ] Monochrome template variant for macOS menu bar / toolbar
+- [ ] Legibility check against light and dark Dock and taskbar backgrounds
+- [ ] Linux hicolor install paths in packaging
+- [ ] Document icon in the app bundle / installer once ADR-0001 lands
+
 ## P0 — Theme
 
 - [ ] Implement ThemeMode enum/model

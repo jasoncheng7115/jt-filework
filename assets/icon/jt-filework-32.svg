@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  JT FileWork icon — simplified artwork for 32px (and 24px).
+
+  Same idea as the master, reduced to what survives at this size: the split,
+  the active pane, one selection bar and one mark. Rows are fewer and thicker,
+  gaps are wider, and the inactive panes are darker so the silhouette reads.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="ground32" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3F66A6"/>
+      <stop offset="1" stop-color="#1A2B47"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="72" y="72" width="880" height="880" rx="198" ry="198" fill="url(#ground32)"/>
+
+  <rect x="176" y="224" width="286" height="576" rx="32" fill="#F8FAFD"/>
+  <rect x="518" y="224" width="330" height="264" rx="32" fill="#B4C3DA" opacity="0.5"/>
+  <rect x="518" y="536" width="330" height="264" rx="32" fill="#B4C3DA" opacity="0.5"/>
+
+  <rect x="216" y="304" width="206" height="40" rx="20" fill="#2F6FC4"/>
+  <g fill="#9DAAC0">
+    <rect x="216" y="404" width="206" height="40" rx="20"/>
+    <rect x="216" y="600" width="206" height="40" rx="20"/>
+    <rect x="216" y="700" width="150" height="40" rx="20"/>
+  </g>
+  <circle cx="248" cy="522" r="34" fill="#E88A3C"/>
+  <rect x="304" y="502" width="118" height="40" rx="20" fill="#9DAAC0"/>
+</svg>
