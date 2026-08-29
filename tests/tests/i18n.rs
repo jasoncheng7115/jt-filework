@@ -214,16 +214,41 @@ fn no_key_is_translated_to_an_empty_string() {
     }
 }
 
+/// Keys whose value is the same in every locale because it is a technical
+/// identifier or a proper noun, not prose.
+///
+/// An explicit list rather than a looser threshold: "UTF-8" is the same string
+/// in Chinese, and pretending otherwise would mean translating it wrongly to
+/// satisfy a test.
+const UNTRANSLATABLE: &[&str] = &[
+    "app.name",
+    "command.category.ai",
+    "content.pdf",
+    "keymap.cview",
+    "language.english",
+];
+
+/// Prefixes whose values are standard names: encodings and line endings.
+const UNTRANSLATABLE_PREFIXES: &[&str] = &["encoding.", "line_ending."];
+
+fn is_untranslatable(key: &str) -> bool {
+    UNTRANSLATABLE.contains(&key)
+        || UNTRANSLATABLE_PREFIXES
+            .iter()
+            .any(|prefix| key.starts_with(prefix))
+}
+
 #[test]
 fn zh_tw_is_actually_translated_rather_than_copied_from_english() {
     // A catalogue that passes parity by copying the English values is not a
-    // translation. Labels that are genuinely identical across locales - "AI" -
-    // are the exception, not the rule.
+    // translation. Technical identifiers are exempt by name, so the check
+    // stays strict on everything that is actually prose.
     let en = load(LocaleId::EN);
     let tw = load(LocaleId::ZH_TW);
 
     let identical: Vec<_> = en
         .keys()
+        .filter(|k| !is_untranslatable(k))
         .filter(|k| {
             tw.get(k).map(jtf_core::i18n::Message::template)
                 == en.get(k).map(jtf_core::i18n::Message::template)
@@ -231,11 +256,28 @@ fn zh_tw_is_actually_translated_rather_than_copied_from_english() {
         .collect();
 
     assert!(
-        identical.len() * 20 < en.len(),
-        "{} of {} zh-TW values are identical to English: {identical:?}",
-        identical.len(),
-        en.len()
+        identical.is_empty(),
+        "{} zh-TW values are copied from English: {identical:?}. \
+         If one of these genuinely cannot be translated, add it to UNTRANSLATABLE \
+         with a reason.",
+        identical.len()
     );
+}
+
+#[test]
+fn the_untranslatable_list_does_not_outlive_its_reason() {
+    // An exemption for a key that no longer exists, or that now differs
+    // between locales, is an exemption that should be deleted.
+    let en = load(LocaleId::EN);
+    let tw = load(LocaleId::ZH_TW);
+    for key in UNTRANSLATABLE {
+        assert!(en.contains(key), "exempted key no longer exists: {key}");
+        assert_eq!(
+            en.get(key).map(jtf_core::i18n::Message::template),
+            tw.get(key).map(jtf_core::i18n::Message::template),
+            "{key} is now translated; remove it from UNTRANSLATABLE"
+        );
+    }
 }
 
 #[test]

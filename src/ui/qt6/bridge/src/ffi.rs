@@ -967,6 +967,169 @@ pub unsafe extern "C" fn jtf_set_keymap(app: *mut App, name: *const c_char) {
     }
 }
 
+// ----------------------------------------------------------------- viewer
+
+/// Open the focused row in the viewer.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_viewer_open(app: *mut App, pane_id: c_int, row: c_int) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        c_int::from(a.open_viewer(pane(pane_id), usize::try_from(row).unwrap_or(0)))
+    })
+}
+
+/// Close the viewer and release its file handle.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_viewer_close(app: *mut App) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.close_viewer();
+    }
+}
+
+/// Whether the viewer is showing text rather than hex.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_viewer_is_text(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.viewer_is_text()))
+}
+
+/// Switch between text and hex.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_viewer_toggle_hex(app: *mut App) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.viewer_toggle_hex();
+    }
+}
+
+/// How many rows the viewer has.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_viewer_row_count(app: *const App) -> u64 {
+    unsafe { app_ref(app) }.map_or(0, App::viewer_row_count)
+}
+
+/// One rendered row.
+///
+/// The window is fetched per row rather than in bulk because the view only
+/// ever asks for what it paints, and a bulk API would invite loading more.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_viewer_row(
+    app: *mut App,
+    row: u64,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_mut(app) }) else {
+        return 0;
+    };
+    let rows = app.viewer_rows(row, 1);
+    unsafe { write_str(rows.first().map_or("", String::as_str), buf, len) }
+}
+
+/// Set the text encoding, as an index into the encoding list.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_viewer_set_encoding(app: *mut App, index: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.viewer_set_encoding(usize::try_from(index).unwrap_or(0));
+    }
+}
+
+/// The encoding in use, as an index.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_viewer_encoding(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::try_from(a.viewer_encoding()).unwrap_or(0))
+}
+
+/// How many encodings the list offers.
+#[no_mangle]
+pub extern "C" fn jtf_encoding_count() -> c_int {
+    c_int::try_from(jtf_viewer::Encoding::ALL.len()).unwrap_or(0)
+}
+
+/// Localization key for one encoding.
+///
+/// # Safety
+/// `buf` must be writable for `len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_encoding_key(index: c_int, buf: *mut c_char, len: c_int) -> c_int {
+    let key = jtf_viewer::Encoding::ALL
+        .get(usize::try_from(index).unwrap_or(usize::MAX))
+        .map_or("", |encoding| encoding.label_key());
+    unsafe { write_str(key, buf, len) }
+}
+
+/// The viewer's status parts: path, kind key, size, encoding key, endings key.
+///
+/// # Safety
+/// See [`jtf_app_free`]; the buffers must be writable or null.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_viewer_status(
+    app: *const App,
+    path_buf: *mut c_char,
+    path_len: c_int,
+    kind_buf: *mut c_char,
+    kind_len: c_int,
+    encoding_buf: *mut c_char,
+    encoding_len: c_int,
+    endings_buf: *mut c_char,
+    endings_len: c_int,
+    size: *mut u64,
+) {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return;
+    };
+    let (path, kind, bytes, encoding, endings) = app.viewer_status();
+    unsafe {
+        write_str(&path, path_buf, path_len);
+        write_str(kind, kind_buf, kind_len);
+        write_str(encoding, encoding_buf, encoding_len);
+        write_str(endings, endings_buf, endings_len);
+        if !size.is_null() {
+            *size = bytes;
+        }
+    }
+}
+
+/// Find text from a row, wrapping. Returns the row, or -1.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `needle` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_viewer_find(
+    app: *mut App,
+    needle: *const c_char,
+    from_row: u64,
+) -> i64 {
+    let Some(needle) = (unsafe { read_str(needle) }) else {
+        return -1;
+    };
+    unsafe { app_mut(app) }
+        .and_then(|a| a.viewer_find(needle, from_row))
+        .and_then(|row| i64::try_from(row).ok())
+        .unwrap_or(-1)
+}
+
 // --------------------------------------------------------------- settings
 
 /// How many commands the registry holds.

@@ -193,13 +193,13 @@
 
 ## P1 — Viewer
 
-- [ ] Preview dispatcher
-- [ ] cancellation
-- [ ] Text
-- [ ] Big5
-- [ ] huge text
+- [x] Preview dispatcher (magic bytes, never the extension)
+- [x] cancellation
+- [x] Text
+- [x] Big5
+- [x] huge text (indexed, never loaded)
 - [ ] Image
-- [ ] Hex
+- [x] Hex
 - [ ] Archive
 - [ ] JSON
 - [ ] YAML
@@ -216,6 +216,19 @@
 - [ ] Refresh the row after an external edit
 - [ ] Internal text editor (Phase 3), reusing the viewer's encoding handling
 - [ ] Preserve inode on save so hard links and xattrs survive
+
+## P1 — Viewer in the UI
+
+- [x] Viewer window, virtualized, rows fetched as painted
+- [x] Encoding override including Big5, GB18030, Shift-JIS, EUC-KR
+- [x] Line endings reported, not normalized
+- [x] Text/hex toggle; hex is the fallback and never wrong
+- [x] Find within the file, wrapping, scanning rather than loading
+- [ ] Go to line
+- [ ] Syntax highlighting (Phase 2, never blocking first paint)
+- [ ] Log mode: follow/tail
+- [ ] Archive, JSON, YAML, XML, CSV viewers
+- [ ] Image viewer
 
 ## P1 — Operations
 

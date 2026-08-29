@@ -14,6 +14,7 @@ use jtf_core::{Error, FileEntry, FileKind, Location};
 use jtf_fs::{Batch, EnumerationHandle, LocalProvider, Provider};
 use jtf_jobs::CancellationToken;
 use jtf_ops::{ConflictPolicy, Plan, PlanError};
+use jtf_viewer::{detect, ContentKind, Encoding, HexView, TextView};
 use jtf_workspace::{
     sort_entries, FontSettings, LayoutPreset, Orientation, PaneId, Session, SessionSettings,
     SortKey, SortSpec, Workspace,
@@ -26,6 +27,19 @@ pub(crate) const COLUMN_SIZE: i32 = 1;
 pub(crate) const COLUMN_KIND: i32 = 2;
 pub(crate) const COLUMN_MODIFIED: i32 = 3;
 pub(crate) const COLUMN_COUNT: i32 = 4;
+
+/// An open viewer.
+///
+/// One at a time: the UI shows one viewer window, and holding several open
+/// file handles for windows nobody is looking at is a leak with extra steps.
+struct ViewerSession {
+    path: PathBuf,
+    kind: ContentKind,
+    text: Option<TextView>,
+    hex: Option<HexView>,
+    /// Whether the user asked for hex on something that is textual.
+    forced_hex: bool,
+}
 
 /// Which way [`App::mark_listed`] moves.
 #[derive(Clone, Copy)]
@@ -80,6 +94,7 @@ pub struct App {
     pending_plan: Option<Plan>,
     plan_error: Option<PlanError>,
     running: Option<crate::operations::Running>,
+    viewer: Option<ViewerSession>,
     last_summary: Option<crate::operations::Summary>,
     registry: CommandRegistry,
     keymap: Keymap,
@@ -117,6 +132,7 @@ impl App {
             pending_plan: None,
             plan_error: None,
             running: None,
+            viewer: None,
             last_summary: None,
             registry: CommandRegistry::baseline(),
             keymap: {
@@ -719,6 +735,205 @@ impl App {
     /// Clear the summary once the UI has shown it.
     pub(crate) fn take_summary(&mut self) {
         self.last_summary = None;
+    }
+
+    // --------------------------------------------------------------- viewer
+
+    /// Open the focused row in the viewer.
+    ///
+    /// The kind comes from the file's own bytes, never its name
+    /// (`docs/VIEWER_PREVIEW.md` §1), and anything that is not textual opens
+    /// as hex — which is always available and never wrong.
+    pub(crate) fn open_viewer(&mut self, pane: PaneId, row: usize) -> bool {
+        let Some(path) = self
+            .views
+            .get(&pane)
+            .and_then(|view| view.entries.get(row))
+            .and_then(|entry| entry.location().as_path())
+            .map(std::path::Path::to_path_buf)
+        else {
+            return false;
+        };
+        if path.is_dir() {
+            return false;
+        }
+
+        let kind = detect(&path).unwrap_or(ContentKind::Binary);
+        let mut session = ViewerSession {
+            path,
+            kind,
+            text: None,
+            hex: None,
+            forced_hex: false,
+        };
+        Self::load_viewer(&mut session);
+        let opened = session.text.is_some() || session.hex.is_some();
+        self.viewer = Some(session);
+        opened
+    }
+
+    fn load_viewer(session: &mut ViewerSession) {
+        session.text = None;
+        session.hex = None;
+        if session.kind.is_textual() && !session.forced_hex {
+            session.text = TextView::open(&session.path, &CancellationToken::never()).ok();
+        }
+        if session.text.is_none() {
+            session.hex = HexView::open(&session.path).ok();
+        }
+    }
+
+    /// Close the viewer, releasing its file handle.
+    pub(crate) fn close_viewer(&mut self) {
+        self.viewer = None;
+    }
+
+    /// Whether the viewer is showing text rather than hex.
+    pub(crate) fn viewer_is_text(&self) -> bool {
+        self.viewer
+            .as_ref()
+            .is_some_and(|session| session.text.is_some())
+    }
+
+    /// Switch between text and hex, where the file allows it.
+    pub(crate) fn viewer_toggle_hex(&mut self) {
+        let Some(mut session) = self.viewer.take() else {
+            return;
+        };
+        session.forced_hex = !session.forced_hex;
+        Self::load_viewer(&mut session);
+        self.viewer = Some(session);
+    }
+
+    /// Rows the viewer can scroll through: lines for text, 16-byte rows for
+    /// hex.
+    pub(crate) fn viewer_row_count(&self) -> u64 {
+        self.viewer.as_ref().map_or(0, |session| {
+            session.text.as_ref().map_or_else(
+                || session.hex.as_ref().map_or(0, HexView::row_count),
+                TextView::line_count,
+            )
+        })
+    }
+
+    /// A window of rendered rows.
+    pub(crate) fn viewer_rows(&mut self, first: u64, count: usize) -> Vec<String> {
+        let Some(session) = self.viewer.as_mut() else {
+            return Vec::new();
+        };
+        if let Some(text) = session.text.as_mut() {
+            return text
+                .window(first, count)
+                .map(|window| window.lines)
+                .unwrap_or_default();
+        }
+        if let Some(hex) = session.hex.as_mut() {
+            return hex
+                .window(first, count)
+                .map(|window| window.rows())
+                .unwrap_or_default();
+        }
+        Vec::new()
+    }
+
+    /// Set the text encoding. Ignored while showing hex.
+    pub(crate) fn viewer_set_encoding(&mut self, index: usize) {
+        let Some(session) = self.viewer.as_mut() else {
+            return;
+        };
+        let Some(text) = session.text.as_mut() else {
+            return;
+        };
+        if let Some(encoding) = Encoding::ALL.get(index) {
+            text.set_encoding(*encoding);
+        }
+    }
+
+    /// The encoding in use, as an index into `Encoding::ALL`.
+    pub(crate) fn viewer_encoding(&self) -> usize {
+        self.viewer
+            .as_ref()
+            .and_then(|session| session.text.as_ref())
+            .and_then(|text| {
+                Encoding::ALL
+                    .iter()
+                    .position(|e| *e == text.effective_encoding())
+            })
+            .unwrap_or(0)
+    }
+
+    /// A one-line description: path, kind, size, encoding, line endings.
+    ///
+    /// Assembled from localization keys by the UI, which is handed the parts
+    /// rather than a sentence (`AGENTS.md` §11).
+    pub(crate) fn viewer_status(&self) -> (String, &'static str, u64, &'static str, &'static str) {
+        let Some(session) = self.viewer.as_ref() else {
+            return (
+                String::new(),
+                "content.empty",
+                0,
+                "encoding.auto",
+                "line_ending.none",
+            );
+        };
+        let size = session.text.as_ref().map_or_else(
+            || session.hex.as_ref().map_or(0, HexView::size),
+            TextView::size,
+        );
+        let encoding = session.text.as_ref().map_or("encoding.auto", |text| {
+            text.effective_encoding().label_key()
+        });
+        let endings = session
+            .text
+            .as_ref()
+            .map_or("line_ending.none", |text| text.line_ending().label_key());
+        (
+            session.path.display().to_string(),
+            session.kind.label_key(),
+            size,
+            encoding,
+            endings,
+        )
+    }
+
+    /// Find `needle` from `from_row`, wrapping. Returns the row, if any.
+    ///
+    /// Searches the rendered rows a window at a time, so a 10 GB file costs a
+    /// scan rather than a load.
+    pub(crate) fn viewer_find(&mut self, needle: &str, from_row: u64) -> Option<u64> {
+        /// Rows fetched per scan step. Large enough that a scan is not a
+        /// million round trips, small enough that it is never a load.
+        const CHUNK: usize = 512;
+
+        if needle.is_empty() {
+            return None;
+        }
+        let total = self.viewer_row_count();
+        if total == 0 {
+            return None;
+        }
+        let needle = needle.to_lowercase();
+
+        let mut scanned = 0u64;
+        let mut cursor = from_row;
+        while scanned < total {
+            let rows = self.viewer_rows(cursor, CHUNK);
+            if rows.is_empty() {
+                cursor = 0;
+                continue;
+            }
+            for (offset, row) in rows.iter().enumerate() {
+                if row.to_lowercase().contains(&needle) {
+                    return Some(cursor + offset as u64);
+                }
+            }
+            scanned += rows.len() as u64;
+            cursor += rows.len() as u64;
+            if cursor >= total {
+                cursor = 0; // wrap, so a search from the middle finds the top
+            }
+        }
+        None
     }
 
     /// Re-read the current location.

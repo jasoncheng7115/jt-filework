@@ -3,6 +3,21 @@
 version = 4
 
 [[package]]
+name = "cfg-if"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
+
+[[package]]
+name = "encoding_rs"
+version = "0.8.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -90,7 +105,17 @@ dependencies = [
  "jtf-fs",
  "jtf-jobs",
  "jtf-ops",
+ "jtf-viewer",
  "jtf-workspace",
+]
+
+[[package]]
+name = "jtf-viewer"
+version = "0.0.0"
+dependencies = [
+ "encoding_rs",
+ "jtf-core",
+ "jtf-jobs",
 ]
 
 [[package]]

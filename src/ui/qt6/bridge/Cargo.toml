@@ -23,6 +23,7 @@ jtf-workspace = { workspace = true }
 jtf-commands = { workspace = true }
 jtf-fs = { workspace = true }
 jtf-ops = { workspace = true }
+jtf-viewer = { workspace = true }
 
 [lints]
 workspace = true

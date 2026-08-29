@@ -90,6 +90,22 @@ int jtf_shortcut_for(const JtfApp *app, const char *command, char *buf, int len)
 int jtf_has_command(const JtfApp *app, const char *command);
 int jtf_keymap_name(const JtfApp *app, char *buf, int len);
 void jtf_set_keymap(JtfApp *app, const char *name);
+// viewer
+int jtf_viewer_open(JtfApp *app, int pane, int row);
+void jtf_viewer_close(JtfApp *app);
+int jtf_viewer_is_text(const JtfApp *app);
+void jtf_viewer_toggle_hex(JtfApp *app);
+uint64_t jtf_viewer_row_count(const JtfApp *app);
+int jtf_viewer_row(JtfApp *app, uint64_t row, char *buf, int len);
+void jtf_viewer_set_encoding(JtfApp *app, int index);
+int jtf_viewer_encoding(const JtfApp *app);
+int jtf_encoding_count(void);
+int jtf_encoding_key(int index, char *buf, int len);
+void jtf_viewer_status(const JtfApp *app, char *path_buf, int path_len, char *kind_buf,
+                       int kind_len, char *encoding_buf, int encoding_len, char *endings_buf,
+                       int endings_len, uint64_t *size);
+int64_t jtf_viewer_find(JtfApp *app, const char *needle, uint64_t from_row);
+
 // settings
 int jtf_command_count(const JtfApp *app);
 int jtf_command_at(const JtfApp *app, int index, char *id_buf, int id_len, char *label_buf,

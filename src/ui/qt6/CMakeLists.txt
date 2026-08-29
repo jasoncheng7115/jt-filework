@@ -79,6 +79,8 @@ qt_add_executable(jt-filework
     cpp/operations.h
     cpp/settingsdialog.cpp
     cpp/settingsdialog.h
+    cpp/viewerwindow.cpp
+    cpp/viewerwindow.h
     cpp/platform/quicklook.h
     cpp/bridge.h
     cpp/jtfstring.h)

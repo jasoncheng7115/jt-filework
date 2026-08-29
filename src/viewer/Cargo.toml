@@ -1,0 +1,25 @@
+[package]
+name = "jtf-viewer"
+description = "Content detection and bounded text/hex views over files of any size."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+jtf-core = { workspace = true }
+jtf-jobs = { workspace = true }
+# Decoding text is parsing untrusted input (docs/SECURITY.md 2), so it needs a
+# justification: encoding_rs is the WHATWG encoding standard implementation
+# used by Firefox, it is pure Rust with no unsafe in its decode path, and
+# hand-writing a Big5 or GB18030 table would be both larger and worse.
+# Fuzz target: fuzz/text_encoding_detection (docs/TESTING.md 9.1).
+encoding_rs = "0.8"
+
+[dev-dependencies]
+encoding_rs = "0.8"
+
+[lints]
+workspace = true

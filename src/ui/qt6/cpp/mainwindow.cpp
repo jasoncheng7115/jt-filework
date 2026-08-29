@@ -5,6 +5,7 @@
 #include "operations.h"
 #include "platform/quicklook.h"
 #include "settingsdialog.h"
+#include "viewerwindow.h"
 #include "theme.h"
 
 #include <QAction>
@@ -169,6 +170,7 @@ void MainWindow::buildMenus() {
         jtf_toggle_mark(m_app, pane->paneId(), pane->currentRow());
         pane->advanceCurrentRow();
     });
+    command(m_viewMenu, "file.view", [this] { openViewer(); });
     command(m_viewMenu, "preview.quicklook", [this] {
         PaneWidget *pane = activePane();
         if (!pane || pane->currentRow() < 0) {
@@ -230,6 +232,24 @@ void MainWindow::buildMenus() {
             jtf_navigate(m_app, jtf_active_pane(m_app), home.constData());
         }
     });
+}
+
+void MainWindow::openViewer() {
+    PaneWidget *pane = activePane();
+    if (!pane || pane->currentRow() < 0) {
+        return;
+    }
+    if (!jtf_viewer_open(m_app, pane->paneId(), pane->currentRow())) {
+        return;
+    }
+    // A separate window rather than a panel: AGENTS.md 14 makes the Viewer
+    // stateful, and a stateful thing that disappears when the selection moves
+    // is a preview wearing the wrong name.
+    auto *viewer = new ViewerWindow(m_app, this);
+    viewer->setAttribute(Qt::WA_DeleteOnClose);
+    viewer->show();
+    viewer->raise();
+    viewer->activateWindow();
 }
 
 void MainWindow::openSettings() {

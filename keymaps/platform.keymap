@@ -55,3 +55,4 @@ primary+comma       = settings.open
 primary+f          = search.open
 primary+shift+f    = search.ai
 primary+j          = jobs.show
+primary+shift+v    = file.view
