@@ -191,6 +191,16 @@ void MainWindow::buildMenus() {
     command(m_viewMenu, "view.hidden",
             [this] { jtf_set_show_hidden(m_app, jtf_show_hidden(m_app) ? 0 : 1); });
     command(m_viewMenu, "view.refresh", [this] { jtf_refresh(m_app, jtf_active_pane(m_app)); });
+    command(m_viewMenu, "search.open", [this] {
+        if (PaneWidget *pane = activePane()) {
+            pane->toggleSearch();
+        }
+    });
+    command(m_viewMenu, "search.clear", [this] {
+        if (PaneWidget *pane = activePane()) {
+            pane->clearSearch();
+        }
+    });
     command(m_viewMenu, "view.filter", [this] {
         if (PaneWidget *pane = activePane()) {
             pane->toggleFilter();

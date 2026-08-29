@@ -14,6 +14,7 @@ use jtf_core::{Error, FileEntry, FileKind, Location};
 use jtf_fs::{Batch, EnumerationHandle, LocalProvider, Provider};
 use jtf_jobs::CancellationToken;
 use jtf_ops::{ConflictPolicy, Plan, PlanError};
+use jtf_search::{SearchHandle, SearchUpdate};
 use jtf_viewer::{detect, ContentKind, Encoding, HexView, TextView};
 use jtf_workspace::{
     sort_entries, FontSettings, LayoutPreset, Orientation, PaneId, Session, SessionSettings,
@@ -58,6 +59,11 @@ struct PaneView {
     /// A filter narrows what is shown without discarding what was read, so
     /// clearing it is instant and does not re-scan the directory.
     visible: Vec<usize>,
+    /// A running search, when this pane is showing results rather than a
+    /// directory.
+    search: Option<SearchHandle>,
+    /// The query that produced these results, empty when browsing.
+    query: String,
     /// Bumped whenever the row set changes identity rather than merely
     /// growing: a new location, a re-sort, a filter change. The UI uses it to
     /// decide between inserting rows and rebuilding the whole model, which is
@@ -76,6 +82,8 @@ impl PaneView {
         Self {
             entries: Vec::new(),
             visible: Vec::new(),
+            search: None,
+            query: String::new(),
             generation: 0,
             handle: None,
             sort: SortSpec::default(),
@@ -991,6 +999,79 @@ impl App {
         None
     }
 
+    // --------------------------------------------------------------- search
+
+    /// Start a search under the pane's current location.
+    ///
+    /// Results replace the listing and behave like any other rows: they can be
+    /// selected, marked, opened and operated on (`docs/SEARCH_AI.md` §1). The
+    /// pane stays on its location, so clearing the search returns to it
+    /// without navigating.
+    ///
+    /// Returns the localization key of a parse error, or an empty string on
+    /// success.
+    pub(crate) fn start_search(&mut self, pane: PaneId, query: &str) -> &'static str {
+        let parsed = match jtf_search::parse(query) {
+            Ok(parsed) => parsed,
+            Err(error) => return error.message_key(),
+        };
+        let Some(location) = self
+            .workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .map(|tab| tab.location().clone())
+        else {
+            return "query.nothing_to_search";
+        };
+
+        let view = self.views.entry(pane).or_insert_with(PaneView::new);
+        // Dropping the previous handle cancels it: a new search must not race
+        // an old one to fill the same pane.
+        view.handle = None;
+        view.search = None;
+        view.entries.clear();
+        view.visible.clear();
+        view.error = None;
+        view.loading = true;
+        view.generation += 1;
+        view.query = query.to_string();
+
+        match jtf_search::search(&location, parsed) {
+            Ok(handle) => {
+                view.search = Some(handle);
+                ""
+            }
+            Err(error) => {
+                view.error = Some(error);
+                view.loading = false;
+                "query.failed"
+            }
+        }
+    }
+
+    /// Whether the pane is showing search results.
+    pub(crate) fn is_searching(&self, pane: PaneId) -> bool {
+        self.views
+            .get(&pane)
+            .is_some_and(|view| !view.query.is_empty())
+    }
+
+    /// The query the pane's results came from.
+    pub(crate) fn search_query(&self, pane: PaneId) -> String {
+        self.views
+            .get(&pane)
+            .map_or_else(String::new, |view| view.query.clone())
+    }
+
+    /// Abandon the results and go back to showing the directory.
+    pub(crate) fn clear_search(&mut self, pane: PaneId) {
+        if let Some(view) = self.views.get_mut(&pane) {
+            view.search = None;
+            view.query.clear();
+        }
+        self.start_enumeration(pane);
+    }
+
     /// Re-read the current location.
     pub(crate) fn refresh(&mut self, pane: PaneId) {
         self.start_enumeration(pane);
@@ -1173,6 +1254,42 @@ impl App {
             let Some(view) = self.views.get_mut(&pane) else {
                 continue;
             };
+            // Search results arrive on their own channel; a pane is either
+            // listing a directory or showing results, never both.
+            if let Some(search) = view.search.as_ref() {
+                let mut finished = false;
+                for update in search.poll() {
+                    match update {
+                        SearchUpdate::Matches(rows) => {
+                            changed = true;
+                            view.entries.extend(rows);
+                        }
+                        SearchUpdate::Done { .. } => {
+                            finished = true;
+                            changed = true;
+                        }
+                        SearchUpdate::Failed(error) => {
+                            view.error = Some(error);
+                            finished = true;
+                            changed = true;
+                        }
+                        SearchUpdate::Progress { .. } => {}
+                    }
+                }
+                if changed {
+                    Self::recompute_visible(view, &filter, show_hidden);
+                }
+                if finished {
+                    view.loading = false;
+                    view.search = None;
+                    let sort = view.sort;
+                    sort_entries(&mut view.entries, sort);
+                    Self::recompute_visible(view, &filter, show_hidden);
+                    view.generation += 1;
+                }
+                continue;
+            }
+
             let Some(handle) = view.handle.as_ref() else {
                 continue;
             };
@@ -1228,6 +1345,7 @@ impl App {
         // Dropping the old handle cancels the previous scan, so a fast
         // navigation cannot leave two enumerations racing to fill one pane.
         view.handle = None;
+        view.search = None;
         view.entries.clear();
         view.visible.clear();
         view.error = None;

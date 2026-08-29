@@ -484,6 +484,70 @@ pub unsafe extern "C" fn jtf_sort_by(app: *mut App, pane_id: c_int, column: c_in
     }
 }
 
+/// Start a search under the pane's current location.
+///
+/// Returns the localization key of a parse error, or an empty string on
+/// success, so the UI can say what is wrong with the query rather than only
+/// that it failed.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `query` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_search_start(
+    app: *mut App,
+    pane_id: c_int,
+    query: *const c_char,
+    error_buf: *mut c_char,
+    error_len: c_int,
+) -> c_int {
+    let Some(query) = (unsafe { read_str(query) }) else {
+        return 0;
+    };
+    let Some(app) = (unsafe { app_mut(app) }) else {
+        return 0;
+    };
+    let key = app.start_search(pane(pane_id), query);
+    unsafe { write_str(key, error_buf, error_len) };
+    c_int::from(key.is_empty())
+}
+
+/// Whether the pane is showing search results.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_is_searching(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.is_searching(pane(pane_id))))
+}
+
+/// The query the pane's results came from.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_search_query(
+    app: *const App,
+    pane_id: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    unsafe { write_str(&app.search_query(pane(pane_id)), buf, len) }
+}
+
+/// Abandon the results and show the directory again.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_search_clear(app: *mut App, pane_id: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.clear_search(pane(pane_id));
+    }
+}
+
 /// The pane's filter text.
 ///
 /// # Safety

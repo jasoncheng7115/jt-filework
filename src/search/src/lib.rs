@@ -18,4 +18,4 @@ mod walk;
 
 pub use parse::{parse, ParseError};
 pub use query::{Comparison, Query, SizeUnit, Term};
-pub use walk::{search, SearchHandle, SearchUpdate};
+pub use walk::{search, SearchHandle, SearchUpdate, MAX_DEPTH};

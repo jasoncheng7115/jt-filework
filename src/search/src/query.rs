@@ -79,22 +79,18 @@ impl Term {
     /// Whether an entry satisfies this term.
     pub fn matches(&self, entry: &FileEntry, now: SystemTime) -> bool {
         match self {
-            Self::NameContains(needle) => {
-                entry.display_name().to_lowercase().contains(needle)
-            }
+            Self::NameContains(needle) => entry.display_name().to_lowercase().contains(needle),
             Self::NameGlob(pattern) => glob_matches(pattern, &entry.display_name().to_lowercase()),
             Self::NameRegex(regex) => regex.is_match(&entry.display_name()),
             Self::PathContains(needle) => entry
                 .location()
                 .as_path()
                 .is_some_and(|path| path.to_string_lossy().to_lowercase().contains(needle)),
-            Self::Extension(wanted) => {
-                entry.extension_hint().is_some_and(|found| found == *wanted)
-            }
+            Self::Extension(wanted) => entry.extension_hint().is_some_and(|found| found == *wanted),
             Self::Kind(kind) => entry.kind() == *kind,
-            Self::Size(comparison, bytes) => {
-                entry.size().is_some_and(|size| comparison.matches(size, *bytes))
-            }
+            Self::Size(comparison, bytes) => entry
+                .size()
+                .is_some_and(|size| comparison.matches(size, *bytes)),
             Self::ModifiedAge(comparison, age) => entry.timestamps().modified.is_some_and(|at| {
                 now.duration_since(at).is_ok_and(|elapsed| {
                     // "modified:<7d" reads as "modified less than 7 days ago",

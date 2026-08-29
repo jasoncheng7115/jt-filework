@@ -294,6 +294,7 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("preview.toggle", C::View, "command.preview.toggle"),
     ("preview.quicklook", C::View, "command.preview.quicklook"),
     ("search.open", C::Search, "command.search.open"),
+    ("search.clear", C::Search, "command.search.clear"),
     ("search.ai", C::Search, "command.search.ai"),
     ("ai.ask", C::Ai, "command.ai.ask"),
     ("jobs.show", C::Jobs, "command.jobs.show"),

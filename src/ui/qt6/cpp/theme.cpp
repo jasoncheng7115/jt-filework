@@ -106,7 +106,7 @@ QTabBar::tab:selected {
 }
 QTabBar::close-button { subcontrol-position: right; }
 
-QLineEdit#JtfFilter { margin: 2px 6px 4px 6px; }
+QLineEdit#JtfFilter, QLineEdit#JtfSearch { margin: 2px 6px 4px 6px; }
 QLabel#JtfPath { color: %DIM%; padding: 3px 8px; }
 QLabel#JtfStatus { color: %DIM%; padding: 3px 8px; }
 QLabel#JtfError { color: %ERROR%; padding: 3px 8px; }

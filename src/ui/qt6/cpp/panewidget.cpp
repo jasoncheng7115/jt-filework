@@ -59,6 +59,33 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     });
     layout->addWidget(m_filter);
 
+    // Search walks a tree, so it is a separate box from the filter and says
+    // so: conflating them would make one of the two feel wrong
+    // (docs/SEARCH_AI.md 1).
+    m_search = new QLineEdit(this);
+    m_search->setObjectName(QStringLiteral("JtfSearch"));
+    m_search->setClearButtonEnabled(true);
+    m_search->setVisible(false);
+    connect(m_search, &QLineEdit::returnPressed, this, [this] {
+        const QByteArray query = m_search->text().trimmed().toUtf8();
+        if (query.isEmpty()) {
+            clearSearch();
+            return;
+        }
+        char error[128] = {};
+        if (!jtf_search_start(m_app, m_pane, query.constData(), error, sizeof(error))) {
+            // The query is wrong in a specific way, and saying which is the
+            // difference between fixing it and guessing.
+            const QByteArray key(error);
+            m_status->setText(jtfText(
+                [&](char *buf, int len) { return jtf_tr(m_app, key.constData(), buf, len); }));
+            return;
+        }
+        m_model->refresh();
+        emit stateChanged();
+    });
+    layout->addWidget(m_search);
+
     m_view = new QTableView(this);
     m_model = new FileListModel(app, paneId, this);
     m_view->setModel(m_model);
@@ -172,6 +199,30 @@ void PaneWidget::openRow(int row) {
         // It is an API call, not a shell command line (AGENTS.md 20.3).
         QDesktopServices::openUrl(QUrl::fromLocalFile(path));
     }
+}
+
+void PaneWidget::toggleSearch() {
+    if (m_search->isVisible() && m_search->hasFocus()) {
+        clearSearch();
+        return;
+    }
+    m_search->setVisible(true);
+    m_search->setPlaceholderText(jtfText(
+        [&](char *buf, int len) { return jtf_tr(m_app, "search.placeholder", buf, len); }));
+    m_search->setFocus();
+    m_search->selectAll();
+}
+
+void PaneWidget::clearSearch() {
+    // Clearing returns to the folder the pane was already on, rather than
+    // navigating anywhere: a search never moved you.
+    if (jtf_is_searching(m_app, m_pane)) {
+        jtf_search_clear(m_app, m_pane);
+    }
+    m_search->clear();
+    m_search->setVisible(false);
+    m_view->setFocus();
+    emit stateChanged();
 }
 
 void PaneWidget::toggleFilter() {
@@ -338,6 +389,10 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
             return true;
 
         case Qt::Key_Escape:
+            if (m_search->isVisible() || jtf_is_searching(m_app, m_pane)) {
+                clearSearch();
+                return true;
+            }
             if (m_filter->isVisible()) {
                 clearFilter();
                 return true;
@@ -477,8 +532,14 @@ void PaneWidget::retranslate() {
         status = jtfText([&](char *buf, int len) {
             return jtf_tr(m_app, keyUtf8.constData(), buf, len);
         });
+    } else if (jtf_is_loading(m_app, m_pane) && jtf_is_searching(m_app, m_pane)) {
+        status = jtfFill(tr("status.searching"), "count",
+                         QString::number(jtf_row_count(m_app, m_pane)));
     } else if (jtf_is_loading(m_app, m_pane)) {
         status = tr("status.loading");
+    } else if (jtf_is_searching(m_app, m_pane)) {
+        status = jtfFill(tr("status.results"), "count",
+                         QString::number(jtf_row_count(m_app, m_pane)));
     } else {
         const int rows = jtf_row_count(m_app, m_pane);
         const int selected = jtf_selection_count(m_app, m_pane);

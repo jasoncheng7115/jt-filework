@@ -32,6 +32,8 @@ public:
     // act on the focused entry.
     int currentRow() const;
     void openCurrentRow();
+    void toggleSearch();
+    void clearSearch();
     void toggleFilter();
     void clearFilter();
     void advanceCurrentRow();
@@ -70,6 +72,7 @@ private:
     QTabBar *m_tabs;
     QLabel *m_path;
     class QLineEdit *m_filter = nullptr;
+    class QLineEdit *m_search = nullptr;
     QLabel *m_status;
     QTableView *m_view;
     FileListModel *m_model;

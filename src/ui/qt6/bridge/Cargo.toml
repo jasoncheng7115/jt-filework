@@ -24,6 +24,7 @@ jtf-commands = { workspace = true }
 jtf-fs = { workspace = true }
 jtf-ops = { workspace = true }
 jtf-viewer = { workspace = true }
+jtf-search = { workspace = true }
 
 [lints]
 workspace = true
