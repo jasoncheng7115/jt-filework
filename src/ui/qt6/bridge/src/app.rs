@@ -1174,6 +1174,16 @@ impl App {
         self.settings.key_hints_visible = visible;
     }
 
+    /// Whether image files show a thumbnail.
+    pub(crate) const fn thumbnails(&self) -> bool {
+        self.settings.thumbnails
+    }
+
+    /// Turn thumbnails on or off.
+    pub(crate) fn set_thumbnails(&mut self, on: bool) {
+        self.settings.thumbnails = on;
+    }
+
     /// Whether the inspector is shown, and how wide.
     pub(crate) const fn inspector_state(&self) -> (bool, u16) {
         (

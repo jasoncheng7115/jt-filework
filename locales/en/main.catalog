@@ -372,3 +372,4 @@ tab.tear_off = Move Tab to New Window
 plan.counting = Counting what will be copied…
 filter.close = Clear the filter
 command.view.key_hints = Key Hints
+command.view.thumbnails = Image Thumbnails

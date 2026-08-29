@@ -1005,6 +1005,26 @@ pub unsafe extern "C" fn jtf_set_tree_state(app: *mut App, visible: c_int, width
     }
 }
 
+/// Whether image files show a thumbnail.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_thumbnails(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.thumbnails()))
+}
+
+/// Turn thumbnails on or off.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_thumbnails(app: *mut App, on: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_thumbnails(on != 0);
+    }
+}
+
 /// Whether the key hint strip is shown.
 ///
 /// # Safety

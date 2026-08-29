@@ -145,6 +145,12 @@ pub struct SessionSettings {
     /// Whether the key hint strip is shown.
     #[serde(default)]
     pub key_hints_visible: bool,
+    /// Whether image files show a thumbnail instead of a type icon.
+    ///
+    /// On by default: a picture of the file is more use than a picture of its
+    /// type, and the decoding is bounded and off the UI thread.
+    #[serde(default = "default_true")]
+    pub thumbnails: bool,
     /// Whether the inspector panel is shown.
     #[serde(default)]
     pub inspector_visible: bool,
@@ -179,6 +185,7 @@ impl Default for SessionSettings {
             tree_width: 0,
             locale: String::new(),
             key_hints_visible: false,
+            thumbnails: true,
             inspector_visible: false,
             inspector_width: 0,
         }
@@ -206,6 +213,7 @@ impl SessionSettings {
             tree_width: 0,
             locale: String::new(),
             key_hints_visible: false,
+            thumbnails: true,
             inspector_visible: false,
             inspector_width: 0,
         }

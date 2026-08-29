@@ -852,6 +852,7 @@ void PaneWidget::refresh() {
     syncTabs();
     syncPath();
     syncSortIndicator();
+    m_model->setThumbnailsEnabled(jtf_thumbnails(m_app) != 0);
     m_model->refresh();
     ensureCurrentRow();
     retranslate();

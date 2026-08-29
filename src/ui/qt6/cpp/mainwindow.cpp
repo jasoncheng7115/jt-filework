@@ -412,6 +412,10 @@ void MainWindow::buildMenus() {
     command(m_viewMenu, "help.shortcuts", [this] { openShortcuts(); });
     command(m_viewMenu, "view.key_hints",
             [this] { setKeyHintsVisible(!m_keyHints->isVisible()); });
+    command(m_viewMenu, "view.thumbnails", [this] {
+        jtf_set_thumbnails(m_app, jtf_thumbnails(m_app) ? 0 : 1);
+        jtf_app_save_session(m_app);
+    });
     command(m_viewMenu, "view.inspector",
             [this] { setInspectorVisible(!m_inspector->isVisible()); });
     command(m_viewMenu, "view.hidden",

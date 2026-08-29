@@ -8,6 +8,7 @@
 
 #include "bridge.h"
 #include "iconprovider.h"
+#include "thumbnails.h"
 
 #include <QAbstractTableModel>
 #include <QColor>
@@ -64,6 +65,7 @@ public:
     void clearIconCache() { m_icons.clear(); }
     void setDirectoryColor(const QColor &color) { m_dirColor = color; }
     void setExecutableColor(const QColor &color) { m_execColor = color; }
+    void setThumbnailsEnabled(bool on);
 
 private:
     JtfApp *m_app;
@@ -72,6 +74,8 @@ private:
     QColor m_dirColor;
     QColor m_execColor;
     mutable IconProvider m_icons;
+    ThumbnailCache *m_thumbnails = nullptr;
+    bool m_showThumbnails = true;
     quint64 m_generation = 0;
     /// -2 until looked up; -1 when there is no kind column.
     mutable int m_kindColumn = -2;

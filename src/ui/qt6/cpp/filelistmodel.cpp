@@ -2,14 +2,37 @@
 #include "jtfstring.h"
 
 #include <QBrush>
+#include <QPixmap>
 #include <QMimeData>
 #include <QUrl>
 #include <QFileInfo>
 #include <QFont>
 #include <QSet>
 
+namespace {
+// The square a list thumbnail is decoded into. Matches the icon column, so a
+// row's height does not change when a thumbnail replaces an icon.
+constexpr int kThumbnailEdge = 32;
+} // namespace
+
 FileListModel::FileListModel(JtfApp *app, int paneId, QObject *parent)
     : QAbstractTableModel(parent), m_app(app), m_pane(paneId) {
+    m_thumbnails = new ThumbnailCache(this);
+    // A thumbnail arrives later than the row that asked for it, so the row is
+    // repainted when it does. Only that row: repainting the list would undo
+    // the point of decoding off the UI thread.
+    connect(m_thumbnails, &ThumbnailCache::ready, this, [this](const QString &path) {
+        for (int row = 0; row < m_rows; ++row) {
+            const QString rowPath = jtfText([&](char *buf, int len) {
+                return jtf_row_path(m_app, m_pane, row, buf, len);
+            });
+            if (rowPath == path) {
+                const QModelIndex at = index(row, 0);
+                emit dataChanged(at, at, {Qt::DecorationRole});
+                return;
+            }
+        }
+    });
     m_generation = jtf_row_generation(app, paneId);
     m_rows = jtf_row_count(app, paneId);
 }
@@ -103,7 +126,16 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const {
         if (path.isEmpty()) {
             return {};
         }
-        return m_icons.iconFor(path, jtf_row_is_directory(m_app, m_pane, row) != 0);
+        const bool isDirectory = jtf_row_is_directory(m_app, m_pane, row) != 0;
+        if (m_showThumbnails && !isDirectory) {
+            // A picture of the file beats a picture of its type, when we can
+            // have one. The icon stands in until the decode finishes.
+            const QPixmap thumb = m_thumbnails->thumbnail(path, kThumbnailEdge);
+            if (!thumb.isNull()) {
+                return QIcon(thumb);
+            }
+        }
+        return m_icons.iconFor(path, isDirectory);
     }
 
     case Qt::ForegroundRole:
@@ -269,4 +301,15 @@ void FileListModel::refresh() {
     m_generation = generation;
     m_rows = rows;
     endResetModel();
+}
+
+void FileListModel::setThumbnailsEnabled(bool on) {
+    if (on == m_showThumbnails) {
+        return;
+    }
+    m_showThumbnails = on;
+    m_thumbnails->clear();
+    if (m_rows > 0) {
+        emit dataChanged(index(0, 0), index(m_rows - 1, 0), {Qt::DecorationRole});
+    }
 }
