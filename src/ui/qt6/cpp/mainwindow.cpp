@@ -20,6 +20,9 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
+#include <QCheckBox>
+#include <QDialogButtonBox>
+#include <QDialog>
 #include <QDir>
 #include <QCloseEvent>
 #include <QJsonDocument>
@@ -350,6 +353,7 @@ void MainWindow::buildMenus() {
     m_fileMenu->addSeparator();
     command(m_fileMenu, "file.new_folder", [this] { runOperation(OpNewFolder); });
     command(m_fileMenu, "file.new_file", [this] { runOperation(OpNewFile); });
+    command(m_fileMenu, "file.attributes", [this] { showAttributes(); });
     command(m_fileMenu, "file.rename", [this] { runOperation(OpRename); });
     command(m_fileMenu, "file.batch_rename", [this] { openBatchRename(); });
     command(m_fileMenu, "file.duplicate", [this] { runOperation(OpDuplicate); });
@@ -829,6 +833,56 @@ void MainWindow::openSettings() {
         refreshAll();
     });
     dialog.exec();
+    refreshAll();
+}
+
+void MainWindow::showAttributes() {
+    const int pane = jtf_active_pane(m_app);
+    // How many the operation would act on: the marks if there are any, else
+    // the row under the cursor. Asked of the model, which is the one that
+    // decides.
+    const QString names =
+        jtfText([&](char *buf, int len) { return jtf_target_names(m_app, pane, buf, len); });
+    const int count = names.isEmpty() ? 0 : static_cast<int>(names.split(QLatin1Char('\n')).size());
+    if (count == 0) {
+        m_statusIsIdle = false;
+        m_statusMessage->setText(tr_("plan.nothing_to_do"));
+        return;
+    }
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr_("attributes.title"));
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->setContentsMargins(16, 16, 16, 12);
+    layout->setSpacing(10);
+
+    if (count > 1) {
+        // Say what it will touch. A dialog that silently applies to a
+        // selection is how someone locks thirty files meaning to lock one.
+        auto *scope = new QLabel(
+            jtfFill(tr_("attributes.applies_to"), "count", QString::number(count)), &dialog);
+        scope->setProperty("jtfFactLabel", true);
+        layout->addWidget(scope);
+    }
+
+    auto *readOnly = new QCheckBox(tr_("attributes.read_only"), &dialog);
+    const bool wasReadOnly = jtf_targets_read_only(m_app, pane) != 0;
+    readOnly->setChecked(wasReadOnly);
+    layout->addWidget(readOnly);
+
+    auto *buttons =
+        new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttons);
+
+    if (dialog.exec() != QDialog::Accepted || readOnly->isChecked() == wasReadOnly) {
+        return; // nothing chosen, or nothing changed
+    }
+    if (jtf_op_prepare_read_only(m_app, pane, readOnly->isChecked() ? 1 : 0) &&
+        ops::awaitPlan(m_app, this)) {
+        jtf_op_start(m_app, 0);
+    }
     refreshAll();
 }
 

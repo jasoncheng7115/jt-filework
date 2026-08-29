@@ -58,6 +58,11 @@ delete               = file.delete               # CV.HLP
 primary+backspace    = file.trash
 v                    = file.view                 # CV.HLP
 e                    = file.edit                 # wincv
+# CV.HLP: G 執行該檔案. Opening a file hands it to the platform, which runs an
+# executable and opens a document - the same thing CView's G did, since on DOS
+# every runnable file was a program.
+g                    = file.open                 # confirmed
+a                    = file.attributes           # confirmed
 alt+r                = file.batch_rename         # wincv 連續編號改名
 primary+u            = file.undo
 primary+shift+r      = file.reveal

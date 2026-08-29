@@ -274,6 +274,7 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("file.copy_name", C::File, "command.file.copy_name"),
     ("file.new_folder", C::File, "command.file.new_folder"),
     ("file.new_file", C::File, "command.file.new_file"),
+    ("file.attributes", C::File, "command.file.attributes"),
     (
         "file.copy_to_target_pane",
         C::File,

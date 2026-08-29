@@ -1433,6 +1433,26 @@ impl App {
     }
 
     /// Build a new-folder plan.
+    /// Prepare setting or clearing read-only on the pane's targets.
+    pub(crate) fn prepare_set_read_only(&mut self, pane: PaneId, read_only: bool) -> bool {
+        let sources = self.operation_sources(pane);
+        if sources.is_empty() {
+            self.plan_error = Some(PlanError::NothingToDo);
+            return false;
+        }
+        self.set_plan(&jtf_ops::Operation::SetReadOnly { sources, read_only })
+    }
+
+    /// Whether every target is already read-only, so the dialog opens showing
+    /// what is true rather than a guess.
+    pub(crate) fn targets_are_read_only(&self, pane: PaneId) -> bool {
+        let sources = self.operation_sources(pane);
+        !sources.is_empty()
+            && sources
+                .iter()
+                .all(|path| std::fs::metadata(path).is_ok_and(|meta| meta.permissions().readonly()))
+    }
+
     pub(crate) fn prepare_new_file(&mut self, pane: PaneId, name: &str) -> bool {
         let Some(parent) = self
             .workspace

@@ -161,6 +161,24 @@ fn run_step(
             },
             Err(error) => Outcome::Failed(error),
         },
+        Operation::SetReadOnly { read_only, .. } => {
+            match fs::metadata(&step.source) {
+                Ok(meta) => {
+                    let mut permissions = meta.permissions();
+                    permissions.set_readonly(*read_only);
+                    match fs::set_permissions(&step.source, permissions) {
+                        Ok(()) => Outcome::Done {
+                            // No destination: the entry did not move, and
+                            // claiming it did would make undo try to move it
+                            // back.
+                            destination: None,
+                        },
+                        Err(e) => Outcome::Failed(io_error(&step.source, &e)),
+                    }
+                }
+                Err(e) => Outcome::Failed(io_error(&step.source, &e)),
+            }
+        }
         Operation::NewFile { .. } => {
             // create_new, so an existing file is never truncated. "New file"
             // must not be a way to empty one that is already there.

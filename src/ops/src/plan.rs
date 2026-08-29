@@ -37,6 +37,19 @@ pub enum Operation {
         /// The new name, not a path.
         new_name: String,
     },
+    /// Change the read-only flag on entries.
+    ///
+    /// Only read-only, and only that. The cross-platform permission summary
+    /// has three bits, but "readable" and "executable" do not mean the same
+    /// thing on Windows as on Unix, and offering a control that means
+    /// something different per platform is worse than offering one that means
+    /// the same thing everywhere.
+    SetReadOnly {
+        /// What to change.
+        sources: Vec<PathBuf>,
+        /// Whether they become read-only.
+        read_only: bool,
+    },
     /// Create an empty file.
     ///
     /// Separate from `NewFolder` rather than a flag on it, so the run step
@@ -72,7 +85,10 @@ impl Operation {
         match self {
             Self::Copy { .. } => JobKind::Copy,
             Self::Move { .. } => JobKind::Move,
-            Self::Rename { .. } | Self::NewFolder { .. } | Self::NewFile { .. } => JobKind::Rename,
+            Self::Rename { .. }
+            | Self::NewFolder { .. }
+            | Self::NewFile { .. }
+            | Self::SetReadOnly { .. } => JobKind::Rename,
             Self::Trash { .. } => JobKind::Trash,
             Self::Delete { .. } => JobKind::Delete,
         }
@@ -185,6 +201,11 @@ impl Plan {
                 Self::build_new_folder(operation, parent, name)
             }
             Operation::Trash { sources } | Operation::Delete { sources } => {
+                Self::build_removal(operation, sources, cancel)
+            }
+            Operation::SetReadOnly { sources, .. } => {
+                // Measured like a removal: the entries are the work, and no
+                // bytes move.
                 Self::build_removal(operation, sources, cancel)
             }
         }

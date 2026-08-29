@@ -383,3 +383,7 @@ inspector.tags = 標籤
 command.view.sort = 排序方式…
 sort.ascending = 遞增排序
 sort.descending = 遞減排序
+command.file.attributes = 屬性…
+attributes.title = 屬性
+attributes.read_only = 鎖定（唯讀）
+attributes.applies_to = 套用於 {count} 個項目

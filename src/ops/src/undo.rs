@@ -72,7 +72,13 @@ impl UndoRecord {
             Operation::NewFolder { .. } => "command.file.new_folder",
             Operation::NewFile { .. } => "command.file.new_file",
             // Copy and Delete are deliberately absent; see the module note.
-            Operation::Copy { .. } | Operation::Delete { .. } => return None,
+            // SetReadOnly joins them for its own reason: reversing a flag
+            // needs each entry's previous value, which the report does not
+            // carry, and an undo that silently set the wrong one would be
+            // worse than no undo at all.
+            Operation::Copy { .. } | Operation::Delete { .. } | Operation::SetReadOnly { .. } => {
+                return None
+            }
         };
 
         let mut steps = Vec::new();

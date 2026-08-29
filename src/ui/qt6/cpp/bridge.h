@@ -159,6 +159,8 @@ int jtf_op_prepare_drop(JtfApp *app, int pane, int kind, const char *newline_sep
 int jtf_op_prepare_rename(JtfApp *app, int pane, const char *new_name);
 int jtf_op_prepare_new_folder(JtfApp *app, int pane, const char *name);
 int jtf_op_prepare_new_file(JtfApp *app, int pane, const char *name);
+int jtf_op_prepare_read_only(JtfApp *app, int pane, int read_only);
+int jtf_targets_read_only(const JtfApp *app, int pane);
 int jtf_op_error_key(const JtfApp *app, char *buf, int len);
 int jtf_op_conflicts(const JtfApp *app);
 int jtf_op_entries(const JtfApp *app);

@@ -383,3 +383,7 @@ inspector.tags = Tags
 command.view.sort = Sort By…
 sort.ascending = Ascending
 sort.descending = Descending
+command.file.attributes = Attributes…
+attributes.title = Attributes
+attributes.read_only = Locked (read-only)
+attributes.applies_to = Applies to {count} items

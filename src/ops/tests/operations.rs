@@ -841,3 +841,69 @@ fn an_installed_platform_trash_is_preferred_to_the_fallback() {
         assert!(!victim.exists(), "a trashed file has left its folder");
     }
 }
+
+/// Setting read-only actually changes the file, and clearing it restores
+/// writability.
+#[test]
+fn read_only_can_be_set_and_cleared() {
+    let fixture = Fixture::new();
+    let path = fixture.file("locked.txt", b"x");
+
+    let lock = Operation::SetReadOnly {
+        sources: vec![path.clone()],
+        read_only: true,
+    };
+    let plan = Plan::build(&lock, &CancellationToken::never()).expect("a plan");
+    execute(
+        &plan,
+        ConflictPolicy::Skip,
+        &CancellationToken::never(),
+        |_| {},
+    );
+    assert!(
+        fs::metadata(&path).unwrap().permissions().readonly(),
+        "the file is read-only now"
+    );
+    assert!(
+        fs::write(&path, b"y").is_err(),
+        "read-only has to mean the filesystem refuses the write, not merely \
+         that we display a flag"
+    );
+
+    let unlock = Operation::SetReadOnly {
+        sources: vec![path.clone()],
+        read_only: false,
+    };
+    let plan = Plan::build(&unlock, &CancellationToken::never()).expect("a plan");
+    execute(
+        &plan,
+        ConflictPolicy::Skip,
+        &CancellationToken::never(),
+        |_| {},
+    );
+    assert!(fs::write(&path, b"y").is_ok(), "and cleared again");
+}
+
+/// Changing an attribute is not offered as undoable.
+#[test]
+fn setting_read_only_is_not_claimed_to_be_undoable() {
+    let fixture = Fixture::new();
+    let path = fixture.file("flagged.txt", b"x");
+    let operation = Operation::SetReadOnly {
+        sources: vec![path],
+        read_only: true,
+    };
+    let plan = Plan::build(&operation, &CancellationToken::never()).expect("a plan");
+    let report = execute(
+        &plan,
+        ConflictPolicy::Skip,
+        &CancellationToken::never(),
+        |_| {},
+    );
+    assert!(
+        UndoRecord::from_report(&operation, &report).is_none(),
+        "reversing a flag needs each entry's previous value, which the report \
+         does not carry; offering an undo that silently did the wrong thing \
+         would be worse than offering none"
+    );
+}

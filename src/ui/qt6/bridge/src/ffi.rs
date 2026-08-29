@@ -1087,6 +1087,30 @@ pub unsafe extern "C" fn jtf_op_clear_queue(app: *mut App) {
     }
 }
 
+/// Prepare setting or clearing read-only on the pane's targets.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_prepare_read_only(
+    app: *mut App,
+    pane_id: c_int,
+    read_only: c_int,
+) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        c_int::from(a.prepare_set_read_only(pane(pane_id), read_only != 0))
+    })
+}
+
+/// Whether every target is already read-only.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_targets_read_only(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.targets_are_read_only(pane(pane_id))))
+}
+
 /// The pane's view mode: 0 list, 1 grid.
 ///
 /// # Safety
