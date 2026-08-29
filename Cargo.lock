@@ -46,6 +46,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "jtf-fs"
+version = "0.0.0"
+dependencies = [
+ "jtf-core",
+ "jtf-jobs",
+]
+
+[[package]]
 name = "jtf-jobs"
 version = "0.0.0"
 dependencies = [

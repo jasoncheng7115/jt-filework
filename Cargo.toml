@@ -19,6 +19,7 @@ members = [
     "src/core",
     "src/jobs",
     "src/workspace",
+    "src/fs",
     "src/commands",
     "src/cli",
     "tests",
@@ -36,6 +37,7 @@ authors = ["JT FileWork contributors"]
 jtf-core = { path = "src/core" }
 jtf-jobs = { path = "src/jobs" }
 jtf-workspace = { path = "src/workspace" }
+jtf-fs = { path = "src/fs" }
 jtf-commands = { path = "src/commands" }
 jtf-search = { path = "src/search" }
 jtf-viewer = { path = "src/viewer" }
