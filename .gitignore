@@ -1,0 +1,77 @@
+# Rust build output
+/target/
+target/
+**/*.rs.bk
+*.pdb
+
+# Benchmark / profiling output
+/bench-results/
+*.profraw
+*.profdata
+perf.data*
+flamegraph.svg
+
+# Fuzzing
+/fuzz/target/
+/fuzz/artifacts/
+/fuzz/coverage/
+
+# Local tooling / editor
+.idea/
+.vscode/
+*.iml
+.rust-analyzer/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.directory
+.Trash-*
+
+# Nextcloud sync artifacts
+*.sync-conflict-*
+.nextcloudsync.log
+*~
+
+# Secrets and local credentials (AGENTS.md §2, docs/SECURITY.md §8)
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.keychain
+secrets.toml
+credentials.json
+
+# Generated / cache / AI scratch data (AGENTS.md §2)
+/scratch/
+/.ai/
+/.claude/local/
+*.log
+*.tmp
+/cache/
+/previews/
+/thumbnails/
+
+# Build & packaging artifacts
+/dist/
+/build/
+*.dmg
+*.app/
+*.msi
+*.exe
+*.AppImage
+*.flatpak

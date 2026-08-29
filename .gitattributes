@@ -1,0 +1,45 @@
+# Normalize line endings: LF in the repository, native in the working tree.
+* text=auto eol=lf
+
+# Explicit text types
+*.rs        text eol=lf diff=rust
+*.toml      text eol=lf
+*.md        text eol=lf
+*.json      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.ftl       text eol=lf
+*.slint     text eol=lf
+*.ui        text eol=lf
+*.sh        text eol=lf
+*.txt       text eol=lf
+
+# Windows-only scripts keep CRLF
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
+
+# Binary
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.icns      binary
+*.pdf       binary
+*.zip       binary
+*.gz        binary
+*.dmg       binary
+*.dylib     binary
+*.so        binary
+*.dll       binary
+
+# Test fixtures are byte-exact: never touch them.
+tests/fixtures/**   -text -diff
+fuzz/corpus/**      -text -diff
+
+# Lockfile: committed, but collapsed in review
+Cargo.lock  text eol=lf linguist-generated=true
+
+# Generated docs / vendored code excluded from language stats
+docs/**     linguist-documentation
