@@ -27,7 +27,20 @@ class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
-    explicit MainWindow(JtfApp *app, QWidget *parent = nullptr);
+    /// `windowId` is the workspace window this shows. The main window is 1;
+    /// a torn-off tab gets its own.
+    explicit MainWindow(JtfApp *app, quint64 windowId = 1, QWidget *parent = nullptr);
+    ~MainWindow() override;
+
+    /// The workspace window this shows.
+    quint64 windowId() const { return m_windowId; }
+
+    /// Every open MainWindow, so a model change can reach all of them.
+    static QList<MainWindow *> &windows();
+
+    /// Bring every window up to date with the model, opening or closing
+    /// top-level windows as the model gained or lost them.
+    static void syncWindows(JtfApp *app);
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -95,6 +108,7 @@ private:
     QByteArray familyUtf8() const;
 
     JtfApp *m_app;
+    quint64 m_windowId = 1;
     QWidget *m_root = nullptr;
     class QSplitter *m_outer = nullptr;
     class FolderTree *m_tree = nullptr;

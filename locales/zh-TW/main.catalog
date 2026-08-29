@@ -368,3 +368,4 @@ crumb.copy_path = 拷貝路徑
 crumb.reveal = 顯示於 Finder
 crumb.terminal = 以終端機開啟
 preview.entries = {count} 個項目
+tab.tear_off = 將標籤頁移至新視窗

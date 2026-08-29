@@ -18,6 +18,13 @@ int jtf_app_pump(JtfApp *app);
 
 // layout
 int jtf_layout_json(const JtfApp *app, char *buf, int len);
+
+// Windows. A tab can be torn into one of its own and merged back.
+int jtf_window_count(const JtfApp *app);
+uint64_t jtf_window_id_at(const JtfApp *app, int index);
+int jtf_window_layout_json(const JtfApp *app, uint64_t window, char *buf, int len);
+uint64_t jtf_tear_off_tab(JtfApp *app, int pane, int tab_index);
+int jtf_merge_tab_into(JtfApp *app, int from, int tab_index, int into);
 int jtf_pane_count(const JtfApp *app);
 int jtf_active_pane(const JtfApp *app);
 void jtf_focus_pane(JtfApp *app, int pane);

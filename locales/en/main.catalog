@@ -368,3 +368,4 @@ crumb.copy_path = Copy Path
 crumb.reveal = Show in Finder
 crumb.terminal = Open in Terminal
 preview.entries = {count} entries
+tab.tear_off = Move Tab to New Window

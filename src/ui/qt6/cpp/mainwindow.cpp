@@ -54,7 +54,52 @@ constexpr int kMaxFontPoints = 22;
 constexpr int kPumpIntervalMs = 16; // one frame at 60Hz
 }
 
-MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_app(app) {
+QList<MainWindow *> &MainWindow::windows() {
+    static QList<MainWindow *> open;
+    return open;
+}
+
+void MainWindow::syncWindows(JtfApp *app) {
+    // The model is the authority on how many windows there are. A tab torn
+    // off adds one; a tab merged back removes one. Rather than have the
+    // gesture create and destroy widgets itself, both just change the model
+    // and this brings the screen into line - so every route to the same state
+    // produces the same windows.
+    QSet<quint64> wanted;
+    const int count = jtf_window_count(app);
+    for (int i = 0; i < count; ++i) {
+        wanted.insert(jtf_window_id_at(app, i));
+    }
+
+    for (int i = MainWindow::windows().size() - 1; i >= 0; --i) {
+        MainWindow *window = MainWindow::windows().at(i);
+        if (!wanted.contains(window->windowId())) {
+            MainWindow::windows().removeAt(i);
+            window->close();
+            window->deleteLater();
+        }
+    }
+
+    QSet<quint64> shown;
+    for (MainWindow *window : std::as_const(MainWindow::windows())) {
+        shown.insert(window->windowId());
+    }
+    for (const quint64 id : wanted) {
+        if (shown.contains(id)) {
+            continue;
+        }
+        auto *window = new MainWindow(app, id);
+        window->setAttribute(Qt::WA_DeleteOnClose, false);
+        window->show();
+    }
+    for (MainWindow *window : std::as_const(MainWindow::windows())) {
+        window->refreshAll();
+    }
+}
+
+MainWindow::MainWindow(JtfApp *app, quint64 windowId, QWidget *parent)
+    : QMainWindow(parent), m_app(app), m_windowId(windowId) {
+    windows().append(this);
     setMinimumSize(720, 420);
     resize(1180, 760);
 
@@ -1218,6 +1263,12 @@ QWidget *MainWindow::buildNode(const QJsonObject &node) {
         });
         connect(pane, &PaneWidget::stateChanged, this, [this] { refreshAll(); });
         connect(pane, &PaneWidget::commandRequested, this, &MainWindow::runCommand);
+        connect(pane, &PaneWidget::tearOffRequested, this, [this, paneId](int tabIndex) {
+            if (jtf_tear_off_tab(m_app, paneId, tabIndex) != 0) {
+                jtf_app_save_session(m_app);
+                MainWindow::syncWindows(m_app);
+            }
+        });
         connect(pane, &PaneWidget::crumbMenuRequested, this,
                 [this, paneId](const QString &path, const QPoint &global) {
                     showCrumbMenu(paneId, path, global);
@@ -1321,6 +1372,8 @@ void MainWindow::announceKeymap(const QString &name) {
     refreshAll();
 }
 
+MainWindow::~MainWindow() { windows().removeAll(this); }
+
 void MainWindow::runCommand(const QString &id) {
     // Routed to the same QAction the menu uses, so a key and a menu entry can
     // never drift into doing two different things - and so a command that is
@@ -1400,8 +1453,12 @@ void MainWindow::syncTree() {
 }
 
 void MainWindow::rebuildLayout() {
-    const QString json =
-        jtfText([&](char *buf, int len) { return jtf_layout_json(m_app, buf, len); });
+    const QString json = jtfText([&](char *buf, int len) {
+        return jtf_window_layout_json(m_app, m_windowId, buf, len);
+    });
+    if (json.isEmpty()) {
+        return; // this window is gone from the model; syncWindows will close it
+    }
     if (json == m_layoutSignature && m_root) {
         return; // structure unchanged: never rebuild widgets for nothing
     }
@@ -1608,6 +1665,17 @@ void MainWindow::applyTheme() {
 void MainWindow::closeEvent(QCloseEvent *event) {
     if (m_tree->isVisible()) {
         jtf_set_tree_state(m_app, 1, m_outer->sizes().value(0));
+    }
+    // Closing the main window quits: the torn-off ones are parts of the same
+    // workspace, not independent documents, so leaving them behind would
+    // leave the program running with its centre gone.
+    if (m_windowId == 1) {
+        const QList<MainWindow *> others = windows();
+        for (MainWindow *window : others) {
+            if (window != this) {
+                window->close();
+            }
+        }
     }
     jtf_app_save_session(m_app);
     QMainWindow::closeEvent(event);

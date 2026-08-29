@@ -1046,6 +1046,71 @@ pub unsafe extern "C" fn jtf_preview_open(app: *mut App, path: *const c_char) ->
     unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.preview_open(path)))
 }
 
+/// How many top-level windows the workspace has.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_window_count(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::try_from(a.window_ids().len()).unwrap_or(0))
+}
+
+/// The id of window `index`, or 0.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_window_id_at(app: *const App, index: c_int) -> u64 {
+    unsafe { app_ref(app) }
+        .and_then(|a| usize::try_from(index).ok().and_then(|i| a.window_ids().get(i).copied()))
+        .unwrap_or(0)
+}
+
+/// The layout tree of one window, as JSON. Empty when it does not exist.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `buf` must have room for `len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_window_layout_json(
+    app: *const App,
+    window: u64,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let text = unsafe { app_ref(app) }.map_or_else(String::new, |a| a.layout_json_for(window));
+    unsafe { write_str(&text, buf, len) }
+}
+
+/// Move a tab into a window of its own. Returns the new window id, or 0.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_tear_off_tab(app: *mut App, pane_id: c_int, tab_index: c_int) -> u64 {
+    let Ok(index) = usize::try_from(tab_index) else {
+        return 0;
+    };
+    unsafe { app_mut(app) }.map_or(0, |a| a.tear_off_tab(pane(pane_id), index))
+}
+
+/// Move a tab from one pane into another, possibly in another window.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_merge_tab_into(
+    app: *mut App,
+    from: c_int,
+    tab_index: c_int,
+    into: c_int,
+) -> c_int {
+    let Ok(index) = usize::try_from(tab_index) else {
+        return 0;
+    };
+    unsafe { app_mut(app) }
+        .map_or(0, |a| c_int::from(a.merge_tab_into(pane(from), index, pane(into))))
+}
+
 /// The archive at `path` as display lines. Empty when it is not an archive.
 ///
 /// # Safety

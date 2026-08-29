@@ -240,6 +240,25 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
         }
     });
 
+    // Right-click a tab to move it out. The drag gesture comes next; this is
+    // the same operation reachable without one, which is also how it stays
+    // usable from the keyboard later.
+    m_tabs->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_tabs, &QWidget::customContextMenuRequested, this, [this](const QPoint &at) {
+        const int index = m_tabs->tabAt(at);
+        if (index < 0) {
+            return;
+        }
+        QMenu menu(this);
+        QAction *tearOff = menu.addAction(jtfText(
+            [&](char *b, int l) { return jtf_tr(m_app, "tab.tear_off", b, l); }));
+        // Only offered when it would do something: the last tab of the last
+        // pane cannot become its own window.
+        tearOff->setEnabled(m_tabs->count() > 1 || jtf_pane_count(m_app) > 1);
+        if (menu.exec(m_tabs->mapToGlobal(at)) == tearOff) {
+            emit tearOffRequested(index);
+        }
+    });
     connect(m_tabs, &QTabBar::tabCloseRequested, this, [this](int index) {
         jtf_close_tab(m_app, m_pane, index);
         emit stateChanged();

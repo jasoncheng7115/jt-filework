@@ -233,6 +233,51 @@ impl App {
     /// Parsed only when the layout changes, never per frame, so the cost of
     /// going through text is irrelevant and the alternative — a second
     /// hand-written tree ABI — would be worse.
+    /// Every window id, in creation order.
+    pub(crate) fn window_ids(&self) -> Vec<u64> {
+        self.workspace
+            .window_ids()
+            .into_iter()
+            .map(jtf_workspace::WindowId::get)
+            .collect()
+    }
+
+    /// Move a tab into a window of its own. Returns the new window id, or 0.
+    pub(crate) fn tear_off_tab(&mut self, pane: PaneId, tab_index: usize) -> u64 {
+        let Some(tab) = self
+            .workspace
+            .pane(pane)
+            .and_then(|p| p.tabs().get(tab_index).map(jtf_workspace::Tab::id))
+        else {
+            return 0;
+        };
+        self.workspace
+            .tear_off_tab(pane, tab)
+            .map_or(0, |(window, _)| window.get())
+    }
+
+    /// Move a tab from one pane into another, which may be another window.
+    pub(crate) fn merge_tab_into(&mut self, from: PaneId, tab_index: usize, into: PaneId) -> bool {
+        let Some(tab) = self
+            .workspace
+            .pane(from)
+            .and_then(|p| p.tabs().get(tab_index).map(jtf_workspace::Tab::id))
+        else {
+            return false;
+        };
+        self.workspace.merge_tab_into(from, tab, into).is_ok()
+    }
+
+    pub(crate) fn layout_json_for(&self, window: u64) -> String {
+        self.workspace
+            .root_of(jtf_workspace::WindowId::new(window))
+            .map_or_else(String::new, Self::node_json)
+    }
+
+    fn node_json(n: &jtf_workspace::WorkspaceNode) -> String {
+        Self::layout_node(n)
+    }
+
     pub(crate) fn layout_json(&self) -> String {
         fn node(n: &jtf_workspace::WorkspaceNode) -> String {
             match n {
@@ -258,6 +303,29 @@ impl App {
             }
         }
         node(self.workspace.root())
+    }
+
+    /// One node as JSON. Shared by every window's layout.
+    fn layout_node(n: &jtf_workspace::WorkspaceNode) -> String {
+        match n {
+            jtf_workspace::WorkspaceNode::Pane { id } => format!(r#"{{"pane":{}}}"#, id.get()),
+            jtf_workspace::WorkspaceNode::Split {
+                orientation,
+                ratio,
+                first,
+                second,
+                ..
+            } => {
+                let vertical = matches!(orientation, Orientation::Vertical);
+                format!(
+                    r#"{{"vertical":{},"ratio":{:.4},"first":{},"second":{}}}"#,
+                    vertical,
+                    ratio,
+                    Self::layout_node(first),
+                    Self::layout_node(second)
+                )
+            }
+        }
     }
 
     pub(crate) fn pane_ids(&self) -> Vec<PaneId> {

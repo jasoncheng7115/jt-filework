@@ -118,6 +118,7 @@ impl Workspace {
     /// Never in practice: the main window is created with the workspace and
     /// `close_window` refuses to remove it. The expect states that invariant
     /// rather than hiding it behind a default tree that would be wrong.
+    #[allow(clippy::expect_used)] // the invariant is the point; see the doc
     pub fn root(&self) -> &WorkspaceNode {
         self.windows
             .get(&Self::MAIN_WINDOW)
@@ -1038,7 +1039,7 @@ mod window_tests {
         let mut ws = workspace();
         let pane = ws.active_pane_id();
         let moved = ws.new_tab(Location::local("/tmp/second"));
-        let (window, new_pane) = ws.tear_off_tab(pane, moved).expect("tears off");
+        let (_window, new_pane) = ws.tear_off_tab(pane, moved).expect("tears off");
         assert_eq!(ws.window_count(), 2);
 
         ws.merge_tab_into(new_pane, moved, pane)

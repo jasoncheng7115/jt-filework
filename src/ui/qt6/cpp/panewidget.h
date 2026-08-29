@@ -65,6 +65,8 @@ signals:
     void dropRequested(const QStringList &paths, int kind);
     void contextMenuRequested(const QPoint &global, bool onEntry);
     void crumbMenuRequested(const QString &path, const QPoint &global);
+    /// Move this tab into a window of its own.
+    void tearOffRequested(int tabIndex);
 
 protected:
     void resizeEvent(class QResizeEvent *event) override;
