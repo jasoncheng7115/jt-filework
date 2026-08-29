@@ -1,4 +1,4 @@
-# JT FileWork workspace.
+# jt-filework workspace.
 #
 # Layout and dependency direction are fixed by docs/adr/0002-repository-and-crate-layout.md
 # and enforced by tests/architecture.rs (docs/TESTING.md section 3.2).
@@ -32,7 +32,7 @@ edition = "2021"
 rust-version = "1.98"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/jasoncheng/jt-filework"
-authors = ["JT FileWork contributors"]
+authors = ["jt-filework contributors"]
 
 [workspace.dependencies]
 jtf-core = { path = "src/core" }

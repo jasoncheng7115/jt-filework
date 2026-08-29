@@ -7,7 +7,7 @@
 
 ## Context
 
-JT FileWork needs a desktop UI that can do all of the following at once:
+jt-filework needs a desktop UI that can do all of the following at once:
 
 - render a virtualized list of 100 000–1 000 000 entries smoothly
 - never block the UI thread on filesystem, preview, index or AI work

@@ -7,6 +7,7 @@
 #pragma once
 
 #include "bridge.h"
+#include "iconprovider.h"
 
 #include <QAbstractTableModel>
 #include <QColor>
@@ -31,6 +32,7 @@ public:
     void refresh();
 
     void setMarkColor(const QColor &color) { m_markColor = color; }
+    void clearIconCache() { m_icons.clear(); }
     void setDirectoryColor(const QColor &color) { m_dirColor = color; }
 
 private:
@@ -38,4 +40,5 @@ private:
     int m_pane;
     QColor m_markColor;
     QColor m_dirColor;
+    mutable IconProvider m_icons;
 };

@@ -1,6 +1,6 @@
 [package]
 name = "jtf-qt6-bridge"
-description = "C ABI over the JT FileWork core, for the Qt 6 Widgets front end."
+description = "C ABI over the jt-filework core, for the Qt 6 Widgets front end."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

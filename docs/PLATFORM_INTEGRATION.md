@@ -1,4 +1,4 @@
-# JT FileWork — Platform Integration Specification
+# jt-filework — Platform Integration Specification
 
 Platform code is isolated behind service interfaces (`AGENTS.md` §5,
 `ARCHITECTURE.md` §9). Core never imports a platform SDK; platform adapters
@@ -66,7 +66,7 @@ limitation, never a silent no-op.
 - **Share / Services / Quick Actions** where public APIs allow
 - **Finder extensions are Finder-only**: third-party Finder Sync extensions
   (e.g. cloud-sync badges) cannot be hosted by another application. This is a
-  documented limitation, and JT FileWork provides its own overlay mechanism
+  documented limitation, and jt-filework provides its own overlay mechanism
   instead of pretending otherwise.
 
 ### 2.5 Drag and drop

@@ -34,7 +34,7 @@ pub use session::{
     RestoreOnLaunch, RestoreOutcome, Restored, Session, SessionSettings, SESSION_FORMAT_VERSION,
 };
 pub use tab::Tab;
-pub use tree::{Orientation, WorkspaceNode};
+pub use tree::{Orientation, WorkspaceNode, MAX_SPLIT_DEPTH};
 pub use view::{
     Column, ColumnSpec, Filter, FilterMode, ScrollPosition, SortKey, SortSpec, ViewMode,
 };

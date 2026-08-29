@@ -1,6 +1,6 @@
 [package]
 name = "jtf-cli"
-description = "Headless walkthrough of the JT FileWork core, for people and for CI smoke tests."
+description = "Headless walkthrough of the jt-filework core, for people and for CI smoke tests."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

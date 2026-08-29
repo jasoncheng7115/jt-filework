@@ -1,4 +1,4 @@
-# JT FileWork — Search and AI Specification
+# jt-filework — Search and AI Specification
 
 The governing rule is `AGENTS.md` §15: **deterministic search is first-class
 and AI never silently replaces it.**

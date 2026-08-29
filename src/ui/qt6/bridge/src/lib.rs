@@ -1,4 +1,4 @@
-//! C ABI over the JT FileWork core.
+//! C ABI over the jt-filework core.
 //!
 //! The Qt 6 front end is C++ (`AGENTS.md` §18: native compiled code, and Qt
 //! Widgets is a C++ API). This crate is the only place the two languages

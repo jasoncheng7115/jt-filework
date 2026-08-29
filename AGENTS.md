@@ -1,4 +1,4 @@
-# AGENTS.md — JT FileWork
+# AGENTS.md — jt-filework
 
 This file defines mandatory rules for Claude Code, Codex, other coding agents, and human contributors.
 
@@ -153,6 +153,14 @@ Support:
 - persistent CView-style marked set
 
 Do not conflate their state.
+
+## 10.1 The Product Name Is `jt-filework`
+
+Lowercase, hyphenated, everywhere: documentation, window title, bundle
+identifier, package names, catalogue values, file names, commit messages.
+
+Not `JT FileWork`, not `JTFileWork`, not `Jt-Filework`. One spelling means
+search finds everything and no build artefact disagrees with any other.
 
 ## 11. i18n Is Mandatory
 

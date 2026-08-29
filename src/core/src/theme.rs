@@ -89,10 +89,18 @@ pub enum ThemeToken {
     SurfacePane,
     /// Preview / tool area background.
     SurfacePreview,
+    /// Toolbar and list-header background.
+    SurfaceHeader,
+    /// Every other row, when alternating row colours are on.
+    RowAlternate,
+    /// Row under the pointer.
+    RowHover,
     /// Primary text.
     TextPrimary,
     /// Secondary / dimmed text.
     TextSecondary,
+    /// Text drawn on an accent fill, such as a selected row.
+    TextOnAccent,
     /// Divider and border lines.
     Border,
     /// Selection in the focused pane.
@@ -120,8 +128,12 @@ impl ThemeToken {
         Self::SurfaceWindow,
         Self::SurfacePane,
         Self::SurfacePreview,
+        Self::SurfaceHeader,
+        Self::RowAlternate,
+        Self::RowHover,
         Self::TextPrimary,
         Self::TextSecondary,
+        Self::TextOnAccent,
         Self::Border,
         Self::SelectionActive,
         Self::SelectionInactive,
@@ -139,8 +151,12 @@ impl ThemeToken {
             Self::SurfaceWindow => "surface.window",
             Self::SurfacePane => "surface.pane",
             Self::SurfacePreview => "surface.preview",
+            Self::SurfaceHeader => "surface.header",
+            Self::RowAlternate => "row.alternate",
+            Self::RowHover => "row.hover",
             Self::TextPrimary => "text.primary",
             Self::TextSecondary => "text.secondary",
+            Self::TextOnAccent => "text.on_accent",
             Self::Border => "border",
             Self::SelectionActive => "selection.active",
             Self::SelectionInactive => "selection.inactive",
@@ -252,38 +268,62 @@ impl Palette {
         }
     }
 
+    // Two roles may legitimately resolve to the same value in one appearance
+    // and diverge in the other. Merging the arms would erase the semantic
+    // mapping that is the whole point of a token, and would make changing one
+    // role without the other a refactor instead of an edit.
+    #[allow(
+        clippy::match_same_arms,
+        reason = "distinct roles, coincidentally equal values"
+    )]
     const fn light_color(token: ThemeToken) -> Color {
         match token {
-            ThemeToken::SurfaceWindow => Color::rgb(0xF6, 0xF6, 0xF7),
+            ThemeToken::SurfaceWindow => Color::rgb(0xF2, 0xF3, 0xF5),
             ThemeToken::SurfacePane => Color::rgb(0xFF, 0xFF, 0xFF),
-            ThemeToken::SurfacePreview => Color::rgb(0xF0, 0xF0, 0xF2),
-            ThemeToken::TextPrimary => Color::rgb(0x14, 0x14, 0x16),
-            ThemeToken::TextSecondary => Color::rgb(0x55, 0x55, 0x5C),
-            ThemeToken::Border => Color::rgb(0xD2, 0xD2, 0xD7),
-            ThemeToken::SelectionActive => Color::rgb(0x1E, 0x5A, 0xA8),
-            ThemeToken::SelectionInactive => Color::rgb(0xD8, 0xDD, 0xE4),
-            ThemeToken::MarkActive => Color::rgb(0xC2, 0x62, 0x00),
-            ThemeToken::FocusRing => Color::rgb(0x0B, 0x4A, 0x9B),
-            ThemeToken::PaneActiveIndicator => Color::rgb(0x17, 0x50, 0xB5),
-            ThemeToken::StatusError => Color::rgb(0x9B, 0x1C, 0x1C),
+            ThemeToken::SurfacePreview => Color::rgb(0xF7, 0xF8, 0xFA),
+            ThemeToken::SurfaceHeader => Color::rgb(0xEC, 0xEE, 0xF1),
+            ThemeToken::RowAlternate => Color::rgb(0xF7, 0xF8, 0xFA),
+            ThemeToken::RowHover => Color::rgb(0xED, 0xF1, 0xF7),
+            ThemeToken::TextPrimary => Color::rgb(0x16, 0x18, 0x1D),
+            ThemeToken::TextSecondary => Color::rgb(0x5B, 0x62, 0x70),
+            ThemeToken::TextOnAccent => Color::rgb(0xFF, 0xFF, 0xFF),
+            ThemeToken::Border => Color::rgb(0xDD, 0xE1, 0xE7),
+            ThemeToken::SelectionActive => Color::rgb(0x2C, 0x6B, 0xD8),
+            ThemeToken::SelectionInactive => Color::rgb(0xDC, 0xE1, 0xE8),
+            ThemeToken::MarkActive => Color::rgb(0x7A, 0x2A, 0x00),
+            ThemeToken::FocusRing => Color::rgb(0x2C, 0x6B, 0xD8),
+            ThemeToken::PaneActiveIndicator => Color::rgb(0x2C, 0x6B, 0xD8),
+            ThemeToken::StatusError => Color::rgb(0xB3, 0x26, 0x1E),
             ThemeToken::StatusWarning => Color::rgb(0x7A, 0x4E, 0x00),
-            ThemeToken::StatusSuccess => Color::rgb(0x14, 0x60, 0x2E),
+            ThemeToken::StatusSuccess => Color::rgb(0x14, 0x6C, 0x2E),
         }
     }
 
+    // Two roles may legitimately resolve to the same value in one appearance
+    // and diverge in the other. Merging the arms would erase the semantic
+    // mapping that is the whole point of a token, and would make changing one
+    // role without the other a refactor instead of an edit.
+    #[allow(
+        clippy::match_same_arms,
+        reason = "distinct roles, coincidentally equal values"
+    )]
     const fn dark_color(token: ThemeToken) -> Color {
         match token {
-            ThemeToken::SurfaceWindow => Color::rgb(0x1A, 0x1A, 0x1D),
-            ThemeToken::SurfacePane => Color::rgb(0x22, 0x22, 0x26),
-            ThemeToken::SurfacePreview => Color::rgb(0x18, 0x18, 0x1B),
-            ThemeToken::TextPrimary => Color::rgb(0xEC, 0xEC, 0xF0),
-            ThemeToken::TextSecondary => Color::rgb(0xA8, 0xA8, 0xB2),
-            ThemeToken::Border => Color::rgb(0x3A, 0x3A, 0x40),
-            ThemeToken::SelectionActive => Color::rgb(0x2F, 0x6F, 0xC4),
-            ThemeToken::SelectionInactive => Color::rgb(0x35, 0x35, 0x3C),
-            ThemeToken::MarkActive => Color::rgb(0xE8, 0x8A, 0x3C),
-            ThemeToken::FocusRing => Color::rgb(0x66, 0xA8, 0xFF),
-            ThemeToken::PaneActiveIndicator => Color::rgb(0x8F, 0xC6, 0xFF),
+            ThemeToken::SurfaceWindow => Color::rgb(0x1C, 0x1D, 0x21),
+            ThemeToken::SurfacePane => Color::rgb(0x23, 0x24, 0x29),
+            ThemeToken::SurfacePreview => Color::rgb(0x19, 0x1A, 0x1E),
+            ThemeToken::SurfaceHeader => Color::rgb(0x26, 0x28, 0x2E),
+            ThemeToken::RowAlternate => Color::rgb(0x26, 0x28, 0x2E),
+            ThemeToken::RowHover => Color::rgb(0x2D, 0x30, 0x38),
+            ThemeToken::TextPrimary => Color::rgb(0xE9, 0xEA, 0xEE),
+            ThemeToken::TextSecondary => Color::rgb(0xA0, 0xA6, 0xB2),
+            ThemeToken::TextOnAccent => Color::rgb(0xFF, 0xFF, 0xFF),
+            ThemeToken::Border => Color::rgb(0x34, 0x36, 0x3D),
+            ThemeToken::SelectionActive => Color::rgb(0x36, 0x70, 0xD0),
+            ThemeToken::SelectionInactive => Color::rgb(0x33, 0x35, 0x3C),
+            ThemeToken::MarkActive => Color::rgb(0xF0, 0xA4, 0x5A),
+            ThemeToken::FocusRing => Color::rgb(0x7F, 0xB4, 0xFF),
+            ThemeToken::PaneActiveIndicator => Color::rgb(0x7F, 0xB4, 0xFF),
             ThemeToken::StatusError => Color::rgb(0xFF, 0x8A, 0x84),
             ThemeToken::StatusWarning => Color::rgb(0xF0, 0xC0, 0x5A),
             ThemeToken::StatusSuccess => Color::rgb(0x6E, 0xD2, 0x8F),
@@ -329,13 +369,20 @@ mod tests {
 
     #[test]
     fn every_token_has_a_value_in_both_palettes() {
+        // Tokens that are legitimately identical in both appearances, because
+        // what they sit on is itself an accent rather than the background.
+        const SAME_IN_BOTH: &[ThemeToken] = &[ThemeToken::TextOnAccent];
+
         for &token in ThemeToken::ALL {
+            if SAME_IN_BOTH.contains(&token) {
+                continue;
+            }
             let light = Palette::light().color(token);
             let dark = Palette::dark().color(token);
             assert_ne!(
                 light,
                 dark,
-                "{} must differ between light and dark",
+                "{} must differ between light and dark, or be listed in SAME_IN_BOTH",
                 token.as_str()
             );
         }
@@ -376,6 +423,44 @@ mod tests {
                 "{:?}: contrast {ratio:.2} below AA",
                 palette.theme()
             );
+        }
+    }
+
+    #[test]
+    fn text_on_accent_is_legible_on_the_selection_fill_in_both_themes() {
+        for palette in [Palette::light(), Palette::dark()] {
+            let text = palette.color(ThemeToken::TextOnAccent);
+            let fill = palette.color(ThemeToken::SelectionActive);
+            let ratio = text.contrast_ratio(fill);
+            assert!(
+                ratio >= 4.5,
+                "{:?}: selected-row text contrast {ratio:.2}",
+                palette.theme()
+            );
+        }
+    }
+
+    #[test]
+    fn hover_and_alternate_rows_stay_subtle_against_the_pane() {
+        // Visible enough to read as a band, quiet enough not to compete with
+        // the selection.
+        for palette in [Palette::light(), Palette::dark()] {
+            let pane = palette.color(ThemeToken::SurfacePane);
+            for token in [ThemeToken::RowAlternate, ThemeToken::RowHover] {
+                let ratio = palette.color(token).contrast_ratio(pane);
+                assert!(
+                    ratio > 1.01,
+                    "{:?}: {} is invisible",
+                    palette.theme(),
+                    token.as_str()
+                );
+                assert!(
+                    ratio < 1.6,
+                    "{:?}: {} is too loud",
+                    palette.theme(),
+                    token.as_str()
+                );
+            }
         }
     }
 

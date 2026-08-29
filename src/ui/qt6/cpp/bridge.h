@@ -45,6 +45,7 @@ int jtf_open_row(JtfApp *app, int pane, int row);
 // rows
 int jtf_row_count(const JtfApp *app, int pane);
 int jtf_row_text(const JtfApp *app, int pane, int row, int column, char *buf, int len);
+int jtf_row_path(const JtfApp *app, int pane, int row, char *buf, int len);
 int jtf_row_is_directory(const JtfApp *app, int pane, int row);
 int jtf_row_is_marked(const JtfApp *app, int pane, int row);
 void jtf_toggle_mark(JtfApp *app, int pane, int row);
@@ -75,8 +76,12 @@ enum JtfToken {
     TokenSurfaceWindow = 0,
     TokenSurfacePane,
     TokenSurfacePreview,
+    TokenSurfaceHeader,
+    TokenRowAlternate,
+    TokenRowHover,
     TokenTextPrimary,
     TokenTextSecondary,
+    TokenTextOnAccent,
     TokenBorder,
     TokenSelectionActive,
     TokenSelectionInactive,

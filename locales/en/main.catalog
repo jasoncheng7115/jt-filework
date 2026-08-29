@@ -1,4 +1,4 @@
-# JT FileWork — English catalogue (fallback locale)
+# jt-filework — English catalogue (fallback locale)
 #
 # Format: `key = value`, one message per line. `#` starts a comment.
 # `{name}` is a placeholder and is part of the message contract: the same
@@ -73,7 +73,7 @@ command.workspace.split.vertical = Split Vertically
 error.already_exists = An item with that name already exists.
 error.cancelled = Cancelled.
 error.device_unavailable = The device or volume is not available.
-error.internal = Something went wrong inside JT FileWork.
+error.internal = Something went wrong inside jt-filework.
 error.invalid_path = That path is not valid.
 error.io = A read or write failed.
 error.limit_exceeded = A safety limit was reached, so the operation stopped.
@@ -122,8 +122,8 @@ kind.device = Device
 kind.remote = Remote item
 kind.result = Search result
 kind.unknown = Unknown
-session.restore.unreadable = Your previous session could not be read, so JT FileWork started fresh. ({code})
-session.restore.unsupported_version = Your previous session was saved by a newer version, so JT FileWork started fresh.
+session.restore.unreadable = Your previous session could not be read, so jt-filework started fresh. ({code})
+session.restore.unsupported_version = Your previous session was saved by a newer version, so jt-filework started fresh.
 
 settings.startup.fixed_location = Start at a chosen location
 settings.startup.home = Start at the home folder
@@ -141,7 +141,7 @@ theme.system = Follow System
 workspace.split.horizontal = Horizontal Split
 workspace.split.vertical = Vertical Split
 
-app.name = JT FileWork
+app.name = jt-filework
 menu.file = File
 menu.view = View
 menu.go = Go

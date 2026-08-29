@@ -1,6 +1,6 @@
 //! A unit of tracked work.
 //!
-//! Everything expensive in JT FileWork is one of these: file operations
+//! Everything expensive in jt-filework is one of these: file operations
 //! (`AGENTS.md` §13) and every other blocking activity (`AGENTS.md` §3).
 
 use jtf_core::Error;

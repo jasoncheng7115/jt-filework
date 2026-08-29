@@ -1,6 +1,6 @@
-# JT FileWork — Security Specification
+# jt-filework — Security Specification
 
-JT FileWork opens files it did not create, parses formats it does not control,
+jt-filework opens files it did not create, parses formats it does not control,
 and executes helpers it does not own. The security model follows from
 `AGENTS.md` §16 and §17.
 

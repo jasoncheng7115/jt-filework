@@ -34,7 +34,7 @@ for size in 16 24 32 48 64 128 256 512 1024; do
 done
 
 echo "==> macOS .icns"
-iconset="$out/JTFileWork.iconset"
+iconset="$out/jt-filework.iconset"
 mkdir -p "$iconset"
 render 16   "$iconset/icon_16x16.png"
 render 32   "$iconset/icon_16x16@2x.png"
@@ -47,7 +47,7 @@ render 512  "$iconset/icon_256x256@2x.png"
 render 512  "$iconset/icon_512x512.png"
 render 1024 "$iconset/icon_512x512@2x.png"
 if command -v iconutil >/dev/null 2>&1; then
-    iconutil -c icns "$iconset" -o "$out/JTFileWork.icns"
+    iconutil -c icns "$iconset" -o "$out/jt-filework.icns"
     rm -rf "$iconset"
 else
     echo "    iconutil not found (not macOS); leaving the .iconset directory"
@@ -62,7 +62,7 @@ magick \
     "$out/png/jt-filework-64.png" \
     "$out/png/jt-filework-128.png" \
     "$out/png/jt-filework-256.png" \
-    "$out/JTFileWork.ico"
+    "$out/jt-filework.ico"
 
 echo "==> contact sheet (review artefact)"
 tmp="$(mktemp -d)"

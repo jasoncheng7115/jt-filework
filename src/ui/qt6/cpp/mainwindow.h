@@ -7,6 +7,7 @@
 #pragma once
 
 #include "bridge.h"
+#include "theme.h"
 
 #include <QHash>
 #include <QMainWindow>
@@ -33,6 +34,8 @@ private:
     void refreshAll();
     void retranslate();
     void applyTheme();
+    void buildToolbar();
+    void syncToolbar();
     void markActivePane();
     QString tr_(const char *key) const;
 
@@ -41,6 +44,11 @@ private:
     QHash<int, PaneWidget *> m_panes;
     QString m_layoutSignature;
     QLabel *m_statusLeft = nullptr;
+    class QLineEdit *m_pathEdit = nullptr;
+    class QAction *m_backAction = nullptr;
+    class QAction *m_forwardAction = nullptr;
+    class QAction *m_upAction = nullptr;
+    Theme m_theme;
 
     QMenu *m_fileMenu = nullptr;
     QMenu *m_viewMenu = nullptr;

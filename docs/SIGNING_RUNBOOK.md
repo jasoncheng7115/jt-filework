@@ -1,4 +1,4 @@
-# JT FileWork — Code Signing Runbook
+# jt-filework — Code Signing Runbook
 
 Step-by-step procedure. The *why*, the costs and the free alternatives are in
 `docs/DISTRIBUTION.md`; this document assumes that decision is made and tells
@@ -114,12 +114,12 @@ name suggests.
 IDENTITY="Developer ID Application: YOUR NAME (TEAMID)"
 
 # every nested Mach-O first
-find "JT FileWork.app/Contents" \( -name '*.dylib' -o -name '*.framework' -o -perm +111 -type f \) \
+find "jt-filework.app/Contents" \( -name '*.dylib' -o -name '*.framework' -o -perm +111 -type f \) \
   -exec codesign --force --options runtime --timestamp --sign "$IDENTITY" {} \;
 
 # then the bundle
 codesign --force --options runtime --timestamp \
-  --sign "$IDENTITY" "JT FileWork.app"
+  --sign "$IDENTITY" "jt-filework.app"
 ```
 
 - `--options runtime` enables the **hardened runtime**. Notarization refuses
@@ -132,25 +132,25 @@ codesign --force --options runtime --timestamp \
 Verify locally:
 
 ```bash
-codesign --verify --strict --verbose=2 "JT FileWork.app"
-codesign --display --entitlements - "JT FileWork.app"
+codesign --verify --strict --verbose=2 "jt-filework.app"
+codesign --display --entitlements - "jt-filework.app"
 ```
 
 ### A7. Package, notarize, staple
 
 ```bash
 # 1. package
-hdiutil create -volname "JT FileWork" -srcfolder "JT FileWork.app" \
-  -ov -format UDZO JTFileWork.dmg
+hdiutil create -volname "jt-filework" -srcfolder "jt-filework.app" \
+  -ov -format UDZO jt-filework.dmg
 
 # 2. sign the container too
-codesign --force --timestamp --sign "$IDENTITY" JTFileWork.dmg
+codesign --force --timestamp --sign "$IDENTITY" jt-filework.dmg
 
 # 3. submit and wait
-xcrun notarytool submit JTFileWork.dmg --keychain-profile "jtf-notary" --wait
+xcrun notarytool submit jt-filework.dmg --keychain-profile "jtf-notary" --wait
 
 # 4. attach the ticket so the check works offline
-xcrun stapler staple JTFileWork.dmg
+xcrun stapler staple jt-filework.dmg
 ```
 
 If notarization is rejected, read the actual reason — the summary is never
@@ -172,15 +172,15 @@ xcrun notarytool log <submission-id> --keychain-profile "jtf-notary"
 The build machine is the one place where a broken signature still works.
 
 ```bash
-xcrun stapler validate JTFileWork.dmg
-spctl -a -vvv -t install JTFileWork.dmg
+xcrun stapler validate jt-filework.dmg
+spctl -a -vvv -t install jt-filework.dmg
 ```
 
 Then, on a **different Mac**: download it through a browser, confirm the
 quarantine attribute is present, and open it.
 
 ```bash
-xattr -p com.apple.quarantine "/Applications/JT FileWork.app"   # must exist
+xattr -p com.apple.quarantine "/Applications/jt-filework.app"   # must exist
 ```
 
 If it opens with no warning, the pipeline is correct. This is the manual
@@ -203,7 +203,7 @@ A fork without these secrets must still be able to produce an unsigned build
 ### B1. Yes, SignPath works — and it is free for this project
 
 **SignPath Foundation** provides free OV code signing to open-source
-projects, and `GPL-3.0-or-later` is an OSI-approved licence, so JT FileWork
+projects, and `GPL-3.0-or-later` is an OSI-approved licence, so jt-filework
 qualifies in principle. It is a real solution, not a workaround: the
 certificate chains to a normally trusted CA, so SmartScreen treats it as a
 signed binary.
@@ -213,7 +213,7 @@ constrain decisions well beyond signing.
 
 **1. The certificate belongs to SignPath Foundation, not to you.**
 The publisher shown in Windows is the Foundation's identity, not "Jason
-Cheng" and not "JT FileWork". If you want your own name in the publisher
+Cheng" and not "jt-filework". If you want your own name in the publisher
 field, you must buy your own certificate.
 
 **2. The project must already be publicly released and actively maintained.**
@@ -234,10 +234,10 @@ workable but not automatic — plan for it.
 **5. No commercial dual-licensing, and no proprietary components.**
 This is the one to think hard about. Accepting free Foundation signing means
 **giving up the option of a commercial dual-licence** for as long as you use
-it. If JT FileWork might ever sell a proprietary edition, that path closes.
+it. If jt-filework might ever sell a proprietary edition, that path closes.
 `README.md` currently proposes `GPL-3.0-or-later` for the application and
 `Apache-2.0` for a future plugin SDK — both OSI-approved, both compatible
-with this condition. A future "JT FileWork Pro" would not be.
+with this condition. A future "jt-filework Pro" would not be.
 
 You must also publish a **code signing policy** page carrying the
 attribution *"Free code signing provided by SignPath.io, certificate by

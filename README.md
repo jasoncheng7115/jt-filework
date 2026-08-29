@@ -1,8 +1,8 @@
-# JT FileWork
+# jt-filework
 
 > A modern keyboard-first, mouse-complete, native-integrated file workspace for macOS, Windows and Linux.
 
-JT FileWork is inspired by the workflow philosophy of CView / WinCV while incorporating modern native desktop behavior, Q-Dir/QSpace-style multi-pane workspaces, strong search, rich preview, and AI/agent integration.
+jt-filework is inspired by the workflow philosophy of CView / WinCV while incorporating modern native desktop behavior, Q-Dir/QSpace-style multi-pane workspaces, strong search, rich preview, and AI/agent integration.
 
 ## Project Status
 
@@ -12,7 +12,7 @@ The first shipping platform is **macOS on Apple Silicon**, but architecture must
 
 ## Product Vision
 
-JT FileWork is not merely a file manager, file viewer, or Finder replacement.
+jt-filework is not merely a file manager, file viewer, or Finder replacement.
 
 It is a **local file productivity workspace** designed around:
 
@@ -35,7 +35,7 @@ It is a **local file productivity workspace** designed around:
 4. Workspace-oriented.
 5. Cross-platform core.
 6. Shell ecosystem compatible.
-7. Native-first where the OS is stronger; internal-first where JT FileWork can be stronger.
+7. Native-first where the OS is stronger; internal-first where jt-filework can be stronger.
 8. AI is additive, never a replacement for deterministic behavior.
 9. UI thread never blocks on filesystem, network, preview, indexing, or AI work.
 10. GUI framework must remain replaceable.

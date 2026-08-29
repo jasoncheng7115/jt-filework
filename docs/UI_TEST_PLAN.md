@@ -1,4 +1,4 @@
-# JT FileWork — UI Test Plan
+# jt-filework — UI Test Plan
 
 Complete coverage plan for the UI layer. `docs/TESTING.md` §7 defines the
 level; this document enumerates **every UI surface, every state and every

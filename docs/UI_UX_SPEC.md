@@ -1,4 +1,4 @@
-# JT FileWork — UI / UX Specification
+# jt-filework — UI / UX Specification
 
 This document defines interaction behaviour independent of any GUI toolkit.
 It must remain valid whichever stack ADR-0001 selects.
@@ -10,7 +10,7 @@ It must remain valid whichever stack ADR-0001 selects.
 1. **Keyboard-first, not keyboard-only** (`AGENTS.md` §9). Every core action
    has a shortcut; every core action is also reachable by mouse or menu.
 2. **Predictable over clever.** Native platform behaviour wins unless
-   JT FileWork can be measurably better.
+   jt-filework can be measurably better.
 3. **Never block.** The window always responds, even when the filesystem does
    not (`AGENTS.md` §3).
 4. **Never lie.** Progress is real, "done" means done, partial failure is

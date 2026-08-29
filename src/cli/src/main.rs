@@ -116,7 +116,7 @@ fn section(number: &str, title: &str) {
 }
 
 fn banner(localizer: &Localizer, locale: &LocaleId) {
-    println!("\x1b[1mJT FileWork — core walkthrough\x1b[0m");
+    println!("\x1b[1mjt-filework — core walkthrough\x1b[0m");
     println!(
         "locale: {locale}   fallback: {}",
         localizer.fallback_locale()

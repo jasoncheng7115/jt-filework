@@ -44,6 +44,15 @@ impl Orientation {
     }
 }
 
+/// Maximum nesting depth of the split tree.
+///
+/// Not a UI limit — a person will never nest sixteen splits. It is a bound on
+/// **recursion over attacker-influenced data**: the tree is restored from a
+/// session file, and both this module and the UI layer walk it recursively.
+/// Without a bound, a hand-edited session file is a stack overflow
+/// (`AGENTS.md` §21, `docs/SECURITY.md` §13).
+pub const MAX_SPLIT_DEPTH: usize = 16;
+
 /// Smallest fraction a split child may occupy.
 ///
 /// Prevents a pane from being dragged to zero width and becoming unreachable.
@@ -136,6 +145,24 @@ impl WorkspaceNode {
             Self::Pane { .. } => 0,
             Self::Split { first, second, .. } => 1 + first.depth().max(second.depth()),
         }
+    }
+
+    /// Whether the tree is shallow enough to walk recursively in safety.
+    ///
+    /// Computed iteratively, so checking a hostile tree cannot itself be the
+    /// stack overflow it is meant to prevent.
+    pub fn depth_within_limit(&self) -> bool {
+        let mut stack = vec![(self, 0usize)];
+        while let Some((node, depth)) = stack.pop() {
+            if depth > MAX_SPLIT_DEPTH {
+                return false;
+            }
+            if let Self::Split { first, second, .. } = node {
+                stack.push((first, depth + 1));
+                stack.push((second, depth + 1));
+            }
+        }
+        true
     }
 
     /// Whether the subtree contains a pane.
@@ -397,6 +424,28 @@ mod tests {
             Orientation::Vertical.label_key(),
             "workspace.split.vertical"
         );
+    }
+
+    #[test]
+    fn a_tree_deeper_than_the_limit_is_rejected_without_recursing_into_it() {
+        // docs/SECURITY.md 13: the split tree arrives from a session file,
+        // which is untrusted input, and is walked recursively everywhere.
+        let mut tree = p(1);
+        for n in 0..(MAX_SPLIT_DEPTH + 5) {
+            tree = WorkspaceNode::split(
+                SplitId::new(n as u64 + 100),
+                Orientation::Horizontal,
+                0.5,
+                tree,
+                p(n as u64 + 200),
+            );
+        }
+        assert!(!tree.depth_within_limit());
+
+        let shallow =
+            WorkspaceNode::split(SplitId::new(1), Orientation::Horizontal, 0.5, p(1), p(2));
+        assert!(shallow.depth_within_limit());
+        assert!(p(1).depth_within_limit());
     }
 
     #[test]

@@ -350,6 +350,19 @@ impl App {
         }
     }
 
+    /// Full path of a row, for the UI to ask the platform for its icon.
+    ///
+    /// The icon itself is the toolkit's business: `AGENTS.md` §8 says use
+    /// native behaviour where users expect it, and a file's icon is the most
+    /// visible instance of that.
+    pub(crate) fn row_path(&self, pane: PaneId, row: usize) -> String {
+        self.views
+            .get(&pane)
+            .and_then(|v| v.entries.get(row))
+            .and_then(|e| e.location().as_path())
+            .map_or_else(String::new, |p| p.display().to_string())
+    }
+
     pub(crate) fn row_is_directory(&self, pane: PaneId, row: usize) -> bool {
         self.views
             .get(&pane)
@@ -681,7 +694,7 @@ fn home_location() -> Location {
 
 fn session_path() -> PathBuf {
     let base = std::env::var_os("HOME").map_or_else(std::env::temp_dir, PathBuf::from);
-    base.join("Library/Application Support/JT FileWork/session.json")
+    base.join("Library/Application Support/jt-filework/session.json")
 }
 
 /// Find the repository root so the PoC can load `locales/` from the source

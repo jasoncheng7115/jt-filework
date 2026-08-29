@@ -1,4 +1,4 @@
-# JT FileWork — Viewer and Preview Specification
+# jt-filework — Viewer and Preview Specification
 
 Preview and Viewer are different subsystems with different contracts
 (`AGENTS.md` §14).
@@ -55,7 +55,7 @@ Oversized content is not an error. It renders a bounded state with an
 ## 3. Native vs Internal
 
 Hybrid strategy (`PRODUCT_SPEC.md` §11): native where the OS is stronger,
-internal where JT FileWork can be stronger.
+internal where jt-filework can be stronger.
 
 **Native preferred**: Office and iWork documents, PDF, media playback,
 platform-specific formats, thumbnails.

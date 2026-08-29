@@ -6,8 +6,8 @@
 
 int main(int argc, char **argv) {
     QApplication application(argc, argv);
-    QApplication::setApplicationName(QStringLiteral("JT FileWork"));
-    QApplication::setOrganizationName(QStringLiteral("JT FileWork"));
+    QApplication::setApplicationName(QStringLiteral("jt-filework"));
+    QApplication::setOrganizationName(QStringLiteral("jt-filework"));
 
     // The C++ token enum and Rust's ThemeToken::ALL must agree. Checking it
     // once at startup turns a silent wrong-colour bug into an immediate,

@@ -1,8 +1,8 @@
-# JT FileWork — Product Specification
+# jt-filework — Product Specification
 
 ## 1. Definition
 
-JT FileWork is a cross-platform desktop file workspace for power users.
+jt-filework is a cross-platform desktop file workspace for power users.
 
 It combines:
 - CView/WinCV-style keyboard workflows
@@ -207,7 +207,7 @@ Respect platform modifier semantics for copy/move/link.
 ## 10. Context Menu
 
 Merge:
-1. JT FileWork commands
+1. jt-filework commands
 2. file-type commands
 3. target-pane commands
 4. AI commands
@@ -232,7 +232,7 @@ Linux:
 
 Hybrid strategy:
 - native preview when OS is stronger
-- internal viewer where JT FileWork can provide a richer workflow
+- internal viewer where jt-filework can provide a richer workflow
 
 macOS:
 - Space => native Quick Look

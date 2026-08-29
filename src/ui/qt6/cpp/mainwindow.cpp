@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "jtfstring.h"
 #include "panewidget.h"
+#include "theme.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -9,6 +10,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+#include <QLineEdit>
+#include <QStyle>
+#include <QToolBar>
 #include <QMenu>
 #include <QMenuBar>
 #include <QSplitter>
@@ -29,6 +33,7 @@ MainWindow::MainWindow(JtfApp *app, QWidget *parent) : QMainWindow(parent), m_ap
     statusBar()->addWidget(m_statusLeft);
 
     buildMenus();
+    buildToolbar();
     rebuildLayout();
     applyTheme();
     retranslate();
@@ -114,6 +119,69 @@ void MainWindow::buildMenus() {
         [this] { jtf_go_forward(m_app, jtf_active_pane(m_app)); });
 }
 
+void MainWindow::buildToolbar() {
+    auto *bar = addToolBar(QString());
+    bar->setObjectName(QStringLiteral("JtfToolbar"));
+    bar->setMovable(false);
+    bar->setFloatable(false);
+    bar->setIconSize(QSize(16, 16));
+
+    const auto navAction = [&](QStyle::StandardPixmap pixmap, const char *key,
+                               const QKeySequence &shortcut, std::function<void(int)> handler) {
+        auto *action = new QAction(style()->standardIcon(pixmap), QString(), this);
+        action->setShortcut(shortcut);
+        connect(action, &QAction::triggered, this, [this, handler] {
+            handler(jtf_active_pane(m_app));
+            refreshAll();
+        });
+        bar->addAction(action);
+        m_translatable.append({action, key});
+        return action;
+    };
+
+    m_backAction = navAction(QStyle::SP_ArrowBack, "command.nav.back", QKeySequence::Back,
+                             [this](int pane) { jtf_go_back(m_app, pane); });
+    m_forwardAction = navAction(QStyle::SP_ArrowForward, "command.nav.forward",
+                                QKeySequence::Forward,
+                                [this](int pane) { jtf_go_forward(m_app, pane); });
+    m_upAction = navAction(QStyle::SP_ArrowUp, "command.nav.up",
+                           QKeySequence(QStringLiteral("Ctrl+Up")),
+                           [this](int pane) { jtf_navigate_up(m_app, pane); });
+
+    bar->addSeparator();
+
+    m_pathEdit = new QLineEdit(bar);
+    m_pathEdit->setClearButtonEnabled(true);
+    m_pathEdit->setMinimumWidth(320);
+    bar->addWidget(m_pathEdit);
+    // Typing a path and pressing Return navigates; Escape puts the real path
+    // back, so an abandoned edit never leaves a lie on screen.
+    connect(m_pathEdit, &QLineEdit::returnPressed, this, [this] {
+        const QByteArray path = m_pathEdit->text().trimmed().toUtf8();
+        if (!path.isEmpty()) {
+            jtf_navigate(m_app, jtf_active_pane(m_app), path.constData());
+            refreshAll();
+        }
+    });
+
+    auto *focusPath = new QAction(this);
+    focusPath->setShortcut(QKeySequence(QStringLiteral("Ctrl+L")));
+    connect(focusPath, &QAction::triggered, this, [this] {
+        m_pathEdit->setFocus();
+        m_pathEdit->selectAll();
+    });
+    addAction(focusPath);
+}
+
+void MainWindow::syncToolbar() {
+    const int pane = jtf_active_pane(m_app);
+    const QString path =
+        jtfText([&](char *buf, int len) { return jtf_current_path(m_app, pane, buf, len); });
+    if (!m_pathEdit->hasFocus() && m_pathEdit->text() != path) {
+        m_pathEdit->setText(path);
+    }
+}
+
 QWidget *MainWindow::buildNode(const QJsonObject &node) {
     if (node.contains(QStringLiteral("pane"))) {
         const int paneId = node.value(QStringLiteral("pane")).toInt();
@@ -170,6 +238,7 @@ void MainWindow::refreshAll() {
         pane->refresh();
     }
     markActivePane();
+    syncToolbar();
     retranslate();
 }
 
@@ -196,30 +265,28 @@ void MainWindow::retranslate() {
 }
 
 void MainWindow::applyTheme() {
-    const bool systemDark =
-        QApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark;
-    const auto colour = [&](int token) {
-        return QColor::fromRgba(jtf_theme_color(m_app, systemDark ? 1 : 0, token));
-    };
+    const bool systemDark = QApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark;
+    m_theme = Theme::fromApp(m_app, systemDark);
 
     // Every colour on screen comes from a semantic token resolved in Rust.
-    // There is no literal colour anywhere in this file (AGENTS.md 12).
+    // There is no literal colour anywhere in the C++ (AGENTS.md 12).
     QPalette palette = QApplication::palette();
-    palette.setColor(QPalette::Window, colour(TokenSurfaceWindow));
-    palette.setColor(QPalette::Base, colour(TokenSurfacePane));
-    palette.setColor(QPalette::AlternateBase, colour(TokenSurfacePreview));
-    palette.setColor(QPalette::WindowText, colour(TokenTextPrimary));
-    palette.setColor(QPalette::Text, colour(TokenTextPrimary));
-    palette.setColor(QPalette::ButtonText, colour(TokenTextPrimary));
-    palette.setColor(QPalette::PlaceholderText, colour(TokenTextSecondary));
-    palette.setColor(QPalette::Highlight, colour(TokenSelectionActive));
-    palette.setColor(QPalette::HighlightedText, colour(TokenSurfacePane));
-    setPalette(palette);
+    palette.setColor(QPalette::Window, m_theme.window);
+    palette.setColor(QPalette::Base, m_theme.pane);
+    palette.setColor(QPalette::AlternateBase, m_theme.rowAlternate);
+    palette.setColor(QPalette::WindowText, m_theme.textPrimary);
+    palette.setColor(QPalette::Text, m_theme.textPrimary);
+    palette.setColor(QPalette::ButtonText, m_theme.textPrimary);
+    palette.setColor(QPalette::PlaceholderText, m_theme.textSecondary);
+    palette.setColor(QPalette::Highlight, m_theme.selection);
+    palette.setColor(QPalette::HighlightedText, m_theme.textOnAccent);
     QApplication::setPalette(palette);
+    setPalette(palette);
+
+    qApp->setStyleSheet(m_theme.styleSheet());
 
     for (auto *pane : std::as_const(m_panes)) {
-        pane->applyTheme(colour(TokenMarkActive), colour(TokenTextPrimary),
-                         colour(TokenPaneActiveIndicator), colour(TokenBorder));
+        pane->applyTheme(m_theme.mark, m_theme.textPrimary, m_theme.indicator, m_theme.border);
     }
 }
 

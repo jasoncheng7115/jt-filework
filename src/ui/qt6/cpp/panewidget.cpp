@@ -12,8 +12,9 @@
 
 PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     : QWidget(parent), m_app(app), m_pane(paneId) {
+    setObjectName(QStringLiteral("JtfPane"));
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(1, 1, 1, 1);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
     m_tabs = new QTabBar(this);
@@ -25,8 +26,8 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     layout->addWidget(m_tabs);
 
     m_path = new QLabel(this);
+    m_path->setObjectName(QStringLiteral("JtfPath"));
     m_path->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    m_path->setContentsMargins(6, 2, 6, 2);
     layout->addWidget(m_path);
 
     m_view = new QTableView(this);
@@ -35,10 +36,12 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_view->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_view->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_view->setAlternatingRowColors(true);
+    m_view->setMouseTracking(true); // so :hover in the stylesheet applies
     m_view->setShowGrid(false);
     m_view->setSortingEnabled(false); // sorting is the model's, not Qt's
     m_view->verticalHeader()->setVisible(false);
-    m_view->verticalHeader()->setDefaultSectionSize(20);
+    m_view->verticalHeader()->setDefaultSectionSize(22);
+    m_view->setIconSize(QSize(16, 16));
     // Uniform row heights is what lets Qt virtualize properly; without it the
     // view measures every row and the cost becomes O(directory size).
     m_view->horizontalHeader()->setSectionsClickable(true);
@@ -49,7 +52,7 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     layout->addWidget(m_view, 1);
 
     m_status = new QLabel(this);
-    m_status->setContentsMargins(6, 2, 6, 2);
+    m_status->setObjectName(QStringLiteral("JtfStatus"));
     layout->addWidget(m_status);
 
     m_view->installEventFilter(this);
@@ -80,10 +83,11 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
 
     syncTabs();
     syncPath();
-    m_view->setColumnWidth(0, 320);
-    m_view->setColumnWidth(1, 90);
-    m_view->setColumnWidth(2, 120);
-    m_view->setColumnWidth(3, 160);
+    m_view->setColumnWidth(0, 330);
+    m_view->setColumnWidth(1, 92);
+    m_view->setColumnWidth(2, 128);
+    m_view->setColumnWidth(3, 168);
+    m_view->horizontalHeader()->setMinimumSectionSize(56);
 }
 
 void PaneWidget::openRow(int row) {
@@ -201,10 +205,13 @@ void PaneWidget::applyTheme(const QColor &mark, const QColor &directory, const Q
 void PaneWidget::setActive(bool active) {
     m_active = active;
     // The active pane must be identifiable at a glance in both themes and
-    // without relying on colour alone (docs/UI_UX_SPEC.md 3.1): a border that
-    // changes thickness as well as colour.
+    // without relying on colour alone (docs/UI_UX_SPEC.md 3.1). A coloured
+    // rule along the top edge reads instantly and, unlike a full border, does
+    // not steal a pixel of list width when it appears.
     const QColor colour = active ? m_indicator : m_border;
-    setStyleSheet(QStringLiteral("PaneWidget { border: %1px solid %2; }")
+    setStyleSheet(QStringLiteral("QWidget#JtfPane { border-top: %1px solid %2; "
+                                 "border-right: 1px solid %3; }")
                       .arg(active ? 2 : 1)
-                      .arg(colour.name(QColor::HexRgb)));
+                      .arg(colour.name(QColor::HexRgb))
+                      .arg(m_border.name(QColor::HexRgb)));
 }

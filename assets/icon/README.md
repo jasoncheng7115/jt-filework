@@ -1,4 +1,4 @@
-# JT FileWork — Application Icon
+# jt-filework — Application Icon
 
 ## The mark
 
@@ -54,7 +54,7 @@ workspace of panes where each owns its tabs and exactly one is active.
 
 Remaining differences from the nearest neighbour:
 
-| | Commander One | JT FileWork |
+| | Commander One | jt-filework |
 |---|---|---|
 | Ground | bright blue / purple, edge to edge | deep navy, panels inset on it |
 | Division | symmetric 50/50, two columns | asymmetric, one pane beside a nested pair |
@@ -102,8 +102,8 @@ Outputs into `assets/icon/generated/`, which is **not** committed
 
 ```text
 generated/
-  JTFileWork.icns          macOS, 16 … 512@2x
-  JTFileWork.ico           Windows, 16 … 256
+  jt-filework.icns          macOS, 16 … 512@2x
+  jt-filework.ico           Windows, 16 … 256
   png/jt-filework-<n>.png  16 24 32 48 64 128 256 512 1024
   contact-sheet.png        review artefact: 512 next to 128/64/32/16 upscaled
 ```

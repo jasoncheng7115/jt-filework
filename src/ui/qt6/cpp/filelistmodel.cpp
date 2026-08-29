@@ -40,6 +40,21 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const {
             return jtf_row_text(m_app, m_pane, row, column, buf, len);
         });
 
+    case Qt::DecorationRole: {
+        // The name column carries the file's own icon, the one the platform
+        // would show for it (AGENTS.md 8).
+        if (column != 0) {
+            return {};
+        }
+        const QString path = jtfText([&](char *buf, int len) {
+            return jtf_row_path(m_app, m_pane, row, buf, len);
+        });
+        if (path.isEmpty()) {
+            return {};
+        }
+        return m_icons.iconFor(path, jtf_row_is_directory(m_app, m_pane, row) != 0);
+    }
+
     case Qt::ForegroundRole:
         // A marked row is coloured, and marks are distinct from selection -
         // AGENTS.md 10 keeps them separate in the model, so the UI must keep

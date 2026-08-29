@@ -1,4 +1,4 @@
-# JT FileWork — Distribution, Signing and Notarization
+# jt-filework — Distribution, Signing and Notarization
 
 Short answer to "will other people get a warning when they run it?":
 **yes, on macOS and Windows, unless the build is signed — and on macOS also

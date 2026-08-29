@@ -1,4 +1,4 @@
-# JT FileWork — 台灣繁體中文語系檔
+# jt-filework — 台灣繁體中文語系檔
 #
 # 格式：`key = value`，每行一則訊息，`#` 為註解。
 # `{name}` 是佔位符，屬於訊息契約的一部分：每個語系的佔位符必須一致
@@ -73,7 +73,7 @@ command.workspace.split.vertical = 垂直分割
 error.already_exists = 已經有同名的項目。
 error.cancelled = 已取消。
 error.device_unavailable = 裝置或磁碟區目前無法使用。
-error.internal = JT FileWork 內部發生錯誤。
+error.internal = jt-filework 內部發生錯誤。
 error.invalid_path = 路徑無效。
 error.io = 讀取或寫入失敗。
 error.limit_exceeded = 已達安全上限，操作已停止。
@@ -122,8 +122,8 @@ kind.device = 裝置
 kind.remote = 遠端項目
 kind.result = 搜尋結果
 kind.unknown = 未知
-session.restore.unreadable = 無法讀取上次的工作階段，JT FileWork 已重新開始。（{code}）
-session.restore.unsupported_version = 上次的工作階段由較新版本儲存，JT FileWork 已重新開始。
+session.restore.unreadable = 無法讀取上次的工作階段，jt-filework 已重新開始。（{code}）
+session.restore.unsupported_version = 上次的工作階段由較新版本儲存，jt-filework 已重新開始。
 
 settings.startup.fixed_location = 從指定的位置開始
 settings.startup.home = 從個人資料夾開始
@@ -141,7 +141,7 @@ theme.system = 跟隨系統
 workspace.split.horizontal = 水平分割
 workspace.split.vertical = 垂直分割
 
-app.name = JT FileWork
+app.name = jt-filework
 menu.file = 檔案
 menu.view = 檢視
 menu.go = 前往

@@ -1,4 +1,4 @@
-//! Platform-neutral core of JT FileWork.
+//! Platform-neutral core of jt-filework.
 //!
 //! This crate holds the model every other layer agrees on: file entries,
 //! locations, machine-readable error codes, the localization contract and the

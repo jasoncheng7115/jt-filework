@@ -1,4 +1,4 @@
-# Qt 6 Widgets front end for JT FileWork (Phase 0B PoC, ADR-0001).
+# Qt 6 Widgets front end for jt-filework (Phase 0B PoC, ADR-0001).
 #
 # The C++ here is the UI layer only. All logic lives in the Rust crates and is
 # reached through the C ABI in bridge/ - AGENTS.md 4 keeps the toolkit
@@ -29,12 +29,22 @@ endif()
 set(BRIDGE_LIB "${RUST_TARGET_DIR}/${CARGO_PROFILE_DIR}/libjtf_qt6_bridge.a")
 get_filename_component(REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
 
+
+# Without an explicit dependency list the archive is built once and then
+# considered up to date forever, so a new bridge function silently becomes an
+# undefined symbol at link time.
+file(GLOB_RECURSE BRIDGE_SOURCES CONFIGURE_DEPENDS
+    "${REPO_ROOT}/src/*/src/*.rs"
+    "${REPO_ROOT}/src/ui/qt6/bridge/src/*.rs"
+    "${REPO_ROOT}/src/*/Cargo.toml")
+
 add_custom_command(
     OUTPUT "${BRIDGE_LIB}"
     COMMAND ${CMAKE_COMMAND} -E env
             "CARGO_TARGET_DIR=${RUST_TARGET_DIR}"
             cargo build ${CARGO_PROFILE_FLAG} -p jtf-qt6-bridge
     WORKING_DIRECTORY "${REPO_ROOT}"
+    DEPENDS ${BRIDGE_SOURCES}
     COMMENT "Building the Rust bridge"
     VERBATIM
     USES_TERMINAL)
@@ -50,6 +60,10 @@ qt_add_executable(jt-filework
     cpp/panewidget.h
     cpp/filelistmodel.cpp
     cpp/filelistmodel.h
+    cpp/iconprovider.cpp
+    cpp/iconprovider.h
+    cpp/theme.cpp
+    cpp/theme.h
     cpp/bridge.h
     cpp/jtfstring.h)
 

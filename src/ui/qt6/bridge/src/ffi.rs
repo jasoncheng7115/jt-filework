@@ -375,6 +375,25 @@ pub unsafe extern "C" fn jtf_row_text(
     unsafe { write_str(&text, buf, len) }
 }
 
+/// Full path of a row, for the platform's own icon lookup.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_row_path(
+    app: *const App,
+    pane_id: c_int,
+    row: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let path = app.row_path(pane(pane_id), usize::try_from(row).unwrap_or(0));
+    unsafe { write_str(&path, buf, len) }
+}
+
 /// # Safety
 /// See [`jtf_app_free`].
 #[no_mangle]

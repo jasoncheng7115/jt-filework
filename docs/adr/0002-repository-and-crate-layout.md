@@ -41,7 +41,7 @@ one `AGENTS.md` §5 asks for. Cost: paths are one level deeper
 
 ## Decision
 
-Option **C**. JT FileWork is a Cargo workspace whose members live at the paths
+Option **C**. jt-filework is a Cargo workspace whose members live at the paths
 `AGENTS.md` §5 specifies:
 
 ```text

@@ -1,4 +1,4 @@
-//! A filename on Unix is a byte string, not text. JT FileWork must carry it
+//! A filename on Unix is a byte string, not text. jt-filework must carry it
 //! through unchanged while still showing the user something readable
 //! (`docs/SECURITY.md` §3, `docs/TESTING.md` §9.2).
 //!

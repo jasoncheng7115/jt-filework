@@ -1,4 +1,4 @@
-# JT FileWork — Architecture
+# jt-filework — Architecture
 
 ## 1. Architectural Goal
 

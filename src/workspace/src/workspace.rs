@@ -484,9 +484,15 @@ impl Workspace {
 
     /// Whether the internal invariants hold.
     ///
-    /// Every pane in the tree exists in the map and vice versa, and the active
-    /// pane is one of them. Called by tests after every mutation.
+    /// Every pane in the tree exists in the map and vice versa, the active
+    /// pane is one of them, and the tree is shallow enough to walk
+    /// recursively in safety. Called by tests after every mutation, and by
+    /// [`crate::Session::restore`] before a stored workspace is trusted.
     pub fn invariants_hold(&self) -> bool {
+        // Checked first, and iteratively: everything below recurses.
+        if !self.root.depth_within_limit() {
+            return false;
+        }
         let in_tree = self.root.pane_order();
         if in_tree.len() != self.panes.len() {
             return false;
@@ -767,6 +773,18 @@ mod tests {
         let dropped = w.replace_unavailable_locations(&loc("/home"), |_| true);
         assert!(dropped.is_empty());
         assert_eq!(w, before);
+    }
+
+    #[test]
+    fn a_workspace_with_an_absurdly_deep_tree_fails_its_invariants() {
+        let mut w = workspace();
+        for _ in 0..(crate::tree::MAX_SPLIT_DEPTH + 2) {
+            w.split_active(Orientation::Horizontal);
+        }
+        assert!(
+            !w.invariants_hold(),
+            "a tree past the recursion bound is not a valid workspace"
+        );
     }
 
     #[test]

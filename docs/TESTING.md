@@ -1,6 +1,6 @@
-# JT FileWork — Testing Specification
+# jt-filework — Testing Specification
 
-This document defines what "tested" means for JT FileWork. It is the concrete
+This document defines what "tested" means for jt-filework. It is the concrete
 expansion of `AGENTS.md` §20 (Completion Checklist) and the `TODO.md` Quality
 section.
 
