@@ -1,0 +1,23 @@
+[package]
+name = "jtf-bench"
+description = "Fixture generation and core performance measurement against the docs/TESTING.md budgets."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[[bin]]
+name = "jtf-bench"
+path = "src/main.rs"
+
+[dependencies]
+jtf-core = { workspace = true }
+jtf-jobs = { workspace = true }
+jtf-fs = { workspace = true }
+jtf-workspace = { workspace = true }
+
+[lints]
+workspace = true

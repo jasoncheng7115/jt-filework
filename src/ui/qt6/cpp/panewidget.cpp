@@ -2,6 +2,8 @@
 #include "filelistmodel.h"
 #include "jtfstring.h"
 
+#include <QElapsedTimer>
+#include <QFontMetrics>
 #include <QEvent>
 #include <QHeaderView>
 #include <QKeyEvent>
@@ -9,6 +11,8 @@
 #include <QTabBar>
 #include <QTableView>
 #include <QVBoxLayout>
+
+PaneWidget::~PaneWidget() { delete m_typeAheadClock; }
 
 PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     : QWidget(parent), m_app(app), m_pane(paneId) {
@@ -54,6 +58,9 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_status = new QLabel(this);
     m_status->setObjectName(QStringLiteral("JtfStatus"));
     layout->addWidget(m_status);
+
+    m_typeAheadClock = new QElapsedTimer();
+    m_typeAheadClock->start();
 
     m_view->installEventFilter(this);
     m_view->viewport()->installEventFilter(this);
@@ -126,14 +133,78 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
             return true;
         }
         case Qt::Key_Backspace:
+            if (!m_typeAhead.isEmpty()) {
+                m_typeAhead.chop(1);
+                typeAhead(m_typeAhead);
+                return true;
+            }
             jtf_navigate_up(m_app, m_pane);
             emit stateChanged();
             return true;
-        default:
+
+        case Qt::Key_Escape:
+            m_typeAhead.clear();
+            return true;
+
+        case Qt::Key_Down:
+            // Cmd+Down opens, the macOS convention, and the counterpart to
+            // Cmd+Up for going back out.
+            if (key->modifiers().testFlag(Qt::ControlModifier)) {
+                const QModelIndex current = m_view->currentIndex();
+                if (current.isValid()) {
+                    openRow(current.row());
+                }
+                return true;
+            }
             break;
+
+        default: {
+            // Plain printable text starts or continues a type-ahead search.
+            const QString text = key->text();
+            if (!text.isEmpty() && text.at(0).isPrint() &&
+                !key->modifiers().testFlag(Qt::ControlModifier) &&
+                !key->modifiers().testFlag(Qt::AltModifier)) {
+                // A pause resets the search, so "ab" then later "c" looks for
+                // "c" rather than "abc".
+                if (m_typeAheadClock->elapsed() > 900) {
+                    m_typeAhead.clear();
+                }
+                m_typeAheadClock->restart();
+                m_typeAhead += text;
+                if (typeAhead(m_typeAhead)) {
+                    return true;
+                }
+                m_typeAhead.clear();
+                return true;
+            }
+            break;
+        }
         }
     }
     return QWidget::eventFilter(watched, event);
+}
+
+bool PaneWidget::typeAhead(const QString &prefix) {
+    if (prefix.isEmpty()) {
+        return false;
+    }
+    const int rows = m_model->rowCount();
+    const int from = qMax(0, m_view->currentIndex().row());
+
+    // Search from the current row so repeated presses walk through matches,
+    // then wrap.
+    for (int step = 0; step < rows; ++step) {
+        const int row = (from + step) % rows;
+        const QString name =
+            m_model->data(m_model->index(row, 0), Qt::DisplayRole).toString();
+        if (name.startsWith(prefix, Qt::CaseInsensitive)) {
+            const QModelIndex index = m_model->index(row, 0);
+            m_view->setCurrentIndex(index);
+            m_view->scrollTo(index, QAbstractItemView::PositionAtCenter);
+            return true;
+        }
+    }
+    return false;
 }
 
 void PaneWidget::syncTabs() {
@@ -164,6 +235,25 @@ void PaneWidget::refresh() {
     syncPath();
     m_model->refresh();
     retranslate();
+}
+
+void PaneWidget::refreshRows() {
+    m_model->refresh();
+    retranslate();
+}
+
+void PaneWidget::setListFont(const QFont &font) {
+    m_view->setFont(font);
+    m_view->horizontalHeader()->setFont(font);
+    // Row height follows the font, or descenders clip and the list looks
+    // cramped at larger sizes.
+    const int rowHeight = QFontMetrics(font).height() + 6;
+    m_view->verticalHeader()->setDefaultSectionSize(qMax(20, rowHeight));
+
+    QFont chrome = font;
+    chrome.setPointSizeF(font.pointSizeF() * 0.95);
+    m_path->setFont(chrome);
+    m_status->setFont(chrome);
 }
 
 void PaneWidget::retranslate() {

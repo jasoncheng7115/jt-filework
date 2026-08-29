@@ -43,12 +43,15 @@ void jtf_go_forward(JtfApp *app, int pane);
 int jtf_open_row(JtfApp *app, int pane, int row);
 
 // rows
+uint64_t jtf_row_generation(const JtfApp *app, int pane);
 int jtf_row_count(const JtfApp *app, int pane);
 int jtf_row_text(const JtfApp *app, int pane, int row, int column, char *buf, int len);
 int jtf_row_path(const JtfApp *app, int pane, int row, char *buf, int len);
 int jtf_row_is_directory(const JtfApp *app, int pane, int row);
 int jtf_row_is_marked(const JtfApp *app, int pane, int row);
 void jtf_toggle_mark(JtfApp *app, int pane, int row);
+void jtf_mark_listed(JtfApp *app, int pane, int action);
+void jtf_refresh(JtfApp *app, int pane);
 int jtf_marked_count(const JtfApp *app, int pane);
 void jtf_sort_by(JtfApp *app, int pane, int column);
 int jtf_is_loading(const JtfApp *app, int pane);
@@ -60,6 +63,10 @@ int jtf_show_hidden(const JtfApp *app);
 void jtf_set_locale(JtfApp *app, const char *locale);
 int jtf_locale(const JtfApp *app, char *buf, int len);
 int jtf_tr(const JtfApp *app, const char *key, char *buf, int len);
+int jtf_font_family(const JtfApp *app, char *buf, int len);
+int jtf_font_point_size(const JtfApp *app);
+int jtf_font_monospace(const JtfApp *app);
+void jtf_set_font(JtfApp *app, const char *family, int point_size, int monospace);
 void jtf_set_theme_mode(JtfApp *app, int mode);
 int jtf_theme_mode(const JtfApp *app);
 uint32_t jtf_theme_color(const JtfApp *app, int system_is_dark, int token);

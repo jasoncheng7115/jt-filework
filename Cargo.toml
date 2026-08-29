@@ -22,6 +22,7 @@ members = [
     "src/fs",
     "src/commands",
     "src/cli",
+    "src/bench",
     "src/ui/qt6/bridge",
     "tests",
 ]

@@ -22,6 +22,7 @@ mod ids;
 mod pane;
 mod selection;
 mod session;
+mod sorting;
 mod tab;
 mod tree;
 mod view;
@@ -31,8 +32,10 @@ pub use ids::{PaneId, SplitId, TabId};
 pub use pane::Pane;
 pub use selection::{MarkSet, OperationTarget, Selection};
 pub use session::{
-    RestoreOnLaunch, RestoreOutcome, Restored, Session, SessionSettings, SESSION_FORMAT_VERSION,
+    FontSettings, RestoreOnLaunch, RestoreOutcome, Restored, Session, SessionSettings,
+    SESSION_FORMAT_VERSION,
 };
+pub use sorting::sort_entries;
 pub use tab::Tab;
 pub use tree::{Orientation, WorkspaceNode, MAX_SPLIT_DEPTH};
 pub use view::{

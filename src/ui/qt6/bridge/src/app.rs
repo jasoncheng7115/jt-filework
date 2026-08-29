@@ -12,7 +12,8 @@ use jtf_core::theme::{Palette, ResolvedTheme, SystemAppearance, ThemeMode, Theme
 use jtf_core::{Error, FileEntry, FileKind, Location};
 use jtf_fs::{Batch, EnumerationHandle, LocalProvider, Provider};
 use jtf_workspace::{
-    LayoutPreset, Orientation, PaneId, Session, SessionSettings, SortKey, SortSpec, Workspace,
+    sort_entries, FontSettings, LayoutPreset, Orientation, PaneId, Session, SessionSettings,
+    SortKey, SortSpec, Workspace,
 };
 
 /// Columns the PoC shows. Kept in sync with the C++ header by
@@ -23,9 +24,23 @@ pub(crate) const COLUMN_KIND: i32 = 2;
 pub(crate) const COLUMN_MODIFIED: i32 = 3;
 pub(crate) const COLUMN_COUNT: i32 = 4;
 
+/// Which way [`App::mark_listed`] moves.
+#[derive(Clone, Copy)]
+pub(crate) enum MarkAction {
+    All,
+    None,
+    Invert,
+}
+
 /// What one pane is currently showing.
 struct PaneView {
     entries: Vec<FileEntry>,
+    /// Bumped whenever the row set changes identity rather than merely
+    /// growing: a new location, a re-sort, a filter change. The UI uses it to
+    /// decide between inserting rows and rebuilding the whole model, which is
+    /// the difference between one model reset and four hundred of them while
+    /// a large directory loads.
+    generation: u64,
     handle: Option<EnumerationHandle>,
     sort: SortSpec,
     error: Option<Error>,
@@ -37,6 +52,7 @@ impl PaneView {
     fn new() -> Self {
         Self {
             entries: Vec::new(),
+            generation: 0,
             handle: None,
             sort: SortSpec::default(),
             error: None,
@@ -57,6 +73,7 @@ pub struct App {
     locale: LocaleId,
     theme_mode: ThemeMode,
     show_hidden: bool,
+    settings: SessionSettings,
     repo_root: PathBuf,
     session_path: PathBuf,
 }
@@ -71,6 +88,7 @@ impl App {
 
         let stored = fs::read_to_string(&session_path).ok();
         let restored = Session::restore(stored.as_deref(), &home);
+        let settings = restored.settings.clone();
 
         let locale = restored.workspace.locale().clone();
         let localizer = Localizer::new(
@@ -87,6 +105,7 @@ impl App {
             locale,
             theme_mode,
             show_hidden: false,
+            settings,
             repo_root,
             session_path,
         };
@@ -310,6 +329,11 @@ impl App {
 
     // ---------------------------------------------------------------- rows
 
+    /// Identity of the current row set. See [`PaneView::generation`].
+    pub(crate) fn row_generation(&self, pane: PaneId) -> u64 {
+        self.views.get(&pane).map_or(0, |v| v.generation)
+    }
+
     pub(crate) fn row_count(&self, pane: PaneId) -> usize {
         self.views.get(&pane).map_or(0, |v| v.entries.len())
     }
@@ -396,6 +420,33 @@ impl App {
         }
     }
 
+    /// Mark, unmark or invert every row currently listed in the pane.
+    ///
+    /// Scope is explicit: this acts on what the pane is showing, not on the
+    /// whole filesystem and not on some remembered set
+    /// (`docs/UI_TEST_PLAN.md` MARK-003).
+    pub(crate) fn mark_listed(&mut self, pane: PaneId, action: MarkAction) {
+        let listed: Vec<Location> = self
+            .views
+            .get(&pane)
+            .map(|v| v.entries.iter().map(|e| e.location().clone()).collect())
+            .unwrap_or_default();
+        if let Some(p) = self.workspace.pane_mut(pane) {
+            if let Some(tab) = p.active_tab_mut() {
+                match action {
+                    MarkAction::All => tab.marks_mut().mark_all(listed),
+                    MarkAction::None => tab.marks_mut().unmark_all(listed),
+                    MarkAction::Invert => tab.marks_mut().invert(listed),
+                }
+            }
+        }
+    }
+
+    /// Re-read the current location.
+    pub(crate) fn refresh(&mut self, pane: PaneId) {
+        self.start_enumeration(pane);
+    }
+
     pub(crate) fn marked_count(&self, pane: PaneId) -> usize {
         self.workspace
             .pane(pane)
@@ -423,6 +474,7 @@ impl App {
         if let Some(view) = self.views.get_mut(&pane) {
             view.sort = sort;
             sort_entries(&mut view.entries, sort);
+            view.generation += 1;
         }
     }
 
@@ -477,6 +529,9 @@ impl App {
                 view.handle = None;
                 let sort = view.sort;
                 sort_entries(&mut view.entries, sort);
+                // The final sort reorders everything, so the row set has a new
+                // identity even though its length did not change.
+                view.generation += 1;
             }
         }
         changed
@@ -505,6 +560,7 @@ impl App {
         view.error = None;
         view.sort = sort;
         view.loading = true;
+        view.generation += 1;
 
         match self.provider.enumerate_async(&location) {
             Ok(handle) => view.handle = Some(handle),
@@ -542,6 +598,21 @@ impl App {
         self.localizer.text_or_key(key)
     }
 
+    /// How the list should be drawn.
+    pub(crate) const fn font(&self) -> &FontSettings {
+        &self.settings.font
+    }
+
+    /// Change the list font. An empty family means the platform's own fixed
+    /// font; a zero size means the platform default.
+    pub(crate) fn set_font(&mut self, family: &str, point_size: u16, monospace: bool) {
+        self.settings.font = FontSettings {
+            family: family.to_string(),
+            point_size,
+            monospace,
+        };
+    }
+
     pub(crate) const fn theme_mode(&self) -> ThemeMode {
         self.theme_mode
     }
@@ -571,7 +642,7 @@ impl App {
     /// Written to a temporary file and renamed, so a crash mid-write leaves
     /// the previous session loadable (`docs/UI_TEST_PLAN.md` SESS-005).
     pub(crate) fn save_session(&self) {
-        let session = Session::capture(&self.workspace, SessionSettings::default());
+        let session = Session::capture(&self.workspace, self.settings.clone());
         let Ok(json) = session.to_json() else { return };
         if let Some(parent) = self.session_path.parent() {
             let _ = fs::create_dir_all(parent);
@@ -590,36 +661,6 @@ impl Default for App {
 }
 
 // ------------------------------------------------------------------ helpers
-
-fn sort_entries(entries: &mut [FileEntry], sort: SortSpec) {
-    entries.sort_by(|a, b| {
-        // Directories first, as every desktop file manager does.
-        let dir_order = b
-            .kind()
-            .is_directory_on_disk()
-            .cmp(&a.kind().is_directory_on_disk());
-        if dir_order != std::cmp::Ordering::Equal {
-            return dir_order;
-        }
-        let ordering = match sort.key {
-            SortKey::Size => a.size().unwrap_or(0).cmp(&b.size().unwrap_or(0)),
-            SortKey::Modified => a.timestamps().modified.cmp(&b.timestamps().modified),
-            SortKey::Created => a.timestamps().created.cmp(&b.timestamps().created),
-            SortKey::Kind | SortKey::Extension => a.extension_hint().cmp(&b.extension_hint()),
-            // SortKey is non_exhaustive; a new key sorts by name until it is
-            // implemented, which is wrong-but-harmless rather than a panic.
-            SortKey::Name | _ => a
-                .display_name()
-                .to_lowercase()
-                .cmp(&b.display_name().to_lowercase()),
-        };
-        if sort.ascending {
-            ordering
-        } else {
-            ordering.reverse()
-        }
-    });
-}
 
 fn format_size(bytes: u64) -> String {
     const UNITS: [&str; 6] = ["B", "KB", "MB", "GB", "TB", "PB"];

@@ -26,9 +26,12 @@ public:
     QVariant data(const QModelIndex &index, int role) const override;
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
 
-    // Called when Rust says the rows changed. A full reset is correct here:
-    // an enumeration replaces the row set, and Qt's view keeps its scroll
-    // anchor.
+    // Reconciles the view with Rust. While a directory is still loading the
+    // row set only grows, so rows are *inserted* - a full reset on every
+    // batch would be four hundred resets for a 100 000-entry directory, and
+    // would throw away the selection and the scroll anchor each time. A reset
+    // happens only when the row set changes identity: a new location, a
+    // re-sort, a filter change.
     void refresh();
 
     void setMarkColor(const QColor &color) { m_markColor = color; }
@@ -41,4 +44,6 @@ private:
     QColor m_markColor;
     QColor m_dirColor;
     mutable IconProvider m_icons;
+    quint64 m_generation = 0;
+    int m_rows = 0;
 };

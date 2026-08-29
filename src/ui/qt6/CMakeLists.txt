@@ -64,6 +64,10 @@ qt_add_executable(jt-filework
     cpp/iconprovider.h
     cpp/theme.cpp
     cpp/theme.h
+    cpp/watchdog.cpp
+    cpp/watchdog.h
+    cpp/icons.cpp
+    cpp/icons.h
     cpp/bridge.h
     cpp/jtfstring.h)
 

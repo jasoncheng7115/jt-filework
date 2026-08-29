@@ -22,7 +22,7 @@ use std::ffi::{c_char, c_int, CStr};
 use jtf_core::theme::{ThemeMode, ThemeToken};
 use jtf_workspace::{LayoutPreset, PaneId};
 
-use crate::app::App;
+use crate::app::{App, MarkAction};
 
 /// Borrow the app, or do nothing.
 ///
@@ -348,6 +348,19 @@ pub unsafe extern "C" fn jtf_open_row(app: *mut App, pane_id: c_int, row: c_int)
 
 // ------------------------------------------------------------------ rows
 
+/// Identity of the pane's current row set.
+///
+/// Unchanged while rows are merely being appended; bumped on a new location,
+/// a re-sort or a filter change. Lets the UI append rows instead of rebuilding
+/// its model on every batch.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_row_generation(app: *const App, pane_id: c_int) -> u64 {
+    unsafe { app_ref(app) }.map_or(0, |a| a.row_generation(pane(pane_id)))
+}
+
 /// # Safety
 /// See [`jtf_app_free`].
 #[no_mangle]
@@ -422,6 +435,33 @@ pub unsafe extern "C" fn jtf_row_is_marked(app: *const App, pane_id: c_int, row:
 pub unsafe extern "C" fn jtf_toggle_mark(app: *mut App, pane_id: c_int, row: c_int) {
     if let Some(a) = unsafe { app_mut(app) } {
         a.toggle_mark(pane(pane_id), usize::try_from(row).unwrap_or(0));
+    }
+}
+
+/// 0 mark all listed, 1 unmark all listed, 2 invert listed.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_mark_listed(app: *mut App, pane_id: c_int, action: c_int) {
+    let action = match action {
+        1 => MarkAction::None,
+        2 => MarkAction::Invert,
+        _ => MarkAction::All,
+    };
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.mark_listed(pane(pane_id), action);
+    }
+}
+
+/// Re-read the pane's current location.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_refresh(app: *mut App, pane_id: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.refresh(pane(pane_id));
     }
 }
 
@@ -527,6 +567,52 @@ pub unsafe extern "C" fn jtf_tr(
         return 0;
     };
     unsafe { write_str(&app.tr(key), buf, len) }
+}
+
+/// List font family, empty for the platform's own fixed-width font.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_font_family(app: *const App, buf: *mut c_char, len: c_int) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    unsafe { write_str(&app.font().family, buf, len) }
+}
+
+/// Point size, or 0 for the platform default.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_font_point_size(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.font().point_size))
+}
+
+/// Whether the list uses a fixed-width font.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_font_monospace(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(1, |a| c_int::from(a.font().monospace))
+}
+
+/// # Safety
+/// See [`jtf_app_free`]; `family` must be null or a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_font(
+    app: *mut App,
+    family: *const c_char,
+    point_size: c_int,
+    monospace: c_int,
+) {
+    let family = unsafe { read_str(family) }.unwrap_or("");
+    let size = u16::try_from(point_size.max(0)).unwrap_or(0);
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_font(family, size, monospace != 0);
+    }
 }
 
 /// 0 system, 1 light, 2 dark.

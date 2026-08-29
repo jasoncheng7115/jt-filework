@@ -7,6 +7,7 @@
 #include "bridge.h"
 
 #include <QColor>
+#include <QFont>
 #include <QWidget>
 
 class FileListModel;
@@ -19,10 +20,14 @@ class PaneWidget : public QWidget {
 
 public:
     PaneWidget(JtfApp *app, int paneId, QWidget *parent = nullptr);
+    ~PaneWidget() override;
 
     int paneId() const { return m_pane; }
     void refresh();
+    // Rows and status only: what changes while a directory streams in.
+    void refreshRows();
     void retranslate();
+    void setListFont(const QFont &font);
     void applyTheme(const QColor &mark, const QColor &directory, const QColor &indicator,
                     const QColor &border);
     void setActive(bool active);
@@ -36,6 +41,9 @@ protected:
 
 private:
     void openRow(int row);
+    // Typing letters jumps to a matching row. docs/UI_UX_SPEC.md 5.4: it must
+    // never start a rename and never trigger a destructive command.
+    bool typeAhead(const QString &text);
     void syncTabs();
     void syncPath();
 
@@ -49,4 +57,6 @@ private:
     bool m_active = false;
     QColor m_indicator;
     QColor m_border;
+    QString m_typeAhead;
+    class QElapsedTimer *m_typeAheadClock = nullptr;
 };

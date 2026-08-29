@@ -1,11 +1,13 @@
 #include "bridge.h"
 #include "mainwindow.h"
 
+#include "watchdog.h"
+
 #include <QApplication>
 #include <cstdio>
 
 int main(int argc, char **argv) {
-    QApplication application(argc, argv);
+    WatchdogApplication application(argc, argv);
     QApplication::setApplicationName(QStringLiteral("jt-filework"));
     QApplication::setOrganizationName(QStringLiteral("jt-filework"));
 
@@ -26,5 +28,10 @@ int main(int argc, char **argv) {
 
     const int status = QApplication::exec();
     jtf_app_free(app);
+
+    if (application.enabled()) {
+        const QString report = application.report();
+        std::fputs(qPrintable(report), stderr);
+    }
     return status;
 }

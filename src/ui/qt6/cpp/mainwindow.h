@@ -7,9 +7,12 @@
 #pragma once
 
 #include "bridge.h"
+#include "icons.h"
 #include "theme.h"
 
 #include <QHash>
+#include <QByteArray>
+#include <QFont>
 #include <QMainWindow>
 
 class PaneWidget;
@@ -25,7 +28,6 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event) override;
-    void changeEvent(QEvent *event) override;
 
 private:
     void buildMenus();
@@ -33,22 +35,27 @@ private:
     QWidget *buildNode(const QJsonObject &node);
     void refreshAll();
     void retranslate();
+    void updateStatus();
     void applyTheme();
+    void applyFont();
+    QFont listFont() const;
     void buildToolbar();
     void syncToolbar();
     void markActivePane();
     QString tr_(const char *key) const;
+    QByteArray familyUtf8() const;
 
     JtfApp *m_app;
     QWidget *m_root = nullptr;
     QHash<int, PaneWidget *> m_panes;
     QString m_layoutSignature;
-    QLabel *m_statusLeft = nullptr;
     class QLineEdit *m_pathEdit = nullptr;
     class QAction *m_backAction = nullptr;
     class QAction *m_forwardAction = nullptr;
     class QAction *m_upAction = nullptr;
+    class QAction *m_refreshAction = nullptr;
     Theme m_theme;
+    bool m_applyingTheme = false;
 
     QMenu *m_fileMenu = nullptr;
     QMenu *m_viewMenu = nullptr;

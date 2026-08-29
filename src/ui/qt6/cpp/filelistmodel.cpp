@@ -5,11 +5,16 @@
 #include <QFont>
 
 FileListModel::FileListModel(JtfApp *app, int paneId, QObject *parent)
-    : QAbstractTableModel(parent), m_app(app), m_pane(paneId) {}
+    : QAbstractTableModel(parent), m_app(app), m_pane(paneId) {
+    m_generation = jtf_row_generation(app, paneId);
+    m_rows = jtf_row_count(app, paneId);
+}
 
 void FileListModel::setPane(int paneId) {
     beginResetModel();
     m_pane = paneId;
+    m_generation = jtf_row_generation(m_app, m_pane);
+    m_rows = jtf_row_count(m_app, m_pane);
     endResetModel();
 }
 
@@ -17,7 +22,9 @@ int FileListModel::rowCount(const QModelIndex &parent) const {
     if (parent.isValid()) {
         return 0;
     }
-    return jtf_row_count(m_app, m_pane);
+    // The count Qt knows about, not the live one: a model must not grow
+    // underneath a view without an insert notification.
+    return m_rows;
 }
 
 int FileListModel::columnCount(const QModelIndex &parent) const {
@@ -101,6 +108,22 @@ QVariant FileListModel::headerData(int section, Qt::Orientation orientation, int
 }
 
 void FileListModel::refresh() {
+    const quint64 generation = jtf_row_generation(m_app, m_pane);
+    const int rows = jtf_row_count(m_app, m_pane);
+
+    if (generation == m_generation && rows == m_rows) {
+        return; // nothing changed: do not disturb the view at all
+    }
+
+    if (generation == m_generation && rows > m_rows) {
+        beginInsertRows(QModelIndex(), m_rows, rows - 1);
+        m_rows = rows;
+        endInsertRows();
+        return;
+    }
+
     beginResetModel();
+    m_generation = generation;
+    m_rows = rows;
     endResetModel();
 }

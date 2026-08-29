@@ -65,6 +65,37 @@ impl RestoreOnLaunch {
     }
 }
 
+/// How the file list is drawn.
+///
+/// Monospace by default, and not only for the date column: with proportional
+/// text every column's contents jitter, sizes do not line up digit for digit,
+/// and a long list becomes harder to scan than it needs to be. An empty
+/// family means "the platform's own fixed-width font", which is the right
+/// default on each OS and carries no licensing question
+/// (`AGENTS.md` §18.2: use the platform's own text stack).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FontSettings {
+    /// Font family, or empty for the platform's default fixed-width font.
+    #[serde(default)]
+    pub family: String,
+    /// Point size, or 0 for the platform default.
+    #[serde(default)]
+    pub point_size: u16,
+    /// Whether the list uses a fixed-width font at all.
+    #[serde(default = "default_true")]
+    pub monospace: bool,
+}
+
+impl Default for FontSettings {
+    fn default() -> Self {
+        Self {
+            family: String::new(),
+            point_size: 0,
+            monospace: true,
+        }
+    }
+}
+
 /// Session-related preferences.
 ///
 /// Always persisted, independently of whether the workspace is.
@@ -78,6 +109,9 @@ pub struct SessionSettings {
     /// Whether the marked set is part of the saved session.
     #[serde(default = "default_true")]
     pub remember_marks: bool,
+    /// How the file list is drawn.
+    #[serde(default)]
+    pub font: FontSettings,
 }
 
 const fn default_true() -> bool {
@@ -97,6 +131,7 @@ impl Default for SessionSettings {
             restore_on_launch: RestoreOnLaunch::default(),
             remember_closed_tabs: true,
             remember_marks: true,
+            font: FontSettings::default(),
         }
     }
 }
@@ -113,6 +148,7 @@ impl SessionSettings {
             restore_on_launch: RestoreOnLaunch::HomeLocation,
             remember_closed_tabs: false,
             remember_marks: false,
+            font: FontSettings::default(),
         }
     }
 }
@@ -374,6 +410,37 @@ mod tests {
             "layout, tabs, locations and marks all return"
         );
         assert!(restored.workspace.invariants_hold());
+    }
+
+    #[test]
+    fn the_list_is_monospace_by_default() {
+        let f = FontSettings::default();
+        assert!(
+            f.monospace,
+            "columns only line up if the font is fixed-width"
+        );
+        assert!(
+            f.family.is_empty(),
+            "empty means the platform's own fixed font"
+        );
+        assert_eq!(f.point_size, 0, "0 means the platform default size");
+    }
+
+    #[test]
+    fn font_settings_survive_a_session_round_trip() {
+        let settings = SessionSettings {
+            font: FontSettings {
+                family: "JetBrains Mono".to_string(),
+                point_size: 13,
+                monospace: true,
+            },
+            ..SessionSettings::default()
+        };
+        let json = Session::capture(&busy_workspace(), settings.clone())
+            .to_json()
+            .unwrap();
+        let back = Session::from_json(&json).unwrap();
+        assert_eq!(back.settings().font, settings.font);
     }
 
     #[test]
