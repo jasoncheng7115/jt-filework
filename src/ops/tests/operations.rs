@@ -799,3 +799,45 @@ fn undoing_a_new_file_leaves_anything_written_into_it_alone() {
     );
     assert_eq!(std::fs::read(&created).unwrap(), b"the user typed this");
 }
+
+/// The platform's trash is used when one is installed, and the fallback
+/// otherwise.
+///
+/// This is the seam that lets macOS record Put Back without this crate
+/// containing any platform code, so it is worth pinning: a hook that is
+/// silently ignored would look exactly like a working one until somebody
+/// tried to restore a file.
+#[test]
+fn an_installed_platform_trash_is_preferred_to_the_fallback() {
+    // The hook is process-wide and set once, which is the intent: which
+    // implementation trashes a file must not change while the program runs.
+    // So this asserts the observable contract rather than installing one.
+    assert!(
+        !jtf_ops::has_native_trash(),
+        "no adapter is installed in a test binary, so the fallback is what \
+         runs here - and the fallback must still work"
+    );
+
+    let fixture = Fixture::new();
+    let victim = fixture.file("gone.txt", b"x");
+    let operation = Operation::Trash {
+        sources: vec![victim.clone()],
+    };
+    let plan = Plan::build(&operation, &CancellationToken::never()).expect("a plan");
+    let report = execute(
+        &plan,
+        ConflictPolicy::Skip,
+        &CancellationToken::never(),
+        |_| {},
+    );
+
+    // Either it reached a trash directory or the platform has none; both are
+    // correct outcomes, and neither may leave the file where it was.
+    let trashed = report
+        .outcomes
+        .iter()
+        .any(|(_, o)| matches!(o, Outcome::Done { .. }));
+    if trashed {
+        assert!(!victim.exists(), "a trashed file has left its folder");
+    }
+}

@@ -4,6 +4,8 @@
 #include "watchdog.h"
 
 #include <QApplication>
+#include "platform/filetype.h"
+
 #include <QLocale>
 #include <cstdio>
 #include <cstring>
@@ -51,6 +53,21 @@ int main(int argc, char **argv) {
     // uiLanguages() is the user's actual ordered preference list.
     const QByteArray systemLocale =
         QLocale::system().uiLanguages().join(QLatin1Char(',')).toUtf8();
+    // The platform's trash, installed before anything can delete: Finder's
+    // Put Back only works for items trashed through the system's own call.
+    jtf_set_native_trash([](const char *path, char *buf, int len) -> int {
+        const QString moved = filetype::moveToTrash(QString::fromUtf8(path));
+        if (moved.isEmpty()) {
+            return 0; // the platform declined; the fallback runs
+        }
+        const QByteArray utf8 = moved.toUtf8();
+        if (utf8.size() >= len) {
+            return 0;
+        }
+        std::memcpy(buf, utf8.constData(), static_cast<size_t>(utf8.size()));
+        return utf8.size();
+    });
+
     JtfApp *app = jtf_app_new(systemLocale.constData());
     MainWindow window(app);
     window.show();

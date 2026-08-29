@@ -39,9 +39,9 @@ Status is one of **Done**, **Partial** (works, with the gap named), or
 | 複製 / 移動 | Done | Through the job engine |
 | 剪下 / 貼上 | Done | File URLs, so Finder understands them |
 | Duplicate | Done | |
-| 丟到垃圾桶 | Done | The real Trash on macOS |
+| 丟到垃圾桶 | Done | Through the platform's own call, so Put Back works |
 | 永久刪除 | Done | Confirmed first |
-| 復原刪除 | Partial | `file.undo` reverses a move or rename; Trash *Put Back* is still planned |
+| 復原刪除 | Done | `file.undo` reverses it immediately; afterwards Finder's own Put Back works, because trashing goes through the platform's call |
 | 取得檔案/目錄資訊 | Done | The inspector |
 | 檔案權限基本顯示 | Partial | A column exists; not shown by default |
 | 檔案路徑複製 | Done | Path and name |
@@ -94,13 +94,6 @@ to delete and `G` to run. Extraction must treat every entry name as hostile —
 a member called `../../etc/passwd` is the oldest trick there is, which is why
 `ArchiveEntry` already carries `unsafe_name` and why the listing shows such a
 name marked rather than quietly normalized (`docs/SECURITY.md`).
-
-**復原刪除.** Neither CView nor WinCV has an undo key — `CV.HLP` lists none.
-Their answer to "get it back" was to use `T` (刪除並備分至垃圾桶目錄) instead of
-`D`, so recovery meant going to the trash folder yourself. We already do
-better: trash is the default and permanent deletion is the deliberate one. What
-is missing is *Put Back* — restoring an item from the Trash to where it came
-from, which macOS supports natively.
 
 **Open With.** Needs the platform's list of applications that can open a type;
 on macOS that is `LSCopyApplicationURLsForURL`, alongside the type description

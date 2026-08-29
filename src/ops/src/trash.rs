@@ -2,20 +2,48 @@
 //!
 //! `AGENTS.md` §8 says use native platform behaviour where users expect it,
 //! and the trash is the clearest case: on macOS that is
-//! `NSFileManager.trashItem`, which records the information Finder needs for
-//! Put Back. That call needs the platform adapter, which is Phase 4 work.
+//! `NSFileManager.trashItem`, which records what Finder needs for Put Back
+//! and which knows that an item on another volume belongs in that volume's
+//! `.Trashes` rather than in the home directory's.
 //!
-//! Until then this moves the entry into the platform's trash directory, which
-//! is where the trash actually is. What it does **not** do is write the
-//! Put Back metadata, so a restored item has to be dragged back by hand. That
-//! is a real limitation, it is documented here and in `TODO.md`, and it is not
-//! papered over: `trash` is still preferable to `delete` because the file
-//! remains.
+//! That call lives in the platform adapter, above this crate, so it is
+//! installed here as a hook rather than called directly — this crate must not
+//! contain platform SDK code (`AGENTS.md` §5, enforced by
+//! `tests/tests/architecture.rs`). [`set_native_trash`] is how the adapter
+//! offers it.
+//!
+//! Without a hook, the fallback moves the entry into the platform's trash
+//! directory. That is where the trash is, but it writes no Put Back metadata
+//! and cannot handle another volume properly. The fallback is not papered
+//! over: it is still preferable to `delete` because the file remains, and it
+//! is what runs anywhere the adapter has nothing to offer.
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use jtf_core::{Error, ErrorCode};
+
+/// A platform's own "move to trash", returning where the item went.
+///
+/// Returning `None` means the platform declined, and the fallback runs.
+pub type NativeTrash = fn(&Path) -> Option<PathBuf>;
+
+static NATIVE_TRASH: OnceLock<NativeTrash> = OnceLock::new();
+
+/// Install the platform's trash implementation.
+///
+/// Called once, early, by the platform adapter. Later calls are ignored
+/// rather than replacing it: which implementation trashes a file is not
+/// something that should change while the program runs.
+pub fn set_native_trash(trash: NativeTrash) {
+    let _ = NATIVE_TRASH.set(trash);
+}
+
+/// Whether a platform implementation is installed.
+pub fn has_native_trash() -> bool {
+    NATIVE_TRASH.get().is_some()
+}
 
 /// The directory the platform uses for the trash, if there is one.
 ///
@@ -47,6 +75,14 @@ pub fn trash_directory() -> Option<PathBuf> {
 /// [`ErrorCode::Unsupported`] where there is no usable trash directory, and
 /// whatever the filesystem reports otherwise.
 pub(crate) fn trash_entry(source: &Path) -> Result<PathBuf, Error> {
+    // The platform first. It is the only one that can record Put Back, and
+    // the only one that knows which volume's trash an item belongs in.
+    if let Some(native) = NATIVE_TRASH.get() {
+        if let Some(destination) = native(source) {
+            return Ok(destination);
+        }
+    }
+
     let Some(directory) = trash_directory() else {
         return Err(Error::new(
             ErrorCode::Unsupported,

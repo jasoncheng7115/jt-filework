@@ -25,4 +25,8 @@ QList<Application> applicationsFor(const QString &) { return {}; }
 
 bool openWith(const QString &, const QString &) { return false; }
 
+// Windows: IFileOperation with FOF_ALLOWUNDO; Linux: the freedesktop trash
+// specification's info files. Until then the caller's own fallback runs.
+QString moveToTrash(const QString &) { return {}; }
+
 } // namespace filetype

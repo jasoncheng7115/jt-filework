@@ -32,5 +32,5 @@ pub use batch::{
 pub use conflict::{unique_destination, Conflict, ConflictPolicy};
 pub use plan::{Operation, Plan, PlanError};
 pub use run::{execute, Outcome, Progress as OpProgress, Report};
-pub use trash::trash_directory;
+pub use trash::{has_native_trash, set_native_trash, trash_directory, NativeTrash};
 pub use undo::{undo, UndoRecord, UndoStep};

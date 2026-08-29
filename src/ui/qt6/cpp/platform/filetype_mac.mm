@@ -104,4 +104,24 @@ bool openWith(const QString &path, const QString &identifier) {
     }
 }
 
+QString moveToTrash(const QString &path) {
+    @autoreleasepool {
+        NSURL *url = [NSURL fileURLWithPath:path.toNSString()];
+        if (url == nil) {
+            return {};
+        }
+        NSURL *resulting = nil;
+        NSError *error = nil;
+        // trashItemAtURL is what Finder itself uses: it records the original
+        // location for Put Back and picks the right volume's trash.
+        const BOOL ok = [[NSFileManager defaultManager] trashItemAtURL:url
+                                                      resultingItemURL:&resulting
+                                                                 error:&error];
+        if (!ok || resulting == nil) {
+            return {};
+        }
+        return QString::fromNSString(resulting.path);
+    }
+}
+
 } // namespace filetype

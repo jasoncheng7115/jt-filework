@@ -58,4 +58,11 @@ QList<Application> applicationsFor(const QString &path);
 // Open `path` with the application named by `identifier`.
 bool openWith(const QString &path, const QString &identifier);
 
+// Move `path` to the platform's trash, returning where it went, or empty.
+//
+// The platform's own call, so Finder's Put Back works afterwards and an item
+// on another volume goes to that volume's trash rather than to the home
+// directory's - neither of which a hand-rolled move can do.
+QString moveToTrash(const QString &path);
+
 } // namespace filetype

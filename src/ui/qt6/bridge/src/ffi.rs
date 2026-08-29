@@ -1021,6 +1021,52 @@ pub unsafe extern "C" fn jtf_op_prepare_new_file(
     unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.prepare_new_file(pane(pane_id), name)))
 }
 
+/// Install the platform's "move to trash".
+///
+/// The callback is given a NUL-terminated path and writes where the item went
+/// into `buf`, returning its length, or 0 when the platform declined. Called
+/// once at startup by the Qt layer, which is where the platform code lives.
+///
+/// # Safety
+/// See [`jtf_app_free`]. `callback` must remain valid for the process's
+/// lifetime, which it does: it is a plain function.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_native_trash(
+    callback: Option<extern "C" fn(*const c_char, *mut c_char, c_int) -> c_int>,
+) {
+    let Some(callback) = callback else {
+        return;
+    };
+    // Stored rather than closed over, because the hook jtf-ops takes is a
+    // plain fn pointer - it has no state and must not capture any.
+    let _ = NATIVE_TRASH_CALLBACK.set(callback);
+    jtf_ops::set_native_trash(native_trash_bridge);
+}
+
+static NATIVE_TRASH_CALLBACK: std::sync::OnceLock<
+    extern "C" fn(*const c_char, *mut c_char, c_int) -> c_int,
+> = std::sync::OnceLock::new();
+
+/// Calls the installed C callback, converting at the boundary.
+fn native_trash_bridge(path: &std::path::Path) -> Option<std::path::PathBuf> {
+    let callback = NATIVE_TRASH_CALLBACK.get()?;
+    let source = std::ffi::CString::new(path.as_os_str().as_encoded_bytes()).ok()?;
+    let mut buffer = vec![0_u8; 4096];
+    // The callback writes into our buffer; nothing crosses the boundary
+    // owning memory, which is the rule for every other call here too.
+    let written = callback(
+        source.as_ptr(),
+        buffer.as_mut_ptr().cast::<c_char>(),
+        c_int::try_from(buffer.len()).unwrap_or(0),
+    );
+    if written <= 0 {
+        return None;
+    }
+    let len = usize::try_from(written).ok()?.min(buffer.len());
+    let text = String::from_utf8(buffer[..len].to_vec()).ok()?;
+    Some(std::path::PathBuf::from(text))
+}
+
 /// The pane's view mode: 0 list, 1 grid.
 ///
 /// # Safety
