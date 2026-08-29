@@ -34,7 +34,7 @@ pub use pane::Pane;
 pub use places::{Bookmark, Places, MAX_BOOKMARKS, MAX_RECENT};
 pub use selection::{MarkSet, OperationTarget, Selection};
 pub use session::{
-    FontSettings, RestoreOnLaunch, RestoreOutcome, Restored, Session, SessionSettings,
+    app_version, FontSettings, RestoreOnLaunch, RestoreOutcome, Restored, Session, SessionSettings,
     SESSION_FORMAT_VERSION,
 };
 pub use sorting::{sort_entries, sort_entries_with};

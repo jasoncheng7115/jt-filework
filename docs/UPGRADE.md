@@ -225,11 +225,23 @@ forever.
 | Keymap stored as a diff against its preset | done |
 | Unknown command ids dropped on load, count shown | done |
 | Command rename alias table | planned |
-| Migration chain and per-version fixtures | planned |
-| Pre-migration backup | planned |
-| App version stamp in every stored file | planned |
+| Migration chain and per-version fixtures | done — `migrate_json`, `tests/fixtures/session/` |
+| Pre-migration backup | done — `session.vN.backup.json`, written once |
+| App version stamp in every stored file | done — session; keymap and cache still to do |
 | Cache schema stamp and discard-on-mismatch | planned |
 | First-launch-after-update notice | planned |
 
 Each planned row is a `TODO.md` item. None of them are hard; all of them are
 much harder after the first release.
+
+The migration chain is deliberately a *chain* rather than one parser that
+reads every past shape. Each step is a small change whose correctness can be
+argued and tested against a real file from the version it came from, and the
+alternative accumulates conditionals nobody dares touch. There is one step
+site and no steps yet, because v1 is the first released format — the loop
+exists so that the second migration is an edit rather than a design.
+
+The backup is named for the version it came from, so a directory holding
+several is readable rather than a pile of `.bak` files, and it is written only
+once: a second run of the same upgrade must not overwrite the original with
+the already-migrated copy, which would quietly destroy the thing being kept.

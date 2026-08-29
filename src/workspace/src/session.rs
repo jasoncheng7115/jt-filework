@@ -33,6 +33,46 @@ use crate::workspace::Workspace;
 /// and says why.
 pub const SESSION_FORMAT_VERSION: u32 = 1;
 
+/// The application's version, as recorded in files it writes.
+///
+/// Taken from the crate rather than repeated: a version constant that has to
+/// be updated by hand is a version constant that is wrong after a release.
+pub fn app_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
+
+/// Bring a stored session forward from `from` to the current format.
+///
+/// One step per released version, applied in order. A chain rather than a
+/// single "read anything" parser, because each step is a small change whose
+/// correctness can be argued and tested against a real file from that
+/// version, and because the alternative accumulates conditionals nobody dares
+/// touch.
+///
+/// Takes and returns the raw JSON: a migration's whole purpose is to run
+/// *before* the value can be deserialized into today's types.
+fn migrate_json(mut value: serde_json::Value, from: u32) -> serde_json::Value {
+    // Steps are listed oldest first. Adding a format version means bumping
+    // SESSION_FORMAT_VERSION, adding a step here, and committing a fixture in
+    // `tests/fixtures/session/`.
+    //
+    // Version 1 is the first released format, so there is nothing before it
+    // to come forward from. The loop is here so the second migration is an
+    // edit rather than a design.
+    // Clippy is right that this match has one arm; it is a placeholder for
+    // the arms that arrive with the second format version, and writing the
+    // loop now is what makes that a five-line edit instead of a redesign
+    // under time pressure.
+    #[allow(clippy::match_single_binding)]
+    for step in from..SESSION_FORMAT_VERSION {
+        value = match step {
+            // v1 -> v2 will go here.
+            _ => value,
+        };
+    }
+    value
+}
+
 /// What happens when the application launches.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "mode", rename_all = "snake_case")]
@@ -224,6 +264,14 @@ impl SessionSettings {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Session {
     version: u32,
+    /// The application version that wrote this file.
+    ///
+    /// Recorded but never *acted* on: the format version above decides what
+    /// can be read. This is for the human reading a file after a bad upgrade,
+    /// and for a bug report that would otherwise say "it broke after I
+    /// updated" with nothing to check.
+    #[serde(default)]
+    app_version: String,
     settings: SessionSettings,
     /// Absent when the user has turned session memory off.
     workspace: Option<Workspace>,
@@ -318,6 +366,7 @@ impl Session {
         };
         Self {
             version: SESSION_FORMAT_VERSION,
+            app_version: app_version().to_string(),
             settings,
             workspace: stored,
             places: Places::new(),
@@ -347,6 +396,7 @@ impl Session {
     pub fn settings_only(settings: SessionSettings) -> Self {
         Self {
             version: SESSION_FORMAT_VERSION,
+            app_version: app_version().to_string(),
             settings,
             workspace: None,
             places: Places::new(),
@@ -403,6 +453,27 @@ impl Session {
                 outcome: RestoreOutcome::NothingStored,
                 places: Places::new(),
             };
+        };
+
+        // Read as raw JSON first so an older file can be brought forward
+        // *before* anything tries to decode it into today's types. Decoding
+        // first and migrating after would mean today's types had to be able
+        // to represent every past shape, which is the thing a migration chain
+        // exists to avoid.
+        let text = &match serde_json::from_str::<serde_json::Value>(text) {
+            Ok(value) => {
+                let stored = value
+                    .get("version")
+                    .and_then(serde_json::Value::as_u64)
+                    .and_then(|v| u32::try_from(v).ok())
+                    .unwrap_or(SESSION_FORMAT_VERSION);
+                if stored < SESSION_FORMAT_VERSION {
+                    migrate_json(value, stored).to_string()
+                } else {
+                    text.to_string()
+                }
+            }
+            Err(_) => text.to_string(),
         };
 
         let session = match Self::from_json(text) {

@@ -183,6 +183,15 @@ impl App {
         let home = home_location();
 
         let stored = fs::read_to_string(&session_path).ok();
+
+        // Keep a copy of anything written by an older format before this run
+        // can overwrite it. An upgrade that goes wrong is recoverable if the
+        // previous file still exists and is not if it does not, and the cost
+        // is one small file copied once per format change.
+        if let Some(text) = stored.as_deref() {
+            back_up_before_migrating(&session_path, text);
+        }
+
         let restored = Session::restore(stored.as_deref(), &home);
         let settings = restored.settings.clone();
 
@@ -2813,6 +2822,39 @@ fn home_location() -> Location {
     Location::local(home)
 }
 
+/// Copy the session aside if it was written by an older format version.
+///
+/// Named for the version it came from, so a directory with several is
+/// readable rather than a pile of `.bak`s. Written once: a second run of the
+/// same upgrade must not overwrite the original with the already-migrated
+/// copy, which would quietly destroy the thing being kept.
+fn back_up_before_migrating(session_path: &Path, text: &str) {
+    // The version is read with a string scan rather than a JSON parser: the
+    // bridge does not otherwise need one, and taking a dependency to read a
+    // single integer out of a file we wrote ourselves is a poor trade.
+    let Some(version) = stored_format_version(text) else {
+        return; // unreadable: there is no version to name a backup after
+    };
+    if version >= jtf_workspace::SESSION_FORMAT_VERSION {
+        return; // current or newer; nothing is being migrated
+    }
+
+    let backup = session_path.with_file_name(format!("session.v{version}.backup.json"));
+    if backup.exists() {
+        return;
+    }
+    let _ = fs::write(&backup, text);
+}
+
+/// The `"version":N` a session file declares, if it declares one.
+fn stored_format_version(text: &str) -> Option<u32> {
+    let at = text.find("\"version\"")?;
+    let rest = &text[at + "\"version\"".len()..];
+    let rest = rest.trim_start().strip_prefix(':')?.trim_start();
+    let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
+    digits.parse().ok()
+}
+
 fn session_path() -> PathBuf {
     let base = std::env::var_os("HOME").map_or_else(std::env::temp_dir, PathBuf::from);
     base.join("Library/Application Support/jt-filework/session.json")
@@ -2951,7 +2993,30 @@ const fn listed_row(has_parent_row: bool, row: usize) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::listed_row;
+    use super::{listed_row, stored_format_version};
+
+    #[test]
+    fn the_stored_format_version_is_found_however_the_file_is_spaced() {
+        assert_eq!(stored_format_version(r#"{"version":1,"x":2}"#), Some(1));
+        assert_eq!(stored_format_version(r#"{ "version" : 42 }"#), Some(42));
+        assert_eq!(
+            stored_format_version("{\n  \"version\": 7,\n  \"settings\": {}\n}"),
+            Some(7),
+            "the file the program actually writes is pretty-printed"
+        );
+    }
+
+    #[test]
+    fn a_file_with_no_version_yields_nothing_rather_than_a_guess() {
+        assert_eq!(stored_format_version("{}"), None);
+        assert_eq!(stored_format_version(""), None);
+        assert_eq!(stored_format_version("not json at all"), None);
+        assert_eq!(
+            stored_format_version(r#"{"version":"one"}"#),
+            None,
+            "a version that is not a number is not a version"
+        );
+    }
 
     #[test]
     fn without_a_parent_row_display_rows_are_entry_indices() {

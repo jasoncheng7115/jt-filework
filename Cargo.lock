@@ -71,6 +71,7 @@ dependencies = [
  "jtf-ops",
  "jtf-search",
  "jtf-workspace",
+ "serde_json",
 ]
 
 [[package]]

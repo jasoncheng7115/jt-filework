@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "app_version": "0.1.0",
+  "settings": {
+    "restore_on_launch": {
+      "mode": "last_session"
+    },
+    "remember_closed_tabs": true,
+    "remember_marks": true,
+    "font": {
+      "family": "",
+      "point_size": 0,
+      "monospace": true
+    },
+    "keymap": "cview",
+    "folders_first": true,
+    "tree_visible": false,
+    "tree_width": 0
+  },
+  "workspace": null,
+  "places": {
+    "bookmarks": [
+      {
+        "path": "/Users/someone/Projects",
+        "name": ""
+      }
+    ],
+    "recent": []
+  }
+}
