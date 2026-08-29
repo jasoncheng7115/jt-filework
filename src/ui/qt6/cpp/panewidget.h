@@ -40,6 +40,10 @@ public:
     void focusList();
     void openCurrentRow();
     void toggleSearch();
+    /// Run a search from the window's search field.
+    void searchFor(const QString &query);
+    /// Put the breadcrumb into its editable full-path form.
+    void editPath();
     void clearSearch();
     void toggleFilter();
     void clearFilter();
@@ -62,6 +66,7 @@ signals:
     void contextMenuRequested(const QPoint &global, bool onEntry);
 
 protected:
+    void resizeEvent(class QResizeEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
@@ -70,6 +75,7 @@ private:
     void showContextMenu(const QPoint &position);
     void showHeaderMenu(const QPoint &position);
     void applyColumnVisibility();
+    void fitNameColumn();
     void ensureCurrentRow();
     void setCurrentRow(int row, QAbstractItemView::ScrollHint hint);
     static QString chordFor(const class QKeyEvent *key);
@@ -85,6 +91,10 @@ private:
     QTabBar *m_tabs;
     class Breadcrumb *m_crumbs = nullptr;
     class QToolButton *m_newTab = nullptr;
+    class QWidget *m_filterBar = nullptr;
+    class QLabel *m_filterIcon = nullptr;
+    class QLabel *m_filterCount = nullptr;
+    class QToolButton *m_filterClose = nullptr;
     class QLineEdit *m_filter = nullptr;
     class QLineEdit *m_search = nullptr;
     QLabel *m_status;

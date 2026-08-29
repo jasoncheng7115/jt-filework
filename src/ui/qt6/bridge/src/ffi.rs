@@ -2305,11 +2305,8 @@ pub extern "C" fn jtf_column_count() -> c_int {
 /// `buf` must be writable for `len` bytes.
 #[no_mangle]
 pub unsafe extern "C" fn jtf_column_key(column: c_int, buf: *mut c_char, len: c_int) -> c_int {
-    let key = match column {
-        crate::app::COLUMN_SIZE => "column.size",
-        crate::app::COLUMN_KIND => "column.kind",
-        crate::app::COLUMN_MODIFIED => "column.modified",
-        _ => "column.name",
-    };
+    // Straight from the model's own list, so a column added there appears in
+    // the header and its menu without a second table to keep in step.
+    let key = crate::app::column_at(column).map_or("column.name", |c| c.label_key());
     unsafe { write_str(key, buf, len) }
 }

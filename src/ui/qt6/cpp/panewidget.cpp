@@ -80,17 +80,44 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // touches no disk, which is what separates it from search
     // (docs/SEARCH_AI.md 1) and why it belongs in the pane rather than in a
     // dialog.
-    m_filter = new QLineEdit(this);
+    // The filter is a bar, not a bare text box. A lone line edit appearing
+    // above the list says nothing about what it does, looks identical to the
+    // search box, and gives no sign that it is narrowing what you can see -
+    // which matters, because a filter hides files.
+    m_filterBar = new QWidget(this);
+    m_filterBar->setObjectName(QStringLiteral("JtfFilterBar"));
+    m_filterBar->setVisible(false);
+    auto *filterRow = new QHBoxLayout(m_filterBar);
+    filterRow->setContentsMargins(8, 4, 6, 4);
+    filterRow->setSpacing(6);
+    m_filterIcon = new QLabel(m_filterBar);
+    m_filterIcon->setObjectName(QStringLiteral("JtfFilterIcon"));
+    filterRow->addWidget(m_filterIcon);
+
+    m_filter = new QLineEdit(m_filterBar);
     m_filter->setObjectName(QStringLiteral("JtfFilter"));
-    m_filter->setClearButtonEnabled(true);
-    m_filter->setVisible(false);
+    m_filter->setFrame(false);
+    filterRow->addWidget(m_filter, 1);
+
+    // How much is hidden, live. A filter that silently removes rows is how
+    // someone concludes a file is missing.
+    m_filterCount = new QLabel(m_filterBar);
+    m_filterCount->setObjectName(QStringLiteral("JtfFilterCount"));
+    filterRow->addWidget(m_filterCount);
+
+    m_filterClose = new QToolButton(m_filterBar);
+    m_filterClose->setObjectName(QStringLiteral("JtfFilterClose"));
+    m_filterClose->setAutoRaise(true);
+    m_filterClose->setFocusPolicy(Qt::NoFocus);
+    connect(m_filterClose, &QToolButton::clicked, this, [this] { clearFilter(); });
+    filterRow->addWidget(m_filterClose);
     connect(m_filter, &QLineEdit::textChanged, this, [this](const QString &text) {
         const QByteArray utf8 = text.toUtf8();
         jtf_set_filter(m_app, m_pane, utf8.constData());
         m_model->refresh();
         retranslate();
     });
-    layout->addWidget(m_filter);
+    layout->addWidget(m_filterBar);
 
     // Search walks a tree, so it is a separate box from the filter and says
     // so: conflating them would make one of the two feel wrong
@@ -221,8 +248,16 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_view->setColumnWidth(1, 92);
     m_view->setColumnWidth(2, 200);
     m_view->setColumnWidth(3, 160);
-    m_view->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
-    m_view->horizontalHeader()->setMinimumSectionSize(56);
+    // Not QHeaderView::Stretch. Stretch makes the name column absorb the
+    // slack in both directions, so shrinking the window crushes the one
+    // column that matters until the file names are gone while Permissions and
+    // Owner sit there at full width. The name column takes the *surplus* and
+    // gives it back last, down to a floor - the others are what should be cut
+    // off, because you can widen the window to see a date and you cannot work
+    // at all without names.
+    m_view->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+    m_view->horizontalHeader()->setMinimumSectionSize(48);
+    fitNameColumn();
     m_view->horizontalHeader()->setHighlightSections(false);
     m_view->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 }
@@ -291,6 +326,19 @@ void PaneWidget::openRow(int row) {
     }
 }
 
+void PaneWidget::searchFor(const QString &query) {
+    if (query.isEmpty()) {
+        clearSearch();
+        return;
+    }
+    const QByteArray utf8 = query.toUtf8();
+    char error[256] = {0};
+    jtf_search_start(m_app, m_pane, utf8.constData(), error, sizeof(error));
+    emit stateChanged();
+}
+
+void PaneWidget::editPath() { m_crumbs->beginEditing(); }
+
 void PaneWidget::toggleSearch() {
     if (m_search->isVisible() && m_search->hasFocus()) {
         clearSearch();
@@ -316,11 +364,13 @@ void PaneWidget::clearSearch() {
 }
 
 void PaneWidget::toggleFilter() {
-    if (m_filter->isVisible() && m_filter->hasFocus()) {
+    if (m_filterBar->isVisible() && m_filter->hasFocus()) {
         clearFilter();
         return;
     }
-    m_filter->setVisible(true);
+    m_filterBar->setVisible(true);
+    m_filter->setPlaceholderText(jtfText(
+        [&](char *buf, int len) { return jtf_tr(m_app, "filter.placeholder", buf, len); }));
     m_filter->setFocus();
     m_filter->selectAll();
 }
@@ -329,7 +379,7 @@ void PaneWidget::clearFilter() {
     // Escape clears and hides, rather than leaving an empty box that still
     // looks like a mode the user is in.
     m_filter->clear();
-    m_filter->setVisible(false);
+    m_filterBar->setVisible(false);
     m_view->setFocus();
 }
 
@@ -381,6 +431,23 @@ void PaneWidget::applyColumnVisibility() {
     for (int column = 0; column < jtf_column_count(); ++column) {
         m_view->setColumnHidden(column, jtf_column_visible(m_app, m_pane, column) == 0);
     }
+    fitNameColumn();
+}
+
+void PaneWidget::fitNameColumn() {
+    // Whatever the other visible columns do not use, with a floor. Below the
+    // floor the list scrolls sideways, which is the honest outcome: the
+    // columns genuinely do not fit, and hiding the file names to pretend they
+    // do is not an improvement.
+    static constexpr int kNameFloor = 160;
+    int used = 0;
+    for (int column = 1; column < m_model->columnCount(); ++column) {
+        if (!m_view->isColumnHidden(column)) {
+            used += m_view->columnWidth(column);
+        }
+    }
+    const int available = m_view->viewport()->width() - used;
+    m_view->setColumnWidth(0, qMax(kNameFloor, available));
 }
 
 namespace {
@@ -444,6 +511,11 @@ bool PaneWidget::handleDrop(QDropEvent *event) {
     return true;
 }
 
+void PaneWidget::resizeEvent(QResizeEvent *event) {
+    QWidget::resizeEvent(event);
+    fitNameColumn();
+}
+
 bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     if (event->type() == QEvent::FocusIn || event->type() == QEvent::MouseButtonPress) {
         emit focusRequested(m_pane);
@@ -497,7 +569,7 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
                 clearSearch();
                 return true;
             }
-            if (m_filter->isVisible()) {
+            if (m_filterBar->isVisible()) {
                 clearFilter();
                 return true;
             }
@@ -792,7 +864,7 @@ void PaneWidget::retranslate() {
         const int total = jtf_unfiltered_count(m_app, m_pane);
         // With a filter on, say how many of how many. Showing only the
         // filtered count makes a directory look empty when it is not.
-        if (m_filter->isVisible() && !m_filter->text().isEmpty()) {
+        if (m_filterBar->isVisible() && !m_filter->text().isEmpty()) {
             status = jtfFill(jtfFill(tr_("status.filtered"), "count", QString::number(rows)),
                              "total", QString::number(total));
         } else {

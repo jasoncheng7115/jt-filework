@@ -21,13 +21,29 @@ use jtf_workspace::{
     SessionSettings, SortKey, SortSpec, Workspace,
 };
 
-/// Columns the PoC shows. Kept in sync with the C++ header by
-/// `docs/adr/0001-gui-stack.md`'s PoC scope, not by cleverness.
+/// The columns the list can show, in order.
+///
+/// Derived from the model's own `Column::ALL` rather than repeated here, so a
+/// column added to the model reaches the UI without a second edit that
+/// someone has to remember. The first four are visible by default; the rest
+/// are offered in the header's menu.
+/// The column at display position `index`, from the model's default layout.
+pub(crate) fn column_at(index: i32) -> Option<jtf_workspace::Column> {
+    usize::try_from(index).ok().and_then(|i| {
+        jtf_workspace::default_columns()
+            .get(i)
+            .map(|spec| spec.column)
+    })
+}
+
 pub(crate) const COLUMN_NAME: i32 = 0;
 pub(crate) const COLUMN_SIZE: i32 = 1;
-pub(crate) const COLUMN_KIND: i32 = 2;
-pub(crate) const COLUMN_MODIFIED: i32 = 3;
-pub(crate) const COLUMN_COUNT: i32 = 4;
+pub(crate) const COLUMN_MODIFIED: i32 = 2;
+pub(crate) const COLUMN_KIND: i32 = 3;
+
+/// How many columns exist.
+#[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+pub(crate) const COLUMN_COUNT: i32 = jtf_workspace::Column::ALL.len() as i32;
 
 /// An open viewer.
 ///
@@ -689,7 +705,44 @@ impl App {
                 .timestamps()
                 .modified
                 .map_or_else(String::new, format_time),
-            _ => String::new(),
+            other => {
+                // The columns past the default four, answered from the model's
+                // own list so adding one there is enough.
+                use jtf_workspace::Column;
+                match column_at(other) {
+                    Some(Column::Created) => entry
+                        .timestamps()
+                        .created
+                        .map_or_else(String::new, format_time),
+                    Some(Column::Accessed) => entry
+                        .timestamps()
+                        .accessed
+                        .map_or_else(String::new, format_time),
+                    Some(Column::Permissions) => {
+                        // rwx, the shape everyone already reads, from the
+                        // cross-platform summary rather than from a mode bit
+                        // that Windows does not have.
+                        let p = entry.permissions();
+                        let flag = |on: bool, c: char| if on { c } else { '-' };
+                        format!(
+                            "{}{}{}",
+                            flag(p.readable, 'r'),
+                            flag(p.writable, 'w'),
+                            flag(p.executable, 'x')
+                        )
+                    }
+                    Some(Column::Extension) => entry.extension_hint().unwrap_or_default(),
+                    Some(Column::Path) => entry
+                        .location()
+                        .as_path()
+                        .and_then(std::path::Path::parent)
+                        .map_or_else(String::new, |p| p.display().to_string()),
+                    // Owner and Tags are not carried by the model yet. The
+                    // columns exist so the header can offer them, and they
+                    // stay blank rather than showing something invented.
+                    _ => String::new(),
+                }
+            }
         }
     }
 
@@ -1776,7 +1829,15 @@ impl App {
             COLUMN_SIZE => SortKey::Size,
             COLUMN_KIND => SortKey::Kind,
             COLUMN_MODIFIED => SortKey::Modified,
-            _ => SortKey::Name,
+            other => {
+                use jtf_workspace::Column;
+                match column_at(other) {
+                    Some(Column::Created) => SortKey::Created,
+                    Some(Column::Accessed) => SortKey::Accessed,
+                    Some(Column::Extension) => SortKey::Extension,
+                    _ => SortKey::Name,
+                }
+            }
         };
         if let Some(p) = self.workspace.pane_mut(pane) {
             if let Some(tab) = p.active_tab_mut() {
@@ -2417,13 +2478,10 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
 
 /// Column index in the tab's column list. The list is in `Column::ALL` order,
 /// and the viewer's four columns are its first four.
-const fn column_index(column: i32) -> usize {
-    match column {
-        COLUMN_SIZE => 1,
-        COLUMN_KIND => 2,
-        COLUMN_MODIFIED => 3,
-        _ => 0,
-    }
+/// A display column is an index into the tab's own column list, which is in
+/// the same order. Identity, and stated once so it cannot drift again.
+fn column_index(column: i32) -> usize {
+    usize::try_from(column).unwrap_or(0)
 }
 
 fn display_name_of(location: &Location) -> String {

@@ -436,3 +436,33 @@ fn the_keyboard_mode_is_not_named_after_another_product() {
         offences.join("\n  ")
     );
 }
+
+/// Every column's header key exists in every catalogue.
+///
+/// A column added to the model without its catalogue entry does not fail
+/// anywhere — the header simply shows the key, `column.accessed`, in the one
+/// place a user is guaranteed to look. That shipped once.
+#[test]
+fn every_column_has_a_header_in_every_locale() {
+    let mut missing = Vec::new();
+    for locale in ["en", "zh-TW"] {
+        let path = repo_root()
+            .join("locales")
+            .join(locale)
+            .join("main.catalog");
+        let text = fs::read_to_string(&path).expect("a catalogue is readable");
+        for column in jtf_workspace::Column::ALL {
+            let key = column.label_key();
+            if !text
+                .lines()
+                .any(|line| line.starts_with(&format!("{key} =")))
+            {
+                missing.push(format!("{locale}: {key}"));
+            }
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "columns with no header text: {missing:?}"
+    );
+}

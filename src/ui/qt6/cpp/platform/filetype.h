@@ -25,4 +25,12 @@ bool available();
 // it has none. The caller falls back.
 QString describe(const QString &path);
 
+// The name the platform shows for a file or folder, or empty.
+//
+// macOS localizes the standard folders: `~/Desktop` is shown as 桌面 on a
+// Chinese system, and the folder on disk is still called Desktop. Reading the
+// last path component would show the English name in a Chinese interface,
+// which is not what the user's own file manager does.
+QString displayName(const QString &path);
+
 } // namespace filetype

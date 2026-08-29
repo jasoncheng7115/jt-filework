@@ -31,6 +31,7 @@ pub fn sort_entries_with(entries: &mut Vec<FileEntry>, sort: SortSpec, folders_f
             SortKey::Size => group.sort_by_cached_key(|e| e.size().unwrap_or(0)),
             SortKey::Modified => group.sort_by_cached_key(|e| e.timestamps().modified),
             SortKey::Created => group.sort_by_cached_key(|e| e.timestamps().created),
+            SortKey::Accessed => group.sort_by_cached_key(|e| e.timestamps().accessed),
             SortKey::Kind | SortKey::Extension => {
                 group.sort_by_cached_key(FileEntry::extension_hint);
             }

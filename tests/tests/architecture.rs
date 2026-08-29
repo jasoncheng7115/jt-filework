@@ -538,16 +538,21 @@ fn every_named_glyph_is_a_real_svg() {
     let source =
         fs::read_to_string(root.join("src/ui/qt6/cpp/icons.cpp")).expect("icons.cpp is readable");
 
-    // The names in the `{glyph::Shape::X, QStringLiteral("name")}` table.
+    // Every icon name in the file, from both tables: the shape table and the
+    // command table. A command id contains a dot and an icon name never does,
+    // which is what tells the two kinds of literal apart.
     let mut named = std::collections::BTreeSet::new();
-    for line in source.lines().filter(|l| l.contains("glyph::Shape::")) {
-        let Some(open) = line.find("QStringLiteral(\"") else {
-            continue;
-        };
-        let rest = &line[open + "QStringLiteral(\"".len()..];
-        if let Some(end) = rest.find('"') {
-            named.insert(rest[..end].to_string());
+    let mut rest = source.as_str();
+    while let Some(at) = rest.find("QStringLiteral(\"") {
+        rest = &rest[at + "QStringLiteral(\"".len()..];
+        let Some(end) = rest.find('"') else { break };
+        let literal = &rest[..end];
+        // An icon name is a bare stem: no dot (that is a command id) and no
+        // slash (that is the asset directory).
+        if !literal.contains('.') && !literal.contains('/') && !literal.is_empty() {
+            named.insert(literal.to_string());
         }
+        rest = &rest[end..];
     }
     assert!(
         !named.is_empty(),

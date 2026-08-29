@@ -11,6 +11,8 @@
 
 #include "bridge.h"
 
+#include <QColor>
+#include <QSet>
 #include <QFont>
 #include <QWidget>
 
@@ -25,6 +27,7 @@ public:
 
     void refresh();
     void setListFont(const QFont &font);
+    void applyTheme(const QColor &glyphColour);
     void retranslate();
 
 signals:
@@ -40,4 +43,7 @@ private:
     JtfApp *m_app = nullptr;
     QTreeWidget *m_tree = nullptr;
     QFont m_listFont;
+    QColor m_glyphColour;
+    /// Sections the user closed, by section id.
+    QSet<QString> m_collapsed;
 };

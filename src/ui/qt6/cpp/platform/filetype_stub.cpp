@@ -9,4 +9,9 @@ bool available() { return false; }
 
 QString describe(const QString &) { return {}; }
 
+// Windows localizes these through desktop.ini and SHGetFileInfo; Linux
+// through XDG user-dirs, which QStandardPaths already reads. Both are handled
+// by the caller's fallback.
+QString displayName(const QString &) { return {}; }
+
 } // namespace filetype

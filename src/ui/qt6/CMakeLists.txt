@@ -79,6 +79,8 @@ qt_add_executable(jt-filework
     cpp/placeslist.h
     cpp/headerview.cpp
     cpp/headerview.h
+    cpp/modeswitch.cpp
+    cpp/modeswitch.h
     cpp/shortcutsdialog.cpp
     cpp/shortcutsdialog.h
     cpp/theme.cpp

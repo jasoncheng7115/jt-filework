@@ -6,6 +6,7 @@
 #include "commandpalette.h"
 #include "foldertree.h"
 #include "inspector.h"
+#include "modeswitch.h"
 #include "placeslist.h"
 #include "operations.h"
 #include "platform/quicklook.h"
@@ -420,8 +421,9 @@ void MainWindow::buildMenus() {
         }
     });
     command(m_goMenu, "nav.goto", [this] {
-        m_pathEdit->setFocus();
-        m_pathEdit->selectAll();
+        if (PaneWidget *pane = activePane()) {
+            pane->editPath();
+        }
     });
     m_goMenu->addSeparator();
     command(m_goMenu, "tab.next", [this] {
@@ -775,6 +777,15 @@ void MainWindow::showEntryMenu(int paneId, const QPoint &global, bool onEntry) {
             jtfText([&](char *buf, int len) { return jtf_shortcut_for(m_app, id, buf, len); });
         if (!shortcut.isEmpty()) {
             action->setShortcut(QKeySequence(shortcut));
+            // Qt does not paint a shortcut in a popup menu on every style, so
+            // the text carries it: a context menu that hides the key teaches
+            // people the command has none.
+            action->setText(action->text() + QLatin1Char('\t') +
+                            QKeySequence(shortcut).toString(QKeySequence::NativeText));
+        }
+        const QString commandId = QString::fromLatin1(id);
+        if (glyph::hasCommandIcon(commandId)) {
+            action->setIcon(glyph::forCommand(commandId, m_theme.textSecondary));
         }
         action->setEnabled(enabled);
         connect(action, &QAction::triggered, this, [this, handler] {
@@ -908,6 +919,25 @@ void MainWindow::buildToolbar() {
     // Every button is a command: same id, same handler, same shortcut as the
     // menu entry, so the toolbar cannot drift away from the rest of the UI
     // (docs/UI_CONVENTIONS.md 3).
+    // Buttons that belong together sit in one boxed cluster, as the
+    // reference layouts have them: navigation, then view, then actions. A
+    // single unbroken run of icons makes the eye search the whole row for the
+    // one it wants; three short groups make it search one group.
+    QWidget *group = nullptr;
+    QHBoxLayout *groupLayout = nullptr;
+    const auto beginGroup = [&] {
+        group = new QWidget(bar);
+        group->setProperty("jtfToolGroup", true);
+        groupLayout = new QHBoxLayout(group);
+        groupLayout->setContentsMargins(2, 2, 2, 2);
+        groupLayout->setSpacing(1);
+        bar->addWidget(group);
+    };
+    const auto endGroup = [&] {
+        group = nullptr;
+        groupLayout = nullptr;
+    };
+
     const auto button = [&](const char *id, glyph::Shape shape, std::function<void()> handler,
                             bool checkable = false) {
         auto *action = new QAction(this);
@@ -916,13 +946,22 @@ void MainWindow::buildToolbar() {
             handler();
             refreshAll();
         });
-        bar->addAction(action);
+        if (groupLayout != nullptr) {
+            auto *widget = new QToolButton(group);
+            widget->setDefaultAction(action);
+            widget->setAutoRaise(true);
+            widget->setFocusPolicy(Qt::NoFocus);
+            groupLayout->addWidget(widget);
+        } else {
+            bar->addAction(action);
+        }
         m_commandActions.append({action, id});
         m_toolbarShapes.insert(action, shape);
         m_handlers.insert(QString::fromLatin1(id), handler);
         return action;
     };
 
+    beginGroup();
     m_backAction = button("nav.back", glyph::Shape::ArrowLeft,
                           [this] { jtf_go_back(m_app, jtf_active_pane(m_app)); });
     m_forwardAction = button("nav.forward", glyph::Shape::ArrowRight,
@@ -931,9 +970,9 @@ void MainWindow::buildToolbar() {
                         [this] { jtf_navigate_up(m_app, jtf_active_pane(m_app)); });
     m_refreshAction = button("view.refresh", glyph::Shape::Reload,
                              [this] { jtf_refresh(m_app, jtf_active_pane(m_app)); });
+    endGroup();
 
-    bar->addSeparator();
-
+    beginGroup();
     m_treeAction = button("view.tree", glyph::Shape::Sidebar, [this] { toggleTree(); }, true);
     m_inspectorAction = button(
         "view.inspector", glyph::Shape::Inspector,
@@ -942,25 +981,31 @@ void MainWindow::buildToolbar() {
            [this] { jtf_split_active(m_app, 0); });
     button("workspace.split.vertical", glyph::Shape::SplitVertical,
            [this] { jtf_split_active(m_app, 1); });
+    endGroup();
 
-    bar->addSeparator();
-
-    m_pathEdit = new QLineEdit(bar);
-    m_pathEdit->setClearButtonEnabled(true);
-    m_pathEdit->setMinimumWidth(280);
-    bar->addWidget(m_pathEdit);
-    // Typing a path and pressing Return navigates; Escape puts the real path
-    // back, so an abandoned edit never leaves a lie on screen.
-    connect(m_pathEdit, &QLineEdit::returnPressed, this, [this] {
-        const QByteArray path = m_pathEdit->text().trimmed().toUtf8();
-        if (!path.isEmpty()) {
-            jtf_navigate(m_app, jtf_active_pane(m_app), path.constData());
-            refreshAll();
+    // The path lives in the breadcrumb now - click its empty space and it
+    // becomes the editable full path, the way Explorer's address bar does.
+    // That frees this space, which the reference layouts spend on search.
+    m_searchEdit = new QLineEdit(bar);
+    m_searchEdit->setObjectName(QStringLiteral("JtfToolbarSearch"));
+    m_searchEdit->setClearButtonEnabled(true);
+    m_searchEdit->setMinimumWidth(240);
+    // Set in retranslate too, so it follows the language.
+    bar->addWidget(m_searchEdit);
+    connect(m_searchEdit, &QLineEdit::returnPressed, this, [this] {
+        if (PaneWidget *pane = activePane()) {
+            pane->searchFor(m_searchEdit->text().trimmed());
+        }
+    });
+    connect(m_searchEdit, &QLineEdit::textChanged, this, [this](const QString &text) {
+        if (text.isEmpty()) {
+            if (PaneWidget *pane = activePane()) {
+                pane->clearSearch();
+            }
         }
     });
 
-    bar->addSeparator();
-
+    beginGroup();
     button("file.new_folder", glyph::Shape::NewFolder, [this] { runOperation(OpNewFolder); });
     button("view.filter", glyph::Shape::Filter, [this] {
         if (PaneWidget *pane = activePane()) {
@@ -968,62 +1013,41 @@ void MainWindow::buildToolbar() {
         }
     });
     button("search.open", glyph::Shape::Search, [this] {
-        if (PaneWidget *pane = activePane()) {
-            pane->toggleSearch();
-        }
+        m_searchEdit->setFocus();
+        m_searchEdit->selectAll();
     });
     m_hiddenAction = button(
         "view.hidden", glyph::Shape::Hidden,
         [this] { jtf_set_show_hidden(m_app, jtf_show_hidden(m_app) ? 0 : 1); }, true);
     button("help.shortcuts", glyph::Shape::Keyboard, [this] { openShortcuts(); });
     button("settings.open", glyph::Shape::Settings, [this] { openSettings(); });
+    endGroup();
 
-    // The keyboard-mode switch. A two-segment control rather than one button
-    // that changes label: a lone button reading "CView" cannot say whether
-    // that is the mode you are in or the mode you would get by pressing it.
-    // Both modes are on screen, and the lit one is the answer.
+    // The keyboard-mode switch. A segmented control, not two buttons: the
+    // pill slides from one side to the other, which says which way the mode
+    // went rather than just repainting to show where it landed.
     auto *modeHolder = new QWidget(bar);
     auto *modeRow = new QHBoxLayout(modeHolder);
-    modeRow->setContentsMargins(6, 0, 2, 0);
-    modeRow->setSpacing(0);
-    m_modeSwitch = new QWidget(modeHolder);
-    m_modeSwitch->setObjectName(QStringLiteral("JtfModeSwitch"));
-    auto *modeInner = new QHBoxLayout(m_modeSwitch);
-    modeInner->setContentsMargins(2, 2, 2, 2);
-    modeInner->setSpacing(2);
-    for (const char *name : {"single-key", "native"}) {
-        auto *segment = new QToolButton(m_modeSwitch);
-        segment->setCheckable(true);
-        segment->setAutoRaise(true);
-        // A QToolButton inherits the toolbar's icon-only style, and these
-        // segments are words with no icon: without this the switch is an
-        // empty box.
-        segment->setToolButtonStyle(Qt::ToolButtonTextOnly);
-        segment->setProperty("jtfModeSegment", true);
-        segment->setProperty("jtfKeymap", QString::fromLatin1(name));
-        connect(segment, &QToolButton::clicked, this, [this, name] { setKeymap(name); });
-        modeInner->addWidget(segment);
-        m_modeSegments.append(segment);
-    }
+    modeRow->setContentsMargins(8, 0, 4, 0);
+    m_modeSwitch = new ModeSwitch(modeHolder);
+    connect(m_modeSwitch, &ModeSwitch::segmentClicked, this, [this](int index) {
+        setKeymap(index == 0 ? QStringLiteral("single-key") : QStringLiteral("native"));
+    });
     modeRow->addWidget(m_modeSwitch);
     bar->addWidget(modeHolder);
 
     auto *focusPath = new QAction(this);
     focusPath->setShortcut(QKeySequence(QStringLiteral("Ctrl+L")));
     connect(focusPath, &QAction::triggered, this, [this] {
-        m_pathEdit->setFocus();
-        m_pathEdit->selectAll();
+        if (PaneWidget *pane = activePane()) {
+            pane->editPath();
+        }
     });
     addAction(focusPath);
 }
 
 void MainWindow::syncToolbar() {
     const int pane = jtf_active_pane(m_app);
-    const QString path =
-        jtfText([&](char *buf, int len) { return jtf_current_path(m_app, pane, buf, len); });
-    if (!m_pathEdit->hasFocus() && m_pathEdit->text() != path) {
-        m_pathEdit->setText(path);
-    }
 
     // A navigation button that is always enabled teaches people that pressing
     // it does nothing.
@@ -1042,12 +1066,10 @@ void MainWindow::syncToolbar() {
 
     const QString keymap =
         jtfText([&](char *buf, int len) { return jtf_keymap_name(m_app, buf, len); });
-    for (auto *segment : std::as_const(m_modeSegments)) {
-        const QString name = segment->property("jtfKeymap").toString();
-        QSignalBlocker blocker(segment);
-        segment->setChecked(name == keymap);
-        segment->setText(profileLabel(name));
-        segment->setToolTip(jtfFill(tr_("keymap.switch_to"), "name", segment->text()));
+    if (m_modeSwitch) {
+        m_modeSwitch->setSegments({profileLabel(QStringLiteral("single-key")),
+                                   profileLabel(QStringLiteral("native"))});
+        m_modeSwitch->setCurrentIndex(keymap == QLatin1String("native") ? 1 : 0);
     }
 
     m_backAction->setEnabled(jtf_can_go_back(m_app, pane) != 0);
@@ -1406,6 +1428,11 @@ void MainWindow::retranslate() {
     // Everything with words in it, including the parts the frame pump owns:
     // changing the language is exactly the case where nothing else changed.
     updateStatusSummary();
+    if (m_searchEdit) {
+        // An empty box with no label is a box that does not say what it is
+        // for; the placeholder is the only label it gets.
+        m_searchEdit->setPlaceholderText(tr_("search.placeholder_toolbar"));
+    }
     for (const auto &entry : std::as_const(m_translatable)) {
         entry.first->setText(tr_(entry.second));
     }
@@ -1470,6 +1497,23 @@ void MainWindow::applyTheme() {
 
     if (m_inspector) {
         m_inspector->applyTheme(m_theme.textSecondary);
+    }
+    if (m_places) {
+        m_places->applyTheme(m_theme.textSecondary);
+    }
+    if (m_modeSwitch) {
+        m_modeSwitch->applyTheme(m_theme.window, m_theme.border, m_theme.selection,
+                                 m_theme.textPrimary, m_theme.textSecondary,
+                                 m_theme.textOnAccent);
+    }
+    // Every command that has an icon shows it, in the menu as well as on the
+    // toolbar: the same command should carry the same picture wherever it
+    // appears, or the picture teaches nothing.
+    for (const auto &entry : std::as_const(m_commandActions)) {
+        const QString id = QString::fromLatin1(entry.second);
+        if (!m_toolbarShapes.contains(entry.first) && glyph::hasCommandIcon(id)) {
+            entry.first->setIcon(glyph::forCommand(id, m_theme.textSecondary));
+        }
     }
     for (auto *pane : std::as_const(m_panes)) {
         pane->applyTheme(m_theme.mark,

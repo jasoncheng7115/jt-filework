@@ -14,6 +14,7 @@
 
 #include <QColor>
 #include <QIcon>
+#include <QString>
 
 namespace glyph {
 
@@ -44,5 +45,16 @@ enum class Shape {
 
 // Rendered at several sizes so the icon stays crisp on any display scale.
 QIcon make(Shape shape, const QColor &colour);
+
+// The icon for a command id, or a null icon when it has none.
+//
+// One table for the whole program, so a command carries the same picture in
+// the menu, on the toolbar and in the palette. A command with no entry gets
+// nothing rather than a placeholder: an approximate icon is worse than none,
+// because it teaches the wrong association.
+QIcon forCommand(const QString &id, const QColor &colour);
+
+// Whether a command has an icon at all.
+bool hasCommandIcon(const QString &id);
 
 } // namespace glyph

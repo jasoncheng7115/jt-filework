@@ -77,6 +77,12 @@ shift+tab            = workspace.pane.previous
 primary+t            = tab.new
 primary+w            = tab.close
 primary+shift+t      = tab.reopen
+# Tab switching. CView had no tabs, so these follow the browser conventions
+# every user already has in their fingers rather than inventing something.
+ctrl+tab             = tab.next
+ctrl+shift+tab       = tab.previous
+primary+alt+right    = tab.next
+primary+alt+left     = tab.previous
 primary+shift+backslash = workspace.split.vertical
 primary+backslash    = workspace.split.horizontal
 primary+1            = workspace.preset.single

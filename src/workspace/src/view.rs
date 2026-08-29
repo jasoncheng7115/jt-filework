@@ -21,6 +21,8 @@ pub enum SortKey {
     Modified,
     /// Creation time.
     Created,
+    /// Last access time.
+    Accessed,
     /// Extension, then name.
     Extension,
 }
@@ -108,6 +110,8 @@ pub enum Column {
     Modified,
     /// Creation time.
     Created,
+    /// Last access time.
+    Accessed,
     /// Permission summary.
     Permissions,
     /// Owner.
@@ -129,6 +133,7 @@ impl Column {
             Self::Kind => "column.kind",
             Self::Modified => "column.modified",
             Self::Created => "column.created",
+            Self::Accessed => "column.accessed",
             Self::Permissions => "column.permissions",
             Self::Owner => "column.owner",
             Self::Extension => "column.extension",
@@ -144,6 +149,7 @@ impl Column {
         Self::Kind,
         Self::Modified,
         Self::Created,
+        Self::Accessed,
         Self::Permissions,
         Self::Owner,
         Self::Extension,
@@ -198,7 +204,12 @@ pub struct ScrollPosition {
 }
 
 /// The default column layout for a directory listing.
-pub(crate) fn default_columns() -> Vec<ColumnSpec> {
+///
+/// The order here *is* the display order, and the bridge indexes columns by
+/// position in it. `Column::ALL` is a different order - it exists for
+/// exhaustiveness checks - and using that one to resolve a display index is
+/// how every column ended up reporting itself visible.
+pub fn default_columns() -> Vec<ColumnSpec> {
     vec![
         ColumnSpec::visible(Column::Name, 320.0),
         ColumnSpec::visible(Column::Size, 90.0),
@@ -206,6 +217,11 @@ pub(crate) fn default_columns() -> Vec<ColumnSpec> {
         ColumnSpec::visible(Column::Kind, 120.0),
         ColumnSpec {
             column: Column::Created,
+            width: 160.0,
+            visible: false,
+        },
+        ColumnSpec {
+            column: Column::Accessed,
             width: 160.0,
             visible: false,
         },

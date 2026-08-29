@@ -41,6 +41,7 @@ pub use sorting::{sort_entries, sort_entries_with};
 pub use tab::Tab;
 pub use tree::{Orientation, WorkspaceNode, MAX_SPLIT_DEPTH};
 pub use view::{
-    Column, ColumnSpec, Filter, FilterMode, ScrollPosition, SortKey, SortSpec, ViewMode,
+    default_columns, Column, ColumnSpec, Filter, FilterMode, ScrollPosition, SortKey, SortSpec,
+    ViewMode,
 };
 pub use workspace::{LayoutPreset, Workspace, WorkspaceError};

@@ -50,6 +50,18 @@ QToolBar#JtfToolbar QToolButton {
     border-radius: 6px;
 }
 QToolBar#JtfToolbar QToolButton { padding: 5px; border-radius: 6px; }
+/* A boxed cluster, so related buttons read as one control. */
+/* A filled well rather than an outlined box. An outline around every group
+   draws three rectangles across the toolbar and competes with the icons; a
+   slightly recessed fill groups them without adding lines. */
+QWidget[jtfToolGroup="true"] {
+    background: %WINDOW%;
+    border: none;
+    border-radius: 8px;
+}
+QWidget[jtfToolGroup="true"] QToolButton { padding: 4px; border-radius: 6px; }
+QWidget[jtfToolGroup="true"] QToolButton:hover { background: %HOVER%; }
+QWidget[jtfToolGroup="true"] QToolButton:checked { background: %SEL%; }
 QToolBar#JtfToolbar QToolButton:hover { background: %HOVER%; }
 QToolBar#JtfToolbar QToolButton:pressed { background: %ALT%; }
 QToolBar#JtfToolbar QToolButton:disabled { color: %DIM%; }
@@ -140,7 +152,7 @@ QTabBar { background: %HEADER%; qproperty-drawBase: 0; }
 QTabBar::tab {
     background: %HEADER%;
     color: %DIM%;
-    padding: 6px 14px;
+    padding: 6px 16px 6px 6px;
     margin: 0;
     border: none;
     border-top: 2px solid transparent;
@@ -155,7 +167,16 @@ QTabBar::tab:selected {
     border-top: 2px solid %SEL%;
     font-weight: 600;
 }
-QTabBar::close-button { subcontrol-position: right; }
+/* macOS puts the close control on the leading edge. It needs its own room:
+   flush against the tab's border it reads as a rendering fault. */
+QTabBar::close-button {
+    subcontrol-position: left;
+    margin-left: 8px;
+    margin-right: 2px;
+    padding: 2px;
+    border-radius: 4px;
+}
+QTabBar::close-button:hover { background: %HOVER%; }
 QWidget#JtfTabRow { background: %HEADER%; border-bottom: 1px solid %BORDER%; }
 QToolButton#JtfNewTab {
     color: %DIM%;
@@ -177,7 +198,10 @@ QWidget#JtfCrumbs QPushButton {
 }
 QWidget#JtfCrumbs QPushButton:hover { background: %HOVER%; }
 QWidget#JtfCrumbs QLabel { color: %DIM%; padding: 0 1px; }
-QStatusBar { background: %HEADER%; border-top: 1px solid %BORDER%; }
+/* The message sits in from the window edge; text flush against the frame
+   reads as a rendering slip rather than as a layout. */
+QStatusBar { background: %HEADER%; border-top: 1px solid %BORDER%; padding: 2px 4px; }
+QStatusBar QLabel { padding-left: 8px; }
 QStatusBar::item { border: none; }
 QLabel[jtfStatusSummary="true"] { color: %DIM%; padding: 0 10px; }
 QLabel[jtfZoomMark="true"] { color: %DIM%; }
@@ -243,7 +267,7 @@ QPlainTextEdit#JtfInspectorText {
 }
 QLabel#JtfInspectorTextStatus { color: %DIM%; }
 QTreeWidget#JtfPlacesTree { background: %PANE%; border: none; }
-QTreeWidget#JtfPlacesTree::item { padding: 3px 4px; border-radius: 4px; }
+QTreeWidget#JtfPlacesTree::item { padding: 5px 4px; border-radius: 5px; }
 QTreeWidget#JtfPlacesTree::item:hover { background: %HOVER%; }
 QTreeWidget#JtfPlacesTree::item:selected { background: %SEL%; color: %ONSEL%; }
 QSplitter#JtfSidebar { background: %PANE%; }

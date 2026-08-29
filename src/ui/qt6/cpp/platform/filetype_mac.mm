@@ -37,4 +37,12 @@ QString describe(const QString &path) {
     }
 }
 
+QString displayName(const QString &path) {
+    @autoreleasepool {
+        NSString *native = path.toNSString();
+        NSString *shown = [[NSFileManager defaultManager] displayNameAtPath:native];
+        return shown == nil ? QString() : QString::fromNSString(shown);
+    }
+}
+
 } // namespace filetype

@@ -100,7 +100,7 @@ private:
     QWidget *m_paneArea = nullptr;
     QHash<int, PaneWidget *> m_panes;
     QString m_layoutSignature;
-    class QLineEdit *m_pathEdit = nullptr;
+    class QLineEdit *m_searchEdit = nullptr;
     class QAction *m_backAction = nullptr;
     class QAction *m_forwardAction = nullptr;
     class QAction *m_upAction = nullptr;
@@ -125,9 +125,8 @@ private:
     class QLabel *m_statusItems = nullptr;
     class QLabel *m_statusTasks = nullptr;
     class QLabel *m_statusKeymap = nullptr;
-    class QWidget *m_modeSwitch = nullptr;
+    class ModeSwitch *m_modeSwitch = nullptr;
     class QSlider *m_zoom = nullptr;
-    QList<class QToolButton *> m_modeSegments;
     class QProgressBar *m_progress = nullptr;
     class QPushButton *m_cancelButton = nullptr;
     class QAction *m_undoAction = nullptr;

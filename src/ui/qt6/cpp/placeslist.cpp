@@ -1,6 +1,8 @@
 #include "placeslist.h"
 
 #include "iconprovider.h"
+#include "icons.h"
+#include "platform/filetype.h"
 #include "jtfstring.h"
 
 #include <QDir>
@@ -10,6 +12,7 @@
 #include <QHeaderView>
 #include <QInputDialog>
 #include <QMenu>
+#include <QStandardPaths>
 #include <QStorageInfo>
 #include <QTreeWidget>
 #include <QVBoxLayout>
@@ -20,7 +23,7 @@ constexpr int kPathRole = Qt::UserRole;
 constexpr int kIndexRole = Qt::UserRole + 1;
 constexpr int kKindRole = Qt::UserRole + 2;
 
-enum class Kind { Section, Bookmark, Recent, Volume };
+enum class Kind { Section, Bookmark, Recent, Volume, Favorite };
 
 IconProvider &icons() {
     static IconProvider provider;
@@ -36,8 +39,17 @@ PlacesList::PlacesList(JtfApp *app, QWidget *parent) : QWidget(parent), m_app(ap
     m_tree = new QTreeWidget(this);
     m_tree->setObjectName(QStringLiteral("JtfPlacesTree"));
     m_tree->setHeaderHidden(true);
-    m_tree->setRootIsDecorated(false);
-    m_tree->setIndentation(12);
+    // Sections collapse. A sidebar with four sections open is a sidebar you
+    // scroll; the point of the thing is that what you want is already on
+    // screen.
+    m_tree->setRootIsDecorated(true);
+    m_tree->setIndentation(14);
+    connect(m_tree, &QTreeWidget::itemExpanded, this, [this](QTreeWidgetItem *item) {
+        m_collapsed.remove(item->data(0, Qt::UserRole + 3).toString());
+    });
+    connect(m_tree, &QTreeWidget::itemCollapsed, this, [this](QTreeWidgetItem *item) {
+        m_collapsed.insert(item->data(0, Qt::UserRole + 3).toString());
+    });
     m_tree->setUniformRowHeights(true);
     m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
     m_tree->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -67,20 +79,16 @@ QTreeWidgetItem *PlacesList::addSection(const char *labelKey) {
     heading.setBold(true);
     heading.setPointSizeF(qMax(1.0, m_listFont.pointSizeF() * 0.85));
     section->setFont(0, heading);
-    section->setExpanded(true);
+    // Keyed by the section's own id, not its label: the label changes with
+    // the language and a collapsed section must not reopen when it does.
+    section->setData(0, Qt::UserRole + 3, QString::fromLatin1(labelKey));
+    section->setExpanded(!m_collapsed.contains(QString::fromLatin1(labelKey)));
     return section;
 }
 
 void PlacesList::refresh() {
     // Remember what was expanded: rebuilding is how this list stays true, and
     // a rebuild that collapses the user's sections is a rebuild they notice.
-    QSet<QString> collapsed;
-    for (int i = 0; i < m_tree->topLevelItemCount(); ++i) {
-        QTreeWidgetItem *item = m_tree->topLevelItem(i);
-        if (!item->isExpanded()) {
-            collapsed.insert(item->text(0));
-        }
-    }
     m_tree->clear();
 
     const auto addChild = [this](QTreeWidgetItem *section, const QString &label,
@@ -96,6 +104,46 @@ void PlacesList::refresh() {
         return item;
     };
 
+    // Favorites: the folders a person actually keeps things in. Asked of the
+    // platform through QStandardPaths rather than assembled from $HOME, so
+    // this is right on a Mac with a localized Desktop, on Windows where
+    // Downloads is not under the profile root, and on Linux where XDG says
+    // where they are.
+    QTreeWidgetItem *favorites = addSection("places.favorites");
+    struct Favorite {
+        QStandardPaths::StandardLocation location;
+        const char *icon;
+    };
+    static const Favorite kFavorites[] = {
+        {QStandardPaths::HomeLocation, "place.home"},
+        {QStandardPaths::DesktopLocation, "place.desktop"},
+        {QStandardPaths::DocumentsLocation, "place.documents"},
+        {QStandardPaths::DownloadLocation, "place.downloads"},
+        {QStandardPaths::PicturesLocation, "place.pictures"},
+        {QStandardPaths::MusicLocation, "place.music"},
+        {QStandardPaths::MoviesLocation, "place.movies"},
+    };
+    for (const Favorite &favorite : kFavorites) {
+        const QString path = QStandardPaths::writableLocation(favorite.location);
+        // A location the platform does not have, or that does not exist, is
+        // simply absent: a sidebar entry that leads nowhere is worse than a
+        // shorter sidebar.
+        if (path.isEmpty() || !QFileInfo::exists(path)) {
+            continue;
+        }
+        // The platform's own name first: macOS shows ~/Desktop as 桌面 on a
+        // Chinese system while the folder on disk is still called Desktop.
+        QString label = filetype::displayName(path);
+        if (label.isEmpty()) {
+            label = QStandardPaths::displayName(favorite.location);
+        }
+        if (label.isEmpty()) {
+            label = QFileInfo(path).fileName();
+        }
+        auto *item = addChild(favorites, label, path, Kind::Favorite, -1);
+        item->setIcon(0, glyph::forCommand(QString::fromLatin1(favorite.icon), m_glyphColour));
+    }
+
     const int bookmarks = jtf_bookmark_count(m_app);
     if (bookmarks > 0) {
         QTreeWidgetItem *section = addSection("places.bookmarks");
@@ -107,7 +155,11 @@ void PlacesList::refresh() {
         }
     }
 
-    QTreeWidgetItem *volumes = addSection("places.volumes");
+    // Volumes, with anything removable in its own section: a USB stick you
+    // just plugged in is the reason you opened the sidebar, and burying it
+    // among the system's own mounts is how you fail to find it.
+    QTreeWidgetItem *volumes = nullptr;
+    QTreeWidgetItem *removable = nullptr;
     for (const QStorageInfo &storage : QStorageInfo::mountedVolumes()) {
         // Read-only pseudo-filesystems are mounted in their dozens and are not
         // places anyone navigates to.
@@ -123,7 +175,21 @@ void PlacesList::refresh() {
         if (label.isEmpty()) {
             label = root;
         }
-        addChild(volumes, label, root, Kind::Volume, -1);
+        // Not the boot volume, and mounted where the platform puts removable
+        // media. Qt has no "is removable", so this is the honest proxy.
+        const bool isRemovable =
+            !storage.isRoot() && (root.startsWith(QStringLiteral("/Volumes/")) ||
+                                  root.startsWith(QStringLiteral("/media/")) ||
+                                  root.startsWith(QStringLiteral("/run/media/")) ||
+                                  root.startsWith(QStringLiteral("/mnt/")));
+        QTreeWidgetItem *&section = isRemovable ? removable : volumes;
+        if (section == nullptr) {
+            section = addSection(isRemovable ? "places.devices" : "places.volumes");
+        }
+        auto *item = addChild(section, label, root, Kind::Volume, -1);
+        item->setIcon(0, glyph::forCommand(isRemovable ? QStringLiteral("place.removable")
+                                                       : QStringLiteral("place.volume"),
+                                           m_glyphColour));
     }
 
     const int recents = jtf_recent_count(m_app);
@@ -139,6 +205,11 @@ void PlacesList::refresh() {
             addChild(section, label, path, Kind::Recent, i);
         }
     }
+}
+
+void PlacesList::applyTheme(const QColor &glyphColour) {
+    m_glyphColour = glyphColour;
+    refresh();
 }
 
 void PlacesList::setListFont(const QFont &font) {
