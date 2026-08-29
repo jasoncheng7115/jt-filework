@@ -1180,13 +1180,12 @@ impl App {
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
             .map_or(0, |tab| {
-                // Named rather than wildcarded: ViewMode is non_exhaustive,
-                // and a mode added later should fail to compile here rather
-                // than silently report itself as the list.
+                // Exhaustive on purpose: a view mode added later should fail
+                // to compile here rather than silently report itself as the
+                // list.
                 match tab.view_mode() {
                     ViewMode::Grid => 1,
                     ViewMode::List => 0,
-                    _ => 0,
                 }
             })
     }
