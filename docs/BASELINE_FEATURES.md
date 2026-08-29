@@ -66,7 +66,7 @@ Status is one of **Done**, **Partial** (works, with the gap named), or
 | 拖放檔案 | Done | |
 | Pane 與 Pane 間拖放 | Done | |
 | Finder ↔ jt-filework 拖放 | Done | Both directions, via `text/uri-list` |
-| 頁籤拖出成新視窗 | Done | Drag off the strip, or the tab's context menu |
+| 頁籤拖出成新視窗 / 拖回合併 | Done | One gesture: dragging onto another strip merges, into empty space tears off |
 
 ## Operations
 
@@ -94,10 +94,6 @@ to delete and `G` to run. Extraction must treat every entry name as hostile —
 a member called `../../etc/passwd` is the oldest trick there is, which is why
 `ArchiveEntry` already carries `unsafe_name` and why the listing shows such a
 name marked rather than quietly normalized (`docs/SECURITY.md`).
-
-**拖回合併.** Tearing a tab into its own window works. Dragging one *back*
-onto another window's tab strip does not: `merge_tab_into` exists and is
-tested, but no gesture calls it yet.
 
 **復原刪除.** Neither CView nor WinCV has an undo key — `CV.HLP` lists none.
 Their answer to "get it back" was to use `T` (刪除並備分至垃圾桶目錄) instead of

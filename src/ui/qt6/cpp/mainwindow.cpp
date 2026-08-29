@@ -1342,6 +1342,13 @@ QWidget *MainWindow::buildNode(const QJsonObject &node) {
                 MainWindow::syncWindows(m_app);
             }
         });
+        connect(pane, &PaneWidget::tabMergeRequested, this,
+                [this](int from, int tabIndex, int into) {
+                    if (jtf_merge_tab_into(m_app, from, tabIndex, into) != 0) {
+                        jtf_app_save_session(m_app);
+                        MainWindow::syncWindows(m_app);
+                    }
+                });
         connect(pane, &PaneWidget::crumbMenuRequested, this,
                 [this, paneId](const QString &path, const QPoint &global) {
                     showCrumbMenu(paneId, path, global);

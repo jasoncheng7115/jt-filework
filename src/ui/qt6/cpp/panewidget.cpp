@@ -24,6 +24,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QHBoxLayout>
+#include <QDrag>
 #include <QListView>
 #include <QStyle>
 #include <QTabBar>
@@ -286,6 +287,10 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
 
     // The same operation is on the tab's context menu, so it stays reachable
     // without the gesture - and reachable from the keyboard later.
+    // A tab dropped on another pane's strip moves there, which is the other
+    // half of tearing one off. The payload names the source pane and tab, so
+    // a drop from any other application is simply not ours and is ignored.
+    m_tabs->setAcceptDrops(true);
     m_tabs->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_tabs, &QWidget::customContextMenuRequested, this, [this](const QPoint &at) {
         const int index = m_tabs->tabAt(at);
@@ -528,6 +533,10 @@ constexpr int kTearOffDistance = 28;
 // small enough that a folder of a thousand files is still navigable.
 constexpr int kGridIconEdge = 72;
 
+// The payload a tab drag carries. Ours alone, so a drop from anywhere else is
+// not mistaken for a tab.
+constexpr const char *kTabMimeType = "application/x-jt-filework-tab";
+
 // What the drop should do, from the action Qt resolved out of the platform's
 // own modifier conventions. Respecting Qt here is what makes Option-drag mean
 // copy on macOS and Ctrl-drag mean copy elsewhere without this code knowing
@@ -644,6 +653,19 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
             if (dy > m_tabs->height() + kTearOffDistance) {
                 const int index = m_dragTab;
                 m_dragTab = -1;
+
+                // Offered to other strips first. Only if nobody takes it does
+                // the tab become its own window - so dragging onto another
+                // window merges, and dragging into empty space tears off,
+                // from one gesture.
+                auto *mime = new QMimeData;
+                mime->setData(kTabMimeType,
+                              QStringLiteral("%1:%2").arg(m_pane).arg(index).toUtf8());
+                auto *drag = new QDrag(this);
+                drag->setMimeData(mime);
+                if (drag->exec(Qt::MoveAction) == Qt::MoveAction) {
+                    return true; // another strip took it
+                }
                 // Released first, or the new window opens under a pointer
                 // that Qt still believes is dragging a tab in the old one.
                 QMouseEvent release(QEvent::MouseButtonRelease, mouse->position(),
@@ -658,6 +680,31 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
         case QEvent::MouseButtonRelease:
             m_dragTab = -1;
             break;
+
+        case QEvent::DragEnter:
+        case QEvent::DragMove: {
+            auto *drag = static_cast<QDragMoveEvent *>(event);
+            if (drag->mimeData()->hasFormat(kTabMimeType)) {
+                drag->setDropAction(Qt::MoveAction);
+                drag->accept();
+                return true;
+            }
+            break;
+        }
+        case QEvent::Drop: {
+            auto *drop = static_cast<QDropEvent *>(event);
+            const QByteArray payload = drop->mimeData()->data(kTabMimeType);
+            const QList<QByteArray> parts = payload.split(':');
+            if (parts.size() != 2) {
+                break;
+            }
+            const int fromPane = parts.at(0).toInt();
+            const int tabIndex = parts.at(1).toInt();
+            drop->setDropAction(Qt::MoveAction);
+            drop->accept();
+            emit tabMergeRequested(fromPane, tabIndex, m_pane);
+            return true;
+        }
         default:
             break;
         }

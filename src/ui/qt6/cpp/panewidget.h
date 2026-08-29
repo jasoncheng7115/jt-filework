@@ -67,6 +67,8 @@ signals:
     void crumbMenuRequested(const QString &path, const QPoint &global);
     /// Move this tab into a window of its own.
     void tearOffRequested(int tabIndex);
+    /// A tab from `fromPane` was dropped on this pane's strip.
+    void tabMergeRequested(int fromPane, int tabIndex, int intoPane);
 
 protected:
     void resizeEvent(class QResizeEvent *event) override;
