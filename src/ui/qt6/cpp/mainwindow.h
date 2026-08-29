@@ -65,6 +65,7 @@ private:
     void syncTree();
     void setFontPoints(int points);
     void openShortcuts();
+    QString profileLabel(const QString &profile) const;
     void toggleKeymap();
     void setKeymap(const QString &name);
     void announceKeymap(const QString &name);
@@ -117,6 +118,8 @@ private:
     QHash<QString, std::function<void()>> m_handlers;
     Theme m_theme;
     class QLabel *m_statusMessage = nullptr;
+    /// Whether the message area is showing the idle text rather than a report.
+    bool m_statusIsIdle = true;
     class QLabel *m_statusPanes = nullptr;
     class QLabel *m_statusSelection = nullptr;
     class QLabel *m_statusItems = nullptr;

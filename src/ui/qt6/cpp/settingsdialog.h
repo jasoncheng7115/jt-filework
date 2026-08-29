@@ -28,6 +28,7 @@ signals:
     void changed();
 
 private:
+    void buildTabs();
     QWidget *buildGeneralTab();
     QWidget *buildAppearanceTab();
     QWidget *buildKeyboardTab();
@@ -39,6 +40,8 @@ private:
     QString trKey(const QString &key) const;
 
     JtfApp *m_app;
+    class QTabWidget *m_tabs = nullptr;
+    class QDialogButtonBox *m_buttons = nullptr;
     QComboBox *m_startupMode = nullptr;
     QLineEdit *m_startupLocation = nullptr;
     QCheckBox *m_rememberTabs = nullptr;

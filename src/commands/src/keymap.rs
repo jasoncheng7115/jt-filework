@@ -786,7 +786,7 @@ f6                 = file.move_to_target_pane
 f8                 = file.trash
 primary+f          = search.open
 ";
-        let map = Keymap::parse("cview", text).unwrap();
+        let map = Keymap::parse("single-key", text).unwrap();
         assert_eq!(map.len(), 15);
         map.validate_against(&CommandRegistry::baseline()).unwrap();
 

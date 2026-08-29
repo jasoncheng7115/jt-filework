@@ -143,12 +143,15 @@ pub struct App {
     repo_root: PathBuf,
     session_path: PathBuf,
     places: Places,
+    /// The platform's ordered language preferences, comma-separated, so
+    /// "follow the system" can be re-resolved without asking Qt again.
+    system_locale: String,
 }
 
 impl App {
     /// Start the application, restoring the previous session if the user's
     /// preference allows it (`docs/PRODUCT_SPEC.md` §5.1).
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(system_locale: &str) -> Self {
         let repo_root = locate_repo_root();
         let session_path = session_path();
         let home = home_location();
@@ -157,7 +160,15 @@ impl App {
         let restored = Session::restore(stored.as_deref(), &home);
         let settings = restored.settings.clone();
 
-        let locale = restored.workspace.locale().clone();
+        // What the user asked for, if they ever asked; otherwise whatever
+        // the system is set to. The workspace's own stored locale is not
+        // consulted: it records what was displayed last time, which for
+        // anyone who never opened the settings is just the previous default.
+        let locale = if restored.settings.locale.is_empty() {
+            LocaleId::best_match_of(system_locale.split(','))
+        } else {
+            LocaleId::new(restored.settings.locale.clone())
+        };
         let localizer = Localizer::new(
             load_catalog(&repo_root, &locale),
             load_catalog(&repo_root, &LocaleId::english()),
@@ -185,6 +196,7 @@ impl App {
             keymap: load_keymap(&repo_root, &settings.keymap),
             settings,
             places: restored.places,
+            system_locale: system_locale.to_string(),
             repo_root,
             session_path,
         };
@@ -2027,12 +2039,27 @@ impl App {
 
     // ----------------------------------------------------------- i18n, theme
 
+    /// Show `locale`, or follow the system when it is empty.
+    ///
+    /// An empty string is how the settings screen says "follow the system":
+    /// it clears the stored choice rather than storing today's answer, so the
+    /// setting keeps meaning "follow" tomorrow.
     pub(crate) fn set_locale(&mut self, locale: &str) {
-        let id = LocaleId::new(locale);
+        let id = if locale.is_empty() {
+            LocaleId::best_match_of(self.system_locale.split(','))
+        } else {
+            LocaleId::new(locale)
+        };
+        self.settings.locale = locale.to_string();
         self.localizer
             .set_primary(load_catalog(&self.repo_root, &id));
         self.workspace.set_locale(id.clone());
         self.locale = id;
+    }
+
+    /// The user's stored choice, empty when following the system.
+    pub(crate) fn locale_preference(&self) -> String {
+        self.settings.locale.clone()
     }
 
     pub(crate) fn locale(&self) -> String {
@@ -2276,8 +2303,9 @@ impl App {
 }
 
 impl Default for App {
+    /// With no system locale, so the fallback applies.
     fn default() -> Self {
-        Self::new()
+        Self::new("")
     }
 }
 
@@ -2434,15 +2462,16 @@ fn apply_user_overrides(keymap: &mut Keymap, registry: &CommandRegistry) -> usiz
     keymap.apply_diff(&user, |id| registry.contains(id))
 }
 
-/// The preset a fresh install starts with.
+/// The profile a fresh install starts with.
 ///
-/// CView, not the platform conventions: this program is built for people who
-/// have the CView layout in their fingers, and the platform preset is one
-/// keystroke away for everyone else (`AGENTS.md` §10.2).
-pub(crate) const DEFAULT_KEYMAP: &str = "cview";
+/// Single-Key, not the host platform's conventions: this program is built for
+/// people who have that workflow in their fingers, and Native is one
+/// keystroke away for everyone else (`AGENTS.md` §10.2,
+/// `docs/KEYBOARD_PROFILE.md`).
+pub(crate) const DEFAULT_KEYMAP: &str = "single-key";
 
 /// The two presets the mode toggle switches between.
-pub(crate) const KEYMAP_PRESETS: [&str; 2] = ["cview", "platform"];
+pub(crate) const KEYMAP_PRESETS: [&str; 2] = ["single-key", "native"];
 
 fn load_keymap(repo_root: &std::path::Path, name: &str) -> Keymap {
     let wanted = if name.is_empty() {
@@ -2458,8 +2487,8 @@ fn load_keymap(repo_root: &std::path::Path, name: &str) -> Keymap {
 
     match parsed {
         Some(keymap) => keymap,
-        None if wanted != "platform" => load_keymap(repo_root, "platform"),
-        None => Keymap::new("platform"),
+        None if wanted != "native" => load_keymap(repo_root, "native"),
+        None => Keymap::new("native"),
     }
 }
 

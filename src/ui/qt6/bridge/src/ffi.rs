@@ -94,9 +94,19 @@ fn pane(index: c_int) -> PaneId {
 // ------------------------------------------------------------- lifecycle
 
 /// Create the application. Never returns null.
+///
+/// `system_locale` is the platform's ordered list of preferred languages,
+/// comma-separated, used when the user has not chosen one. A list rather than
+/// a single tag because macOS reports a single "locale" that mixes the region
+/// with the language the application was launched in - on a Traditional
+/// Chinese machine with a Taiwan region it says `en_TW`.
+///
+/// # Safety
+/// `system_locale` must be null or a valid C string.
 #[no_mangle]
-pub extern "C" fn jtf_app_new() -> *mut App {
-    Box::into_raw(Box::new(App::new()))
+pub unsafe extern "C" fn jtf_app_new(system_locale: *const c_char) -> *mut App {
+    let tag = unsafe { read_str(system_locale) }.unwrap_or("");
+    Box::into_raw(Box::new(App::new(tag)))
 }
 
 /// Save the session and destroy the application.
@@ -728,6 +738,24 @@ pub unsafe extern "C" fn jtf_show_hidden(app: *const App) -> c_int {
 }
 
 // ------------------------------------------------------------ i18n, theme
+
+/// The user's stored language choice, empty when following the system.
+///
+/// Distinct from [`jtf_locale`], which reports what is actually being shown.
+/// The two differ exactly when following the system, which is the case the
+/// settings screen needs to be able to display.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `buf` must have room for `len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_locale_preference(
+    app: *const App,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let text = unsafe { app_ref(app) }.map_or_else(String::new, App::locale_preference);
+    unsafe { write_str(&text, buf, len) }
+}
 
 /// # Safety
 /// See [`jtf_app_free`]; `locale` must be a valid C string.

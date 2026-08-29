@@ -122,16 +122,37 @@ QString SettingsDialog::trKey(const QString &key) const {
     return jtfText([&](char *buf, int len) { return jtf_tr(m_app, utf8.constData(), buf, len); });
 }
 
+void SettingsDialog::buildTabs() {
+    // The dialog holds no state of its own - every control reads and writes
+    // the model - so rebuilding is the honest way to change its language.
+    // Retranslating in place would mean holding a pointer to every label the
+    // three tabs create, and forgetting one would show a half-translated
+    // panel.
+    const int wasOn = m_tabs->currentIndex();
+    while (m_tabs->count() > 0) {
+        QWidget *page = m_tabs->widget(0);
+        m_tabs->removeTab(0);
+        page->deleteLater();
+    }
+    m_tabs->addTab(buildGeneralTab(), tr_("settings.tab.general"));
+    m_tabs->addTab(buildAppearanceTab(), tr_("settings.tab.appearance"));
+    m_tabs->addTab(buildKeyboardTab(), tr_("settings.tab.keyboard"));
+    if (wasOn >= 0 && wasOn < m_tabs->count()) {
+        m_tabs->setCurrentIndex(wasOn);
+    }
+    setWindowTitle(tr_("settings.title"));
+}
+
 SettingsDialog::SettingsDialog(JtfApp *app, QWidget *parent) : QDialog(parent), m_app(app) {
     setWindowTitle(tr_("settings.title"));
     resize(680, 520);
 
-    auto *tabs = new QTabWidget(this);
-    tabs->addTab(buildGeneralTab(), tr_("settings.tab.general"));
-    tabs->addTab(buildAppearanceTab(), tr_("settings.tab.appearance"));
-    tabs->addTab(buildKeyboardTab(), tr_("settings.tab.keyboard"));
+    m_tabs = new QTabWidget(this);
+    auto *tabs = m_tabs;
+    buildTabs();
 
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
+    m_buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
+    auto *buttons = m_buttons;
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::accept);
 
     auto *layout = new QVBoxLayout(this);
@@ -224,15 +245,23 @@ QWidget *SettingsDialog::buildAppearanceTab() {
     form->addRow(tr_("menu.theme"), theme);
 
     auto *locale = new QComboBox(page);
+    // Empty means "follow the system", and it is first because it is the
+    // default: a user who never opens this screen gets their own language.
+    locale->addItem(tr_("language.system"), QString());
     locale->addItem(tr_("language.english"), QStringLiteral("en"));
     locale->addItem(tr_("language.zh_tw"), QStringLiteral("zh-TW"));
+    // The stored *preference*, not the effective locale: those differ exactly
+    // when following the system, which is the case this entry exists for.
     const QString current =
-        jtfText([&](char *buf, int len) { return jtf_locale(m_app, buf, len); });
-    locale->setCurrentIndex(current == QLatin1String("zh-TW") ? 1 : 0);
+        jtfText([&](char *buf, int len) { return jtf_locale_preference(m_app, buf, len); });
+    locale->setCurrentIndex(qMax(0, locale->findData(current)));
     connect(locale, &QComboBox::currentIndexChanged, this, [this, locale](int) {
         const QByteArray code = locale->currentData().toString().toUtf8();
         jtf_set_locale(m_app, code.constData());
         emit changed();
+        // This dialog is the one window guaranteed to be open when the
+        // language changes, and the last one anybody thinks to check.
+        QMetaObject::invokeMethod(this, &SettingsDialog::buildTabs, Qt::QueuedConnection);
     });
     form->addRow(tr_("menu.language"), locale);
 
@@ -276,16 +305,18 @@ QWidget *SettingsDialog::buildKeyboardTab() {
     auto *presetRow = new QWidget(page);
     auto *presetLayout = new QHBoxLayout(presetRow);
     presetLayout->setContentsMargins(0, 0, 0, 0);
-    presetLayout->addWidget(new QLabel(tr_("menu.keymap"), presetRow));
+    presetLayout->addWidget(new QLabel(tr_("keyboard.profile"), presetRow));
 
     auto *preset = new QComboBox(presetRow);
     // CView first: it is the default, and the first entry in a list reads as
     // the normal one.
-    preset->addItem(tr_("keymap.cview"), QStringLiteral("cview"));
-    preset->addItem(tr_("keymap.platform"), QStringLiteral("platform"));
+    preset->addItem(tr_("keyboard.profile.single_key"), QStringLiteral("single-key"));
+    preset->addItem(tr_("keyboard.profile.native"), QStringLiteral("native"));
     const QString active =
         jtfText([&](char *buf, int len) { return jtf_keymap_name(m_app, buf, len); });
-    preset->setCurrentIndex(active == QLatin1String("cview") ? 1 : 0);
+    // By value, not by a hardcoded index: the order of the two entries is
+    // a layout decision and should not silently change what is selected.
+    preset->setCurrentIndex(qMax(0, preset->findData(active)));
     connect(preset, &QComboBox::currentIndexChanged, this, [this, preset](int) {
         const QByteArray name = preset->currentData().toString().toUtf8();
         jtf_set_keymap(m_app, name.constData());

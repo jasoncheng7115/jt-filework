@@ -133,6 +133,15 @@ pub struct SessionSettings {
     /// Its width in logical pixels. 0 means the default.
     #[serde(default)]
     pub tree_width: u16,
+    /// The language the user picked, or empty to follow the system.
+    ///
+    /// Stored separately from the workspace's effective locale so the two
+    /// questions stay apart: "what am I showing" is answered every launch,
+    /// "what did the user ask for" is answered once and then remembered. A
+    /// user who never opened the settings gets their system language even
+    /// after moving the machine to another country.
+    #[serde(default)]
+    pub locale: String,
     /// Whether the inspector panel is shown.
     #[serde(default)]
     pub inspector_visible: bool,
@@ -165,6 +174,7 @@ impl Default for SessionSettings {
             // is a decision made for the user rather than by them.
             tree_visible: false,
             tree_width: 0,
+            locale: String::new(),
             inspector_visible: false,
             inspector_width: 0,
         }
@@ -190,6 +200,7 @@ impl SessionSettings {
             // is a decision made for the user rather than by them.
             tree_visible: false,
             tree_width: 0,
+            locale: String::new(),
             inspector_visible: false,
             inspector_width: 0,
         }

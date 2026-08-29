@@ -224,7 +224,6 @@ const UNTRANSLATABLE: &[&str] = &[
     "app.name",
     "command.category.ai",
     "content.pdf",
-    "keymap.cview",
     "language.english",
 ];
 
@@ -393,4 +392,47 @@ fn find_bare_tr(line: &str) -> Option<&str> {
     }
     let rest = &line[at + 4..];
     rest.find('"').map(|end| &rest[..end])
+}
+
+/// No user-visible string names the keyboard mode after another product.
+///
+/// `docs/KEYBOARD_PROFILE.md`: the mode is `Single-Key Mode`. CView and WinCV
+/// are the design's origin and a description of who will find it familiar —
+/// they are not the name of a jt-filework feature, and claiming compatibility
+/// we have not verified would be a claim about someone else's product.
+///
+/// The catalogues are checked rather than the source, because the catalogues
+/// are what a user actually reads.
+#[test]
+fn the_keyboard_mode_is_not_named_after_another_product() {
+    // Assembled so this file is not itself an offender.
+    let (c, w) = ("CView", "WinCV");
+    let forbidden = [
+        format!("{c} Mode"),
+        format!("{w} Mode"),
+        format!("{c}-compatible"),
+        format!("{c} compatibility"),
+        format!("{c}-style Mode"),
+    ];
+
+    let mut offences = Vec::new();
+    for locale in ["en", "zh-TW"] {
+        let path = repo_root()
+            .join("locales")
+            .join(locale)
+            .join("main.catalog");
+        let text = fs::read_to_string(&path).expect("a catalogue is readable");
+        for (number, line) in text.lines().enumerate() {
+            for phrase in &forbidden {
+                if line.contains(phrase.as_str()) {
+                    offences.push(format!("{locale}:{}: {phrase}", number + 1));
+                }
+            }
+        }
+    }
+    assert!(
+        offences.is_empty(),
+        "the mode is called Single-Key; see docs/KEYBOARD_PROFILE.md:\n  {}",
+        offences.join("\n  ")
+    );
 }

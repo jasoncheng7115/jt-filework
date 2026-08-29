@@ -145,6 +145,30 @@ QWidget#JtfCrumbs QPushButton:hover { background: %HOVER%; }
 QWidget#JtfCrumbs QLabel { color: %DIM%; padding: 0 1px; }
 QLabel[jtfStatusSummary="true"] { color: %DIM%; padding: 0 10px; }
 QLabel[jtfZoomMark="true"] { color: %DIM%; }
+/* Form controls. Qt's defaults leave a spin box's arrows shorter than the
+   digits beside them, which reads as a rendering fault rather than a control. */
+QSpinBox, QLineEdit, QComboBox {
+    background: %HEADER%;
+    color: %TEXT%;
+    border: 1px solid %BORDER%;
+    border-radius: 5px;
+    padding: 4px 8px;
+    min-height: 20px;
+    selection-background-color: %SEL%;
+    selection-color: %ONSEL%;
+}
+QSpinBox:focus, QLineEdit:focus, QComboBox:focus { border-color: %FOCUS%; }
+QSpinBox { padding-right: 2px; }
+QSpinBox::up-button, QSpinBox::down-button {
+    subcontrol-origin: border;
+    width: 18px;
+    background: transparent;
+    border-left: 1px solid %BORDER%;
+}
+QSpinBox::up-button { subcontrol-position: top right; border-top-right-radius: 5px; }
+QSpinBox::down-button { subcontrol-position: bottom right; border-bottom-right-radius: 5px; }
+QSpinBox::up-button:hover, QSpinBox::down-button:hover { background: %HOVER%; }
+QSpinBox::up-arrow, QSpinBox::down-arrow { width: 7px; height: 7px; }
 QSlider#JtfZoom::groove:horizontal { background: %BORDER%; height: 3px; border-radius: 2px; }
 QSlider#JtfZoom::sub-page:horizontal { background: %SEL%; height: 3px; border-radius: 2px; }
 QSlider#JtfZoom::handle:horizontal {

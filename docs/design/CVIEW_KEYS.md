@@ -42,7 +42,7 @@ Verbatim from the help file, with our command id where one exists.
 | `M` | 移動檔案 | `file.move_to_target_pane` |
 | `R` | 改檔名 | `file.rename` |
 | `D` / `DEL` | 刪除檔案 | `file.delete` |
-| `T` | 刪除檔案並備分至垃圾桶目錄 | held — see Unresolved |
+| `T` | 刪除檔案並備分至垃圾桶目錄 (DOS) / 標記所有檔案 (WinCV) | `file.mark.all` — see below |
 | `A` | 改變檔案屬性 | not built |
 | `X` | 批次處理檔案 | not built |
 | `Alt-Z` | 壓縮檔案 | not built |
@@ -91,12 +91,15 @@ Confirmed from `WinCV.IMG` strings and by the project owner:
 
 ## Unresolved
 
-**`T` — held, unbound.** `CV.HLP` says `T` = 刪除檔案並備分至垃圾桶目錄.
-`WinCV.IMG` also contains the string `T 標記所有檔案`. Those cannot both be
-the file list's `T`; the second may belong to a dialog's `&T` accelerator or
-to the archive view. The project owner asked to leave `T` unbound until it is
-settled, so the preset binds nothing to it. `file.trash` keeps the platform
-chord in the meantime, so the command is still reachable.
+Both settled by the project owner.
 
-`→` is settled: confirmed as 進入目錄 by the project owner, though it is
-still absent from the DOS help.
+**`T` is mark-all.** This is the one place the two versions genuinely differ:
+`CV.HLP` gives DOS CView's `T` as 刪除檔案並備分至垃圾桶目錄, while WinCV uses
+it for 標記所有檔案. The later behaviour wins, so `T` marks every file and
+`file.trash` keeps the host platform's chord.
+
+The selection keys in full, as confirmed: `Space` marks one entry, `T` marks
+them all, `*` inverts the marks.
+
+**`→` enters a folder**, confirmed, though it is still absent from the DOS
+help.

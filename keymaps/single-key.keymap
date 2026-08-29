@@ -1,4 +1,8 @@
-# jt-filework — CView / WinCV keymap
+# jt-filework — Single-Key Mode
+#
+# Execute common file commands directly with single keys. Inspired by the
+# keyboard-driven workflow of classic tools such as CView / WinCV; see
+# docs/KEYBOARD_PROFILE.md for why the mode is not named after them.
 #
 # Taken from CView's own help file, not inferred: cview/CVIEW/CV.HLP §二
 # (檔案選取畫面) and §三 (觀看檔案時), plus the hint strings in WinCV's
@@ -30,10 +34,11 @@ primary+home         = nav.home
 
 # --- marking
 # CV.HLP: SPACE 標記 · Alt-T 全標 · Alt-U 全不標 · + - 依條件 · * 反轉
-space                = file.mark.toggle          # CV.HLP
+space                = file.mark.toggle          # CV.HLP, confirmed
+t                    = file.mark.all             # confirmed
 alt+t                = file.mark.all             # CV.HLP
 alt+u                = file.mark.none            # CV.HLP
-asterisk             = file.mark.invert          # CV.HLP
+asterisk             = file.mark.invert          # CV.HLP, confirmed
 plus                 = file.mark.pattern         # CV.HLP
 f9                   = file.mark.pattern         # CV.HLP
 minus                = file.unmark.pattern       # CV.HLP
@@ -47,10 +52,9 @@ m                    = file.move_to_target_pane  # CV.HLP
 r                    = file.rename               # CV.HLP
 d                    = file.delete               # CV.HLP
 delete               = file.delete               # CV.HLP
-# `T` is deliberately left free. CV.HLP gives it as delete-to-trash, WinCV's
-# strings also show it as mark-all, and the project owner asked to hold it
-# until that is settled. Trash keeps the platform chord meanwhile, so the
-# command is still reachable in this mode.
+# `T` marks every file, confirmed against WinCV. CV.HLP gives DOS CView's `T`
+# as delete-to-trash instead - the one place the two versions disagree - and
+# the later behaviour wins. Trash keeps the host platform's chord.
 primary+backspace    = file.trash
 v                    = file.view                 # CV.HLP
 e                    = file.edit                 # wincv

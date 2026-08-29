@@ -4,6 +4,7 @@
 #include "watchdog.h"
 
 #include <QApplication>
+#include <QLocale>
 #include <cstdio>
 #include <cstring>
 
@@ -37,7 +38,14 @@ int main(int argc, char **argv) {
         }
     }
 
-    JtfApp *app = jtf_app_new();
+    // uiLanguages(), not name(). QLocale::system().name() reports the format
+    // locale, which on macOS mixes the region with the language the process
+    // was launched in: a Mac set to Traditional Chinese with a Taiwan region
+    // reports `en_TW` to an application it does not know is localized.
+    // uiLanguages() is the user's actual ordered preference list.
+    const QByteArray systemLocale =
+        QLocale::system().uiLanguages().join(QLatin1Char(',')).toUtf8();
+    JtfApp *app = jtf_app_new(systemLocale.constData());
     MainWindow window(app);
     window.show();
 

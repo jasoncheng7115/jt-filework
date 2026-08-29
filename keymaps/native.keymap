@@ -1,4 +1,6 @@
-# jt-filework — platform keymap (default)
+# jt-filework — Native Mode
+#
+# The keyboard conventions of the host platform: macOS, Windows or Linux.
 #
 # Native conventions. `primary` is the platform accelerator: Command on
 # macOS, Control elsewhere. `ctrl` means the physical Control key on every

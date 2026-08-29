@@ -11,7 +11,7 @@ extern "C" {
 
 typedef struct JtfApp JtfApp;
 
-JtfApp *jtf_app_new(void);
+JtfApp *jtf_app_new(const char *system_locale);
 void jtf_app_free(JtfApp *app);
 void jtf_app_save_session(const JtfApp *app);
 int jtf_app_pump(JtfApp *app);
@@ -77,6 +77,7 @@ int jtf_show_hidden(const JtfApp *app);
 
 // i18n and theme
 void jtf_set_locale(JtfApp *app, const char *locale);
+int jtf_locale_preference(const JtfApp *app, char *buf, int len);
 int jtf_locale(const JtfApp *app, char *buf, int len);
 int jtf_tr(const JtfApp *app, const char *key, char *buf, int len);
 // operations

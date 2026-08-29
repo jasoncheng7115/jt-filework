@@ -381,8 +381,10 @@ void MainWindow::buildMenus() {
 
     auto *keymapMenu = m_viewMenu->addMenu(QString());
     m_translatableMenus.append({keymapMenu, "menu.keymap"});
-    setting(keymapMenu, "keymap.platform", [this] { jtf_set_keymap(m_app, "platform"); });
-    setting(keymapMenu, "keymap.cview", [this] { jtf_set_keymap(m_app, "cview"); });
+    setting(keymapMenu, "keyboard.profile.single_key",
+            [this] { jtf_set_keymap(m_app, "single-key"); });
+    setting(keymapMenu, "keyboard.profile.native",
+            [this] { jtf_set_keymap(m_app, "native"); });
 
     auto *localeMenu = m_viewMenu->addMenu(QString());
     m_translatableMenus.append({localeMenu, "menu.language"});
@@ -477,6 +479,7 @@ void MainWindow::clipboardPut(bool cut) {
     QGuiApplication::clipboard()->setMimeData(data);
 
     m_clipboardIsCut = cut;
+    m_statusIsIdle = false;
     m_statusMessage->setText(tr_("status.copied"));
 }
 
@@ -507,6 +510,7 @@ void MainWindow::markByPattern(bool mark) {
 void MainWindow::clipboardPaste() {
     const QMimeData *data = QGuiApplication::clipboard()->mimeData();
     if (!data || !data->hasUrls()) {
+        m_statusIsIdle = false;
         m_statusMessage->setText(tr_("status.clipboard_empty"));
         return;
     }
@@ -517,6 +521,7 @@ void MainWindow::clipboardPaste() {
         }
     }
     if (paths.isEmpty()) {
+        m_statusIsIdle = false;
         m_statusMessage->setText(tr_("status.clipboard_empty"));
         return;
     }
@@ -540,6 +545,7 @@ void MainWindow::copyText(bool fullPath) {
         return;
     }
     QGuiApplication::clipboard()->setText(text);
+    m_statusIsIdle = false;
     m_statusMessage->setText(tr_("status.copied"));
 }
 
@@ -562,6 +568,7 @@ void MainWindow::runDrop(int pane, const QStringList &paths, int kind) {
             jtfText([&](char *buf, int len) { return jtf_op_error_key(m_app, buf, len); });
         if (!key.isEmpty()) {
             const QByteArray utf8 = key.toUtf8();
+            m_statusIsIdle = false;
             m_statusMessage->setText(jtfText(
                 [&](char *buf, int len) { return jtf_tr(m_app, utf8.constData(), buf, len); }));
         }
@@ -615,6 +622,7 @@ void MainWindow::runOperation(OperationRequest request) {
     // A refusal is explained rather than silently ignored
     // (docs/UI_CONVENTIONS.md 9).
     if (!started && !message.isEmpty()) {
+        m_statusIsIdle = false;
         m_statusMessage->setText(message);
     }
     updateOperationUi();
@@ -664,6 +672,7 @@ void MainWindow::updateOperationUi() {
                                     });
         const QString current =
             jtfText([&](char *buf, int len) { return jtf_op_current(m_app, buf, len); });
+        m_statusIsIdle = false;
         m_statusMessage->setText(current.isEmpty() ? label
                                                    : label + QStringLiteral("   ") + current);
         return;
@@ -671,6 +680,7 @@ void MainWindow::updateOperationUi() {
 
     const QString result = ops::takeResult(m_app);
     if (!result.isEmpty()) {
+        m_statusIsIdle = false;
         m_statusMessage->setText(result);
     }
 }
@@ -721,6 +731,7 @@ void MainWindow::openPalette() {
     }
     // A command with no handler yet is a registered intention, not a failure;
     // saying so beats doing nothing silently.
+    m_statusIsIdle = false;
     m_statusMessage->setText(tr_("palette.unimplemented"));
 }
 
@@ -971,7 +982,7 @@ void MainWindow::buildToolbar() {
     auto *modeInner = new QHBoxLayout(m_modeSwitch);
     modeInner->setContentsMargins(2, 2, 2, 2);
     modeInner->setSpacing(2);
-    for (const char *name : {"cview", "platform"}) {
+    for (const char *name : {"single-key", "native"}) {
         auto *segment = new QToolButton(m_modeSwitch);
         segment->setCheckable(true);
         segment->setAutoRaise(true);
@@ -1026,7 +1037,7 @@ void MainWindow::syncToolbar() {
         const QString name = segment->property("jtfKeymap").toString();
         QSignalBlocker blocker(segment);
         segment->setChecked(name == keymap);
-        segment->setText(tr_(QStringLiteral("keymap.%1").arg(name).toUtf8().constData()));
+        segment->setText(profileLabel(name));
         segment->setToolTip(jtfFill(tr_("keymap.switch_to"), "name", segment->text()));
     }
 
@@ -1174,6 +1185,15 @@ void MainWindow::openShortcuts() {
     dialog.exec();
 }
 
+QString MainWindow::profileLabel(const QString &profile) const {
+    // `single-key` names a file; `keyboard.profile.single_key` names a
+    // catalogue entry. One underscore apart, and worth converting in one
+    // place rather than at each of the three call sites.
+    QString key = QStringLiteral("keyboard.profile.%1").arg(profile);
+    key.replace(QLatin1Char('-'), QLatin1Char('_'));
+    return tr_(key.toUtf8().constData());
+}
+
 void MainWindow::toggleKeymap() {
     const QString name =
         jtfText([&](char *buf, int len) { return jtf_toggle_keymap(m_app, buf, len); });
@@ -1184,7 +1204,8 @@ void MainWindow::announceKeymap(const QString &name) {
     jtf_app_save_session(m_app);
     // Say which mode you are now in. Switching a keyboard layout silently is
     // the one change a user cannot see until a key does the wrong thing.
-    const QString label = tr_(QStringLiteral("keymap.%1").arg(name).toUtf8().constData());
+    const QString label = profileLabel(name);
+    m_statusIsIdle = false;
     m_statusMessage->setText(jtfFill(tr_("status.keymap_switched"), "name", label));
     refreshAll();
 }
@@ -1358,18 +1379,24 @@ void MainWindow::updateStatusSummary() {
     m_statusItems->setText(jtfFill(tr_("status.items"), "count", QString::number(items)));
     const QString keymap =
         jtfText([&](char *buf, int len) { return jtf_keymap_name(m_app, buf, len); });
-    m_statusKeymap->setText(tr_(QStringLiteral("keymap.%1").arg(keymap).toUtf8().constData()));
+    m_statusKeymap->setText(profileLabel(keymap));
     m_statusKeymap->setToolTip(
         jtfText([&](char *buf, int len) { return jtf_tr(m_app, "command.keymap.toggle", buf, len); }));
     m_statusTasks->setText(jtf_op_running(m_app)
                                ? jtfFill(tr_("status.tasks_running"), "count", QStringLiteral("1"))
                                : QString());
-    if (m_statusMessage->text().isEmpty()) {
+    // Tracked with a flag rather than by testing for an empty string: after
+    // a language change the label still holds the *previous* language's
+    // "Ready", which is not empty and would never be replaced.
+    if (m_statusIsIdle) {
         m_statusMessage->setText(tr_("status.ready"));
     }
 }
 
 void MainWindow::retranslate() {
+    // Everything with words in it, including the parts the frame pump owns:
+    // changing the language is exactly the case where nothing else changed.
+    updateStatusSummary();
     for (const auto &entry : std::as_const(m_translatable)) {
         entry.first->setText(tr_(entry.second));
     }

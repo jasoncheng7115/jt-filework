@@ -66,8 +66,8 @@ fn every_binding_names_a_registered_command() {
 fn the_default_preset_binds_the_commands_people_reach_for_first() {
     // A preset that loads but leaves navigation unbound is not much better
     // than one that does not load at all.
-    let text = fs::read_to_string(repo_root().join("keymaps/platform.keymap")).unwrap();
-    let keymap = Keymap::parse("platform", &text).unwrap();
+    let text = fs::read_to_string(repo_root().join("keymaps/native.keymap")).unwrap();
+    let keymap = Keymap::parse("native", &text).unwrap();
 
     for id in [
         "nav.up",
