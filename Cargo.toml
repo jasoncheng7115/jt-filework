@@ -19,6 +19,7 @@ members = [
     "src/core",
     "src/jobs",
     "src/workspace",
+    "src/commands",
 ]
 
 [workspace.package]

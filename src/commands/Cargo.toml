@@ -1,0 +1,19 @@
+[package]
+name = "jtf-commands"
+description = "Command identifiers, the command bus, and the keymap that resolves input to commands."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+jtf-core = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[lints]
+workspace = true
