@@ -119,7 +119,10 @@ pub struct Catalog {
 impl Catalog {
     /// An empty catalogue for a locale.
     pub fn new(locale: LocaleId) -> Self {
-        Self { locale, messages: BTreeMap::new() }
+        Self {
+            locale,
+            messages: BTreeMap::new(),
+        }
     }
 
     /// Parse catalogue text.
@@ -138,7 +141,10 @@ impl Catalog {
                 continue;
             }
             let Some((key_part, value_part)) = line.split_once('=') else {
-                return Err(CatalogError { line: line_no, reason: CatalogErrorReason::MissingSeparator });
+                return Err(CatalogError {
+                    line: line_no,
+                    reason: CatalogErrorReason::MissingSeparator,
+                });
             };
             let key = key_part.trim();
             validate_key(key, line_no)?;
@@ -150,7 +156,13 @@ impl Catalog {
             }
             let template = unescape(value_part.trim());
             let placeholders = extract_placeholders(&template, line_no)?;
-            catalog.messages.insert(key.to_string(), Message { template, placeholders });
+            catalog.messages.insert(
+                key.to_string(),
+                Message {
+                    template,
+                    placeholders,
+                },
+            );
         }
         Ok(catalog)
     }
@@ -207,7 +219,10 @@ impl Catalog {
 
 fn validate_key(key: &str, line: usize) -> Result<(), CatalogError> {
     if key.is_empty() {
-        return Err(CatalogError { line, reason: CatalogErrorReason::EmptyKey });
+        return Err(CatalogError {
+            line,
+            reason: CatalogErrorReason::EmptyKey,
+        });
     }
     for ch in key.chars() {
         if !(ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '.' || ch == '_') {
@@ -254,7 +269,10 @@ fn extract_placeholders(template: &str, line: usize) -> Result<BTreeSet<String>,
     while let Some(start) = rest.find('{') {
         let after = &rest[start + 1..];
         let Some(end) = after.find('}') else {
-            return Err(CatalogError { line, reason: CatalogErrorReason::UnterminatedPlaceholder });
+            return Err(CatalogError {
+                line,
+                reason: CatalogErrorReason::UnterminatedPlaceholder,
+            });
         };
         let name = &after[..end];
         if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
@@ -289,7 +307,10 @@ mod tests {
         let c = en("jobs.copying = Copying {count} items to {destination}").unwrap();
         let m = c.get("jobs.copying").unwrap();
         assert_eq!(
-            m.placeholders().iter().map(String::as_str).collect::<Vec<_>>(),
+            m.placeholders()
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
             vec!["count", "destination"]
         );
     }
@@ -299,7 +320,10 @@ mod tests {
         let c = en("jobs.copying = Copying {count} items").unwrap();
         let mut args = BTreeMap::new();
         args.insert("count".to_string(), "12".to_string());
-        assert_eq!(c.get("jobs.copying").unwrap().render(&args), "Copying 12 items");
+        assert_eq!(
+            c.get("jobs.copying").unwrap().render(&args),
+            "Copying 12 items"
+        );
     }
 
     #[test]
@@ -320,7 +344,10 @@ mod tests {
     fn english_text_as_a_key_is_rejected() {
         // docs/I18N_THEME.md 3: keys are semantic identifiers, not English.
         let err = en("Open File = Open").unwrap_err();
-        assert!(matches!(err.reason, CatalogErrorReason::InvalidKeyCharacter(_)));
+        assert!(matches!(
+            err.reason,
+            CatalogErrorReason::InvalidKeyCharacter(_)
+        ));
     }
 
     #[test]

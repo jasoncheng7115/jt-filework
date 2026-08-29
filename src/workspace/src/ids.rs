@@ -35,7 +35,11 @@ macro_rules! define_id {
 
 define_id!(PaneId, "pane", "Identifies a pane within a workspace.");
 define_id!(TabId, "tab", "Identifies a tab within a workspace.");
-define_id!(SplitId, "split", "Identifies a split node, so it can be resized by reference.");
+define_id!(
+    SplitId,
+    "split",
+    "Identifies a split node, so it can be resized by reference."
+);
 
 #[cfg(test)]
 mod tests {

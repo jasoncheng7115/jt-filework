@@ -35,5 +35,7 @@ pub use session::{
 };
 pub use tab::Tab;
 pub use tree::{Orientation, WorkspaceNode};
-pub use view::{Column, ColumnSpec, Filter, FilterMode, ScrollPosition, SortKey, SortSpec, ViewMode};
+pub use view::{
+    Column, ColumnSpec, Filter, FilterMode, ScrollPosition, SortKey, SortSpec, ViewMode,
+};
 pub use workspace::{LayoutPreset, Workspace, WorkspaceError};

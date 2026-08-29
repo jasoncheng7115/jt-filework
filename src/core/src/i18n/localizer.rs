@@ -108,7 +108,10 @@ impl Localizer {
             // panic: a file manager must not die because a string is missing.
             return Err(Error::new(
                 ErrorCode::MissingLocalization,
-                format!("key `{key}` missing in `{}` and fallback", self.primary.locale()),
+                format!(
+                    "key `{key}` missing in `{}` and fallback",
+                    self.primary.locale()
+                ),
             ));
         };
         Ok(message.render(args.map()))
@@ -147,7 +150,10 @@ mod tests {
     fn falls_back_to_english_when_untranslated() {
         let l = localizer("menu.file.open = \u{958b}\u{555f}");
         assert_eq!(l.text("menu.file.rename").unwrap(), "Rename");
-        assert!(!l.is_translated("menu.file.rename"), "gap must be detectable");
+        assert!(
+            !l.is_translated("menu.file.rename"),
+            "gap must be detectable"
+        );
         assert!(l.is_translated("menu.file.open"));
     }
 
@@ -163,7 +169,9 @@ mod tests {
     #[test]
     fn arguments_are_substituted_through_the_fallback_too() {
         let l = localizer("");
-        let out = l.format("jobs.copying", &Args::new().with("count", "7")).unwrap();
+        let out = l
+            .format("jobs.copying", &Args::new().with("count", "7"))
+            .unwrap();
         assert_eq!(out, "Copying 7 items");
     }
 

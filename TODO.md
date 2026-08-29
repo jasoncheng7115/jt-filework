@@ -3,16 +3,16 @@
 ## P0 — Bootstrap
 
 - [ ] Create project directory `jt-filework`
-- [ ] `git init`
-- [ ] Rename default branch to `main`
-- [ ] Add GPL-3.0-or-later LICENSE
-- [ ] Add `.gitignore`
-- [ ] Add `.gitattributes`
-- [ ] Commit specification baseline
-- [ ] Install/configure Rust stable
-- [ ] Configure rustfmt
-- [ ] Configure clippy
-- [ ] Create CI skeleton
+- [x] `git init`
+- [x] Rename default branch to `main`
+- [x] Add GPL-3.0-or-later LICENSE
+- [x] Add `.gitignore`
+- [x] Add `.gitattributes`
+- [x] Commit specification baseline
+- [x] Install/configure Rust stable
+- [x] Configure rustfmt
+- [x] Configure clippy
+- [x] Create CI skeleton
 - [ ] Define minimum macOS version
 
 ## P0 — GUI Technology
@@ -27,15 +27,15 @@
 ## P0 — i18n
 
 - [ ] Choose localization framework compatible with final GUI stack
-- [ ] Define semantic translation key format
-- [ ] Add `en`
-- [ ] Add `zh-TW`
+- [x] Define semantic translation key format
+- [x] Add `en`
+- [x] Add `zh-TW`
 - [ ] No hard-coded visible strings
-- [ ] English fallback
+- [x] English fallback
 - [ ] Persist language preference
 - [ ] Runtime language switch PoC
-- [ ] CI translation-key parity check
-- [ ] Verify Taiwan terminology
+- [x] CI translation-key parity check
+- [x] Verify Taiwan terminology
 
 ## P0 — Icon / Branding
 
@@ -53,29 +53,29 @@
 
 ## P0 — Theme
 
-- [ ] Implement ThemeMode enum/model
+- [x] Implement ThemeMode enum/model
 - [ ] Follow System
 - [ ] Light
 - [ ] Dark
 - [ ] Persist setting
 - [ ] Runtime switch
-- [ ] Semantic theme tokens
+- [x] Semantic theme tokens
 - [ ] Theme-safe icons
 - [ ] Active pane visibility in both modes
 - [ ] Marked item visibility in both modes
 
 ## P0 — Workspace / Multi-Pane
 
-- [ ] Split tree
-- [ ] Horizontal split
-- [ ] Vertical split
-- [ ] Nested split
-- [ ] 2×2 preset
-- [ ] Pane focus
+- [x] Split tree
+- [x] Horizontal split
+- [x] Vertical split
+- [x] Nested split
+- [x] 2×2 preset
+- [x] Pane focus
 - [ ] Resize
-- [ ] Close pane
-- [ ] Save layout
-- [ ] Restore layout
+- [x] Close pane
+- [x] Save layout
+- [x] Restore layout
 
 ## P0 — Session Memory
 
@@ -97,17 +97,17 @@
 
 ## P0 — Tabs Per Pane
 
-- [ ] Tab model
-- [ ] New tab
-- [ ] Close tab
-- [ ] Reopen closed
-- [ ] Duplicate
-- [ ] Pin
-- [ ] History
-- [ ] Per-tab sort/filter/view state
-- [ ] Reorder
-- [ ] Drag to another pane
-- [ ] Session restore
+- [x] Tab model
+- [x] New tab
+- [x] Close tab
+- [x] Reopen closed
+- [x] Duplicate
+- [x] Pin
+- [x] History
+- [x] Per-tab sort/filter/view state
+- [x] Reorder
+- [x] Drag to another pane (model)
+- [x] Session restore
 
 ## P0 — File View
 
@@ -123,12 +123,12 @@
 
 ## P0 — Input
 
-- [ ] Command bus
-- [ ] Keymap engine
+- [x] Command bus
+- [x] Keymap engine
 - [ ] CView preset
 - [ ] native shortcut compatibility
-- [ ] selection
-- [ ] mark
+- [x] selection
+- [x] mark
 - [ ] pane navigation
 - [ ] tab navigation
 

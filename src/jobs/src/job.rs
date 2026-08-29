@@ -308,7 +308,11 @@ mod tests {
         j.start().unwrap();
         j.complete().unwrap();
         assert_eq!(j.state(), JobState::Completed);
-        assert_eq!(j.progress().completed(), 100, "a completed job is not at 97%");
+        assert_eq!(
+            j.progress().completed(),
+            100,
+            "a completed job is not at 97%"
+        );
     }
 
     #[test]
@@ -333,7 +337,8 @@ mod tests {
     fn failing_records_a_machine_readable_code() {
         let mut j = job(JobKind::Extract);
         j.start().unwrap();
-        j.fail(Error::new(ErrorCode::LimitExceeded, "ratio bomb")).unwrap();
+        j.fail(Error::new(ErrorCode::LimitExceeded, "ratio bomb"))
+            .unwrap();
         assert_eq!(j.state(), JobState::Failed);
         assert_eq!(j.error().unwrap().code(), ErrorCode::LimitExceeded);
     }
@@ -363,10 +368,16 @@ mod tests {
     fn destructive_kinds_are_flagged_and_undo_claims_are_conservative() {
         // docs/SECURITY.md 9 and docs/UI_UX_SPEC.md 10.
         assert!(JobKind::Delete.mutates_filesystem());
-        assert!(!JobKind::Delete.is_undoable(), "permanent delete must never claim undo");
+        assert!(
+            !JobKind::Delete.is_undoable(),
+            "permanent delete must never claim undo"
+        );
         assert!(JobKind::Trash.is_undoable());
         assert!(!JobKind::Search.mutates_filesystem());
-        assert!(JobKind::ExternalAgent.mutates_filesystem(), "an agent writes files");
+        assert!(
+            JobKind::ExternalAgent.mutates_filesystem(),
+            "an agent writes files"
+        );
         assert!(!JobKind::ExternalAgent.is_undoable());
     }
 
@@ -383,7 +394,10 @@ mod tests {
     fn undoable_implies_it_actually_changes_something() {
         for &kind in JobKind::ALL {
             if kind.is_undoable() {
-                assert!(kind.mutates_filesystem(), "{kind:?} claims undo but changes nothing");
+                assert!(
+                    kind.mutates_filesystem(),
+                    "{kind:?} claims undo but changes nothing"
+                );
             }
         }
     }

@@ -203,12 +203,20 @@ impl Session {
         } else {
             None
         };
-        Self { version: SESSION_FORMAT_VERSION, settings, workspace: stored }
+        Self {
+            version: SESSION_FORMAT_VERSION,
+            settings,
+            workspace: stored,
+        }
     }
 
     /// A session that remembers only the settings.
     pub fn settings_only(settings: SessionSettings) -> Self {
-        Self { version: SESSION_FORMAT_VERSION, settings, workspace: None }
+        Self {
+            version: SESSION_FORMAT_VERSION,
+            settings,
+            workspace: None,
+        }
     }
 
     /// The stored preferences.
@@ -337,10 +345,16 @@ mod tests {
         let mut w = Workspace::new(home());
         w.apply_preset(LayoutPreset::Quad);
         w.new_tab(Location::local("/Users/test/Downloads"));
-        w.active_tab_mut().unwrap().marks_mut().mark(Location::local("/Users/test/Downloads/a.zip"));
         w.active_tab_mut()
             .unwrap()
-            .set_scroll(crate::view::ScrollPosition { first_visible_row: 120, row_offset: 0.25 });
+            .marks_mut()
+            .mark(Location::local("/Users/test/Downloads/a.zip"));
+        w.active_tab_mut()
+            .unwrap()
+            .set_scroll(crate::view::ScrollPosition {
+                first_visible_row: 120,
+                row_offset: 0.25,
+            });
         w.split_active(Orientation::Vertical);
         w
     }
@@ -348,12 +362,17 @@ mod tests {
     #[test]
     fn a_captured_session_restores_the_workspace_exactly() {
         let before = busy_workspace();
-        let json = Session::capture(&before, SessionSettings::remembering()).to_json().unwrap();
+        let json = Session::capture(&before, SessionSettings::remembering())
+            .to_json()
+            .unwrap();
 
         let restored = Session::restore(Some(&json), &home());
 
         assert_eq!(restored.outcome, RestoreOutcome::Restored);
-        assert_eq!(restored.workspace, before, "layout, tabs, locations and marks all return");
+        assert_eq!(
+            restored.workspace, before,
+            "layout, tabs, locations and marks all return"
+        );
         assert!(restored.workspace.invariants_hold());
     }
 
@@ -396,7 +415,10 @@ mod tests {
             .to_json()
             .unwrap();
         let back = Session::from_json(&json).unwrap();
-        assert_eq!(back.settings().restore_on_launch, RestoreOnLaunch::HomeLocation);
+        assert_eq!(
+            back.settings().restore_on_launch,
+            RestoreOnLaunch::HomeLocation
+        );
     }
 
     #[test]
@@ -425,9 +447,14 @@ mod tests {
             },
             ..SessionSettings::default()
         };
-        let json = Session::capture(&busy_workspace(), settings).to_json().unwrap();
+        let json = Session::capture(&busy_workspace(), settings)
+            .to_json()
+            .unwrap();
         let restored = Session::restore(Some(&json), &home());
-        assert_eq!(restored.workspace.active_tab().unwrap().location(), &Location::local("/Projects"));
+        assert_eq!(
+            restored.workspace.active_tab().unwrap().location(),
+            &Location::local("/Projects")
+        );
     }
 
     #[test]
@@ -436,8 +463,14 @@ mod tests {
         for broken in ["", "{", "null", "{\"version\":1}", "not json at all"] {
             let restored = Session::restore(Some(broken), &home());
             assert!(!restored.outcome.restored(), "{broken:?} must not restore");
-            assert!(restored.outcome.needs_notice(), "{broken:?} must be reported");
-            assert_eq!(restored.outcome.notice_key(), Some("session.restore.unreadable"));
+            assert!(
+                restored.outcome.needs_notice(),
+                "{broken:?} must be reported"
+            );
+            assert_eq!(
+                restored.outcome.notice_key(),
+                Some("session.restore.unreadable")
+            );
             assert!(restored.workspace.invariants_hold());
         }
     }
@@ -466,13 +499,21 @@ mod tests {
 
         let restored = Session::restore(Some(&broken), &home());
         assert!(!restored.outcome.restored());
-        assert!(restored.workspace.invariants_hold(), "the fallback is always sound");
+        assert!(
+            restored.workspace.invariants_hold(),
+            "the fallback is always sound"
+        );
     }
 
     #[test]
     fn marks_can_be_excluded_from_the_saved_session() {
-        let settings = SessionSettings { remember_marks: false, ..SessionSettings::default() };
-        let json = Session::capture(&busy_workspace(), settings).to_json().unwrap();
+        let settings = SessionSettings {
+            remember_marks: false,
+            ..SessionSettings::default()
+        };
+        let json = Session::capture(&busy_workspace(), settings)
+            .to_json()
+            .unwrap();
 
         let restored = Session::restore(Some(&json), &home());
         assert!(restored.outcome.restored(), "the layout still comes back");
@@ -491,10 +532,15 @@ mod tests {
         w.active_pane_mut().close_tab(extra, false);
         assert_eq!(w.active_pane().closed_tab_count(), 1);
 
-        let settings =
-            SessionSettings { remember_closed_tabs: false, ..SessionSettings::default() };
+        let settings = SessionSettings {
+            remember_closed_tabs: false,
+            ..SessionSettings::default()
+        };
         let json = Session::capture(&w, settings).to_json().unwrap();
-        assert!(!json.contains("scratch"), "a closed tab's path must not be written");
+        assert!(
+            !json.contains("scratch"),
+            "a closed tab's path must not be written"
+        );
 
         let restored = Session::restore(Some(&json), &home());
         assert_eq!(restored.workspace.active_pane().closed_tab_count(), 0);
@@ -505,7 +551,10 @@ mod tests {
         let mut w = busy_workspace();
         let before = w.clone();
         let _ = Session::capture(&w, SessionSettings::forgetting());
-        assert_eq!(w, before, "saving must never change what the user is looking at");
+        assert_eq!(
+            w, before,
+            "saving must never change what the user is looking at"
+        );
         // And the live marks are still there.
         w.active_tab_mut().unwrap().marks_mut().clear();
     }

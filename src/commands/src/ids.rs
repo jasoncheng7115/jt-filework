@@ -96,7 +96,12 @@ impl Command {
         category: CommandCategory,
         label_key: &'static str,
     ) -> Self {
-        Self { id: id.into(), category, label_key, destructive: false }
+        Self {
+            id: id.into(),
+            category,
+            label_key,
+            destructive: false,
+        }
     }
 
     /// Mark a command as destructive, so the UI can confirm and the palette
@@ -173,7 +178,9 @@ impl CommandRegistry {
 
     /// Commands in one category.
     pub fn in_category(&self, category: CommandCategory) -> impl Iterator<Item = &Command> {
-        self.commands.values().filter(move |c| c.category() == category)
+        self.commands
+            .values()
+            .filter(move |c| c.category() == category)
     }
 
     /// The baseline command set from `docs/UI_UX_SPEC.md` §7.1.
@@ -184,11 +191,31 @@ impl CommandRegistry {
             registry.register(Command::new(id, category, key));
         };
 
-        add("workspace.split.horizontal", C::Workspace, "command.workspace.split.horizontal");
-        add("workspace.split.vertical", C::Workspace, "command.workspace.split.vertical");
-        add("workspace.pane.next", C::Workspace, "command.workspace.pane.next");
-        add("workspace.pane.previous", C::Workspace, "command.workspace.pane.previous");
-        add("workspace.pane.close", C::Workspace, "command.workspace.pane.close");
+        add(
+            "workspace.split.horizontal",
+            C::Workspace,
+            "command.workspace.split.horizontal",
+        );
+        add(
+            "workspace.split.vertical",
+            C::Workspace,
+            "command.workspace.split.vertical",
+        );
+        add(
+            "workspace.pane.next",
+            C::Workspace,
+            "command.workspace.pane.next",
+        );
+        add(
+            "workspace.pane.previous",
+            C::Workspace,
+            "command.workspace.pane.previous",
+        );
+        add(
+            "workspace.pane.close",
+            C::Workspace,
+            "command.workspace.pane.close",
+        );
 
         add("tab.new", C::Tabs, "command.tab.new");
         add("tab.close", C::Tabs, "command.tab.close");
@@ -210,13 +237,37 @@ impl CommandRegistry {
         add("file.edit", C::File, "command.file.edit");
         add("file.rename", C::File, "command.file.rename");
         add("file.new_folder", C::File, "command.file.new_folder");
-        add("file.copy_to_target_pane", C::File, "command.file.copy_to_target_pane");
-        add("file.move_to_target_pane", C::File, "command.file.move_to_target_pane");
+        add(
+            "file.copy_to_target_pane",
+            C::File,
+            "command.file.copy_to_target_pane",
+        );
+        add(
+            "file.move_to_target_pane",
+            C::File,
+            "command.file.move_to_target_pane",
+        );
 
-        add("file.mark.toggle", C::SelectionAndMarks, "command.file.mark.toggle");
-        add("file.mark.all", C::SelectionAndMarks, "command.file.mark.all");
-        add("file.mark.none", C::SelectionAndMarks, "command.file.mark.none");
-        add("file.mark.invert", C::SelectionAndMarks, "command.file.mark.invert");
+        add(
+            "file.mark.toggle",
+            C::SelectionAndMarks,
+            "command.file.mark.toggle",
+        );
+        add(
+            "file.mark.all",
+            C::SelectionAndMarks,
+            "command.file.mark.all",
+        );
+        add(
+            "file.mark.none",
+            C::SelectionAndMarks,
+            "command.file.mark.none",
+        );
+        add(
+            "file.mark.invert",
+            C::SelectionAndMarks,
+            "command.file.mark.invert",
+        );
 
         add("preview.toggle", C::View, "command.preview.toggle");
         add("preview.quicklook", C::View, "command.preview.quicklook");
@@ -232,12 +283,9 @@ impl CommandRegistry {
         add("theme.set", C::Settings, "command.theme.set");
         add("locale.set", C::Settings, "command.locale.set");
 
-        registry.register(
-            Command::new("file.trash", C::File, "command.file.trash").destructive(),
-        );
-        registry.register(
-            Command::new("file.delete", C::File, "command.file.delete").destructive(),
-        );
+        registry.register(Command::new("file.trash", C::File, "command.file.trash").destructive());
+        registry
+            .register(Command::new("file.delete", C::File, "command.file.delete").destructive());
         registry
     }
 }
@@ -262,7 +310,10 @@ mod tests {
             "jobs.cancel_active",
             "locale.set",
         ] {
-            assert!(registry.contains(&CommandId::new(id)), "{id} must be registered");
+            assert!(
+                registry.contains(&CommandId::new(id)),
+                "{id} must be registered"
+            );
         }
     }
 
@@ -271,7 +322,11 @@ mod tests {
         // AGENTS.md 11.
         for command in CommandRegistry::baseline().iter() {
             let key = command.label_key();
-            assert!(key.starts_with("command."), "{} has a non-key label {key}", command.id());
+            assert!(
+                key.starts_with("command."),
+                "{} has a non-key label {key}",
+                command.id()
+            );
             assert!(
                 !key.contains(' '),
                 "{} looks like a sentence, not a key: {key}",
@@ -293,9 +348,18 @@ mod tests {
     #[test]
     fn destructive_commands_are_flagged() {
         let registry = CommandRegistry::baseline();
-        assert!(registry.get(&CommandId::new("file.delete")).unwrap().is_destructive());
-        assert!(registry.get(&CommandId::new("file.trash")).unwrap().is_destructive());
-        assert!(!registry.get(&CommandId::new("nav.back")).unwrap().is_destructive());
+        assert!(registry
+            .get(&CommandId::new("file.delete"))
+            .unwrap()
+            .is_destructive());
+        assert!(registry
+            .get(&CommandId::new("file.trash"))
+            .unwrap()
+            .is_destructive());
+        assert!(!registry
+            .get(&CommandId::new("nav.back"))
+            .unwrap()
+            .is_destructive());
     }
 
     #[test]

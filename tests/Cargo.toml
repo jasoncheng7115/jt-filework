@@ -1,0 +1,24 @@
+[package]
+name = "jtf-conformance"
+description = "Workspace-level conformance tests: architecture boundaries and locale parity."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+
+[dev-dependencies]
+jtf-core = { workspace = true }
+jtf-jobs = { workspace = true }
+jtf-workspace = { workspace = true }
+jtf-commands = { workspace = true }
+
+[lints]
+workspace = true

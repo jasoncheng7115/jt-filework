@@ -198,8 +198,13 @@ impl MarkSet {
     /// Only entries *within* the scope are considered, so refreshing one
     /// directory cannot silently drop marks in another
     /// (`docs/UI_TEST_PLAN.md` MARK-008).
-    pub fn drop_missing_within(&mut self, scope: &BTreeSet<Location>, present: &BTreeSet<Location>) {
-        self.entries.retain(|l| !scope.contains(l) || present.contains(l));
+    pub fn drop_missing_within(
+        &mut self,
+        scope: &BTreeSet<Location>,
+        present: &BTreeSet<Location>,
+    ) {
+        self.entries
+            .retain(|l| !scope.contains(l) || present.contains(l));
     }
 }
 
@@ -285,7 +290,10 @@ mod tests {
         selection.select_all(vec![loc("e"), loc("f")]);
         selection.clear();
 
-        assert_eq!(marks, marks_before, "no selection operation may alter marks");
+        assert_eq!(
+            marks, marks_before,
+            "no selection operation may alter marks"
+        );
     }
 
     #[test]
@@ -301,7 +309,10 @@ mod tests {
         marks.invert(vec![loc("a"), loc("b")]);
         marks.clear();
 
-        assert_eq!(selection, selection_before, "no mark operation may alter selection");
+        assert_eq!(
+            selection, selection_before,
+            "no mark operation may alter selection"
+        );
     }
 
     #[test]
@@ -354,14 +365,18 @@ mod tests {
         m.mark(Location::local("/one/gone"));
         m.mark(Location::local("/two/b"));
 
-        let scope: BTreeSet<_> =
-            [Location::local("/one/a"), Location::local("/one/gone")].into_iter().collect();
+        let scope: BTreeSet<_> = [Location::local("/one/a"), Location::local("/one/gone")]
+            .into_iter()
+            .collect();
         let present: BTreeSet<_> = [Location::local("/one/a")].into_iter().collect();
         m.drop_missing_within(&scope, &present);
 
         assert!(m.contains(&Location::local("/one/a")));
         assert!(!m.contains(&Location::local("/one/gone")));
-        assert!(m.contains(&Location::local("/two/b")), "another directory is untouched");
+        assert!(
+            m.contains(&Location::local("/two/b")),
+            "another directory is untouched"
+        );
     }
 
     #[test]
@@ -374,7 +389,10 @@ mod tests {
 
         assert!(!m.contains(&loc("a")));
         assert!(m.contains(&loc("b")));
-        assert!(m.contains(&Location::local("/elsewhere/z")), "out of scope, untouched");
+        assert!(
+            m.contains(&Location::local("/elsewhere/z")),
+            "out of scope, untouched"
+        );
     }
 
     #[test]

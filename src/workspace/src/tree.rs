@@ -179,7 +179,13 @@ impl WorkspaceNode {
                     Some(Self::Pane { id })
                 }
             }
-            Self::Split { id, orientation, ratio, first, second } => {
+            Self::Split {
+                id,
+                orientation,
+                ratio,
+                first,
+                second,
+            } => {
                 if first.contains_pane(target) {
                     match first.remove_pane(target) {
                         Some(remaining) => Some(Self::Split {
@@ -203,7 +209,13 @@ impl WorkspaceNode {
                         None => Some(*first),
                     }
                 } else {
-                    Some(Self::Split { id, orientation, ratio, first, second })
+                    Some(Self::Split {
+                        id,
+                        orientation,
+                        ratio,
+                        first,
+                        second,
+                    })
                 }
             }
         }
@@ -213,7 +225,13 @@ impl WorkspaceNode {
     pub fn set_ratio(&mut self, split: SplitId, ratio: f32) -> bool {
         match self {
             Self::Pane { .. } => false,
-            Self::Split { id, ratio: current, first, second, .. } => {
+            Self::Split {
+                id,
+                ratio: current,
+                first,
+                second,
+                ..
+            } => {
                 if *id == split {
                     *current = clamp_ratio(ratio);
                     true
@@ -228,7 +246,13 @@ impl WorkspaceNode {
     pub fn ratio_of(&self, split: SplitId) -> Option<f32> {
         match self {
             Self::Pane { .. } => None,
-            Self::Split { id, ratio, first, second, .. } => {
+            Self::Split {
+                id,
+                ratio,
+                first,
+                second,
+                ..
+            } => {
                 if *id == split {
                     Some(*ratio)
                 } else {
@@ -246,7 +270,10 @@ impl WorkspaceNode {
     }
 
     fn collect_splits(&self, out: &mut Vec<SplitId>) {
-        if let Self::Split { id, first, second, .. } = self {
+        if let Self::Split {
+            id, first, second, ..
+        } = self
+        {
             out.push(*id);
             first.collect_splits(out);
             second.collect_splits(out);
@@ -289,8 +316,11 @@ mod tests {
         let mut tree = p(1);
         for n in 2..=5u64 {
             let split_id = SplitId::new(n);
-            let orientation =
-                if n % 2 == 0 { Orientation::Horizontal } else { Orientation::Vertical };
+            let orientation = if n % 2 == 0 {
+                Orientation::Horizontal
+            } else {
+                Orientation::Vertical
+            };
             let target = PaneId::new(n - 1);
             let replacement = WorkspaceNode::split(
                 split_id,
@@ -363,7 +393,10 @@ mod tests {
     #[test]
     fn orientation_flips_and_has_a_label_key() {
         assert_eq!(Orientation::Horizontal.flipped(), Orientation::Vertical);
-        assert_eq!(Orientation::Vertical.label_key(), "workspace.split.vertical");
+        assert_eq!(
+            Orientation::Vertical.label_key(),
+            "workspace.split.vertical"
+        );
     }
 
     #[test]

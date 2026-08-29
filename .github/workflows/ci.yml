@@ -1,0 +1,86 @@
+# CI matrix from docs/TESTING.md 14.
+#
+# main must stay green (AGENTS.md 2). Platform jobs exist from the start even
+# though the platform adapters land in Phase 4 and Phase 5: the
+# platform-neutral core must build and test on all three from Phase 1, and
+# finding out in Phase 4 that it never did is too late.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: fmt + clippy + architecture
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: rustfmt
+        run: cargo fmt --all -- --check
+      - name: clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      # docs/TESTING.md 3.2: the boundaries in AGENTS.md 4, 5 and 6 are
+      # enforced here, not in review.
+      - name: architecture boundaries
+        run: cargo test -p jtf-conformance --test architecture
+
+  i18n:
+    name: locale parity and coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      # docs/TESTING.md 3.3: key parity, placeholder arity, and that every key
+      # the code can ask for is actually translated in both locales.
+      - name: i18n conformance
+        run: cargo test -p jtf-conformance --test i18n
+
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: build
+        run: cargo build --workspace --all-targets
+      - name: test
+        run: cargo test --workspace
+
+  docs:
+    name: rustdoc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      # Broken intra-doc links are how documentation quietly stops being true.
+      - name: build documentation
+        run: cargo doc --workspace --no-deps --document-private-items
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+  # Not yet enabled, and deliberately visible rather than forgotten:
+  #
+  #   bench   nightly, macOS arm64, baseline comparison and regression alert
+  #           (docs/TESTING.md 8) - needs the benchmarks to exist first
+  #   fuzz    nightly, Linux, time-boxed, corpus persisted
+  #           (docs/TESTING.md 9.1) - needs the parsers to exist first
+  #   ui      the UI-thread watchdog and the UI_TEST_PLAN gate areas
+  #           (docs/UI_TEST_PLAN.md) - blocked on ADR-0001
+  #   audit   cargo audit and cargo deny (docs/SECURITY.md 11)

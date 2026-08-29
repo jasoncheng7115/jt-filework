@@ -104,7 +104,10 @@ impl JobState {
         if self.can_transition_to(next) {
             Ok(next)
         } else {
-            Err(TransitionError { from: self, to: next })
+            Err(TransitionError {
+                from: self,
+                to: next,
+            })
         }
     }
 
@@ -150,15 +153,23 @@ mod tests {
             JobState::Cancelled,
             JobState::WaitingForUser,
         ] {
-            assert!(JobState::Running.can_transition_to(end), "Running -> {end:?}");
+            assert!(
+                JobState::Running.can_transition_to(end),
+                "Running -> {end:?}"
+            );
         }
     }
 
     #[test]
     fn waiting_for_user_resumes_to_running() {
         // The conflict-resolution path in docs/UI_UX_SPEC.md 10.
-        let s = JobState::Running.transition_to(JobState::WaitingForUser).unwrap();
-        assert_eq!(s.transition_to(JobState::Running).unwrap(), JobState::Running);
+        let s = JobState::Running
+            .transition_to(JobState::WaitingForUser)
+            .unwrap();
+        assert_eq!(
+            s.transition_to(JobState::Running).unwrap(),
+            JobState::Running
+        );
     }
 
     #[test]
@@ -205,7 +216,9 @@ mod tests {
 
     #[test]
     fn illegal_transitions_report_both_ends() {
-        let err = JobState::Queued.transition_to(JobState::Completed).unwrap_err();
+        let err = JobState::Queued
+            .transition_to(JobState::Completed)
+            .unwrap_err();
         assert_eq!(err.from, JobState::Queued);
         assert_eq!(err.to, JobState::Completed);
 

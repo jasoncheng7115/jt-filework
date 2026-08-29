@@ -20,12 +20,18 @@ pub struct Progress {
 impl Progress {
     /// Progress with an unknown total.
     pub const fn indeterminate() -> Self {
-        Self { completed: 0, total: None }
+        Self {
+            completed: 0,
+            total: None,
+        }
     }
 
     /// Progress with a known total.
     pub const fn with_total(total: u64) -> Self {
-        Self { completed: 0, total: Some(total) }
+        Self {
+            completed: 0,
+            total: Some(total),
+        }
     }
 
     /// Units completed so far.
@@ -83,7 +89,8 @@ impl Progress {
     pub fn fraction(self) -> Option<f64> {
         match self.total {
             Some(0) => Some(1.0),
-            Some(total) => {
+            Some(total) =>
+            {
                 #[allow(clippy::cast_precision_loss)]
                 Some(self.completed as f64 / total as f64)
             }
@@ -124,8 +131,14 @@ mod tests {
 
     #[test]
     fn never_moves_backwards() {
-        let p = Progress::with_total(100).set_completed(80).set_completed(20);
-        assert_eq!(p.completed(), 80, "a late smaller report must not retreat the bar");
+        let p = Progress::with_total(100)
+            .set_completed(80)
+            .set_completed(20);
+        assert_eq!(
+            p.completed(),
+            80,
+            "a late smaller report must not retreat the bar"
+        );
     }
 
     #[test]
@@ -152,7 +165,9 @@ mod tests {
 
     #[test]
     fn saturates_instead_of_overflowing() {
-        let p = Progress::indeterminate().advance(u64::MAX).advance(u64::MAX);
+        let p = Progress::indeterminate()
+            .advance(u64::MAX)
+            .advance(u64::MAX);
         assert_eq!(p.completed(), u64::MAX);
     }
 

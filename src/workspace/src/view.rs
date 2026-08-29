@@ -36,7 +36,10 @@ pub struct SortSpec {
 
 impl Default for SortSpec {
     fn default() -> Self {
-        Self { key: SortKey::Name, ascending: true }
+        Self {
+            key: SortKey::Name,
+            ascending: true,
+        }
     }
 }
 
@@ -46,9 +49,15 @@ impl SortSpec {
     #[must_use]
     pub fn toggled_by(self, key: SortKey) -> Self {
         if self.key == key {
-            Self { key, ascending: !self.ascending }
+            Self {
+                key,
+                ascending: !self.ascending,
+            }
         } else {
-            Self { key, ascending: true }
+            Self {
+                key,
+                ascending: true,
+            }
         }
     }
 }
@@ -157,7 +166,11 @@ pub struct ColumnSpec {
 impl ColumnSpec {
     /// A visible column at a default width.
     pub const fn visible(column: Column, width: f32) -> Self {
-        Self { column, width, visible: true }
+        Self {
+            column,
+            width,
+            visible: true,
+        }
     }
 }
 
@@ -191,12 +204,36 @@ pub(crate) fn default_columns() -> Vec<ColumnSpec> {
         ColumnSpec::visible(Column::Size, 90.0),
         ColumnSpec::visible(Column::Kind, 120.0),
         ColumnSpec::visible(Column::Modified, 160.0),
-        ColumnSpec { column: Column::Created, width: 160.0, visible: false },
-        ColumnSpec { column: Column::Permissions, width: 110.0, visible: false },
-        ColumnSpec { column: Column::Owner, width: 110.0, visible: false },
-        ColumnSpec { column: Column::Extension, width: 80.0, visible: false },
-        ColumnSpec { column: Column::Tags, width: 120.0, visible: false },
-        ColumnSpec { column: Column::Path, width: 400.0, visible: false },
+        ColumnSpec {
+            column: Column::Created,
+            width: 160.0,
+            visible: false,
+        },
+        ColumnSpec {
+            column: Column::Permissions,
+            width: 110.0,
+            visible: false,
+        },
+        ColumnSpec {
+            column: Column::Owner,
+            width: 110.0,
+            visible: false,
+        },
+        ColumnSpec {
+            column: Column::Extension,
+            width: 80.0,
+            visible: false,
+        },
+        ColumnSpec {
+            column: Column::Tags,
+            width: 120.0,
+            visible: false,
+        },
+        ColumnSpec {
+            column: Column::Path,
+            width: 400.0,
+            visible: false,
+        },
     ]
 }
 
@@ -206,7 +243,13 @@ mod tests {
 
     #[test]
     fn default_sort_is_name_ascending() {
-        assert_eq!(SortSpec::default(), SortSpec { key: SortKey::Name, ascending: true });
+        assert_eq!(
+            SortSpec::default(),
+            SortSpec {
+                key: SortKey::Name,
+                ascending: true
+            }
+        );
     }
 
     #[test]
@@ -215,7 +258,13 @@ mod tests {
         let s = s.toggled_by(SortKey::Name);
         assert!(!s.ascending);
         let s = s.toggled_by(SortKey::Size);
-        assert_eq!(s, SortSpec { key: SortKey::Size, ascending: true });
+        assert_eq!(
+            s,
+            SortSpec {
+                key: SortKey::Size,
+                ascending: true
+            }
+        );
     }
 
     #[test]
@@ -264,7 +313,10 @@ mod tests {
     #[test]
     fn scroll_position_is_row_based_not_pixel_based() {
         // So restoring a session is stable across font size and DPI changes.
-        let p = ScrollPosition { first_visible_row: 4200, row_offset: 0.5 };
+        let p = ScrollPosition {
+            first_visible_row: 4200,
+            row_offset: 0.5,
+        };
         let back: ScrollPosition =
             serde_json::from_str(&serde_json::to_string(&p).unwrap()).unwrap();
         assert_eq!(p, back);

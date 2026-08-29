@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::TabId;
 use crate::selection::{MarkSet, OperationTarget, Selection};
-use crate::view::{default_columns, ColumnSpec, Filter, ScrollPosition, SortKey, SortSpec, ViewMode};
+use crate::view::{
+    default_columns, ColumnSpec, Filter, ScrollPosition, SortKey, SortSpec, ViewMode,
+};
 
 /// One browsing session inside a pane.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -167,7 +169,8 @@ impl Tab {
         if location == self.location {
             return;
         }
-        self.back.push(core::mem::replace(&mut self.location, location));
+        self.back
+            .push(core::mem::replace(&mut self.location, location));
         self.forward.clear();
         self.reset_per_location_state();
     }
@@ -189,7 +192,8 @@ impl Tab {
         let Some(previous) = self.back.pop() else {
             return false;
         };
-        self.forward.push(core::mem::replace(&mut self.location, previous));
+        self.forward
+            .push(core::mem::replace(&mut self.location, previous));
         self.reset_per_location_state();
         true
     }
@@ -282,7 +286,10 @@ mod tests {
         assert!(t.can_go_forward());
 
         t.navigate_to(loc("/c"));
-        assert!(!t.can_go_forward(), "a new navigation discards the forward stack");
+        assert!(
+            !t.can_go_forward(),
+            "a new navigation discards the forward stack"
+        );
     }
 
     #[test]
@@ -320,7 +327,10 @@ mod tests {
     #[test]
     fn navigation_resets_scroll_and_the_focused_entry() {
         let mut t = tab();
-        t.set_scroll(ScrollPosition { first_visible_row: 900, row_offset: 0.25 });
+        t.set_scroll(ScrollPosition {
+            first_visible_row: 900,
+            row_offset: 0.25,
+        });
         t.set_active_entry(Some(loc("/start/x")));
 
         t.navigate_to(loc("/other"));
@@ -338,7 +348,13 @@ mod tests {
 
         t.navigate_to(loc("/other"));
 
-        assert_eq!(t.sort(), SortSpec { key: SortKey::Size, ascending: true });
+        assert_eq!(
+            t.sort(),
+            SortSpec {
+                key: SortKey::Size,
+                ascending: true
+            }
+        );
         assert_eq!(t.filter().text, "*.log");
         assert_eq!(t.filter().mode, FilterMode::Glob);
     }
@@ -366,7 +382,10 @@ mod tests {
         t.filter_mut().text = "x".to_string();
         t.marks_mut().mark(loc("/a/1"));
         t.selection_mut().select_only(loc("/a/2"));
-        t.set_scroll(ScrollPosition { first_visible_row: 12, row_offset: 0.5 });
+        t.set_scroll(ScrollPosition {
+            first_visible_row: 12,
+            row_offset: 0.5,
+        });
         t.set_view_mode(ViewMode::Grid);
         t.set_pinned(true);
 

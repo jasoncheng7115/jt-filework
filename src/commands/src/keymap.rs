@@ -24,7 +24,9 @@ use crate::ids::CommandId;
 /// Four independently held physical keys, not a state machine: any subset can
 /// be down at once, which is what makes them modifiers.
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
+)]
 pub struct Modifiers {
     /// The platform's primary accelerator: Command on macOS, Control else.
     pub primary: bool,
@@ -38,10 +40,20 @@ pub struct Modifiers {
 
 impl Modifiers {
     /// No modifiers.
-    pub const NONE: Self = Self { primary: false, control: false, shift: false, alt: false };
+    pub const NONE: Self = Self {
+        primary: false,
+        control: false,
+        shift: false,
+        alt: false,
+    };
 
     /// Primary only.
-    pub const PRIMARY: Self = Self { primary: true, control: false, shift: false, alt: false };
+    pub const PRIMARY: Self = Self {
+        primary: true,
+        control: false,
+        shift: false,
+        alt: false,
+    };
 
     /// Whether any modifier is held.
     pub const fn any(self) -> bool {
@@ -107,7 +119,10 @@ impl KeyChord {
 
     /// A chord with no modifiers.
     pub const fn plain(key: Key) -> Self {
-        Self { modifiers: Modifiers::NONE, key }
+        Self {
+            modifiers: Modifiers::NONE,
+            key,
+        }
     }
 
     /// Parse a chord such as `primary+shift+n`, `f5`, `space`.
@@ -210,8 +225,15 @@ impl core::fmt::Display for KeymapError {
         match self {
             Self::UnknownModifier(m) => write!(f, "unknown modifier: {m}"),
             Self::UnknownKey(k) => write!(f, "unknown key: {k}"),
-            Self::Conflict { chord, existing, incoming } => {
-                write!(f, "chord {chord} is bound to both {existing} and {incoming}")
+            Self::Conflict {
+                chord,
+                existing,
+                incoming,
+            } => {
+                write!(
+                    f,
+                    "chord {chord} is bound to both {existing} and {incoming}"
+                )
             }
             Self::UnknownCommand(id) => write!(f, "binding names unknown command: {id}"),
             Self::MalformedLine { line } => write!(f, "malformed binding on line {line}"),
@@ -231,7 +253,10 @@ pub struct Keymap {
 impl Keymap {
     /// An empty keymap.
     pub fn new(name: impl Into<String>) -> Self {
-        Self { name: name.into(), bindings: BTreeMap::new() }
+        Self {
+            name: name.into(),
+            bindings: BTreeMap::new(),
+        }
     }
 
     /// The keymap's name.
@@ -279,7 +304,11 @@ impl Keymap {
 
     /// Every chord bound to a command, for showing shortcuts in menus.
     pub fn chords_for(&self, command: &CommandId) -> Vec<&KeyChord> {
-        self.bindings.iter().filter(|(_, c)| *c == command).map(|(k, _)| k).collect()
+        self.bindings
+            .iter()
+            .filter(|(_, c)| *c == command)
+            .map(|(k, _)| k)
+            .collect()
     }
 
     /// Every binding.
@@ -308,8 +337,9 @@ impl Keymap {
             if command.as_str().is_empty() {
                 return Err(KeymapError::MalformedLine { line: index + 1 });
             }
-            if let Err(KeymapError::Conflict { existing, incoming, .. }) =
-                map.bind(chord, command)
+            if let Err(KeymapError::Conflict {
+                existing, incoming, ..
+            }) = map.bind(chord, command)
             {
                 return Err(KeymapError::Conflict {
                     chord: chord_text.trim().to_string(),
@@ -353,7 +383,10 @@ mod tests {
 
         assert_eq!(KeyChord::parse("f5").unwrap().key, Key::Function(5));
         assert_eq!(KeyChord::parse("F12").unwrap().key, Key::Function(12));
-        assert_eq!(KeyChord::parse("space").unwrap(), KeyChord::plain(Key::Space));
+        assert_eq!(
+            KeyChord::parse("space").unwrap(),
+            KeyChord::plain(Key::Space)
+        );
         assert_eq!(KeyChord::parse("alt+left").unwrap().key, Key::Left);
     }
 
@@ -378,7 +411,11 @@ mod tests {
     fn conflicts_are_detected_at_load_with_both_commands_named() {
         let err = Keymap::parse("test", "primary+t = tab.new\nprimary+t = tab.close").unwrap_err();
         match err {
-            KeymapError::Conflict { chord, existing, incoming } => {
+            KeymapError::Conflict {
+                chord,
+                existing,
+                incoming,
+            } => {
                 assert_eq!(chord, "primary+t");
                 assert_eq!(existing.as_str(), "tab.new");
                 assert_eq!(incoming.as_str(), "tab.close");
@@ -399,13 +436,18 @@ mod tests {
         let map = Keymap::parse("test", "primary+c = file.copy_to_target_pane").unwrap();
         let chord = map.iter().next().unwrap().0;
         assert!(chord.modifiers.primary);
-        assert!(!chord.modifiers.control, "primary is not the same as control");
+        assert!(
+            !chord.modifiers.control,
+            "primary is not the same as control"
+        );
     }
 
     #[test]
     fn a_binding_to_an_unknown_command_is_caught_by_validation() {
         let map = Keymap::parse("test", "primary+q = nope.does.not.exist").unwrap();
-        let err = map.validate_against(&CommandRegistry::baseline()).unwrap_err();
+        let err = map
+            .validate_against(&CommandRegistry::baseline())
+            .unwrap_err();
         assert!(matches!(err, KeymapError::UnknownCommand(_)));
     }
 

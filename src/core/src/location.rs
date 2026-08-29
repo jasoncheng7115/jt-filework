@@ -46,12 +46,18 @@ impl Location {
 
     /// A member inside an archive.
     pub fn archive_member(archive: Location, member: impl Into<String>) -> Self {
-        Self::ArchiveMember { archive: Box::new(archive), member: member.into() }
+        Self::ArchiveMember {
+            archive: Box::new(archive),
+            member: member.into(),
+        }
     }
 
     /// A virtual location such as a search result set.
     pub fn virtual_location(scheme: impl Into<String>, id: impl Into<String>) -> Self {
-        Self::Virtual { scheme: scheme.into(), id: id.into() }
+        Self::Virtual {
+            scheme: scheme.into(),
+            id: id.into(),
+        }
     }
 
     /// The filesystem path, if this location has one.
@@ -89,9 +95,10 @@ impl Location {
     pub fn file_name(&self) -> Option<OsString> {
         match self {
             Self::Local { path } => path.file_name().map(OsString::from),
-            Self::ArchiveMember { member, .. } => {
-                member.rsplit('/').find(|s| !s.is_empty()).map(OsString::from)
-            }
+            Self::ArchiveMember { member, .. } => member
+                .rsplit('/')
+                .find(|s| !s.is_empty())
+                .map(OsString::from),
             Self::Virtual { id, .. } => Some(OsString::from(id)),
         }
     }
@@ -114,7 +121,11 @@ mod tests {
         assert_eq!(local.as_path(), Some(Path::new("/tmp/a.txt")));
 
         let member = Location::archive_member(Location::local("/tmp/a.zip"), "dir/b.txt");
-        assert_eq!(member.as_path(), None, "an archive member has no filesystem path");
+        assert_eq!(
+            member.as_path(),
+            None,
+            "an archive member has no filesystem path"
+        );
 
         let virt = Location::virtual_location("search", "42");
         assert_eq!(virt.as_path(), None);

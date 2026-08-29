@@ -18,7 +18,7 @@ mod job;
 mod progress;
 mod state;
 
-pub use cancel::{Cancelled, CancellationToken, Canceller};
+pub use cancel::{CancellationToken, Cancelled, Canceller};
 pub use job::{Job, JobId, JobKind};
 pub use progress::Progress;
 pub use state::{JobState, TransitionError};

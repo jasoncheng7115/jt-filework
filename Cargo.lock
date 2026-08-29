@@ -18,6 +18,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "jtf-conformance"
+version = "0.0.0"
+dependencies = [
+ "jtf-commands",
+ "jtf-core",
+ "jtf-jobs",
+ "jtf-workspace",
+]
+
+[[package]]
 name = "jtf-core"
 version = "0.0.0"
 dependencies = [

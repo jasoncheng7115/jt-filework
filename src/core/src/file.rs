@@ -62,7 +62,10 @@ impl FileKind {
 
     /// Whether this entry is a directory on disk, regardless of presentation.
     pub const fn is_directory_on_disk(self) -> bool {
-        matches!(self, Self::Directory | Self::ApplicationBundle | Self::Package)
+        matches!(
+            self,
+            Self::Directory | Self::ApplicationBundle | Self::Package
+        )
     }
 
     /// Whether content from this entry must be treated as untrusted input
@@ -326,9 +329,17 @@ mod tests {
 
     #[test]
     fn extension_hint_ignores_dotfiles_and_trailing_dots() {
-        assert_eq!(entry("a.TXT", FileKind::File).extension_hint().as_deref(), Some("txt"));
+        assert_eq!(
+            entry("a.TXT", FileKind::File).extension_hint().as_deref(),
+            Some("txt")
+        );
         assert_eq!(entry(".gitignore", FileKind::File).extension_hint(), None);
-        assert_eq!(entry("archive.tar.gz", FileKind::File).extension_hint().as_deref(), Some("gz"));
+        assert_eq!(
+            entry("archive.tar.gz", FileKind::File)
+                .extension_hint()
+                .as_deref(),
+            Some("gz")
+        );
         assert_eq!(entry("trailing.", FileKind::File).extension_hint(), None);
         assert_eq!(entry("noext", FileKind::File).extension_hint(), None);
     }
@@ -343,7 +354,9 @@ mod tests {
 
     #[test]
     fn round_trips_through_serde() {
-        let e = entry("a.txt", FileKind::File).with_size(42).with_content_type("text/plain");
+        let e = entry("a.txt", FileKind::File)
+            .with_size(42)
+            .with_content_type("text/plain");
         let json = serde_json::to_string(&e).unwrap();
         let back: FileEntry = serde_json::from_str(&json).unwrap();
         assert_eq!(e, back);

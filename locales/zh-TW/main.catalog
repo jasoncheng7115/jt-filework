@@ -1,0 +1,130 @@
+# JT FileWork — 台灣繁體中文語系檔
+#
+# 格式：`key = value`，每行一則訊息，`#` 為註解。
+# `{name}` 是佔位符，屬於訊息契約的一部分：每個語系的佔位符必須一致
+# （docs/I18N_THEME.md 4）。
+#
+# 用語依台灣慣用（docs/I18N_THEME.md 5）：檔案、資料夾、設定、重新命名、
+# 預覽、搜尋、頁籤、分割、資源回收筒。不使用中國大陸慣用詞。
+
+
+column.created = 建立日期
+column.extension = 副檔名
+column.kind = 種類
+column.modified = 修改日期
+column.name = 名稱
+column.owner = 擁有者
+column.path = 路徑
+column.permissions = 權限
+column.size = 大小
+column.tags = 標籤
+
+command.ai.ask = 詢問 AI
+command.category.ai = AI
+command.category.file = 檔案
+command.category.jobs = 工作
+command.category.navigation = 瀏覽
+command.category.search = 搜尋
+command.category.selection_marks = 選取與標記
+command.category.settings = 設定
+command.category.tabs = 頁籤
+command.category.view = 檢視
+command.category.workspace = 工作區
+command.file.copy_to_target_pane = 複製到另一個窗格
+command.file.delete = 永久刪除
+command.file.edit = 編輯
+command.file.mark.all = 全部標記
+command.file.mark.invert = 反轉標記
+command.file.mark.none = 清除標記
+command.file.mark.toggle = 切換標記
+command.file.move_to_target_pane = 移到另一個窗格
+command.file.new_folder = 新增資料夾
+command.file.open = 開啟
+command.file.rename = 重新命名
+command.file.trash = 移到資源回收筒
+command.file.view = 檢視
+command.jobs.cancel_active = 取消目前的工作
+command.jobs.show = 顯示工作
+command.locale.set = 設定語言
+command.nav.back = 上一頁
+command.nav.forward = 下一頁
+command.nav.goto = 前往位置
+command.nav.home = 個人資料夾
+command.nav.up = 上一層
+command.preview.quicklook = 快速查看
+command.preview.toggle = 切換預覽
+command.search.ai = AI 搜尋
+command.search.open = 搜尋
+command.tab.close = 關閉頁籤
+command.tab.duplicate = 複製頁籤
+command.tab.move_to_pane = 將頁籤移到其他窗格
+command.tab.new = 新增頁籤
+command.tab.next = 下一個頁籤
+command.tab.pin = 釘選頁籤
+command.tab.previous = 上一個頁籤
+command.tab.reopen = 重新開啟已關閉的頁籤
+command.theme.set = 設定佈景主題
+command.workspace.pane.close = 關閉窗格
+command.workspace.pane.next = 下一個窗格
+command.workspace.pane.previous = 上一個窗格
+command.workspace.split.horizontal = 水平分割
+command.workspace.split.vertical = 垂直分割
+
+error.already_exists = 已經有同名的項目。
+error.cancelled = 已取消。
+error.device_unavailable = 裝置或磁碟區目前無法使用。
+error.internal = JT FileWork 內部發生錯誤。
+error.invalid_path = 路徑無效。
+error.io = 讀取或寫入失敗。
+error.limit_exceeded = 已達安全上限，操作已停止。
+error.missing_localization = 缺少文字資源。
+error.not_found = 找不到這個項目。
+error.parse_failed = 無法讀取這份內容。
+error.permission_denied = 你沒有執行這項操作的權限。
+error.provider_failed = 外部元件執行失敗。
+error.timed_out = 操作逾時。
+error.unsupported = 這個平台不支援這項功能。
+error.wrong_kind = 這個項目的類型不適用於此操作。
+
+jobs.kind.ai_request = 詢問 AI
+jobs.kind.archive_scan = 讀取壓縮檔
+jobs.kind.compress = 壓縮
+jobs.kind.copy = 複製
+jobs.kind.delete = 刪除
+jobs.kind.enumerate = 列出項目
+jobs.kind.external_agent = 執行代理程式
+jobs.kind.extract = 解壓縮
+jobs.kind.hash = 計算雜湊值
+jobs.kind.index = 建立索引
+jobs.kind.move = 移動
+jobs.kind.preview = 準備預覽
+jobs.kind.recursive_size = 計算大小
+jobs.kind.rename = 重新命名
+jobs.kind.search = 搜尋
+jobs.kind.thumbnail = 產生縮圖
+jobs.kind.trash = 移到資源回收筒
+jobs.state.cancelled = 已取消
+jobs.state.completed = 已完成
+jobs.state.failed = 失敗
+jobs.state.queued = 排隊中
+jobs.state.running = 執行中
+jobs.state.waiting_for_user = 等待你的決定
+
+session.restore.unreadable = 無法讀取上次的工作階段，JT FileWork 已重新開始。（{code}）
+session.restore.unsupported_version = 上次的工作階段由較新版本儲存，JT FileWork 已重新開始。
+
+settings.startup.fixed_location = 從指定的位置開始
+settings.startup.home = 從個人資料夾開始
+settings.startup.last_session = 回到上次的工作階段
+
+target.active = 目前聚焦的項目
+target.empty = 沒有可操作的項目
+target.marked = 已標記的 {count} 個項目
+target.selection = 已選取的 {count} 個項目
+
+theme.dark = 深色
+theme.light = 淺色
+theme.system = 跟隨系統
+
+workspace.split.horizontal = 水平分割
+workspace.split.vertical = 垂直分割

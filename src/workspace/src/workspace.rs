@@ -121,7 +121,9 @@ impl Workspace {
     /// territory — a bug to fix, not a condition to handle.
     #[allow(clippy::expect_used)]
     pub fn active_pane(&self) -> &Pane {
-        self.panes.get(&self.active_pane).expect("active pane always exists")
+        self.panes
+            .get(&self.active_pane)
+            .expect("active pane always exists")
     }
 
     /// Mutable access to the active pane.
@@ -131,7 +133,9 @@ impl Workspace {
     /// See [`Self::active_pane`].
     #[allow(clippy::expect_used)]
     pub fn active_pane_mut(&mut self) -> &mut Pane {
-        self.panes.get_mut(&self.active_pane).expect("active pane always exists")
+        self.panes
+            .get_mut(&self.active_pane)
+            .expect("active pane always exists")
     }
 
     /// A pane by id.
@@ -307,8 +311,13 @@ impl Workspace {
     /// [`WorkspaceError::NoSuchPane`] or [`WorkspaceError::NoSuchTab`].
     pub fn duplicate_tab(&mut self, pane: PaneId, tab: TabId) -> Result<TabId, WorkspaceError> {
         let new_id = self.allocate_tab();
-        let pane_ref = self.panes.get_mut(&pane).ok_or(WorkspaceError::NoSuchPane(pane))?;
-        pane_ref.duplicate_tab(tab, new_id).ok_or(WorkspaceError::NoSuchTab(tab))
+        let pane_ref = self
+            .panes
+            .get_mut(&pane)
+            .ok_or(WorkspaceError::NoSuchPane(pane))?;
+        pane_ref
+            .duplicate_tab(tab, new_id)
+            .ok_or(WorkspaceError::NoSuchTab(tab))
     }
 
     /// Move a tab to another pane, carrying all of its state.
@@ -332,11 +341,17 @@ impl Workspace {
         if !self.panes.contains_key(&to) {
             return Err(WorkspaceError::NoSuchPane(to));
         }
-        let source = self.panes.get_mut(&from).ok_or(WorkspaceError::NoSuchPane(from))?;
+        let source = self
+            .panes
+            .get_mut(&from)
+            .ok_or(WorkspaceError::NoSuchPane(from))?;
         let moved = source.take_tab(tab).ok_or(WorkspaceError::NoSuchTab(tab))?;
         let source_empty = source.tab_count() == 0;
 
-        let destination = self.panes.get_mut(&to).ok_or(WorkspaceError::NoSuchPane(to))?;
+        let destination = self
+            .panes
+            .get_mut(&to)
+            .ok_or(WorkspaceError::NoSuchPane(to))?;
         destination.push_tab(moved);
 
         if source_empty {
@@ -344,7 +359,10 @@ impl Workspace {
                 self.close_pane(from)?;
             } else {
                 let id = self.allocate_tab();
-                let pane = self.panes.get_mut(&from).ok_or(WorkspaceError::NoSuchPane(from))?;
+                let pane = self
+                    .panes
+                    .get_mut(&from)
+                    .ok_or(WorkspaceError::NoSuchPane(from))?;
                 pane.push_tab(Tab::new(id, Location::local("/")));
             }
         }
@@ -354,10 +372,7 @@ impl Workspace {
     /// Replace the layout with a preset, keeping the first pane's tabs.
     pub fn apply_preset(&mut self, preset: LayoutPreset) {
         while self.panes.len() > 1 {
-            let victim = *self
-                .pane_order()
-                .last()
-                .unwrap_or(&self.active_pane);
+            let victim = *self.pane_order().last().unwrap_or(&self.active_pane);
             if victim == self.active_pane {
                 self.active_pane = self.pane_order()[0];
             }
@@ -412,7 +427,11 @@ impl Workspace {
 
     /// Total marked entries across every tab of every pane.
     pub fn total_marked(&self) -> usize {
-        self.panes.values().flat_map(Pane::tabs).map(|t| t.marks().len()).sum()
+        self.panes
+            .values()
+            .flat_map(Pane::tabs)
+            .map(|t| t.marks().len())
+            .sum()
     }
 
     /// Clear the marked set of every tab.
@@ -516,8 +535,11 @@ mod tests {
     fn nested_splits_reach_arbitrary_depth() {
         let mut w = workspace();
         for i in 0..5 {
-            let orientation =
-                if i % 2 == 0 { Orientation::Horizontal } else { Orientation::Vertical };
+            let orientation = if i % 2 == 0 {
+                Orientation::Horizontal
+            } else {
+                Orientation::Vertical
+            };
             w.split_active(orientation);
             assert!(w.invariants_hold());
         }
@@ -585,7 +607,11 @@ mod tests {
     #[test]
     fn the_target_pane_is_the_next_one_and_absent_when_alone() {
         let mut w = workspace();
-        assert_eq!(w.target_pane_id(), None, "one pane has no other pane to target");
+        assert_eq!(
+            w.target_pane_id(),
+            None,
+            "one pane has no other pane to target"
+        );
 
         let second = w.split_active(Orientation::Horizontal);
         w.focus_pane(PaneId::new(1));
@@ -608,7 +634,10 @@ mod tests {
             tab.marks_mut().mark(loc("/project/src/a.rs"));
             tab.sort_by(crate::view::SortKey::Modified);
             tab.filter_mut().text = "*.rs".to_string();
-            tab.set_scroll(crate::view::ScrollPosition { first_visible_row: 42, row_offset: 0.5 });
+            tab.set_scroll(crate::view::ScrollPosition {
+                first_visible_row: 42,
+                row_offset: 0.5,
+            });
         }
         let before = w.pane(PaneId::new(1)).unwrap().tab(tab_id).unwrap().clone();
 
@@ -616,7 +645,10 @@ mod tests {
 
         assert!(w.pane(PaneId::new(1)).unwrap().tab(tab_id).is_none());
         let after = w.pane(second).unwrap().tab(tab_id).unwrap();
-        assert_eq!(after, &before, "location, history, marks, sort, filter and scroll all move");
+        assert_eq!(
+            after, &before,
+            "location, history, marks, sort, filter and scroll all move"
+        );
         assert!(w.invariants_hold());
     }
 
@@ -626,7 +658,8 @@ mod tests {
         let second = w.split_active(Orientation::Horizontal);
         let lone_tab = w.pane(second).unwrap().tabs()[0].id();
 
-        w.move_tab_to_pane(second, lone_tab, PaneId::new(1)).unwrap();
+        w.move_tab_to_pane(second, lone_tab, PaneId::new(1))
+            .unwrap();
 
         assert_eq!(w.pane_count(), 1);
         assert_eq!(w.pane(PaneId::new(1)).unwrap().tab_count(), 2);
@@ -668,7 +701,10 @@ mod tests {
         assert_eq!(w.root(), before.root());
         assert_eq!(w.pane_count(), before.pane_count());
         assert_eq!(w.active_pane_id(), before.active_pane_id());
-        assert_eq!(w.active_tab().unwrap().marks(), before.active_tab().unwrap().marks());
+        assert_eq!(
+            w.active_tab().unwrap().marks(),
+            before.active_tab().unwrap().marks()
+        );
     }
 
     #[test]
@@ -687,7 +723,10 @@ mod tests {
         let mut w = workspace();
         w.apply_preset(LayoutPreset::Quad);
         w.new_tab(loc("/downloads"));
-        w.active_tab_mut().unwrap().marks_mut().mark(loc("/downloads/x.zip"));
+        w.active_tab_mut()
+            .unwrap()
+            .marks_mut()
+            .mark(loc("/downloads/x.zip"));
         w.set_locale(LocaleId::new(LocaleId::ZH_TW));
         w.set_theme_mode(ThemeMode::Dark);
 
@@ -704,7 +743,10 @@ mod tests {
         let mut w = workspace();
         w.split_active(Orientation::Horizontal);
         let tab = w.new_tab(loc("/Volumes/NAS/projects"));
-        w.active_pane_mut().tab_mut(tab).unwrap().navigate_to(loc("/Volumes/NAS/projects/old"));
+        w.active_pane_mut()
+            .tab_mut(tab)
+            .unwrap()
+            .navigate_to(loc("/Volumes/NAS/projects/old"));
 
         let dropped = w.replace_unavailable_locations(&loc("/home"), |l| {
             !l.as_path().is_some_and(|p| p.starts_with("/Volumes/NAS"))
@@ -733,6 +775,9 @@ mod tests {
         let second = w.split_active(Orientation::Horizontal);
         w.close_pane(second).unwrap();
         let third = w.split_active(Orientation::Horizontal);
-        assert_ne!(third, second, "a stale reference must not resolve to a new pane");
+        assert_ne!(
+            third, second,
+            "a stale reference must not resolve to a new pane"
+        );
     }
 }

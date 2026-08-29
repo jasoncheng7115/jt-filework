@@ -24,11 +24,26 @@ fn a_non_utf8_name_survives_intact_and_still_displays() {
         FileKind::File,
     );
 
-    assert_eq!(entry.raw_name().as_os_str(), invalid.as_os_str(), "raw bytes preserved");
+    assert_eq!(
+        entry.raw_name().as_os_str(),
+        invalid.as_os_str(),
+        "raw bytes preserved"
+    );
     assert!(entry.raw_name().is_lossy_as_utf8());
-    assert_eq!(entry.raw_name().to_str(), None, "must not pretend it is UTF-8");
+    assert_eq!(
+        entry.raw_name().to_str(),
+        None,
+        "must not pretend it is UTF-8"
+    );
 
     let shown = entry.display_name();
-    assert!(shown.contains('\u{FFFD}'), "display form replaces the invalid byte");
-    assert_ne!(shown.as_bytes(), raw_bytes.as_slice(), "display form is not the raw name");
+    assert!(
+        shown.contains('\u{FFFD}'),
+        "display form replaces the invalid byte"
+    );
+    assert_ne!(
+        shown.as_bytes(),
+        raw_bytes.as_slice(),
+        "display form is not the raw name"
+    );
 }

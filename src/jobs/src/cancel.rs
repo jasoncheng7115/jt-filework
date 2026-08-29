@@ -52,18 +52,27 @@ impl CancellationToken {
     /// Create a linked token and canceller.
     pub fn new() -> (Self, Canceller) {
         let flag = Arc::new(AtomicBool::new(false));
-        (Self { flag: Arc::clone(&flag) }, Canceller { flag })
+        (
+            Self {
+                flag: Arc::clone(&flag),
+            },
+            Canceller { flag },
+        )
     }
 
     /// A token that is never cancelled, for tests and for work that genuinely
     /// cannot be interrupted.
     pub fn never() -> Self {
-        Self { flag: Arc::new(AtomicBool::new(false)) }
+        Self {
+            flag: Arc::new(AtomicBool::new(false)),
+        }
     }
 
     /// A token that is already cancelled.
     pub fn cancelled() -> Self {
-        Self { flag: Arc::new(AtomicBool::new(true)) }
+        Self {
+            flag: Arc::new(AtomicBool::new(true)),
+        }
     }
 
     /// Whether cancellation has been requested.
@@ -98,7 +107,9 @@ impl Canceller {
 
     /// Another read handle on the same signal.
     pub fn token(&self) -> CancellationToken {
-        CancellationToken { flag: Arc::clone(&self.flag) }
+        CancellationToken {
+            flag: Arc::clone(&self.flag),
+        }
     }
 }
 

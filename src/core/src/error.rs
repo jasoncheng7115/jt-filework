@@ -131,12 +131,18 @@ pub struct Error {
 impl Error {
     /// Create an error with developer-facing context.
     pub fn new(code: ErrorCode, context: impl Into<String>) -> Self {
-        Self { code, context: context.into() }
+        Self {
+            code,
+            context: context.into(),
+        }
     }
 
     /// Create an error with no additional context.
     pub fn bare(code: ErrorCode) -> Self {
-        Self { code, context: String::new() }
+        Self {
+            code,
+            context: String::new(),
+        }
     }
 
     /// The stable machine-readable code.
@@ -178,7 +184,11 @@ mod tests {
     #[test]
     fn codes_are_unique_and_stable() {
         let strings: HashSet<_> = ErrorCode::ALL.iter().map(|c| c.as_str()).collect();
-        assert_eq!(strings.len(), ErrorCode::ALL.len(), "duplicate error code string");
+        assert_eq!(
+            strings.len(),
+            ErrorCode::ALL.len(),
+            "duplicate error code string"
+        );
 
         let keys: HashSet<_> = ErrorCode::ALL.iter().map(|c| c.message_key()).collect();
         assert_eq!(keys.len(), ErrorCode::ALL.len(), "duplicate message key");
@@ -188,7 +198,10 @@ mod tests {
     fn every_code_string_has_the_expected_shape() {
         for code in ErrorCode::ALL {
             assert!(code.as_str().starts_with("E_"), "{code} must start with E_");
-            assert!(code.message_key().starts_with("error."), "{code} key must be error.*");
+            assert!(
+                code.message_key().starts_with("error."),
+                "{code} key must be error.*"
+            );
         }
     }
 

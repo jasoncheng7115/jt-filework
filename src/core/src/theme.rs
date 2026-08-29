@@ -216,12 +216,16 @@ pub struct Palette {
 impl Palette {
     /// The light palette.
     pub const fn light() -> Self {
-        Self { theme: ResolvedTheme::Light }
+        Self {
+            theme: ResolvedTheme::Light,
+        }
     }
 
     /// The dark palette.
     pub const fn dark() -> Self {
-        Self { theme: ResolvedTheme::Dark }
+        Self {
+            theme: ResolvedTheme::Dark,
+        }
     }
 
     /// The palette for a resolved appearance.
@@ -293,10 +297,22 @@ mod tests {
 
     #[test]
     fn mode_resolves_against_system_appearance() {
-        assert_eq!(ThemeMode::Light.resolve(SystemAppearance::Dark), ResolvedTheme::Light);
-        assert_eq!(ThemeMode::Dark.resolve(SystemAppearance::Light), ResolvedTheme::Dark);
-        assert_eq!(ThemeMode::System.resolve(SystemAppearance::Dark), ResolvedTheme::Dark);
-        assert_eq!(ThemeMode::System.resolve(SystemAppearance::Light), ResolvedTheme::Light);
+        assert_eq!(
+            ThemeMode::Light.resolve(SystemAppearance::Dark),
+            ResolvedTheme::Light
+        );
+        assert_eq!(
+            ThemeMode::Dark.resolve(SystemAppearance::Light),
+            ResolvedTheme::Dark
+        );
+        assert_eq!(
+            ThemeMode::System.resolve(SystemAppearance::Dark),
+            ResolvedTheme::Dark
+        );
+        assert_eq!(
+            ThemeMode::System.resolve(SystemAppearance::Light),
+            ResolvedTheme::Light
+        );
     }
 
     #[test]
@@ -316,7 +332,12 @@ mod tests {
         for &token in ThemeToken::ALL {
             let light = Palette::light().color(token);
             let dark = Palette::dark().color(token);
-            assert_ne!(light, dark, "{} must differ between light and dark", token.as_str());
+            assert_ne!(
+                light,
+                dark,
+                "{} must differ between light and dark",
+                token.as_str()
+            );
         }
     }
 
@@ -336,7 +357,11 @@ mod tests {
             let text = palette.color(ThemeToken::TextPrimary);
             let bg = palette.color(ThemeToken::SurfacePane);
             let ratio = text.contrast_ratio(bg);
-            assert!(ratio >= 4.5, "{:?}: contrast {ratio:.2} below AA", palette.theme());
+            assert!(
+                ratio >= 4.5,
+                "{:?}: contrast {ratio:.2} below AA",
+                palette.theme()
+            );
         }
     }
 
@@ -346,7 +371,11 @@ mod tests {
             let text = palette.color(ThemeToken::TextSecondary);
             let bg = palette.color(ThemeToken::SurfacePane);
             let ratio = text.contrast_ratio(bg);
-            assert!(ratio >= 4.5, "{:?}: contrast {ratio:.2} below AA", palette.theme());
+            assert!(
+                ratio >= 4.5,
+                "{:?}: contrast {ratio:.2} below AA",
+                palette.theme()
+            );
         }
     }
 
@@ -359,7 +388,11 @@ mod tests {
             let selection = palette.color(ThemeToken::SelectionActive);
             assert_ne!(mark, selection);
             let ratio = mark.contrast_ratio(selection);
-            assert!(ratio >= 1.5, "{:?}: mark vs selection contrast {ratio:.2} too low", palette.theme());
+            assert!(
+                ratio >= 1.5,
+                "{:?}: mark vs selection contrast {ratio:.2} too low",
+                palette.theme()
+            );
         }
     }
 
@@ -369,7 +402,11 @@ mod tests {
             let indicator = palette.color(ThemeToken::PaneActiveIndicator);
             let window = palette.color(ThemeToken::SurfaceWindow);
             let ratio = indicator.contrast_ratio(window);
-            assert!(ratio >= 3.0, "{:?}: indicator contrast {ratio:.2} too low", palette.theme());
+            assert!(
+                ratio >= 3.0,
+                "{:?}: indicator contrast {ratio:.2} too low",
+                palette.theme()
+            );
         }
     }
 
@@ -378,7 +415,10 @@ mod tests {
         let black = Color::rgb(0, 0, 0);
         let white = Color::rgb(255, 255, 255);
         let ratio = black.contrast_ratio(white);
-        assert!((ratio - 21.0).abs() < 0.01, "black on white is 21:1, got {ratio}");
+        assert!(
+            (ratio - 21.0).abs() < 0.01,
+            "black on white is 21:1, got {ratio}"
+        );
         assert!((white.contrast_ratio(black) - ratio).abs() < f64::EPSILON);
         assert!((white.contrast_ratio(white) - 1.0).abs() < 0.001);
     }

@@ -24,7 +24,12 @@ pub struct Pane {
 impl Pane {
     /// A pane with a single tab.
     pub fn new(id: PaneId, first_tab: Tab) -> Self {
-        Self { id, tabs: vec![first_tab], active: 0, recently_closed: Vec::new() }
+        Self {
+            id,
+            tabs: vec![first_tab],
+            active: 0,
+            recently_closed: Vec::new(),
+        }
     }
 
     /// Identifier.
@@ -293,7 +298,11 @@ mod tests {
 
         p.activate(TabId::new(3));
         assert!(p.close_tab(TabId::new(3), false));
-        assert_eq!(p.active_tab().unwrap().id(), TabId::new(1), "at the end, step left");
+        assert_eq!(
+            p.active_tab().unwrap().id(),
+            TabId::new(1),
+            "at the end, step left"
+        );
     }
 
     #[test]
@@ -319,7 +328,11 @@ mod tests {
 
         let reopened = p.reopen_closed_tab().unwrap();
         assert_eq!(reopened, TabId::new(2));
-        assert_eq!(p.tab(TabId::new(2)).unwrap(), &before, "history, marks and sort all return");
+        assert_eq!(
+            p.tab(TabId::new(2)).unwrap(),
+            &before,
+            "history, marks and sort all return"
+        );
     }
 
     #[test]
@@ -334,7 +347,11 @@ mod tests {
     fn pinned_tabs_hold_the_leading_block_and_reorder_cannot_cross_it() {
         let mut p = with_tabs(4);
         p.set_pinned(TabId::new(3), true);
-        assert_eq!(p.tabs()[0].id(), TabId::new(3), "pinning moves it to the front");
+        assert_eq!(
+            p.tabs()[0].id(),
+            TabId::new(3),
+            "pinning moves it to the front"
+        );
 
         // An unpinned tab cannot be dragged into the pinned block.
         p.reorder_tab(TabId::new(4), 0);
@@ -358,14 +375,25 @@ mod tests {
     #[test]
     fn duplicate_produces_an_independent_copy_next_to_the_original() {
         let mut p = with_tabs(2);
-        p.tab_mut(TabId::new(1)).unwrap().marks_mut().mark(loc("/one/x"));
+        p.tab_mut(TabId::new(1))
+            .unwrap()
+            .marks_mut()
+            .mark(loc("/one/x"));
 
         p.duplicate_tab(TabId::new(1), TabId::new(99)).unwrap();
-        assert_eq!(p.tabs()[1].id(), TabId::new(99), "the copy sits after the original");
+        assert_eq!(
+            p.tabs()[1].id(),
+            TabId::new(99),
+            "the copy sits after the original"
+        );
         assert_eq!(p.tab(TabId::new(99)).unwrap().marks().len(), 1);
 
         p.tab_mut(TabId::new(99)).unwrap().marks_mut().clear();
-        assert_eq!(p.tab(TabId::new(1)).unwrap().marks().len(), 1, "no aliasing");
+        assert_eq!(
+            p.tab(TabId::new(1)).unwrap().marks().len(),
+            1,
+            "no aliasing"
+        );
     }
 
     #[test]

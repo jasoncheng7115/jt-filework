@@ -1,0 +1,130 @@
+# JT FileWork — English catalogue (fallback locale)
+#
+# Format: `key = value`, one message per line. `#` starts a comment.
+# `{name}` is a placeholder and is part of the message contract: the same
+# placeholders must appear in every locale (docs/I18N_THEME.md 4).
+#
+# Keys are stable semantic identifiers, never English text. English is the
+# fallback locale, so a key missing here is an error, not a gap.
+
+
+column.created = Date Created
+column.extension = Extension
+column.kind = Kind
+column.modified = Date Modified
+column.name = Name
+column.owner = Owner
+column.path = Path
+column.permissions = Permissions
+column.size = Size
+column.tags = Tags
+
+command.ai.ask = Ask AI
+command.category.ai = AI
+command.category.file = File
+command.category.jobs = Jobs
+command.category.navigation = Navigation
+command.category.search = Search
+command.category.selection_marks = Selection and Marks
+command.category.settings = Settings
+command.category.tabs = Tabs
+command.category.view = View
+command.category.workspace = Workspace
+command.file.copy_to_target_pane = Copy to Other Pane
+command.file.delete = Delete Permanently
+command.file.edit = Edit
+command.file.mark.all = Mark All
+command.file.mark.invert = Invert Marks
+command.file.mark.none = Clear Marks
+command.file.mark.toggle = Toggle Mark
+command.file.move_to_target_pane = Move to Other Pane
+command.file.new_folder = New Folder
+command.file.open = Open
+command.file.rename = Rename
+command.file.trash = Move to Trash
+command.file.view = View
+command.jobs.cancel_active = Cancel Current Job
+command.jobs.show = Show Jobs
+command.locale.set = Set Language
+command.nav.back = Back
+command.nav.forward = Forward
+command.nav.goto = Go to Location
+command.nav.home = Home
+command.nav.up = Go Up
+command.preview.quicklook = Quick Look
+command.preview.toggle = Toggle Preview
+command.search.ai = AI Search
+command.search.open = Search
+command.tab.close = Close Tab
+command.tab.duplicate = Duplicate Tab
+command.tab.move_to_pane = Move Tab to Pane
+command.tab.new = New Tab
+command.tab.next = Next Tab
+command.tab.pin = Pin Tab
+command.tab.previous = Previous Tab
+command.tab.reopen = Reopen Closed Tab
+command.theme.set = Set Theme
+command.workspace.pane.close = Close Pane
+command.workspace.pane.next = Next Pane
+command.workspace.pane.previous = Previous Pane
+command.workspace.split.horizontal = Split Horizontally
+command.workspace.split.vertical = Split Vertically
+
+error.already_exists = An item with that name already exists.
+error.cancelled = Cancelled.
+error.device_unavailable = The device or volume is not available.
+error.internal = Something went wrong inside JT FileWork.
+error.invalid_path = That path is not valid.
+error.io = A read or write failed.
+error.limit_exceeded = A safety limit was reached, so the operation stopped.
+error.missing_localization = A text resource is missing.
+error.not_found = The item could not be found.
+error.parse_failed = The content could not be read.
+error.permission_denied = You do not have permission to do that.
+error.provider_failed = An external component failed.
+error.timed_out = The operation timed out.
+error.unsupported = That is not supported on this platform.
+error.wrong_kind = That item is not the right kind for this operation.
+
+jobs.kind.ai_request = Asking AI
+jobs.kind.archive_scan = Reading archive
+jobs.kind.compress = Compressing
+jobs.kind.copy = Copying
+jobs.kind.delete = Deleting
+jobs.kind.enumerate = Listing
+jobs.kind.external_agent = Running agent
+jobs.kind.extract = Extracting
+jobs.kind.hash = Hashing
+jobs.kind.index = Indexing
+jobs.kind.move = Moving
+jobs.kind.preview = Preparing preview
+jobs.kind.recursive_size = Calculating size
+jobs.kind.rename = Renaming
+jobs.kind.search = Searching
+jobs.kind.thumbnail = Making thumbnails
+jobs.kind.trash = Moving to Trash
+jobs.state.cancelled = Cancelled
+jobs.state.completed = Completed
+jobs.state.failed = Failed
+jobs.state.queued = Queued
+jobs.state.running = Running
+jobs.state.waiting_for_user = Waiting for you
+
+session.restore.unreadable = Your previous session could not be read, so JT FileWork started fresh. ({code})
+session.restore.unsupported_version = Your previous session was saved by a newer version, so JT FileWork started fresh.
+
+settings.startup.fixed_location = Start at a chosen location
+settings.startup.home = Start at the home folder
+settings.startup.last_session = Restore the last session
+
+target.active = the focused item
+target.empty = nothing to act on
+target.marked = {count} marked items
+target.selection = {count} selected items
+
+theme.dark = Dark
+theme.light = Light
+theme.system = Follow System
+
+workspace.split.horizontal = Horizontal Split
+workspace.split.vertical = Vertical Split

@@ -79,7 +79,11 @@ impl core::fmt::Debug for CommandBus {
 impl CommandBus {
     /// A bus over a registry.
     pub fn new(registry: CommandRegistry) -> Self {
-        Self { registry, handlers: BTreeMap::new(), history: Vec::new() }
+        Self {
+            registry,
+            handlers: BTreeMap::new(),
+            history: Vec::new(),
+        }
     }
 
     /// The command registry.
@@ -126,7 +130,10 @@ impl CommandBus {
             return Err(DispatchError::NoHandler(command.clone()));
         };
         self.history.push(command.clone());
-        handler().map_err(|reason| DispatchError::Refused { command: command.clone(), reason })
+        handler().map_err(|reason| DispatchError::Refused {
+            command: command.clone(),
+            reason,
+        })
     }
 
     /// Commands dispatched so far, oldest first.
@@ -218,7 +225,10 @@ mod tests {
             bus.dispatch(&CommandId::new("tab.new")),
             Err(DispatchError::NoHandler(_))
         ));
-        assert!(bus.history().is_empty(), "nothing that did not run is recorded");
+        assert!(
+            bus.history().is_empty(),
+            "nothing that did not run is recorded"
+        );
     }
 
     #[test]
@@ -237,7 +247,11 @@ mod tests {
             other => panic!("expected a refusal, got {other:?}"),
         }
         let core: Error = err.into();
-        assert_eq!(core.code(), ErrorCode::PermissionDenied, "the code survives conversion");
+        assert_eq!(
+            core.code(),
+            ErrorCode::PermissionDenied,
+            "the code survives conversion"
+        );
     }
 
     #[test]
