@@ -88,6 +88,19 @@ Main application:
 Possible future plugin SDK / protocol:
 - `Apache-2.0`
 
+## Seeing it work today
+
+There is no GUI yet: the stack is undecided (`docs/adr/0001-gui-stack.md`),
+and `AGENTS.md` §4 forbids building core logic against one before that
+decision. A headless walkthrough exercises the real crates instead:
+
+```bash
+cargo run -p jtf-cli                    # English
+cargo run -p jtf-cli -- --locale zh-TW  # 台灣繁體中文
+```
+
+It ends with an honest list of what does not exist yet.
+
 ## Documentation
 
 - `docs/PRODUCT_SPEC.md`

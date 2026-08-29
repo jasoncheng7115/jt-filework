@@ -1,0 +1,25 @@
+[package]
+name = "jtf-cli"
+description = "Headless walkthrough of the JT FileWork core, for people and for CI smoke tests."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[[bin]]
+name = "jtf-demo"
+path = "src/main.rs"
+
+# Sits above every library and is depended on by nothing, exactly like the UI
+# layer will. Adding it changes no architectural boundary (ADR-0002).
+[dependencies]
+jtf-core = { workspace = true }
+jtf-jobs = { workspace = true }
+jtf-workspace = { workspace = true }
+jtf-commands = { workspace = true }
+
+[lints]
+workspace = true
