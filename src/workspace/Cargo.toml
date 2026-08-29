@@ -1,0 +1,19 @@
+[package]
+name = "jtf-workspace"
+description = "Workspace split tree, panes, per-pane tabs, selection and CView-style marking."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+jtf-core = { workspace = true }
+serde = { workspace = true }
+# Session state is stored as JSON and is untrusted input on read
+# (docs/SECURITY.md 2). Parsing it is a fuzz target, docs/TESTING.md 9.1.
+serde_json = { workspace = true }
+
+[lints]
+workspace = true
