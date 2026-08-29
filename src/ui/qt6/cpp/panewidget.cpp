@@ -114,7 +114,13 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // looks like it did nothing.
     m_header = new JtfHeaderView(m_view);
     m_view->setHorizontalHeader(m_header);
+    // The name column takes whatever the others do not, so the list fills
+    // the pane instead of ending in dead space, and widening a pane widens
+    // the one column where the extra room is worth anything. The rest stay
+    // draggable: a fixed date column is a date column you cannot widen when
+    // the locale writes longer dates.
     m_view->horizontalHeader()->setStretchLastSection(false);
+    m_view->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
     m_view->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     m_view->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     m_view->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -188,8 +194,9 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     applyColumnVisibility();
     m_view->setColumnWidth(0, 330);
     m_view->setColumnWidth(1, 92);
-    m_view->setColumnWidth(2, 128);
-    m_view->setColumnWidth(3, 168);
+    m_view->setColumnWidth(2, 200);
+    m_view->setColumnWidth(3, 160);
+    m_view->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_view->horizontalHeader()->setMinimumSectionSize(56);
     m_view->horizontalHeader()->setHighlightSections(false);
     m_view->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);

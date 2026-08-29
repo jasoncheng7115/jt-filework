@@ -98,15 +98,21 @@ qt_add_executable(jt-filework
     cpp/viewerwindow.cpp
     cpp/viewerwindow.h
     cpp/platform/quicklook.h
+    cpp/platform/filetype.h
     cpp/bridge.h
     cpp/jtfstring.h)
 
 # One platform implementation, chosen here rather than by an #ifdef inside a
 # shared file.
 if(APPLE)
-    target_sources(jt-filework PRIVATE cpp/platform/quicklook_mac.mm)
+    target_sources(jt-filework PRIVATE
+        cpp/platform/quicklook_mac.mm
+        cpp/platform/filetype_mac.mm)
+    target_link_libraries(jt-filework PRIVATE "-framework UniformTypeIdentifiers")
 else()
-    target_sources(jt-filework PRIVATE cpp/platform/quicklook_stub.cpp)
+    target_sources(jt-filework PRIVATE
+        cpp/platform/quicklook_stub.cpp
+        cpp/platform/filetype_stub.cpp)
 endif()
 
 add_dependencies(jt-filework rust_bridge)

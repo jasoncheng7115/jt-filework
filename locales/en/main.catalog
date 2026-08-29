@@ -343,3 +343,4 @@ shortcuts.key = Key
 shortcuts.unbound = —
 command.help.shortcuts = Keyboard Shortcuts
 status.font_size = Font size: {size} pt
+kind.suffix_file = {ext} File

@@ -21,6 +21,14 @@ public:
     // `path` is used only on a cache miss.
     QIcon iconFor(const QString &path, bool isDirectory);
 
+    /// The platform's human-readable name for a file's type.
+    ///
+    /// "PDF Document", not "File". This is platform knowledge in exactly the
+    /// same way the icon is, so it is answered here rather than in the core
+    /// (`AGENTS.md` 8): the model asks the platform what a thing is, and the
+    /// platform is the only one that knows what is installed to open it.
+    QString typeNameFor(const QString &path, bool isDirectory);
+
     void clear();
 
 private:
@@ -28,5 +36,6 @@ private:
     QIcon m_folder;
     QIcon m_file;
     QHash<QString, QIcon> m_bySuffix;
+    QHash<QString, QString> m_typeBySuffix;
     QHash<QString, QIcon> m_byPath; // bundles and anything with its own icon
 };

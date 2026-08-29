@@ -343,3 +343,4 @@ shortcuts.key = 按鍵
 shortcuts.unbound = 未設定
 command.help.shortcuts = 鍵盤快速鍵
 status.font_size = 字型大小：{size} pt
+kind.suffix_file = {ext} 檔案

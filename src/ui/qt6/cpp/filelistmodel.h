@@ -48,6 +48,11 @@ public:
     // and app-to-Finder are the same code path rather than two
     // (docs/PRODUCT_SPEC.md 9).
     bool setData(const QModelIndex &index, const QVariant &value, int role) override;
+
+private:
+    int kindColumn() const;
+
+public:
     Qt::ItemFlags flags(const QModelIndex &index) const override;
     QStringList mimeTypes() const override;
     QMimeData *mimeData(const QModelIndexList &indexes) const override;
@@ -66,5 +71,7 @@ private:
     QColor m_dirColor;
     mutable IconProvider m_icons;
     quint64 m_generation = 0;
+    /// -2 until looked up; -1 when there is no kind column.
+    mutable int m_kindColumn = -2;
     int m_rows = 0;
 };

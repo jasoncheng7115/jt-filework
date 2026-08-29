@@ -1,6 +1,9 @@
 #include "iconprovider.h"
 
+#include "platform/filetype.h"
+
 #include <QFileInfo>
+#include <QMimeDatabase>
 
 namespace {
 // A bounded per-path cache. Application bundles carry their own icons, so
@@ -62,9 +65,57 @@ QIcon IconProvider::iconFor(const QString &path, bool isDirectory) {
     return icon;
 }
 
+QString IconProvider::typeNameFor(const QString &path, bool isDirectory) {
+    const QFileInfo info(path);
+    const QString suffix = info.suffix().toLower();
+
+    if (isDirectory && !hasOwnIcon(suffix)) {
+        static const QString folder =
+            QMimeDatabase().mimeTypeForName(QStringLiteral("inode/directory")).comment();
+        return folder;
+    }
+
+    // Cached by suffix for the same reason the icons are: a directory of ten
+    // thousand photographs must not cost ten thousand database lookups.
+    if (!suffix.isEmpty()) {
+        auto it = m_typeBySuffix.constFind(suffix);
+        if (it != m_typeBySuffix.constEnd()) {
+            return it.value();
+        }
+    }
+
+    // The platform first, so the column agrees with the file manager the
+    // user already has.
+    QString name = filetype::describe(path);
+
+    if (name.isEmpty()) {
+        // MatchExtension, not the default: the default sniffs file contents
+        // for anything it cannot name, which means opening and reading every
+        // file in the directory to fill in a column.
+        static const QMimeDatabase database;
+        const QMimeType type = database.mimeTypeForFile(info, QMimeDatabase::MatchExtension);
+        name = type.comment();
+        // QMimeType::comment() returns the MIME *name* when it has no
+        // description, and on macOS it usually has none - so this arrives as
+        // "application/octet-stream" rather than empty, and an emptiness
+        // check alone would let it through to the column.
+        if (name.contains(QLatin1Char('/')) && !name.contains(QLatin1Char(' '))) {
+            name.clear();
+        }
+    }
+    // Nothing found. The caller phrases the fallback, because the wording is
+    // a catalogue string and this class has no access to the localizer
+    // (AGENTS.md 11: no English literals outside the catalogue).
+    if (!suffix.isEmpty()) {
+        m_typeBySuffix.insert(suffix, name);
+    }
+    return name;
+}
+
 void IconProvider::clear() {
     m_bySuffix.clear();
     m_byPath.clear();
+    m_typeBySuffix.clear();
     m_folder = QIcon();
     m_file = QIcon();
 }

@@ -4,6 +4,7 @@
 #include <QBrush>
 #include <QMimeData>
 #include <QUrl>
+#include <QFileInfo>
 #include <QFont>
 #include <QSet>
 
@@ -45,10 +46,39 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const {
     const int column = index.column();
 
     switch (role) {
-    case Qt::DisplayRole:
+    case Qt::DisplayRole: {
+        // The kind column is answered by the platform, like the icon beside
+        // it: "PDF Document" rather than the core's coarse "File".
+        // A folder is a folder in every locale we ship; only files need the
+        // platform asked, and asking it about a directory returns the
+        // freedesktop wording ("Directory") rather than the one the rest of
+        // the program uses.
+        if (column == kindColumn() && !jtf_row_is_parent(m_app, m_pane, row) &&
+            !jtf_row_is_directory(m_app, m_pane, row)) {
+            const QString path = jtfText([&](char *buf, int len) {
+                return jtf_row_path(m_app, m_pane, row, buf, len);
+            });
+            if (!path.isEmpty()) {
+                const QString type = m_icons.typeNameFor(path, false);
+                if (!type.isEmpty()) {
+                    return type;
+                }
+                // Neither the platform nor Qt could name it. Say so in the
+                // shape the reference layout uses - "TOML File" - rather than
+                // leaving the column blank or printing a MIME identifier.
+                const QString suffix = QFileInfo(path).suffix().toUpper();
+                if (!suffix.isEmpty()) {
+                    const QString pattern = jtfText([&](char *buf, int len) {
+                        return jtf_tr(m_app, "kind.suffix_file", buf, len);
+                    });
+                    return jtfFill(pattern, "ext", suffix);
+                }
+            }
+        }
         return jtfText([&](char *buf, int len) {
             return jtf_row_text(m_app, m_pane, row, column, buf, len);
         });
+    }
 
     case Qt::CheckStateRole:
         // Marks are shown as a checkbox on the name column, which is what a
@@ -105,6 +135,23 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const {
     default:
         return {};
     }
+}
+
+int FileListModel::kindColumn() const {
+    // Found by key, not assumed to be a fixed index: the columns are data and
+    // their order has already changed once.
+    if (m_kindColumn == -2) {
+        m_kindColumn = -1;
+        for (int i = 0; i < jtf_column_count(); ++i) {
+            const QString key =
+                jtfText([&](char *buf, int len) { return jtf_column_key(i, buf, len); });
+            if (key == QLatin1String("column.kind")) {
+                m_kindColumn = i;
+                break;
+            }
+        }
+    }
+    return m_kindColumn;
 }
 
 QVariant FileListModel::headerData(int section, Qt::Orientation orientation, int role) const {
