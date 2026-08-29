@@ -260,3 +260,4 @@ search.placeholder = 在此搜尋 — 例如 glob:*.log size:>1M
 status.searching = 搜尋中… 已找到 {count} 個
 status.results = {count} 個結果
 command.search.clear = 清除搜尋
+settings.dropped_bindings = 有 {count} 個已儲存的快捷鍵指向已不存在的命令，已被移除。

@@ -260,3 +260,4 @@ search.placeholder = Search here — try glob:*.log size:>1M
 status.searching = Searching… {count} found
 status.results = {count} results
 command.search.clear = Clear Search
+settings.dropped_bindings = {count} saved shortcuts referred to commands that no longer exist and were dropped.

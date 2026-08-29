@@ -113,6 +113,7 @@ pub struct App {
     last_summary: Option<crate::operations::Summary>,
     registry: CommandRegistry,
     keymap: Keymap,
+    dropped_bindings: usize,
     repo_root: PathBuf,
     session_path: PathBuf,
 }
@@ -150,15 +151,16 @@ impl App {
             viewer: None,
             last_summary: None,
             registry: CommandRegistry::baseline(),
-            keymap: {
-                let mut keymap = load_keymap(&repo_root, &settings.keymap);
-                apply_user_overrides(&mut keymap);
-                keymap
-            },
+            dropped_bindings: 0,
+            keymap: load_keymap(&repo_root, &settings.keymap),
             settings,
             repo_root,
             session_path,
         };
+        // The user's own bindings are layered on after construction, because
+        // dropping one needs the registry the app now owns.
+        let overrides = apply_user_overrides(&mut app.keymap, &app.registry);
+        app.dropped_bindings = overrides;
         app.refresh_all_panes();
         app
     }
@@ -1398,8 +1400,17 @@ impl App {
     /// rather than leaving the application with no shortcuts at all.
     pub(crate) fn set_keymap(&mut self, name: &str) {
         self.keymap = load_keymap(&self.repo_root, name);
-        apply_user_overrides(&mut self.keymap);
+        self.dropped_bindings = apply_user_overrides(&mut self.keymap, &self.registry);
         self.settings.keymap = self.keymap.name().to_string();
+    }
+
+    /// How many stored bindings named a command that no longer exists.
+    ///
+    /// Surfaced so an upgrade that drops a binding says something changed,
+    /// rather than leaving the user with a dead key
+    /// (`docs/UPGRADE.md` §4.2).
+    pub(crate) const fn dropped_bindings(&self) -> usize {
+        self.dropped_bindings
     }
 
     /// Commands, in registry order, for a settings list.
@@ -1461,17 +1472,24 @@ impl App {
         self.keymap = load_keymap(&self.repo_root, &name);
     }
 
-    /// Persist the whole keymap as the user's own.
+    /// Persist what the user changed, as a diff against their preset.
     ///
-    /// The full map rather than a diff: a preset that changes underneath a
-    /// stored diff would silently move the user's shortcuts around.
+    /// A diff rather than a copy: a copy means every command added in a later
+    /// release ships unbound for anyone who ever customised anything, because
+    /// their file does not mention it and their file wins
+    /// (`docs/UPGRADE.md` §4.1).
     fn save_user_keymap(&self) {
         let path = user_keymap_path();
         if let Some(parent) = path.parent() {
             let _ = fs::create_dir_all(parent);
         }
+        // Diffed against the shipped preset as it is now, not against
+        // whatever is already in the user's file.
+        let preset = load_keymap(&self.repo_root, &self.settings.keymap);
+        let diff = self.keymap.diff_from(&preset);
+
         let temporary = path.with_extension("tmp");
-        if fs::write(&temporary, self.keymap.to_text()).is_ok() {
+        if fs::write(&temporary, diff.to_text()).is_ok() {
             let _ = fs::rename(&temporary, &path);
         }
     }
@@ -1732,17 +1750,19 @@ fn user_keymap_path() -> PathBuf {
 }
 
 /// Layer the user's own bindings over the preset.
-fn apply_user_overrides(keymap: &mut Keymap) {
+/// Layer the user's diff over the preset.
+///
+/// Returns how many bindings were dropped because they named a command that no
+/// longer exists — a rename or a removal must not break the rest of the
+/// keymap (`docs/UPGRADE.md` §4.2).
+fn apply_user_overrides(keymap: &mut Keymap, registry: &CommandRegistry) -> usize {
     let Ok(text) = fs::read_to_string(user_keymap_path()) else {
-        return;
+        return 0;
     };
     let Ok(user) = Keymap::parse(keymap.name(), &text) else {
-        return;
+        return 0;
     };
-    // The user's file is authoritative where it says anything at all.
-    for (chord, command) in user.iter() {
-        let _ = keymap.rebind(command, chord.clone());
-    }
+    keymap.apply_diff(&user, |id| registry.contains(id))
 }
 
 fn load_keymap(repo_root: &std::path::Path, name: &str) -> Keymap {

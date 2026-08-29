@@ -183,6 +183,23 @@ Adding a feature means moving a row, not adding one that was forgotten. If
 something a file manager obviously needs is not on that list, that is a bug in
 the document; fix it before building anything else.
 
+## 10.4 An Upgrade Never Loses What the User Did
+
+`docs/UPGRADE.md` states the rules: every stored artefact carries a format
+version, reading an older one migrates through a tested chain, reading a newer
+one starts fresh and says so, a new setting defaults to the behaviour the user
+already had, and anything derivable is discarded on a schema mismatch rather
+than migrated.
+
+Two consequences worth stating here, because they constrain code rather than
+process:
+
+- **Anything the user can change is stored separately from anything the build
+  ships.** A preset is never written to; a customisation becomes a user file.
+- **A user file that references build-owned identifiers stores a diff**, not a
+  copy, or the next release's additions never reach anyone who customised
+  anything.
+
 ## 11. i18n Is Mandatory
 
 No user-visible string literals in UI implementation.

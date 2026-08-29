@@ -115,6 +115,7 @@ It ends with an honest list of what does not exist yet.
 - `docs/SECURITY.md`
 - `docs/TESTING.md`
 - `docs/UI_TEST_PLAN.md`
+- `docs/UPGRADE.md`
 - `docs/DISTRIBUTION.md`
 - `docs/SIGNING_RUNBOOK.md`
 - `docs/DEVELOPMENT_ENVIRONMENT.md`

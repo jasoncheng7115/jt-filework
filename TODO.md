@@ -371,6 +371,23 @@ Long-lead items: both identities take real time to obtain. See
 - [ ] Vulnerability reporting process and a published security contact
 - [ ] Release gate checklist wired into the release process
 
+## Upgrade / Compatibility (docs/UPGRADE.md)
+
+- [x] Session format version; refuse a newer one and report
+- [x] Atomic session write
+- [x] Serde defaults on every added setting
+- [x] Keymap stored as a diff against its preset
+- [x] Unknown command ids dropped on load, with a count shown
+- [ ] Command rename alias table
+- [ ] Migration chain, one module, one step per version
+- [ ] Committed fixture per released format version
+- [ ] Pre-migration backup of the original file
+- [ ] Application version stamp in every stored file
+- [ ] Cache schema stamp; discard on mismatch, never migrate
+- [ ] First-launch-after-update notice when anything was dropped or reset
+- [ ] Downgrade: older build refuses a newer file without overwriting it
+- [ ] Migration test level in docs/TESTING.md
+
 ## Quality
 
 - [ ] fuzz path/archive code

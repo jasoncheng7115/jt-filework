@@ -131,6 +131,7 @@ int jtf_bind_shortcut(JtfApp *app, const char *command, const char *chord, char 
                       int conflict_len);
 void jtf_clear_shortcut(JtfApp *app, const char *command);
 void jtf_reset_shortcuts(JtfApp *app);
+int jtf_dropped_bindings(const JtfApp *app);
 int jtf_startup_mode(const JtfApp *app);
 int jtf_startup_location(const JtfApp *app, char *buf, int len);
 void jtf_set_startup(JtfApp *app, int mode, const char *location);

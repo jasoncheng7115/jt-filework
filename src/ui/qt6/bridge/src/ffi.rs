@@ -1430,6 +1430,15 @@ pub unsafe extern "C" fn jtf_clear_shortcut(app: *mut App, command: *const c_cha
     }
 }
 
+/// How many stored bindings named a command that no longer exists.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_dropped_bindings(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::try_from(a.dropped_bindings()).unwrap_or(0))
+}
+
 /// Discard every customisation and go back to the preset.
 ///
 /// # Safety

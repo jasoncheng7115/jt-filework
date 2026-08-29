@@ -327,10 +327,17 @@ impl KeyChord {
 }
 
 /// A named set of bindings.
+///
+/// A keymap can also record that a command is **explicitly unbound**, which is
+/// different from not mentioning it. The difference only matters for a user's
+/// own keymap, which is stored as a diff against a preset
+/// (`docs/UPGRADE.md` §4.1): "not mentioned" means "whatever the preset says",
+/// and that has to be distinguishable from "I removed this".
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Keymap {
     name: String,
     bindings: BTreeMap<KeyChord, CommandId>,
+    unbound: std::collections::BTreeSet<CommandId>,
 }
 
 impl Keymap {
@@ -339,7 +346,77 @@ impl Keymap {
         Self {
             name: name.into(),
             bindings: BTreeMap::new(),
+            unbound: std::collections::BTreeSet::new(),
         }
+    }
+
+    /// Commands this map says have no shortcut.
+    pub fn unbound(&self) -> impl Iterator<Item = &CommandId> {
+        self.unbound.iter()
+    }
+
+    /// Record that a command is deliberately unbound.
+    pub fn set_unbound(&mut self, command: CommandId) {
+        self.unbind_command(&command);
+        self.unbound.insert(command);
+    }
+
+    /// What this map changes relative to `preset`.
+    ///
+    /// Only differences are stored, so a later release's new bindings reach a
+    /// user who customised something else. Storing a copy instead means every
+    /// command added after the customisation ships unbound for that user
+    /// (`docs/UPGRADE.md` §4.1).
+    #[must_use]
+    pub fn diff_from(&self, preset: &Self) -> Self {
+        let mut diff = Self::new(&self.name);
+
+        for (chord, command) in &self.bindings {
+            let same_as_preset = preset
+                .chords_for(command)
+                .first()
+                .is_some_and(|preset_chord| *preset_chord == chord);
+            if !same_as_preset {
+                diff.bindings.insert(chord.clone(), command.clone());
+            }
+        }
+        // A command the preset binds and this map does not is an explicit
+        // removal, not an omission.
+        for command in preset.bindings.values() {
+            if self.chords_for(command).is_empty() {
+                diff.unbound.insert(command.clone());
+            }
+        }
+        diff
+    }
+
+    /// Layer a diff on top of this map.
+    ///
+    /// `keep` decides which command ids still exist; a binding for a command
+    /// that has been removed or renamed is dropped rather than treated as an
+    /// error, and the count is returned so the UI can say something changed
+    /// (`docs/UPGRADE.md` §4.2).
+    pub fn apply_diff(&mut self, diff: &Self, keep: impl Fn(&CommandId) -> bool) -> usize {
+        let mut dropped = 0usize;
+
+        for command in &diff.unbound {
+            if keep(command) {
+                self.unbind_command(command);
+            } else {
+                dropped += 1;
+            }
+        }
+        for (chord, command) in &diff.bindings {
+            if !keep(command) {
+                dropped += 1;
+                continue;
+            }
+            // A user's choice wins over whatever held the chord in the preset.
+            self.bindings.remove(chord);
+            self.unbind_command(command);
+            self.bindings.insert(chord.clone(), command.clone());
+        }
+        dropped
     }
 
     /// The keymap's name.
@@ -426,9 +503,12 @@ impl Keymap {
     /// Used to save a user's overrides, so what is written is the same thing
     /// the loader reads — no second format to drift out of step.
     pub fn to_text(&self) -> String {
-        let mut lines = Vec::with_capacity(self.bindings.len());
+        let mut lines = Vec::with_capacity(self.bindings.len() + self.unbound.len());
         for (chord, command) in &self.bindings {
             lines.push(format!("{} = {command}", chord.to_source_text()));
+        }
+        for command in &self.unbound {
+            lines.push(format!("none = {command}"));
         }
         lines.join("\n") + "\n"
     }
@@ -463,11 +543,17 @@ impl Keymap {
             let Some((chord_text, command_text)) = line.split_once('=') else {
                 return Err(KeymapError::MalformedLine { line: index + 1 });
             };
-            let chord = KeyChord::parse(chord_text)?;
             let command = CommandId::new(command_text.trim());
             if command.as_str().is_empty() {
                 return Err(KeymapError::MalformedLine { line: index + 1 });
             }
+            // `none` records an explicit removal, which a diff needs to be
+            // able to say (docs/UPGRADE.md 4.1).
+            if chord_text.trim().eq_ignore_ascii_case("none") {
+                map.unbound.insert(command);
+                continue;
+            }
+            let chord = KeyChord::parse(chord_text)?;
             if let Err(KeymapError::Conflict {
                 existing, incoming, ..
             }) = map.bind(chord, command)
@@ -681,6 +767,110 @@ primary+f          = search.open
         for (chord, command) in original.iter() {
             assert_eq!(reloaded.resolve(chord), Some(command));
         }
+    }
+
+    #[test]
+    fn a_diff_carries_only_what_changed_and_survives_a_new_preset_binding() {
+        // docs/UPGRADE.md 4.1: the upgrade case this design exists for.
+        let preset = Keymap::parse("p", "primary+t = tab.new\nprimary+w = tab.close").unwrap();
+
+        let mut mine = preset.clone();
+        mine.rebind(
+            &CommandId::new("tab.new"),
+            KeyChord::parse("primary+n").unwrap(),
+        )
+        .unwrap();
+        let diff = mine.diff_from(&preset);
+
+        assert_eq!(diff.len(), 1, "only the changed binding is stored");
+        assert!(diff.unbound().next().is_none());
+
+        // A later release adds a command and a default for it.
+        let mut newer = Keymap::parse(
+            "p",
+            "primary+t = tab.new\nprimary+w = tab.close\nprimary+f = search.open",
+        )
+        .unwrap();
+        let dropped = newer.apply_diff(&diff, |_| true);
+
+        assert_eq!(dropped, 0);
+        assert_eq!(
+            newer
+                .resolve(&KeyChord::parse("primary+n").unwrap())
+                .unwrap()
+                .as_str(),
+            "tab.new",
+            "the customisation survived"
+        );
+        assert_eq!(
+            newer
+                .resolve(&KeyChord::parse("primary+f").unwrap())
+                .unwrap()
+                .as_str(),
+            "search.open",
+            "and the new default arrived"
+        );
+        assert!(
+            newer
+                .resolve(&KeyChord::parse("primary+t").unwrap())
+                .is_none(),
+            "the old chord did not come back"
+        );
+    }
+
+    #[test]
+    fn an_explicit_removal_is_not_the_same_as_an_omission() {
+        let preset = Keymap::parse("p", "primary+t = tab.new\nprimary+w = tab.close").unwrap();
+
+        let mut mine = preset.clone();
+        mine.unbind_command(&CommandId::new("tab.close"));
+        let diff = mine.diff_from(&preset);
+
+        assert_eq!(diff.unbound().count(), 1);
+
+        let mut fresh = preset.clone();
+        fresh.apply_diff(&diff, |_| true);
+        assert!(
+            fresh.chords_for(&CommandId::new("tab.close")).is_empty(),
+            "a removal the user made stays removed"
+        );
+        assert!(!fresh.chords_for(&CommandId::new("tab.new")).is_empty());
+    }
+
+    #[test]
+    fn a_binding_for_a_removed_command_is_dropped_rather_than_fatal() {
+        // docs/UPGRADE.md 4.2.
+        let preset = Keymap::parse("p", "primary+t = tab.new").unwrap();
+        let diff = Keymap::parse("p", "primary+x = gone.forever\nprimary+n = tab.new").unwrap();
+
+        let mut merged = preset;
+        let dropped = merged.apply_diff(&diff, |id| id.as_str() != "gone.forever");
+
+        assert_eq!(dropped, 1, "the caller can say that something changed");
+        assert_eq!(
+            merged
+                .resolve(&KeyChord::parse("primary+n").unwrap())
+                .unwrap()
+                .as_str(),
+            "tab.new",
+            "the rest of the keymap still works"
+        );
+    }
+
+    #[test]
+    fn a_diff_round_trips_through_text_including_removals() {
+        let preset = Keymap::parse("p", "primary+t = tab.new\nprimary+w = tab.close").unwrap();
+        let mut mine = preset.clone();
+        mine.rebind(
+            &CommandId::new("tab.new"),
+            KeyChord::parse("primary+n").unwrap(),
+        )
+        .unwrap();
+        mine.unbind_command(&CommandId::new("tab.close"));
+
+        let diff = mine.diff_from(&preset);
+        let reloaded = Keymap::parse("p", &diff.to_text()).unwrap();
+        assert_eq!(reloaded, diff);
     }
 
     #[test]

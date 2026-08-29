@@ -307,8 +307,18 @@ QWidget *SettingsDialog::buildKeyboardTab() {
             [this](int row, int) { editShortcut(row); });
     layout->addWidget(m_shortcuts, 1);
 
-    m_shortcutHint = new QLabel(tr_("settings.shortcut_hint"), page);
+    m_shortcutHint = new QLabel(page);
     m_shortcutHint->setWordWrap(true);
+    // An upgrade that drops a binding says so here, rather than leaving the
+    // user with a key that quietly stopped working (docs/UPGRADE.md 4.2).
+    const int dropped = jtf_dropped_bindings(m_app);
+    if (dropped > 0) {
+        m_shortcutHint->setText(
+            jtfFill(tr_("settings.dropped_bindings"), "count", QString::number(dropped)) +
+            QStringLiteral("\n") + tr_("settings.shortcut_hint"));
+    } else {
+        m_shortcutHint->setText(tr_("settings.shortcut_hint"));
+    }
     layout->addWidget(m_shortcutHint);
 
     reloadShortcuts();
