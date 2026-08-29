@@ -43,7 +43,7 @@ Status is one of **Done**, **Partial** (works, with the gap named), or
 | 永久刪除 | Done | Confirmed first |
 | 復原刪除 | Done | `file.undo` reverses it immediately; afterwards Finder's own Put Back works, because trashing goes through the platform's call |
 | 取得檔案/目錄資訊 | Done | The inspector |
-| 檔案權限基本顯示 | Partial | A column exists; not shown by default |
+| 檔案權限基本顯示 | Done | An rwx column, off by default |
 | 檔案路徑複製 | Done | Path and name |
 | Reveal in Finder | Done | macOS; Windows and Linux are stubs |
 | 資料夾大小背景計算 | Done | On demand, cached with an mtime and time bound |

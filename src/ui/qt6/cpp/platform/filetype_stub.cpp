@@ -29,4 +29,9 @@ bool openWith(const QString &, const QString &) { return false; }
 // specification's info files. Until then the caller's own fallback runs.
 QString moveToTrash(const QString &) { return {}; }
 
+// Windows has no equivalent; Linux stores tags in extended attributes that no
+// two file managers agree on. The column stays empty rather than inventing
+// something only this program would understand.
+QStringList tagsFor(const QString &) { return {}; }
+
 } // namespace filetype

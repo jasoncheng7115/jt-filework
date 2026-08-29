@@ -124,4 +124,25 @@ QString moveToTrash(const QString &path) {
     }
 }
 
+QStringList tagsFor(const QString &path) {
+    @autoreleasepool {
+        QStringList tags;
+        NSURL *url = [NSURL fileURLWithPath:path.toNSString()];
+        if (url == nil) {
+            return tags;
+        }
+        NSArray<NSString *> *names = nil;
+        NSError *error = nil;
+        // Asked of the file, not of a database: a tag set in Finder a second
+        // ago is on the file already.
+        if (![url getResourceValue:&names forKey:NSURLTagNamesKey error:&error]) {
+            return tags;
+        }
+        for (NSString *name in names) {
+            tags.append(QString::fromNSString(name));
+        }
+        return tags;
+    }
+}
+
 } // namespace filetype

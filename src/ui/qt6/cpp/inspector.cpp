@@ -3,6 +3,7 @@
 #include "bridge.h"
 #include "icons.h"
 #include "theme.h"
+#include "platform/filetype.h"
 #include "jtfstring.h"
 
 #include <QDateTime>
@@ -291,6 +292,10 @@ void Inspector::rebuild() {
     const QDateTime born = info.birthTime();
     if (born.isValid()) {
         addRow(QStringLiteral("inspector.created"), locale.toString(born, QLocale::ShortFormat));
+    }
+    const QStringList tags = filetype::tagsFor(m_path);
+    if (!tags.isEmpty()) {
+        addRow(QStringLiteral("inspector.tags"), tags.join(QStringLiteral(", ")));
     }
     addRow(QStringLiteral("inspector.where"), info.absolutePath());
     if (info.isSymLink()) {

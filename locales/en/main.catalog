@@ -379,3 +379,4 @@ command.file.new_file = New File…
 new_file.title = New file
 new_file.label = Name
 file.open_with = Open With
+inspector.tags = Tags

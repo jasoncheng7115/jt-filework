@@ -52,6 +52,8 @@ public:
 
 private:
     int kindColumn() const;
+    int tagsColumn() const;
+    int columnWithKey(const QString &wanted) const;
 
 public:
     Qt::ItemFlags flags(const QModelIndex &index) const override;
@@ -79,5 +81,6 @@ private:
     quint64 m_generation = 0;
     /// -2 until looked up; -1 when there is no kind column.
     mutable int m_kindColumn = -2;
+    mutable int m_tagsColumn = -2;
     int m_rows = 0;
 };

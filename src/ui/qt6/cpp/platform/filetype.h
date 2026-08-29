@@ -15,6 +15,7 @@
 #pragma once
 
 #include <QList>
+#include <QStringList>
 #include <QString>
 
 namespace filetype {
@@ -64,5 +65,12 @@ bool openWith(const QString &path, const QString &identifier);
 // on another volume goes to that volume's trash rather than to the home
 // directory's - neither of which a hand-rolled move can do.
 QString moveToTrash(const QString &path);
+
+// The platform's tags for `path`, or empty.
+//
+// macOS stores these on the file itself, so they travel with it and are the
+// same tags Finder shows. Reading them rather than keeping our own list is
+// what makes the two agree.
+QStringList tagsFor(const QString &path);
 
 } // namespace filetype

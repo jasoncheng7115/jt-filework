@@ -1,5 +1,6 @@
 #include "filelistmodel.h"
 #include "jtfstring.h"
+#include "platform/filetype.h"
 
 #include <QBrush>
 #include <QPixmap>
@@ -72,6 +73,16 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const {
     case Qt::DisplayRole: {
         // The kind column is answered by the platform, like the icon beside
         // it: "PDF Document" rather than the core's coarse "File".
+        // Tags come from the platform for the same reason the type does: they
+        // live on the file, and Finder is showing the same ones.
+        if (column == tagsColumn() && !jtf_row_is_parent(m_app, m_pane, row)) {
+            const QString path = jtfText([&](char *buf, int len) {
+                return jtf_row_path(m_app, m_pane, row, buf, len);
+            });
+            if (!path.isEmpty()) {
+                return filetype::tagsFor(path).join(QStringLiteral(", "));
+            }
+        }
         // A folder is a folder in every locale we ship; only files need the
         // platform asked, and asking it about a directory returns the
         // freedesktop wording ("Directory") rather than the one the rest of
@@ -174,19 +185,29 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const {
     }
 }
 
+int FileListModel::tagsColumn() const {
+    if (m_tagsColumn == -2) {
+        m_tagsColumn = columnWithKey(QStringLiteral("column.tags"));
+    }
+    return m_tagsColumn;
+}
+
+int FileListModel::columnWithKey(const QString &wanted) const {
+    for (int i = 0; i < jtf_column_count(); ++i) {
+        const QString key =
+            jtfText([&](char *buf, int len) { return jtf_column_key(i, buf, len); });
+        if (key == wanted) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 int FileListModel::kindColumn() const {
     // Found by key, not assumed to be a fixed index: the columns are data and
     // their order has already changed once.
     if (m_kindColumn == -2) {
-        m_kindColumn = -1;
-        for (int i = 0; i < jtf_column_count(); ++i) {
-            const QString key =
-                jtfText([&](char *buf, int len) { return jtf_column_key(i, buf, len); });
-            if (key == QLatin1String("column.kind")) {
-                m_kindColumn = i;
-                break;
-            }
-        }
+        m_kindColumn = columnWithKey(QStringLiteral("column.kind"));
     }
     return m_kindColumn;
 }
