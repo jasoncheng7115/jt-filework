@@ -879,6 +879,20 @@ impl App {
         self.places.clear_recent();
     }
 
+    /// The command a chord runs, if any. Empty when nothing is bound.
+    pub(crate) fn command_for_chord(&self, chord: &str) -> String {
+        KeyChord::parse(chord).ok().map_or_else(String::new, |c| {
+            self.keymap
+                .command_for(&c)
+                .map_or_else(String::new, |id| id.as_str().to_string())
+        })
+    }
+
+    /// Whether a bare printable key jumps to a file name in this keymap.
+    pub(crate) const fn type_ahead(&self) -> bool {
+        self.keymap.type_ahead()
+    }
+
     /// Whether the inspector is shown, and how wide.
     pub(crate) const fn inspector_state(&self) -> (bool, u16) {
         (

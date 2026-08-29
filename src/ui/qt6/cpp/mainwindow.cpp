@@ -982,6 +982,7 @@ QWidget *MainWindow::buildNode(const QJsonObject &node) {
             markActivePane();
         });
         connect(pane, &PaneWidget::stateChanged, this, [this] { refreshAll(); });
+        connect(pane, &PaneWidget::commandRequested, this, &MainWindow::runCommand);
         connect(pane, &PaneWidget::contextMenuRequested, this,
                 [this, paneId](const QPoint &global, bool onEntry) {
                     showEntryMenu(paneId, global, onEntry);
@@ -1023,6 +1024,20 @@ void MainWindow::setTreeVisible(bool visible) {
         syncTree();
     }
     jtf_set_tree_state(m_app, visible ? 1 : 0, m_outer->sizes().value(0));
+}
+
+void MainWindow::runCommand(const QString &id) {
+    // Routed to the same QAction the menu uses, so a key and a menu entry can
+    // never drift into doing two different things - and so a command that is
+    // disabled stays disabled however it is reached.
+    for (const auto &entry : std::as_const(m_commandActions)) {
+        if (QLatin1String(entry.second) == id) {
+            if (entry.first->isEnabled()) {
+                entry.first->trigger();
+            }
+            return;
+        }
+    }
 }
 
 void MainWindow::toggleBookmark() {

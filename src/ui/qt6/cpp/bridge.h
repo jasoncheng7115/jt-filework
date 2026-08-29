@@ -106,6 +106,9 @@ int jtf_preview_row(JtfApp *app, uint64_t row, char *buf, int len);
 int jtf_preview_encoding_key(const JtfApp *app, char *buf, int len);
 int jtf_preview_line_ending_key(const JtfApp *app, char *buf, int len);
 
+int jtf_command_for_chord(const JtfApp *app, const char *chord, char *buf, int len);
+int jtf_type_ahead(const JtfApp *app);
+
 int jtf_listed_count(const JtfApp *app, int pane);
 int jtf_folder_count(const JtfApp *app, int pane);
 uint64_t jtf_visible_bytes(const JtfApp *app, int pane);

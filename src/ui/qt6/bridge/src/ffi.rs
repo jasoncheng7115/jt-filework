@@ -1081,6 +1081,34 @@ pub unsafe extern "C" fn jtf_preview_line_ending_key(
     unsafe { write_str(key, buf, len) }
 }
 
+/// The command a chord runs. Empty when nothing is bound.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `chord` must be a valid C string and `buf` must have
+/// room for `len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_command_for_chord(
+    app: *const App,
+    chord: *const c_char,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(chord) = (unsafe { read_str(chord) }) else {
+        return 0;
+    };
+    let id = unsafe { app_ref(app) }.map_or_else(String::new, |a| a.command_for_chord(chord));
+    unsafe { write_str(&id, buf, len) }
+}
+
+/// Whether a bare printable key jumps to a file name in the active keymap.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_type_ahead(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(1, |a| c_int::from(a.type_ahead()))
+}
+
 /// How many of the pane's rows are real entries, excluding any `..` row.
 ///
 /// # Safety

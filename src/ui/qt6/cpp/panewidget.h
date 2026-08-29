@@ -49,6 +49,8 @@ public:
     void setActive(bool active);
 
 signals:
+    /// A keymap binding fired from inside the list; the window runs it.
+    void commandRequested(const QString &id);
     void focusRequested(int paneId);
     void stateChanged();
     void selectionChanged();
@@ -65,6 +67,7 @@ private:
     void showContextMenu(const QPoint &position);
     void showHeaderMenu(const QPoint &position);
     void applyColumnVisibility();
+    static QString chordFor(const class QKeyEvent *key);
     // Typing letters jumps to a matching row. docs/UI_UX_SPEC.md 5.4: it must
     // never start a rename and never trigger a destructive command.
     bool typeAhead(const QString &text);

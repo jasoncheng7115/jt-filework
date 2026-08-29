@@ -193,6 +193,42 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_view->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 }
 
+QString PaneWidget::chordFor(const QKeyEvent *key) {
+    // The keymap's spelling, so C++ never invents a second name for a key.
+    // Only the keys a file list can legitimately claim are named here: a
+    // chord this returns empty for falls through to Qt.
+    static const QHash<int, QString> named = {
+        {Qt::Key_Left, QStringLiteral("left")},     {Qt::Key_Right, QStringLiteral("right")},
+        {Qt::Key_Up, QStringLiteral("up")},         {Qt::Key_Down, QStringLiteral("down")},
+        {Qt::Key_Home, QStringLiteral("home")},     {Qt::Key_End, QStringLiteral("end")},
+        {Qt::Key_PageUp, QStringLiteral("pageup")}, {Qt::Key_PageDown, QStringLiteral("pagedown")},
+        {Qt::Key_Insert, QStringLiteral("insert")}, {Qt::Key_Delete, QStringLiteral("delete")},
+    };
+
+    QString name = named.value(key->key());
+    if (name.isEmpty()) {
+        const QString text = key->text();
+        if (text.size() != 1 || !text.at(0).isLetterOrNumber()) {
+            return {};
+        }
+        name = text.toLower();
+    }
+
+    QStringList parts;
+    const Qt::KeyboardModifiers mods = key->modifiers();
+    if (mods.testFlag(Qt::ControlModifier)) {
+        parts << QStringLiteral("primary");
+    }
+    if (mods.testFlag(Qt::AltModifier)) {
+        parts << QStringLiteral("alt");
+    }
+    if (mods.testFlag(Qt::ShiftModifier)) {
+        parts << QStringLiteral("shift");
+    }
+    parts << name;
+    return parts.join(QLatin1Char('+'));
+}
+
 void PaneWidget::openRow(int row) {
     // A folder is entered; anything else is handed to the system's default
     // application. Double-clicking a file and having nothing happen is the
@@ -423,6 +459,27 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
             m_typeAhead.clear();
             return true;
 
+        case Qt::Key_Left:
+        case Qt::Key_Right: {
+            // The list has columns, so Qt would move the current cell
+            // sideways. In a file manager the horizontal axis is the folder
+            // hierarchy, not the column list, and both CView and every
+            // tree-walking file manager read Left as "out" and Right as "in".
+            if (key->modifiers() != Qt::NoModifier) {
+                break;
+            }
+            const QString chord = chordFor(key);
+            const QByteArray utf8 = chord.toUtf8();
+            const QString id = jtfText([&](char *b, int l) {
+                return jtf_command_for_chord(m_app, utf8.constData(), b, l);
+            });
+            if (id.isEmpty()) {
+                break;
+            }
+            emit commandRequested(id);
+            return true;
+        }
+
         case Qt::Key_Down:
             // Cmd+Down opens, the macOS convention, and the counterpart to
             // Cmd+Up for going back out.
@@ -436,6 +493,30 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
             break;
 
         default: {
+            // A keymap that binds bare letters to commands - the CView
+            // tradition, where `e` edits and `v` views - decides this before
+            // type-ahead gets a chance, because in that tradition typing a
+            // letter is not how you find a file.
+            if (!jtf_type_ahead(m_app)) {
+                const QString chord = chordFor(key);
+                if (!chord.isEmpty()) {
+                    const QByteArray utf8 = chord.toUtf8();
+                    const QString id = jtfText([&](char *b, int l) {
+                        return jtf_command_for_chord(m_app, utf8.constData(), b, l);
+                    });
+                    if (!id.isEmpty()) {
+                        emit commandRequested(id);
+                        return true;
+                    }
+                }
+                // No binding and no type-ahead: swallow it rather than let
+                // the view treat a letter as cursor movement.
+                if (!key->text().isEmpty() && key->text().at(0).isPrint()) {
+                    return true;
+                }
+                break;
+            }
+
             // Plain printable text starts or continues a type-ahead search.
             const QString text = key->text();
             if (!text.isEmpty() && text.at(0).isPrint() &&

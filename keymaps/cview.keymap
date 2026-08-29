@@ -1,15 +1,25 @@
 # jt-filework — CView / WinCV keymap
 #
-# The function-key layout long-time CView and WinCV users have in their
-# fingers, in the Norton Commander lineage those tools belong to. Where a
-# command does not exist yet the binding is simply absent rather than bound to
-# something approximate.
+# INCOMPLETE. Parts of this map were inferred from the Norton Commander
+# lineage rather than taken from CView's own key table, and at least one
+# inference was wrong: bare letters are commands in CView, which the first
+# draft did not account for. Bindings confirmed by a CView user are marked
+# `# confirmed`; the rest are provisional and should be checked against the
+# real key table before release.
+#
+# Where a command does not exist yet the binding is simply absent rather than
+# bound to something approximate.
 #
 # On macOS the function row is media keys by default. To use this preset as
 # intended, turn on:
 #   System Settings -> Keyboard -> "Use F1, F2, etc. keys as standard
 #   function keys"
 # Otherwise hold Fn together with the function key.
+
+# In CView a bare letter is a command, not a jump to a file name: `e` edits,
+# `v` views. Type-ahead would swallow those keys before the binding below ever
+# saw them, so the preset turns it off.
+!type_ahead          = off
 
 # --- the function row
 f2                   = file.rename
@@ -31,6 +41,8 @@ primary+1            = workspace.preset.single
 primary+4            = workspace.preset.quad
 
 # --- navigation
+left                 = nav.up            # confirmed
+right                = file.open
 backspace            = nav.up
 ctrl+pageup          = nav.up
 alt+left             = nav.back
@@ -46,8 +58,8 @@ primary+z            = file.mark.none
 primary+i            = file.mark.invert
 
 # --- files
-e                    = file.edit
-v                    = file.view
+e                    = file.edit         # confirmed
+v                    = file.view         # confirmed
 primary+d            = file.duplicate
 primary+shift+m      = file.batch_rename
 primary+shift+r      = file.reveal

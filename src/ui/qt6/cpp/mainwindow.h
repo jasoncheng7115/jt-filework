@@ -63,6 +63,7 @@ private:
     void toggleTree();
     void setTreeVisible(bool visible);
     void syncTree();
+    void runCommand(const QString &id);
     void toggleBookmark();
     void setInspectorVisible(bool visible);
     void syncInspector();

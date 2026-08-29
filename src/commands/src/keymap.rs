@@ -363,6 +363,7 @@ pub struct Keymap {
     name: String,
     bindings: BTreeMap<KeyChord, CommandId>,
     unbound: std::collections::BTreeSet<CommandId>,
+    type_ahead: bool,
 }
 
 impl Keymap {
@@ -372,7 +373,27 @@ impl Keymap {
             name: name.into(),
             bindings: BTreeMap::new(),
             unbound: std::collections::BTreeSet::new(),
+            type_ahead: true,
         }
+    }
+
+    /// Whether a bare printable key jumps to a file name.
+    ///
+    /// True in the platform preset, where typing `r` selects `report.txt` the
+    /// way Finder and Explorer do. False in the CView preset, where a bare
+    /// letter is a command — `e` edits, `v` views — and jumping to a file
+    /// name instead would run nothing and move the cursor.
+    ///
+    /// A property of the keymap rather than a setting of its own: the two
+    /// answers belong to the two keyboard traditions, and a preset that binds
+    /// letters to commands has already decided this.
+    pub const fn type_ahead(&self) -> bool {
+        self.type_ahead
+    }
+
+    /// Set whether bare printable keys jump to a file name.
+    pub const fn set_type_ahead(&mut self, on: bool) {
+        self.type_ahead = on;
     }
 
     /// Commands this map says have no shortcut.
@@ -528,7 +549,12 @@ impl Keymap {
     /// Used to save a user's overrides, so what is written is the same thing
     /// the loader reads — no second format to drift out of step.
     pub fn to_text(&self) -> String {
-        let mut lines = Vec::with_capacity(self.bindings.len() + self.unbound.len());
+        let mut lines = Vec::with_capacity(self.bindings.len() + self.unbound.len() + 1);
+        // Written only when it differs from the default, so a keymap that
+        // never thought about it stays as short as the user wrote it.
+        if !self.type_ahead {
+            lines.push("!type_ahead = off".to_string());
+        }
         for (chord, command) in &self.bindings {
             lines.push(format!("{} = {command}", chord.to_source_text()));
         }
@@ -561,13 +587,29 @@ impl Keymap {
     pub fn parse(name: impl Into<String>, text: &str) -> Result<Self, KeymapError> {
         let mut map = Self::new(name);
         for (index, raw) in text.lines().enumerate() {
-            let line = raw.trim();
-            if line.is_empty() || line.starts_with('#') {
+            // A trailing comment is stripped before parsing. Neither a key
+            // name nor a command id can contain `#`, so the first one starts a
+            // comment wherever it appears. Annotating a single binding - which
+            // of these came from the real key table, and which is a guess - is
+            // worth more on the line than in a paragraph at the top.
+            let line = raw.split('#').next().unwrap_or(raw).trim();
+            if line.is_empty() {
                 continue;
             }
             let Some((chord_text, command_text)) = line.split_once('=') else {
                 return Err(KeymapError::MalformedLine { line: index + 1 });
             };
+            // Options read as `!name = value`, so they cannot collide with a
+            // key name: no chord starts with `!`.
+            if let Some(option) = chord_text.trim().strip_prefix('!') {
+                match option.trim() {
+                    "type_ahead" => {
+                        map.type_ahead = matches!(command_text.trim(), "on" | "true" | "yes");
+                    }
+                    _ => return Err(KeymapError::MalformedLine { line: index + 1 }),
+                }
+                continue;
+            }
             let command = CommandId::new(command_text.trim());
             if command.as_str().is_empty() {
                 return Err(KeymapError::MalformedLine { line: index + 1 });
@@ -931,5 +973,62 @@ primary+f          = search.open
     fn a_malformed_line_reports_its_number() {
         let err = Keymap::parse("test", "primary+t = tab.new\nthis is not a binding").unwrap_err();
         assert_eq!(err, KeymapError::MalformedLine { line: 2 });
+    }
+}
+
+#[cfg(test)]
+mod type_ahead_tests {
+    use super::Keymap;
+
+    #[test]
+    fn type_ahead_is_on_unless_a_keymap_turns_it_off() {
+        let map = Keymap::parse("m", "primary+c = file.copy\n").expect("parses");
+        assert!(
+            map.type_ahead(),
+            "the platform tradition is the default: typing a letter finds a file"
+        );
+    }
+
+    #[test]
+    fn a_keymap_can_turn_type_ahead_off() {
+        let map = Keymap::parse("m", "!type_ahead = off\ne = file.edit\n").expect("parses");
+        assert!(
+            !map.type_ahead(),
+            "a preset that binds bare letters to commands cannot also use them \
+             to jump to file names"
+        );
+        assert_eq!(map.len(), 1, "the option line is not a binding");
+    }
+
+    #[test]
+    fn the_option_survives_a_round_trip() {
+        let map = Keymap::parse("m", "!type_ahead = off\ne = file.edit\n").expect("parses");
+        let again = Keymap::parse("m", &map.to_text()).expect("re-parses");
+        assert!(
+            !again.type_ahead(),
+            "saving a keymap must not silently restore type-ahead"
+        );
+    }
+
+    #[test]
+    fn a_trailing_comment_annotates_a_binding() {
+        let map =
+            Keymap::parse("m", "e = file.edit   # confirmed\n# a whole line\n").expect("parses");
+        assert_eq!(map.len(), 1);
+        assert_eq!(
+            map.command_for(&super::KeyChord::parse("e").expect("chord"))
+                .map(super::CommandId::as_str),
+            Some("file.edit"),
+            "the comment must not become part of the command id"
+        );
+    }
+
+    #[test]
+    fn an_unknown_option_is_an_error_rather_than_a_shrug() {
+        assert!(
+            Keymap::parse("m", "!nonsense = on\n").is_err(),
+            "a typo in an option must fail loudly; silently ignoring it is how \
+             a keymap ends up not doing what it says"
+        );
     }
 }
