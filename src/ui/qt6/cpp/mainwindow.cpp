@@ -615,6 +615,10 @@ void MainWindow::applyTheme() {
     palette.setColor(QPalette::PlaceholderText, m_theme.textSecondary);
     palette.setColor(QPalette::Highlight, m_theme.selection);
     palette.setColor(QPalette::HighlightedText, m_theme.textOnAccent);
+    // Tooltips are painted from the palette on some styles regardless of the
+    // stylesheet, so both are set.
+    palette.setColor(QPalette::ToolTipBase, m_theme.header);
+    palette.setColor(QPalette::ToolTipText, m_theme.textPrimary);
     QApplication::setPalette(palette);
     setPalette(palette);
 

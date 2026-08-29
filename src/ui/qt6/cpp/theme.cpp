@@ -137,6 +137,17 @@ QScrollBar::handle:horizontal {
 }
 QScrollBar::handle:horizontal:hover { background: %DIM%; }
 
+QToolTip {
+    background: %HEADER%;
+    color: %TEXT%;
+    border: 1px solid %BORDER%;
+    border-radius: 5px;
+    padding: 4px 7px;
+    /* Qt draws tooltips through the palette as well as the stylesheet; the
+       opacity keeps the border from being blended away on some styles. */
+    opacity: 255;
+}
+
 QMenu { background: %PANE%; color: %TEXT%; border: 1px solid %BORDER%; padding: 4px; }
 QMenu::item { padding: 5px 24px 5px 20px; border-radius: 4px; }
 QMenu::item:selected { background: %SEL%; color: %ONSEL%; }
