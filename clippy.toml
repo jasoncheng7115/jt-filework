@@ -3,7 +3,7 @@
 # other CamelCase proper noun in our documentation.
 # ".." keeps clippy's own default list.
 doc-valid-idents = [
-    "FileWork",
+    "FileWork", "PoC", "PoCs",
     "AppKit", "WinUI", "WebView", "LaunchServices", "QuickLook", "VoiceOver",
     "CView", "WinCV", "QSpace", "QDir", "TotalCommander",
     "OneDrive", "Nextcloud", "Dolphin", "Nautilus",

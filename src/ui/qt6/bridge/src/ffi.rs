@@ -1,0 +1,589 @@
+//! The C entry points.
+//!
+//! Conventions, applied without exception:
+//!
+//! - a null `App` pointer is a no-op or a zero, never a crash
+//! - indices out of range are a no-op or a zero, never a panic
+//! - text is copied into a caller buffer; the return is the byte length that
+//!   *would* have been written, so the caller can detect truncation
+//! - nothing allocated in Rust crosses the boundary, so C++ has nothing to
+//!   free
+//!
+//! `unreachable_pub` is allowed for the module: these items are unreachable
+//! from Rust by design, because their consumer is a linker, not a crate.
+
+#![allow(
+    unreachable_pub,
+    reason = "these are ABI exports, reached by the linker"
+)]
+
+use std::ffi::{c_char, c_int, CStr};
+
+use jtf_core::theme::{ThemeMode, ThemeToken};
+use jtf_workspace::{LayoutPreset, PaneId};
+
+use crate::app::App;
+
+/// Borrow the app, or do nothing.
+///
+/// # Safety
+/// `app` must be null or a pointer returned by [`jtf_app_new`] that has not
+/// been freed.
+unsafe fn app_ref<'a>(app: *const App) -> Option<&'a App> {
+    if app.is_null() {
+        None
+    } else {
+        // SAFETY: caller contract above; the pointer came from Box::into_raw
+        // and is not aliased mutably while a &App exists, because the C++
+        // side is single-threaded on the UI thread.
+        Some(unsafe { &*app })
+    }
+}
+
+/// # Safety
+/// As [`app_ref`], and no other reference to the app may be live.
+unsafe fn app_mut<'a>(app: *mut App) -> Option<&'a mut App> {
+    if app.is_null() {
+        None
+    } else {
+        // SAFETY: see app_ref.
+        Some(unsafe { &mut *app })
+    }
+}
+
+/// Copy `text` into `buf`, NUL-terminated. Returns the byte length of `text`.
+///
+/// # Safety
+/// `buf` must be null or writable for `len` bytes.
+unsafe fn write_str(text: &str, buf: *mut c_char, len: c_int) -> c_int {
+    let needed = text.len();
+    if buf.is_null() || len <= 0 {
+        return c_int::try_from(needed).unwrap_or(c_int::MAX);
+    }
+    let capacity = usize::try_from(len).unwrap_or(0).saturating_sub(1);
+    let copy = needed.min(capacity);
+    // Never split a UTF-8 character: truncate to a boundary.
+    let mut copy = copy;
+    while copy > 0 && !text.is_char_boundary(copy) {
+        copy -= 1;
+    }
+    // SAFETY: `buf` is writable for `len` bytes by the caller contract, and
+    // `copy < len`.
+    unsafe {
+        std::ptr::copy_nonoverlapping(text.as_ptr().cast::<c_char>(), buf, copy);
+        *buf.add(copy) = 0;
+    }
+    c_int::try_from(needed).unwrap_or(c_int::MAX)
+}
+
+/// # Safety
+/// `s` must be null or a valid NUL-terminated C string.
+unsafe fn read_str<'a>(s: *const c_char) -> Option<&'a str> {
+    if s.is_null() {
+        return None;
+    }
+    // SAFETY: caller contract.
+    unsafe { CStr::from_ptr(s) }.to_str().ok()
+}
+
+fn pane(index: c_int) -> PaneId {
+    PaneId::new(u64::try_from(index).unwrap_or(0))
+}
+
+// ------------------------------------------------------------- lifecycle
+
+/// Create the application. Never returns null.
+#[no_mangle]
+pub extern "C" fn jtf_app_new() -> *mut App {
+    Box::into_raw(Box::new(App::new()))
+}
+
+/// Save the session and destroy the application.
+///
+/// # Safety
+/// `app` must be null or a pointer from [`jtf_app_new`], freed only once.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_app_free(app: *mut App) {
+    if app.is_null() {
+        return;
+    }
+    // SAFETY: caller contract.
+    let boxed = unsafe { Box::from_raw(app) };
+    boxed.save_session();
+}
+
+/// Persist the session without quitting.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_app_save_session(app: *const App) {
+    if let Some(app) = unsafe { app_ref(app) } {
+        app.save_session();
+    }
+}
+
+/// Collect background results. Returns 1 if anything visible changed.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_app_pump(app: *mut App) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.pump()))
+}
+
+// ---------------------------------------------------------------- layout
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_layout_json(app: *const App, buf: *mut c_char, len: c_int) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let json = app.layout_json();
+    unsafe { write_str(&json, buf, len) }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_pane_count(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::try_from(a.pane_ids().len()).unwrap_or(0))
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_active_pane(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::try_from(a.active_pane().get()).unwrap_or(0))
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_focus_pane(app: *mut App, pane_id: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.focus_pane(pane(pane_id));
+    }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_focus_next_pane(app: *mut App) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.focus_next_pane();
+    }
+}
+
+/// `vertical` non-zero splits top/bottom.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_split_active(app: *mut App, vertical: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.split_active(vertical != 0);
+    }
+}
+
+/// Returns 1 if a pane was closed, 0 if it was the last one.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_close_active_pane(app: *mut App) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.close_active_pane()))
+}
+
+/// 0 single, 1 two columns, 2 two rows, 3 quad.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_apply_preset(app: *mut App, preset: c_int) {
+    let preset = match preset {
+        1 => LayoutPreset::TwoColumns,
+        2 => LayoutPreset::TwoRows,
+        3 => LayoutPreset::Quad,
+        _ => LayoutPreset::Single,
+    };
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.apply_preset(preset);
+    }
+}
+
+// ------------------------------------------------------------------ tabs
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_tab_count(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        c_int::try_from(a.tab_count(pane(pane_id))).unwrap_or(0)
+    })
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_active_tab(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        c_int::try_from(a.active_tab_index(pane(pane_id))).unwrap_or(0)
+    })
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_tab_title(
+    app: *const App,
+    pane_id: c_int,
+    index: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let title = app.tab_title(pane(pane_id), usize::try_from(index).unwrap_or(0));
+    unsafe { write_str(&title, buf, len) }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_new_tab(app: *mut App) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.new_tab();
+    }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_close_tab(app: *mut App, pane_id: c_int, index: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.close_tab(pane(pane_id), usize::try_from(index).unwrap_or(0));
+    }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_activate_tab(app: *mut App, pane_id: c_int, index: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.activate_tab(pane(pane_id), usize::try_from(index).unwrap_or(0));
+    }
+}
+
+// ------------------------------------------------------------ navigation
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_current_path(
+    app: *const App,
+    pane_id: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let path = app.current_path(pane(pane_id));
+    unsafe { write_str(&path, buf, len) }
+}
+
+/// # Safety
+/// See [`jtf_app_free`]; `path` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_navigate(app: *mut App, pane_id: c_int, path: *const c_char) {
+    let Some(path) = (unsafe { read_str(path) }) else {
+        return;
+    };
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.navigate(pane(pane_id), path);
+    }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_navigate_up(app: *mut App, pane_id: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.navigate_up(pane(pane_id));
+    }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_go_back(app: *mut App, pane_id: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.go_back(pane(pane_id));
+    }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_go_forward(app: *mut App, pane_id: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.go_forward(pane(pane_id));
+    }
+}
+
+/// Returns 1 if the row was a directory and the pane navigated into it.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_open_row(app: *mut App, pane_id: c_int, row: c_int) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        c_int::from(a.open_row(pane(pane_id), usize::try_from(row).unwrap_or(0)))
+    })
+}
+
+// ------------------------------------------------------------------ rows
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_row_count(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        c_int::try_from(a.row_count(pane(pane_id))).unwrap_or(c_int::MAX)
+    })
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_row_text(
+    app: *const App,
+    pane_id: c_int,
+    row: c_int,
+    column: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let text = app.row_text(pane(pane_id), usize::try_from(row).unwrap_or(0), column);
+    unsafe { write_str(&text, buf, len) }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_row_is_directory(
+    app: *const App,
+    pane_id: c_int,
+    row: c_int,
+) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        c_int::from(a.row_is_directory(pane(pane_id), usize::try_from(row).unwrap_or(0)))
+    })
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_row_is_marked(app: *const App, pane_id: c_int, row: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        c_int::from(a.row_is_marked(pane(pane_id), usize::try_from(row).unwrap_or(0)))
+    })
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_toggle_mark(app: *mut App, pane_id: c_int, row: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.toggle_mark(pane(pane_id), usize::try_from(row).unwrap_or(0));
+    }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_marked_count(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        c_int::try_from(a.marked_count(pane(pane_id))).unwrap_or(0)
+    })
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_sort_by(app: *mut App, pane_id: c_int, column: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.sort_by(pane(pane_id), column);
+    }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_is_loading(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.is_loading(pane(pane_id))))
+}
+
+/// Localization key for the pane's error, empty if there is none.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_error_key(
+    app: *const App,
+    pane_id: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let key = app.error_key(pane(pane_id)).unwrap_or("");
+    unsafe { write_str(key, buf, len) }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_show_hidden(app: *mut App, show: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_show_hidden(show != 0);
+    }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_show_hidden(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.show_hidden()))
+}
+
+// ------------------------------------------------------------ i18n, theme
+
+/// # Safety
+/// See [`jtf_app_free`]; `locale` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_locale(app: *mut App, locale: *const c_char) {
+    let Some(locale) = (unsafe { read_str(locale) }) else {
+        return;
+    };
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_locale(locale);
+    }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_locale(app: *const App, buf: *mut c_char, len: c_int) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    unsafe { write_str(&app.locale(), buf, len) }
+}
+
+/// Resolve a localization key. Falls back to the key itself, never to English
+/// text invented at the call site (`AGENTS.md` §11).
+///
+/// # Safety
+/// See [`jtf_app_free`]; `key` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_tr(
+    app: *const App,
+    key: *const c_char,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let Some(key) = (unsafe { read_str(key) }) else {
+        return 0;
+    };
+    unsafe { write_str(&app.tr(key), buf, len) }
+}
+
+/// 0 system, 1 light, 2 dark.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_theme_mode(app: *mut App, mode: c_int) {
+    let mode = match mode {
+        1 => ThemeMode::Light,
+        2 => ThemeMode::Dark,
+        _ => ThemeMode::System,
+    };
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_theme_mode(mode);
+    }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_theme_mode(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| match a.theme_mode() {
+        ThemeMode::System => 0,
+        ThemeMode::Light => 1,
+        ThemeMode::Dark => 2,
+    })
+}
+
+/// Resolve a semantic token to `0xAARRGGBB`.
+///
+/// Token numbering matches `ThemeToken::ALL`, and the C++ header states the
+/// same order. This is the only channel through which a colour reaches the
+/// UI: `AGENTS.md` §12 forbids literal colours in UI code, and
+/// `docs/TESTING.md` §3.4 tests for them.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_theme_color(
+    app: *const App,
+    system_is_dark: c_int,
+    token: c_int,
+) -> u32 {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    let Some(&token) = ThemeToken::ALL.get(usize::try_from(token).unwrap_or(usize::MAX)) else {
+        return 0;
+    };
+    app.theme_color(system_is_dark != 0, token)
+}
+
+/// How many tokens exist, so the C++ side can assert its header matches.
+#[no_mangle]
+pub extern "C" fn jtf_theme_token_count() -> c_int {
+    c_int::try_from(ThemeToken::ALL.len()).unwrap_or(0)
+}
+
+/// Number of list columns.
+#[no_mangle]
+pub extern "C" fn jtf_column_count() -> c_int {
+    crate::app::COLUMN_COUNT
+}
+
+/// Localization key for a column header.
+///
+/// # Safety
+/// `buf` must be writable for `len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_column_key(column: c_int, buf: *mut c_char, len: c_int) -> c_int {
+    let key = match column {
+        crate::app::COLUMN_SIZE => "column.size",
+        crate::app::COLUMN_KIND => "column.kind",
+        crate::app::COLUMN_MODIFIED => "column.modified",
+        _ => "column.name",
+    };
+    unsafe { write_str(key, buf, len) }
+}

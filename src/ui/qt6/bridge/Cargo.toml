@@ -1,0 +1,27 @@
+[package]
+name = "jtf-qt6-bridge"
+description = "C ABI over the JT FileWork core, for the Qt 6 Widgets front end."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[lib]
+name = "jtf_qt6_bridge"
+# staticlib so CMake links one archive; rlib so the Rust tests can run.
+crate-type = ["staticlib", "rlib"]
+
+# No Qt here, and none anywhere in Rust. Qt exists only on the C++ side of
+# this boundary, which is what keeps AGENTS.md 4 true.
+[dependencies]
+jtf-core = { workspace = true }
+jtf-jobs = { workspace = true }
+jtf-workspace = { workspace = true }
+jtf-commands = { workspace = true }
+jtf-fs = { workspace = true }
+
+[lints]
+workspace = true

@@ -63,6 +63,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "jtf-qt6-bridge"
+version = "0.0.0"
+dependencies = [
+ "jtf-commands",
+ "jtf-core",
+ "jtf-fs",
+ "jtf-jobs",
+ "jtf-workspace",
+]
+
+[[package]]
 name = "jtf-workspace"
 version = "0.0.0"
 dependencies = [

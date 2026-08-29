@@ -110,6 +110,18 @@ jobs.state.queued = 排隊中
 jobs.state.running = 執行中
 jobs.state.waiting_for_user = 等待你的決定
 
+
+kind.file = 檔案
+kind.folder = 資料夾
+kind.symlink = 符號連結
+kind.alias = 替身
+kind.application = 應用程式
+kind.package = 套件
+kind.archive = 壓縮檔
+kind.device = 裝置
+kind.remote = 遠端項目
+kind.result = 搜尋結果
+kind.unknown = 未知
 session.restore.unreadable = 無法讀取上次的工作階段，JT FileWork 已重新開始。（{code}）
 session.restore.unsupported_version = 上次的工作階段由較新版本儲存，JT FileWork 已重新開始。
 
@@ -128,3 +140,18 @@ theme.system = 跟隨系統
 
 workspace.split.horizontal = 水平分割
 workspace.split.vertical = 垂直分割
+
+app.name = JT FileWork
+menu.file = 檔案
+menu.view = 檢視
+menu.go = 前往
+menu.theme = 佈景主題
+menu.language = 語言
+language.english = English
+language.zh_tw = 台灣繁體中文
+preset.single = 單一窗格
+preset.quad = 四窗格
+command.view.hidden = 顯示隱藏檔案
+status.loading = 載入中…
+status.items = {count} 個項目
+status.marked = 已標記 {count} 個

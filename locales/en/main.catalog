@@ -110,6 +110,18 @@ jobs.state.queued = Queued
 jobs.state.running = Running
 jobs.state.waiting_for_user = Waiting for you
 
+
+kind.file = File
+kind.folder = Folder
+kind.symlink = Alias link
+kind.alias = Alias
+kind.application = Application
+kind.package = Package
+kind.archive = Archive
+kind.device = Device
+kind.remote = Remote item
+kind.result = Search result
+kind.unknown = Unknown
 session.restore.unreadable = Your previous session could not be read, so JT FileWork started fresh. ({code})
 session.restore.unsupported_version = Your previous session was saved by a newer version, so JT FileWork started fresh.
 
@@ -128,3 +140,18 @@ theme.system = Follow System
 
 workspace.split.horizontal = Horizontal Split
 workspace.split.vertical = Vertical Split
+
+app.name = JT FileWork
+menu.file = File
+menu.view = View
+menu.go = Go
+menu.theme = Theme
+menu.language = Language
+language.english = English
+language.zh_tw = Traditional Chinese (Taiwan)
+preset.single = Single Pane
+preset.quad = Four Panes
+command.view.hidden = Show Hidden Files
+status.loading = Loading…
+status.items = {count} items
+status.marked = {count} marked

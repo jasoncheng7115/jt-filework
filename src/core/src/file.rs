@@ -73,6 +73,38 @@ impl FileKind {
     pub const fn is_untrusted_container(self) -> bool {
         matches!(self, Self::Archive)
     }
+
+    /// Localization key for the kind shown in the list's Kind column.
+    pub const fn label_key(self) -> &'static str {
+        match self {
+            Self::File => "kind.file",
+            Self::Directory => "kind.folder",
+            Self::Symlink => "kind.symlink",
+            Self::Alias => "kind.alias",
+            Self::ApplicationBundle => "kind.application",
+            Self::Package => "kind.package",
+            Self::Archive => "kind.archive",
+            Self::Device => "kind.device",
+            Self::RemoteItem => "kind.remote",
+            Self::VirtualResult => "kind.result",
+            Self::Unknown => "kind.unknown",
+        }
+    }
+
+    /// Every kind, for exhaustive tests and catalogue parity.
+    pub const ALL: &'static [Self] = &[
+        Self::File,
+        Self::Directory,
+        Self::Symlink,
+        Self::Alias,
+        Self::ApplicationBundle,
+        Self::Package,
+        Self::Archive,
+        Self::Device,
+        Self::RemoteItem,
+        Self::VirtualResult,
+        Self::Unknown,
+    ];
 }
 
 /// A filename exactly as the platform stores it.
@@ -319,6 +351,16 @@ mod tests {
         assert!(FileKind::Package.is_directory_on_disk());
         assert!(!FileKind::Package.is_navigable_by_default());
         assert!(FileKind::Directory.is_navigable_by_default());
+    }
+
+    #[test]
+    fn every_kind_has_a_distinct_label_key() {
+        let mut keys: Vec<_> = FileKind::ALL.iter().map(|k| k.label_key()).collect();
+        keys.sort_unstable();
+        let before = keys.len();
+        keys.dedup();
+        assert_eq!(keys.len(), before, "two kinds share a label key");
+        assert!(keys.iter().all(|k| k.starts_with("kind.")));
     }
 
     #[test]
