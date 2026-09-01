@@ -2,6 +2,8 @@
 
 > 鍵盤優先、滑鼠完備的檔案工作區，支援 macOS、Windows 與 Linux。
 
+**[網站](https://jasoncheng7115.github.io/jt-filework/?lang=zh-tw)** ·
+**[完整功能規格](https://jasoncheng7115.github.io/jt-filework/features.html?lang=zh-tw)** ·
 [English](README.md)
 
 全鍵模式下，常用的檔案操作各自對應一個按鍵——複製、移動、更名、檢視、標記

@@ -2,6 +2,8 @@
 
 > A keyboard-first, mouse-complete file workspace for macOS, Windows and Linux.
 
+**[Website](https://jasoncheng7115.github.io/jt-filework/)** ·
+**[Full specification](https://jasoncheng7115.github.io/jt-filework/features.html)** ·
 [繁體中文說明](README_zh-TW.md)
 
 In Single-Key mode every common file command is one letter — copy, move,
