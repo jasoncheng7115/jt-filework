@@ -26,7 +26,18 @@ flamegraph.svg
 .DS_Store
 .AppleDouble
 .LSOverride
+# macOS writes a custom folder icon into a file named `Icon` followed by
+# a carriage return, and `Icon?` is the usual way to catch it. But `?` is
+# a wildcard: it also matched `icons`, which silently excluded
+# assets/icons - sixty-four SVGs the interface cannot start without. A
+# clean clone built and came up with no icons at all, and nothing said
+# why.
+#
+# The rule stays and the directory it should never have touched is named,
+# because a rule written as an actual carriage return does not survive a
+# line-ending normalisation.
 Icon?
+!assets/icons/
 ._*
 .Spotlight-V100
 .Trashes
