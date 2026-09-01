@@ -9,6 +9,7 @@
 #include "bridge.h"
 
 #include <QString>
+#include <QStringList>
 #include <QWidget>
 
 namespace ops {
@@ -29,6 +30,20 @@ enum Kind { Copy = 0, Move = 1, Trash = 2, Delete = 3 };
 // localized explanation to show.
 bool confirmAndStart(JtfApp *app, QWidget *parent, int pane, Kind kind, QString *message);
 
+/// The same, into a folder the user chose rather than the next pane.
+bool confirmAndStartTo(JtfApp *app, QWidget *parent, int pane, Kind kind,
+                       const QString &destination, QString *message);
+
+/// Ask the questions a built plan needs answering, then start it.
+bool confirmAndRun(JtfApp *app, QWidget *parent);
+
+/// The same, over paths the caller names rather than a pane's selection.
+///
+/// `destination` is ignored for `Trash` and `Delete`. For the disc usage
+/// window, which is a report about a folder rather than a pane showing one.
+bool confirmAndStartPaths(JtfApp *app, QWidget *parent, Kind kind, const QStringList &sources,
+                          const QString &destination, QString *message);
+
 // Rename and new folder ask for a name first.
 bool renameSelection(JtfApp *app, QWidget *parent, int pane, QString *message);
 bool createFolder(JtfApp *app, QWidget *parent, int pane, QString *message);
@@ -42,5 +57,15 @@ QString takeResult(JtfApp *app);
 // Asks how to resolve conflicts. Returns the policy, or -1 if the user backed
 // out. Shared with the drop path, which prepares its own plan.
 int askConflictPolicy(JtfApp *app, QWidget *parent, int conflicts);
+
+/// What a drop of `count` items should do: `Copy`, `Move`, or -1 to cancel.
+///
+/// Asked rather than inferred. Qt resolves a drop action out of the platform's
+/// modifier conventions - Option on macOS, Ctrl elsewhere - which means the
+/// same gesture moves within one disk and copies across two, and nothing on
+/// screen says which one just happened. A file that turns out to have been
+/// moved when you meant to copy it is not something an undo entry makes
+/// pleasant.
+int askDropKind(JtfApp *app, QWidget *parent, int count, bool sameApplication);
 
 } // namespace ops

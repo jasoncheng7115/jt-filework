@@ -1,4 +1,5 @@
 #include "batchrenamedialog.h"
+#include "dialogbuttons.h"
 #include "jtfstring.h"
 
 #include <QCheckBox>
@@ -31,6 +32,12 @@ BatchRenameDialog::BatchRenameDialog(JtfApp *app, int paneId, QWidget *parent)
 
     auto *layout = new QVBoxLayout(this);
     auto *form = new QFormLayout;
+    // Fields fill the width. Without this they keep their own idea of a size
+    // and the dialog grows around them, leaving short boxes in a wide window.
+    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    form->setHorizontalSpacing(14);
+    form->setVerticalSpacing(10);
 
     m_template = new QLineEdit(QStringLiteral("{name}.{ext}"), this);
     m_find = new QLineEdit(this);
@@ -67,6 +74,7 @@ BatchRenameDialog::BatchRenameDialog(JtfApp *app, int paneId, QWidget *parent)
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Cancel, this);
     m_apply = buttons->addButton(QString(), QDialogButtonBox::AcceptRole);
+    dialogs::localizeButtons(buttons, [this](const char *key) { return tr_(key); }, palette().color(QPalette::Text));
     connect(buttons, &QDialogButtonBox::rejected, this, [this] {
         jtf_batch_clear(m_app);
         reject();

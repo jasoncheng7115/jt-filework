@@ -9,6 +9,7 @@
 #include "bridge.h"
 
 #include <QAbstractListModel>
+#include <QColor>
 #include <QWidget>
 
 class QListView;
@@ -42,9 +43,19 @@ public:
 
     void refresh();
 
+    /// The colours the found text is picked out in. Without this the delegate
+    /// held two default-constructed - that is, invalid - colours, and an
+    /// invalid colour fills black: every match in the viewer came out as a
+    /// black block with black text on it. The file list supplied them; this
+    /// window never did.
+    void applyTheme(const QColor &mark, const QColor &text);
+
 protected:
     void keyPressEvent(QKeyEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
+    /// The glyphs this window draws carry their colour, so a theme change has
+    /// to be applied rather than merely repainted.
+    void changeEvent(QEvent *event) override;
 
 private:
     void findNext();
@@ -57,5 +68,11 @@ private:
     QListView *m_view = nullptr;
     QComboBox *m_encoding = nullptr;
     QLineEdit *m_find = nullptr;
+    class MatchDelegate *m_matches = nullptr;
+    /// A row of key chips, built the way the main window builds its own.
+    QWidget *m_hints = nullptr;
+    class QAction *m_findIcon = nullptr;
+    class QSlider *m_zoom = nullptr;
+    void updateHints();
     QLabel *m_status = nullptr;
 };

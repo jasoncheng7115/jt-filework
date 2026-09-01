@@ -10,9 +10,10 @@
 #pragma once
 
 #include <QColor>
-#include <QStyledItemDelegate>
 
-class MatchDelegate : public QStyledItemDelegate {
+#include "rowdelegate.h"
+
+class MatchDelegate : public RowDelegate {
     Q_OBJECT
 
 public:

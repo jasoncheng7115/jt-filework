@@ -24,3 +24,14 @@ bool platform::reveal(const QString &) {
 bool platform::canReveal() {
     return false;
 }
+
+bool platform::eject(const QString &) {
+    // Windows and Linux get their own implementations with the platform
+    // adapters; until then the sidebar shows no eject control rather than one
+    // that does nothing.
+    return false;
+}
+
+bool platform::canEject() {
+    return false;
+}

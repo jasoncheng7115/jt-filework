@@ -27,7 +27,14 @@ signals:
     // Anything that changes how the window looks or behaves.
     void changed();
 
+protected:
+    // Drawn glyphs keep the colour they were made with; a palette change is
+    // when they have to be made again.
+    void changeEvent(QEvent *event) override;
+
 private:
+    void recolourIcons();
+
     void buildTabs();
     QWidget *buildGeneralTab();
     QWidget *buildAppearanceTab();
@@ -56,7 +63,8 @@ class ShortcutCapture : public QDialog {
     Q_OBJECT
 
 public:
-    ShortcutCapture(const QString &title, const QString &prompt, QWidget *parent);
+    ShortcutCapture(const QString &title, const QString &prompt,
+                    const QString &cancelText, QWidget *parent);
 
     // The chord in the keymap file's own syntax, empty if nothing was pressed.
     QString chord() const { return m_chord; }

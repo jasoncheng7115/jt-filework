@@ -113,3 +113,28 @@ bool platform::reveal(const QString &path) {
 bool platform::canReveal() {
     return true;
 }
+
+bool platform::eject(const QString &mountPoint) {
+    if (mountPoint.isEmpty()) {
+        return false;
+    }
+    @autoreleasepool {
+        NSString *native = [NSString stringWithUTF8String:mountPoint.toUtf8().constData()];
+        if (!native) {
+            return false;
+        }
+        // NSWorkspace rather than `diskutil eject`: this is the same call
+        // Finder's own eject makes, so the system notifies whatever has the
+        // disk open and the volume actually leaves rather than being
+        // unmounted behind the desktop's back.
+        NSError *error = nil;
+        const BOOL ok = [[NSWorkspace sharedWorkspace]
+            unmountAndEjectDeviceAtURL:[NSURL fileURLWithPath:native]
+                                 error:&error];
+        return ok == YES;
+    }
+}
+
+bool platform::canEject() {
+    return true;
+}

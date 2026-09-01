@@ -13,6 +13,7 @@ Theme Theme::fromApp(const JtfApp *app, bool systemIsDark) {
     t.pane = c(TokenSurfacePane);
     t.preview = c(TokenSurfacePreview);
     t.header = c(TokenSurfaceHeader);
+    t.menu = c(TokenSurfaceMenu);
     t.rowAlternate = c(TokenRowAlternate);
     t.rowHover = c(TokenRowHover);
     t.textPrimary = c(TokenTextPrimary);
@@ -32,7 +33,10 @@ Theme Theme::fromApp(const JtfApp *app, bool systemIsDark) {
 QString Theme::styleSheet() const {
     const auto hex = [](const QColor &colour) { return colour.name(QColor::HexRgb); };
 
-    return QStringLiteral(R"(
+    // Split into several literals on purpose: MSVC refuses a single string
+    // literal over 16380 bytes (C2026), and this sheet is longer than that.
+    // The split is at line boundaries and carries no meaning.
+    return (QStringLiteral(R"(
 QMainWindow, QWidget#JtfRoot { background: %WINDOW%; }
 
 QToolBar#JtfToolbar {
@@ -51,13 +55,13 @@ QToolBar#JtfToolbar QToolButton {
     border-radius: 6px;
 }
 QToolBar#JtfToolbar QToolButton { padding: 5px; border-radius: 6px; }
-/* A boxed cluster, so related buttons read as one control. */
-/* A filled well rather than an outlined box. An outline around every group
-   draws three rectangles across the toolbar and competes with the icons; a
-   slightly recessed fill groups them without adding lines. */
+/* A boxed cluster, so related buttons read as one control - the reference
+   layouts frame each group, and a recessed fill alone was too faint to read
+   as a frame at all against the toolbar's own shade. Fill *and* hairline:
+   the fill separates the group from the bar, the hairline gives it an edge. */
 QWidget[jtfToolGroup="true"] {
     background: %WINDOW%;
-    border: none;
+    border: 1px solid %BORDER%;
     border-radius: 8px;
 }
 QWidget[jtfToolGroup="true"] QToolButton { padding: 4px; border-radius: 6px; }
@@ -67,17 +71,35 @@ QToolBar#JtfToolbar QToolButton:hover { background: %HOVER%; }
 QToolBar#JtfToolbar QToolButton:pressed { background: %ALT%; }
 QToolBar#JtfToolbar QToolButton:disabled { color: %DIM%; }
 /* A pressed-in look for the toggles, so "the sidebar is open" is readable
-   from the toolbar itself. */
+   from the toolbar itself.
+   The selection colour rather than its dimmed form: dimmed was a shade away
+   from the toolbar's own background and, in the dark theme especially, a
+   toggled button was indistinguishable from an untoggled one. This is the
+   same treatment the mode pill beside it already uses, and that one reads. */
 QToolBar#JtfToolbar QToolButton:checked {
-    background: %SELDIM%;
-    border: 1px solid %BORDER%;
+    background: %SEL%;
+    border: 1px solid %SEL%;
+    border-radius: 5px;
 }
-QToolBar#JtfToolbar QToolButton:checked:hover { background: %HOVER%; }
+QToolBar#JtfToolbar QToolButton:checked:hover { background: %SEL%; border-color: %FOCUS%; }
 QToolBar#JtfToolbar::separator {
     background: %BORDER%;
     width: 1px;
     margin: 5px 5px;
 }
+
+/* The toolbar's search field carries a magnifier inside it, the way the
+   reference does, so the field says what it is without a label. The extra
+   left padding is the room that icon sits in. */
+QLineEdit#JtfToolbarSearch {
+    background: %WINDOW%;
+    border: 1px solid %BORDER%;
+    border-radius: 8px;
+    padding: 0px 8px 0px 6px;
+    /* Height is set in code, with the groups', so there is one source. */
+    selection-background-color: %SEL%;
+}
+QLineEdit#JtfToolbarSearch:focus { border: 1px solid %FOCUS%; background: %PANE%; }
 
 QLineEdit {
     background: %PANE%;
@@ -130,6 +152,10 @@ QTableView::indicator {
     background: transparent;
 }
 QTableView::indicator:hover { border-color: %DIM%; }
+/* The box is filled here and the tick is drawn over it by RowDelegate: a
+   stylesheet image comes from a file and so cannot take the theme's colour.
+   `image: none` stays deliberately - it stops the platform style putting its
+   own mark under ours. */
 QTableView::indicator:checked {
     background: %SEL%;
     border-color: %SEL%;
@@ -165,7 +191,7 @@ QTabBar { background: %HEADER%; qproperty-drawBase: 0; }
 QTabBar::tab {
     background: %HEADER%;
     color: %DIM%;
-    padding: 6px 16px 6px 6px;
+    padding: 6px 10px 6px 10px;
     margin: 0;
     border: none;
     border-top: 2px solid transparent;
@@ -182,22 +208,67 @@ QTabBar::tab:selected {
 }
 /* macOS puts the close control on the leading edge. It needs its own room:
    flush against the tab's border it reads as a rendering fault. */
-QTabBar::close-button {
-    subcontrol-position: left;
-    margin-left: 8px;
-    margin-right: 2px;
-    padding: 2px;
-    border-radius: 4px;
+/* The close mark is a real QToolButton we install per tab (see
+   PaneWidget::syncTabs), not Qt's subcontrol. Styling the subcontrol without
+   giving it an `image` is what made it disappear. */
+QToolButton#JtfTabClose {
+    border: none;
+    border-radius: 5px;
+    /* No padding, and the gap to the title is the widget's own extra width
+       (kTabCloseGap), not a margin: a margin here is taken out of the box the
+       icon is drawn in, and 8 + 3 of margin plus 3 of padding on each side
+       left a 24px button with 7px to draw a cross in. */
+    padding: 0px;
+    margin-left: 6px;
+    margin-right: 0px;
 }
-QTabBar::close-button:hover { background: %HOVER%; }
+QToolButton#JtfTabClose:hover { background: %SELDIM%; }
+QToolButton#JtfTabClose:pressed { background: %SEL%; }
 QWidget#JtfTabRow { background: %HEADER%; border-bottom: 1px solid %BORDER%; }
 
 /* The active pane. The edge marks it, the tab strip brightens with it, and
    the inactive panes' tabs go quiet so only one strip looks lit at a time. */
-QWidget#JtfPane { border-top: 1px solid %BORDER%; border-right: 1px solid %BORDER%; }
-QWidget#JtfPane[jtfActive="true"] { border-top: 2px solid %SEL%; }
+/* Every pane keeps the same border thickness whether it is active or not, so
+   that becoming active does not move its contents by a pixel. */
+QWidget#JtfPane { border: 2px solid %BORDER%; }
+/* Where the keyboard is. A line along the top edge alone was easy to miss with
+   two panes side by side - the eye has to find a 2px strip at the top of one
+   column and compare it with the other. A ring around the whole pane is the
+   thing every application uses to say "this one", and it reads without
+   looking for it.
+
+   `%PANERING%` rather than the selection colour, and this is the part that
+   has to work in both themes. A ring is read against the surface behind it,
+   and those surfaces are opposites: white in light, near-black in dark. A
+   single blue cannot do both - the palette answers with a deeper one that
+   holds against white and a lighter one that carries on black, so the ring is
+   legible either way without this stylesheet knowing which theme is on.
+   Measured: 5.0 against the pane in light, 7.3 in dark, and 3.8 and 5.7
+   against the inactive border, all clear of the 3:1 a non-text indicator
+   needs.
+
+   In the light theme that token happens to be the same blue as the selection.
+   Left alone: the platform does the same thing with its accent colour, and a
+   2px ring around a pane is not mistakable for a filled row. */
+QWidget#JtfPane[jtfActive="true"] { border: 2px solid %PANERING%; }
+/* The pane a copy or a move would land in. Marked differently from the active
+   one on purpose: the active pane is where the keyboard is, the target is
+   where the files go, and confusing the two is how a folder ends up in the
+   wrong place. Accent for "here you are", a dashed edge plus a worded badge
+   for "here it goes". */
+QWidget#JtfPane[jtfTarget="true"] {
+    border: 2px dashed %MARK%;
+}
+QLabel#JtfTargetBadge {
+    color: %MARK%;
+    background: transparent;
+    padding: 0 10px;
+    font-size: 11px;
+}
 QTabBar[jtfActive="false"]::tab:selected {
     background: %HEADER%;
+)")
+        + QStringLiteral(R"(
     color: %DIM%;
     border-top: 2px solid %BORDER%;
     font-weight: 500;
@@ -211,6 +282,13 @@ QToolButton#JtfNewTab {
     font-size: 15px;
 }
 QToolButton#JtfNewTab:hover { color: %TEXT%; background: %HOVER%; }
+QToolButton#JtfClosePane {
+    color: %DIM%;
+    background: transparent;
+    border: none;
+    padding: 0 8px;
+}
+QToolButton#JtfClosePane:hover { color: %TEXT%; background: %HOVER%; }
 
 QLineEdit#JtfFilter, QLineEdit#JtfSearch { margin: 2px 6px 4px 6px; }
 QWidget#JtfCrumbs { background: %HEADER%; border-bottom: 1px solid %BORDER%; }
@@ -227,6 +305,67 @@ QWidget#JtfCrumbs QLabel { color: %DIM%; padding: 0 1px; }
    reads as a rendering slip rather than as a layout. */
 /* The key hint strip. The key is a chip and the word beside it is quiet, so
    a row of them reads as pairs rather than as a sentence. */
+/* A properties sheet's title: the file's own name, set apart from the facts
+   listed under it. */
+QLabel[jtfHeadingLabel="true"] { color: %TEXT%; font-size: 15px; font-weight: 600; }
+/* A block of explanation inside a dialog: set on its own surface so it reads
+   as something to take in rather than another control to fill in. */
+QFrame[jtfNoteBox="true"] {
+    background: %WINDOW%;
+    border: 1px solid %BORDER%;
+    border-radius: 8px;
+}
+
+QFrame[jtfRule="true"] { color: %BORDER%; background: %BORDER%; max-height: 1px; border: none; }
+
+/* A toggle that lives on the status bar. Quiet when off, lit when on, so the
+   strip's state is readable from the bar even when the strip is hidden. */
+QToolButton#JtfStatusToggle {
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 2px 5px;
+    margin: 0 4px;
+}
+QToolButton#JtfStatusToggle:hover { background: %HOVER%; }
+QToolButton#JtfStatusToggle:checked { background: %SELDIM%; border-color: %BORDER%; }
+
+/* The running-search card. It floats over the list, so it needs an edge and
+   a shadow-substitute - a solid fill a shade off the list's - or it reads as
+   text that has somehow landed on top of the rows. */
+QWidget#JtfSearchOverlay {
+    background: %MENU%;
+    border: 1px solid %DIM%;
+    border-radius: 10px;
+}
+QWidget#JtfSearchOverlay QLabel { color: %TEXT%; }
+QPushButton#JtfSearchCancel {
+    color: %TEXT%;
+    background: %WINDOW%;
+    border: 1px solid %BORDER%;
+    border-radius: 6px;
+    padding: 4px 12px;
+}
+QPushButton#JtfSearchCancel:hover { background: %HOVER%; border-color: %DIM%; }
+
+/* The viewer's own foot: its key strip and its status line, set apart from
+   the text being read so the reading area is the only thing that looks like
+   content. */
+QWidget#JtfViewerBar { background: %HEADER%; border-bottom: 1px solid %BORDER%; }
+/* The text being read gets a margin. Set flush against the frame it reads as
+   a terminal dump rather than as a document, and the first character of every
+   line sits on the window edge. */
+QListView#JtfViewerList {
+    background: %PANE%;
+    border: none;
+    padding: 6px 10px;
+}
+QWidget#JtfViewerHints, QWidget#JtfUsageHints {
+    background: %ALT%;
+    border-top: 1px solid %BORDER%;
+}
+QWidget#JtfViewerFoot { background: %HEADER%; border-top: 1px solid %BORDER%; }
+QWidget#JtfViewerFoot QLabel { color: %DIM%; }
+
 QWidget#JtfKeyHints { background: %ALT%; border-top: 1px solid %BORDER%; }
 QLabel[jtfHintKey="true"] {
     color: %TEXT%;
@@ -241,20 +380,23 @@ QLabel[jtfHintLabel="true"] { color: %DIM%; }
 QStatusBar { background: %HEADER%; border-top: 1px solid %BORDER%; padding: 2px 4px; }
 QStatusBar QLabel { padding-left: 8px; }
 QStatusBar::item { border: none; }
+/* As wide as what they say, and no wider. The left of the bar is where the
+   message goes - a path, when there is one - and every pixel of padding out
+   here is a pixel it does not have. */
 QLabel[jtfStatusSummary="true"] {
     color: %DIM%;
-    padding: 2px 12px;
+    padding: 2px 7px;
     border-left: 1px solid %BORDER%;
 }
 /* The keyboard mode is a state, not a count, so it reads as a chip rather
    than as another number in the row. */
-QLabel#JtfStatusKeymap {
+QToolButton#JtfStatusKeymap {
     color: %ONSEL%;
     background: %SEL%;
     border: none;
-    border-radius: 9px;
-    padding: 2px 10px;
-    margin: 0 6px;
+    border-radius: 10px;
+    padding: 3px 10px;
+    margin: 0 4px;
 }
 QLabel[jtfZoomMark="true"] { color: %DIM%; }
 /* Form controls. Qt's defaults leave a spin box's arrows shorter than the
@@ -270,6 +412,35 @@ QSpinBox, QLineEdit, QComboBox {
     selection-color: %ONSEL%;
 }
 QSpinBox:focus, QLineEdit:focus, QComboBox:focus { border-color: %FOCUS%; }
+/* The arrow needs its own room, or it sits on the last letter of the value.
+   The popup needs styling of its own: it is a separate top-level window, so
+   nothing the box itself is given reaches it, and unstyled it came up with
+   the platform's colours inside our dialog. */
+/* The arrow needs room, but the divider before it was drawn at the padding
+   edge rather than at the box's, which left a narrow empty cell hanging off
+   the right of every combo. No divider: the arrow is enough of a signal, and
+   one less line is one less thing competing with the value. */
+QComboBox { padding-right: 24px; }
+QComboBox::drop-down {
+    subcontrol-origin: border;
+    subcontrol-position: center right;
+    width: 24px;
+    border: none;
+    background: transparent;
+}
+QComboBox::drop-down:hover { background: %HOVER%; border-top-right-radius: 5px;
+                             border-bottom-right-radius: 5px; }
+QComboBox QAbstractItemView {
+    background: %PANE%;
+    color: %TEXT%;
+    border: 1px solid %BORDER%;
+    border-radius: 6px;
+    padding: 4px;
+    outline: none;
+    selection-background-color: %SEL%;
+    selection-color: %ONSEL%;
+}
+QComboBox QAbstractItemView::item { padding: 5px 8px; border-radius: 4px; min-height: 20px; }
 QSpinBox { padding-right: 2px; }
 QSpinBox::up-button, QSpinBox::down-button {
     subcontrol-origin: border;
@@ -318,12 +489,47 @@ QPlainTextEdit#JtfInspectorText {
     selection-color: %ONSEL%;
 }
 QLabel#JtfInspectorTextStatus { color: %DIM%; }
-QTreeWidget#JtfPlacesTree { background: %PANE%; border: none; }
-QTreeWidget#JtfPlacesTree::item { padding: 5px 4px; border-radius: 5px; }
-QTreeWidget#JtfPlacesTree::item:hover { background: %HOVER%; }
-QTreeWidget#JtfPlacesTree::item:selected { background: %SEL%; color: %ONSEL%; }
-QSplitter#JtfSidebar { background: %PANE%; }
+/* The same ground as the folder tree below it (%PREVIEW%), not the panes'.
+   One column, two lists: giving them different backgrounds drew a line across
+   the sidebar that meant nothing. */
+QTreeWidget#JtfPlacesTree { background: %PREVIEW%; border: none; }
+/* The row's own pill is painted by PillDelegate, across both columns; a
+   stylesheet rounds each cell separately and left notches where they met. */
+QTreeWidget#JtfPlacesTree::item { padding: 5px 4px; background: transparent; }
+)")
+        + QStringLiteral(R"(
+QTreeWidget#JtfPlacesTree::item:selected { background: transparent; color: %ONSEL%; }
+QSplitter#JtfSidebar { background: %PREVIEW%; }
 QLabel#JtfStatus { color: %DIM%; padding: 3px 8px; }
+QWidget#JtfStatusRow { background: transparent; }
+/* The heading over each half of the sidebar. Quiet and small: it is a label
+   for a column, not a row you can click, and it must not compete with the
+   entries under it. */
+QLabel#JtfSidebarTitle {
+    color: %DIM%;
+    background: %HEADER%;
+    border-bottom: 1px solid %BORDER%;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+QLabel#JtfCompareHeading {
+    color: %DIM%;
+    background: %HEADER%;
+    border-bottom: 1px solid %BORDER%;
+    padding: 6px 10px;
+}
+QWidget#JtfCompareOptions { background: %ALT%; }
+/* Beside the failure it answers, so it reads as part of the same sentence. */
+QToolButton#JtfReconnect {
+    color: %ONSEL%;
+    background: %SEL%;
+    border: none;
+    border-radius: 9px;
+    padding: 2px 10px;
+    margin: 2px 8px;
+}
+QToolButton#JtfReconnect:hover { background: %SELDIM%; }
 QLabel#JtfError { color: %ERROR%; padding: 3px 8px; }
 
 QWidget#JtfTree { background: %PREVIEW%; border-right: 1px solid %BORDER%; }
@@ -339,13 +545,108 @@ QTreeView::item:hover { background: %HOVER%; }
 QTreeView::item:selected { background: %SEL%; color: %ONSEL%; }
 QTreeView::item:selected:!active { background: %SELDIM%; color: %TEXT%; }
 
+/* A one-pixel line, with something you can actually grab around it.
+
+   Qt makes the handle's drag area exactly its width, so `width: 1px` produced
+   a divider one pixel wide that had to be hit within one pixel - in practice
+   the panes could not be resized at all. The handle is 7px and the padding
+   either side is painted in the pane colour, so what shows is still a single
+   line and what responds is seven. */
 QSplitter::handle { background: %BORDER%; }
-QSplitter::handle:horizontal { width: 1px; }
-QSplitter::handle:vertical { height: 1px; }
+QSplitter::handle:horizontal {
+    width: 7px;
+    border-left: 3px solid %PANE%;
+    border-right: 3px solid %PANE%;
+}
+QSplitter::handle:vertical {
+    height: 7px;
+    border-top: 3px solid %PANE%;
+    border-bottom: 3px solid %PANE%;
+}
 QSplitter::handle:hover { background: %FOCUS%; }
+
+/* The sidebar's own divider, between the places above and the folder tree
+   below. A one-pixel border line is right between a pane and its neighbour,
+   where the two already differ in background; here both sides are lists of
+   folder rows on the same colour, so the seam vanished and the two read as one
+   long list. This one is given height as well as a line: the gap is what says
+   "these are two things". */
+QSplitter#JtfSidebar::handle:vertical {
+    height: 11px;
+    /* Wide enough to grab, which the 1px rule above was not. */
+    /* The window colour, which is darker than either list, so the band reads
+       as a gap between two things rather than as a line drawn on one of them.
+       A one-pixel border was not enough: both sides are folder rows on nearly
+       the same colour, and the seam simply disappeared. */
+    background: %WINDOW%;
+    border-top: 1px solid %BORDER%;
+    border-bottom: 1px solid %BORDER%;
+}
+QSplitter#JtfSidebar::handle:vertical:hover { background: %FOCUS%; }
 
 /* The key hint strip. The key is a chip and the word beside it is quiet, so
    a row of them reads as pairs rather than as a sentence. */
+/* A properties sheet's title: the file's own name, set apart from the facts
+   listed under it. */
+QLabel[jtfHeadingLabel="true"] { color: %TEXT%; font-size: 15px; font-weight: 600; }
+/* A block of explanation inside a dialog: set on its own surface so it reads
+   as something to take in rather than another control to fill in. */
+QFrame[jtfNoteBox="true"] {
+    background: %WINDOW%;
+    border: 1px solid %BORDER%;
+    border-radius: 8px;
+}
+
+QFrame[jtfRule="true"] { color: %BORDER%; background: %BORDER%; max-height: 1px; border: none; }
+
+/* A toggle that lives on the status bar. Quiet when off, lit when on, so the
+   strip's state is readable from the bar even when the strip is hidden. */
+QToolButton#JtfStatusToggle {
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 2px 5px;
+    margin: 0 4px;
+}
+QToolButton#JtfStatusToggle:hover { background: %HOVER%; }
+QToolButton#JtfStatusToggle:checked { background: %SELDIM%; border-color: %BORDER%; }
+
+/* The running-search card. It floats over the list, so it needs an edge and
+   a shadow-substitute - a solid fill a shade off the list's - or it reads as
+   text that has somehow landed on top of the rows. */
+QWidget#JtfSearchOverlay {
+    background: %MENU%;
+    border: 1px solid %DIM%;
+    border-radius: 10px;
+}
+QWidget#JtfSearchOverlay QLabel { color: %TEXT%; }
+QPushButton#JtfSearchCancel {
+    color: %TEXT%;
+    background: %WINDOW%;
+    border: 1px solid %BORDER%;
+    border-radius: 6px;
+    padding: 4px 12px;
+}
+QPushButton#JtfSearchCancel:hover { background: %HOVER%; border-color: %DIM%; }
+
+/* The viewer's own foot: its key strip and its status line, set apart from
+   the text being read so the reading area is the only thing that looks like
+   content. */
+QWidget#JtfViewerBar { background: %HEADER%; border-bottom: 1px solid %BORDER%; }
+/* The text being read gets a margin. Set flush against the frame it reads as
+   a terminal dump rather than as a document, and the first character of every
+   line sits on the window edge. */
+QListView#JtfViewerList {
+    background: %PANE%;
+    border: none;
+    padding: 6px 10px;
+}
+QWidget#JtfViewerHints, QWidget#JtfUsageHints {
+    background: %ALT%;
+    border-top: 1px solid %BORDER%;
+}
+QWidget#JtfViewerFoot { background: %HEADER%; border-top: 1px solid %BORDER%; }
+QWidget#JtfViewerFoot QLabel { color: %DIM%; }
+
 QWidget#JtfKeyHints { background: %ALT%; border-top: 1px solid %BORDER%; }
 QLabel[jtfHintKey="true"] {
     color: %TEXT%;
@@ -390,15 +691,77 @@ QToolTip {
     opacity: 255;
 }
 
-QMenu { background: %PANE%; color: %TEXT%; border: 1px solid %BORDER%; padding: 4px; }
+/* Above everything, and drawn so. A menu in the same colour as the list it
+   covers is a menu you have to find by its text. */
+/* The settings dialog. Three tabs and a column of grey rows is the flattest a
+   window can be; these give the pages a surface of their own, mark the
+   current tab the way the file tabs are marked, and let the labels sit
+   quieter than the values so a row reads as one thing rather than two. */
+QTabWidget::pane {
+    background: %PANE%;
+    border: 1px solid %BORDER%;
+    border-radius: 8px;
+    top: -1px;
+}
+QTabBar::tab {
+    background: transparent;
+    color: %DIM%;
+    padding: 7px 16px;
+    margin-right: 2px;
+    border: 1px solid transparent;
+    border-top-left-radius: 7px;
+    border-top-right-radius: 7px;
+}
+QTabBar::tab:hover { color: %TEXT%; background: %HOVER%; }
+QTabBar::tab:selected {
+    color: %TEXT%;
+    background: %PANE%;
+    border-color: %BORDER%;
+    border-bottom-color: %PANE%;
+}
+QDialog QLabel { color: %TEXT%; }
+QLabel[jtfFactLabel="true"] { color: %DIM%; }
+/* Only the spacing and the text colour. The box itself is left to the
+   platform: styling `::indicator` at all makes Qt draw it from the
+   stylesheet, and a stylesheet cannot supply a tick without an image file -
+   which is how these became solid blue squares with nothing in them. The
+   file list draws its own tick in a delegate because it has one; a checkbox
+   does not, so it keeps the system's. */
+QCheckBox { color: %TEXT%; spacing: 7px; padding: 2px 0; }
+QDialog QPushButton {
+    color: %TEXT%;
+    background: %HEADER%;
+    border: 1px solid %BORDER%;
+    border-radius: 6px;
+    padding: 5px 14px;
+}
+QDialog QPushButton:hover { background: %HOVER%; border-color: %DIM%; }
+QDialog QPushButton:default { background: %SEL%; color: %ONSEL%; border-color: %SEL%; }
+QDialog QPushButton:default:hover { background: %FOCUS%; }
+
+QMenu {
+    background: %MENU%;
+    color: %TEXT%;
+    border: 1px solid %DIM%;
+    border-radius: 8px;
+    padding: 5px;
+}
+QToolTip {
+    background: %MENU%;
+    color: %TEXT%;
+    border: 1px solid %DIM%;
+    border-radius: 6px;
+    padding: 4px 7px;
+}
 QMenu::item { padding: 5px 24px 5px 20px; border-radius: 4px; }
 QMenu::item:selected { background: %SEL%; color: %ONSEL%; }
 QMenu::separator { height: 1px; background: %BORDER%; margin: 4px 8px; }
-)")
+)"))
         .replace(QStringLiteral("%WINDOW%"), hex(window))
         .replace(QStringLiteral("%PANE%"), hex(pane))
         .replace(QStringLiteral("%PREVIEW%"), hex(preview))
         .replace(QStringLiteral("%HEADER%"), hex(header))
+        .replace(QStringLiteral("%MENU%"), hex(menu))
         .replace(QStringLiteral("%ALT%"), hex(rowAlternate))
         .replace(QStringLiteral("%HOVER%"), hex(rowHover))
         .replace(QStringLiteral("%TEXT%"), hex(textPrimary))
@@ -408,5 +771,11 @@ QMenu::separator { height: 1px; background: %BORDER%; margin: 4px 8px; }
         .replace(QStringLiteral("%SELDIM%"), hex(selectionInactive))
         .replace(QStringLiteral("%SEL%"), hex(selection))
         .replace(QStringLiteral("%FOCUS%"), hex(focusRing))
+        // The active pane's ring. Its own token, not the selection colour:
+        // the palette gives it a *lighter* blue on dark and a *deeper* one on
+        // light, because a ring has to read against the surface behind it and
+        // those surfaces are opposites.
+        .replace(QStringLiteral("%PANERING%"), hex(indicator))
+        .replace(QStringLiteral("%MARK%"), hex(mark))
         .replace(QStringLiteral("%ERROR%"), hex(error));
 }

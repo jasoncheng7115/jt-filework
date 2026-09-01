@@ -16,6 +16,7 @@
 
 #include <QList>
 #include <QStringList>
+#include <QIcon>
 #include <QString>
 
 namespace filetype {
@@ -42,7 +43,46 @@ QString displayName(const QString &path);
 // must be a folder name, not syntax (`AGENTS.md` 20.3).
 bool openInTerminal(const QString &path);
 
+// What the platform calls the top of its filesystem, or empty where there is
+// no such thing.
+//
+// Unix has one root and calls it `/`, which needs no name. Windows has no
+// single root at all - each drive is its own tree - and Explorer shows them
+// under an entry of its own, 「本機」 / "This PC". Labelling that `\` would
+// name something Windows does not have.
+QString rootLabel();
+
+// Open `path` in the platform's text editor.
+//
+// CView's `E` calls CEdit, its own editor. This program has no editor of its
+// own yet (`docs/VIEWER_PREVIEW.md` 4.7 is where one would go), so `E` hands
+// the file to whatever the platform opens plain text with - which is what a
+// person means by "edit this" until we have something better to offer.
+bool openInEditor(const QString &path);
+
+// Whether editing is possible here at all.
+bool canOpenInEditor();
+
+// Whether opening a terminal is possible here at all.
+//
+// Its own question rather than part of `available()`: that one is about the
+// platform's type database, and a Linux build has no type database but does
+// have terminals. Gating the menu entry on the wrong one hid a feature that
+// works.
+bool canOpenInTerminal();
+
 /// One application that can open a file.
+// The icon the platform gives a file *type*, named by extension without a dot.
+//
+// Distinct from asking about a path, which is what the icon provider does
+// everywhere else: the disc-usage window has a row per kind of file and no
+// file to point at, and `QFileIconProvider` answers about the file on disk -
+// so every made-up sample name came back with the same generic document.
+//
+// A null icon means the platform cannot answer, and the caller falls back to
+// the generic one rather than showing nothing.
+QIcon iconForExtension(const QString &extension);
+
 struct Application {
     /// What to show in the menu.
     QString name;

@@ -2,6 +2,8 @@
 
 #include <QMouseEvent>
 #include <QPainter>
+#include <QStyleOptionButton>
+#include <QStyleOptionViewItem>
 #include <QPainterPath>
 
 namespace {
@@ -9,6 +11,28 @@ namespace {
 constexpr int kCaretWidth = 7;
 constexpr int kCaretHeight = 4;
 constexpr int kCaretGap = 6;
+
+// The mark-all box at the head of the name column. Only a fallback: the box is
+// normally placed by asking the style where a row's checkbox goes, so that the
+// two line up whatever the platform or the font size does to them. Guessing at
+// 8 and 14 put the header's box three pixels left of the rows' and made it a
+// size smaller, which is what「看起來歪歪的」was.
+constexpr int kMarkBox = 14;
+constexpr int kMarkLeft = 8;
+
+// Where a row in `view` draws its checkbox, relative to the start of the name
+// column. Empty if there is no view to ask.
+QRect rowCheckIndicator(const QWidget *view, int sectionWidth, int height) {
+    if (view == nullptr) {
+        return {};
+    }
+    QStyleOptionViewItem item;
+    item.initFrom(view);
+    item.rect = QRect(0, 0, sectionWidth, height);
+    item.features = QStyleOptionViewItem::HasCheckIndicator;
+    item.viewItemPosition = QStyleOptionViewItem::Beginning;
+    return view->style()->subElementRect(QStyle::SE_ItemViewItemCheckIndicator, &item, view);
+}
 } // namespace
 
 JtfHeaderView::JtfHeaderView(QWidget *parent) : QHeaderView(Qt::Horizontal, parent) {
@@ -18,6 +42,14 @@ JtfHeaderView::JtfHeaderView(QWidget *parent) : QHeaderView(Qt::Horizontal, pare
     // Qt's indicator is replaced, not merely restyled, so it must not also
     // paint one of its own.
     setSortIndicatorShown(false);
+}
+
+void JtfHeaderView::setCaretVisible(bool visible) {
+    if (m_caretVisible == visible) {
+        return;
+    }
+    m_caretVisible = visible;
+    update();
 }
 
 void JtfHeaderView::applyTheme(const QColor &text, const QColor &dim, const QColor &indicator) {
@@ -44,7 +76,7 @@ void JtfHeaderView::paintSection(QPainter *painter, const QRect &rect, int index
     option.sortIndicator = QStyleOptionHeader::None;
     style()->drawControl(QStyle::CE_Header, &option, painter, this);
 
-    const bool sorted = index == sortIndicatorSection();
+    const bool sorted = m_caretVisible && index == sortIndicatorSection();
     const QString label = model()->headerData(index, Qt::Horizontal, Qt::DisplayRole).toString();
     const auto alignment = static_cast<Qt::Alignment>(
         model()->headerData(index, Qt::Horizontal, Qt::TextAlignmentRole).toInt());
@@ -53,6 +85,39 @@ void JtfHeaderView::paintSection(QPainter *painter, const QRect &rect, int index
                                                : Qt::AlignLeft;
 
     QRect content = rect.adjusted(8, 0, -8, 0);
+
+    // The mark-all box, on the name column only, drawn before the text so the
+    // text starts after it.
+    if (m_markAllVisible && index == 0) {
+        const QRect indicator = rowCheckIndicator(parentWidget(), rect.width(), rect.height());
+        const int left = indicator.isEmpty() ? kMarkLeft : indicator.left();
+        const int side = indicator.isEmpty() ? kMarkBox : indicator.width();
+        const QRect box(rect.left() + left, rect.center().y() - side / 2, side, side);
+        m_markAllRect = box;
+        QStyleOptionButton check;
+        check.rect = box;
+        check.state = QStyle::State_Enabled;
+        switch (m_markAllState) {
+        case Qt::Checked:
+            check.state |= QStyle::State_On;
+            break;
+        case Qt::PartiallyChecked:
+            check.state |= QStyle::State_NoChange;
+            break;
+        case Qt::Unchecked:
+            check.state |= QStyle::State_Off;
+            break;
+        }
+        style()->drawControl(QStyle::CE_CheckBox, &check, painter, this);
+        content.setLeft(box.right() + kCaretGap);
+    } else if (index == 0) {
+        m_markAllRect = QRect();
+    }
+    // Explicitly, so the font the text is measured with is the font it is
+    // drawn with. drawControl above goes through the stylesheet style, which
+    // is free to leave the painter carrying a different one, and a width
+    // measured with one font and drawn with another loses the last glyph.
+    painter->setFont(font());
     const QFontMetrics metrics(font());
     const int caretRoom = sorted ? kCaretGap + kCaretWidth : 0;
     // The text is elided against the room left after the caret, so a narrow
@@ -69,9 +134,14 @@ void JtfHeaderView::paintSection(QPainter *painter, const QRect &rect, int index
     }
 
     painter->setPen(sorted ? m_text : m_dim);
-    painter->drawText(QRect(textLeft, rect.top(), textWidth, rect.height()),
-                      Qt::AlignVCenter | Qt::AlignLeft,
-                      shown);
+    // Drawn into the room that is left, not into a box cut to the measured
+    // width. Advance width is where the *next* glyph would start, which for a
+    // CJK glyph with any overhang is short of where this one ends - so a box
+    // that size shaved the last character. The text is already elided to fit,
+    // so a rect that runs to the edge of the section cannot overflow it.
+    const QRect textRect(textLeft, rect.top(), qMax(textWidth, content.right() - textLeft + 1),
+                         rect.height());
+    painter->drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, shown);
 
     paintDivider(painter, rect, index);
 
@@ -112,12 +182,53 @@ void JtfHeaderView::paintDivider(QPainter *painter, const QRect &rect, int index
     if (index >= count() - 1) {
         return; // nothing to resize past the last column
     }
-    const int inset = qMax(4, rect.height() / 4);
+    // Drawn only where the pointer is. A rule between every column is a comb
+    // across the header that competes with the words in it, and the handle is
+    // needed exactly when someone is reaching for it - which is when the
+    // pointer is near. The dimmed neighbours either side make the one under
+    // the hand read as a control rather than as a stray line.
     const bool hot = index == m_hoveredDivider;
+    const bool near = qAbs(index - m_hoveredDivider) == 1 && m_hoveredDivider >= 0;
+    if (!hot && !near) {
+        return;
+    }
+    const int inset = hot ? qMax(3, rect.height() / 5) : qMax(5, rect.height() / 3);
+    QColor colour = hot ? m_text : m_dim;
+    if (!hot) {
+        colour.setAlphaF(0.5);
+    }
     painter->save();
-    painter->setPen(QPen(hot ? m_text : m_dim, hot ? 1.4 : 1.0));
+    painter->setPen(QPen(colour, hot ? 1.6 : 1.0));
     painter->drawLine(rect.right(), rect.top() + inset, rect.right(), rect.bottom() - inset);
     painter->restore();
+}
+
+void JtfHeaderView::setMarkAllVisible(bool visible) {
+    if (m_markAllVisible == visible) {
+        return;
+    }
+    m_markAllVisible = visible;
+    viewport()->update();
+}
+
+void JtfHeaderView::setMarkAllState(Qt::CheckState state) {
+    if (m_markAllState == state) {
+        return;
+    }
+    m_markAllState = state;
+    viewport()->update();
+}
+
+void JtfHeaderView::mousePressEvent(QMouseEvent *event) {
+    // A click in the box marks or clears everything, and does not also sort
+    // the column it happens to sit in.
+    if (m_markAllVisible && m_markAllRect.isValid()
+        && m_markAllRect.contains(event->position().toPoint())) {
+        emit markAllToggled(m_markAllState != Qt::Checked);
+        event->accept();
+        return;
+    }
+    QHeaderView::mousePressEvent(event);
 }
 
 void JtfHeaderView::mouseMoveEvent(QMouseEvent *event) {

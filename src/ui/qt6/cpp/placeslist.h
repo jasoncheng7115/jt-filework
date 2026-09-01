@@ -19,6 +19,8 @@
 class QTreeWidget;
 class QTreeWidgetItem;
 
+class QLabel;
+
 class PlacesList : public QWidget {
     Q_OBJECT
 
@@ -27,23 +29,57 @@ public:
 
     void refresh();
     void setListFont(const QFont &font);
-    void applyTheme(const QColor &glyphColour);
+    /// `gaugeOk`, `gaugeWarn` and `gaugeFull` colour the volume usage bars.
+    /// Clicks and hovers on the eject control, which is painted rather than a
+    /// widget, so there is nothing to receive them on its own.
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
+    void applyTheme(const QColor &glyphColour, const QColor &connectedColour,
+                    const QColor &gaugeOk, const QColor &gaugeWarn, const QColor &gaugeFull,
+                    const QColor &selection, const QColor &hover,
+                    const QColor &textOnSelection);
     void retranslate();
 
 signals:
     void locationActivated(const QString &path);
     /// A bookmark was renamed, removed or reordered; the window persists.
     void placesChanged();
+    /// The user asked to bookmark the folder they are looking at.
+    void addBookmarkRequested();
+    /// Open this folder in a window of its own.
+    void openInNewWindowRequested(const QString &path);
+    /// A saved server was clicked; the index is into the saved list.
+    void serverActivated(int index);
+    /// Ejecting a removable volume did not work. The window says why; a
+    /// button that quietly does nothing is worse than one that reports.
+    void ejectFailed(const QString &mountPoint);
 
 private:
+    QLabel *m_title = nullptr;
     QString tr_(const char *key) const;
     QTreeWidgetItem *addSection(const char *labelKey);
     void showContextMenu(const QPoint &at);
+
+    // The set of mounted volumes as of the last rebuild, so the watch can tell
+    // a real change from a quiet tick.
+    void rememberCollapsed();
+    static QString volumeSignature();
+    /// Put a disk's free/total on its row, for the bar and for the tooltip.
+    void setUsageOn(class QTreeWidgetItem *item, const class QStorageInfo &storage);
+    /// Re-read every mounted disk and redraw the bars, without rebuilding.
+    void updateVolumeUsage();
+    /// The volume rows and the disks they are about, so the bars can be
+    /// brought up to date without touching the rest of the list.
+    QList<QPair<class QTreeWidgetItem *, QString>> m_volumeRows;
+    QString m_volumes;
 
     JtfApp *m_app = nullptr;
     QTreeWidget *m_tree = nullptr;
     QFont m_listFont;
     QColor m_glyphColour;
+    QColor m_gaugeOk, m_gaugeWarn, m_gaugeFull;
+    class PlacesPillDelegate *m_pill = nullptr;
+    QColor m_connectedColour;
     /// Sections the user closed, by section id.
     QSet<QString> m_collapsed;
 };

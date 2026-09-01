@@ -45,6 +45,9 @@ primary+l            = nav.goto
 # --- files
 f2                   = file.rename
 primary+backspace    = file.trash
+# The platform's own gesture, in the profile that follows the platform.
+delete               = file.trash
+shift+delete         = file.delete
 primary+shift+n      = file.new_folder
 primary+d            = file.duplicate
 primary+shift+m      = file.batch_rename
@@ -91,7 +94,10 @@ primary+shift+s      = file.folder_size
 
 # --- search and tools
 primary+f            = search.open
-primary+shift+f      = search.ai
+# `search.ai` is not built. A chord that runs nothing is worse than no
+# chord: it appears in the shortcuts window and in the palette, and the
+# user learns that some keys simply do not work. It comes back with the
+# feature (TODO.md, P2 — AI).
 primary+j            = jobs.show
 primary+comma        = settings.open
 primary+shift+p    = command.palette

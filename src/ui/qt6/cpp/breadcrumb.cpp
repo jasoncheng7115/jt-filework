@@ -3,8 +3,13 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QTimer>
+#include <QFocusEvent>
 #include <QKeyEvent>
 #include <QLineEdit>
+#include <QStringListModel>
+#include <QAbstractItemView>
+#include <QCompleter>
 #include <QMouseEvent>
 #include <QResizeEvent>
 #include <QVBoxLayout>
@@ -12,6 +17,9 @@
 namespace {
 // Below this many segments there is never anything to hide.
 constexpr int kMinimumSegments = 4;
+// The height of a crumb, and so of the bar. Fixed, so that what the bar asks
+// for does not depend on what is currently in it.
+constexpr int kCrumbHeight = 20;
 } // namespace
 
 Breadcrumb::Breadcrumb(QWidget *parent) : QWidget(parent) {
@@ -28,11 +36,38 @@ Breadcrumb::Breadcrumb(QWidget *parent) : QWidget(parent) {
     m_layout->addStretch(1);
     stack->addWidget(m_crumbHost);
 
+    // The space beside the last segment answers with the same menu, for the
+    // folder the pane is showing. Left alone it fell through to Qt's own
+    // menu for whatever widget was under it - Undo/Cut/Paste, in English,
+    // about a text field the user cannot see.
+    m_crumbHost->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_crumbHost, &QWidget::customContextMenuRequested, this,
+            [this](const QPoint &at) {
+                if (!m_path.isEmpty()) {
+                    emit segmentMenuRequested(m_path, m_crumbHost->mapToGlobal(at));
+                }
+            });
+
     m_edit = new QLineEdit(this);
     m_edit->setObjectName(QStringLiteral("JtfPathEdit"));
     m_edit->setFrame(false);
     m_edit->setVisible(false);
     connect(m_edit, &QLineEdit::returnPressed, this, [this] { endEditing(true); });
+
+    // Completion, from the pane's own listing rather than from Qt's file
+    // system model - see `setCompletionSource`.
+    m_completions = new QStringListModel(this);
+    m_completer = new QCompleter(m_completions, this);
+    // Case-insensitive because the filesystems people use here mostly are, and
+    // a completer that refuses `/us` for `/Users` is worse than none.
+    m_completer->setCaseSensitivity(Qt::CaseInsensitive);
+    m_completer->setCompletionMode(QCompleter::PopupCompletion);
+    // A path is compared whole, not by its last segment: the model holds full
+    // paths so that what is inserted is a full path.
+    m_completer->setFilterMode(Qt::MatchStartsWith);
+    m_edit->setCompleter(m_completer);
+    connect(m_edit, &QLineEdit::textEdited, this,
+            [this](const QString &typed) { refreshCompletions(typed); });
     m_edit->installEventFilter(this);
     stack->addWidget(m_edit);
 }
@@ -42,7 +77,33 @@ void Breadcrumb::setLeadingIcon(const QPixmap &icon) {
     rebuild();
 }
 
+void Breadcrumb::setCompletionSource(std::function<QStringList(const QString &folder)> source) {
+    m_completionSource = std::move(source);
+}
+
+void Breadcrumb::refreshCompletions(const QString &typed) {
+    if (!m_completionSource) {
+        return;
+    }
+    // The folder being typed into is everything up to the last separator. With
+    // no separator yet there is nothing to complete against.
+    const int slash = typed.lastIndexOf(QLatin1Char('/'));
+    if (slash < 0) {
+        return;
+    }
+    // Keep the slash for the root, so `/` asks about `/` and not about "".
+    const QString folder = slash == 0 ? QStringLiteral("/") : typed.left(slash);
+    if (folder == m_completionFolder) {
+        return; // still inside the same folder: the list already fits
+    }
+    m_completionFolder = folder;
+    m_completions->setStringList(m_completionSource(folder));
+}
+
 void Breadcrumb::beginEditing() {
+    // The list belongs to whatever gets typed next, not to the last edit.
+    m_completionFolder.clear();
+    m_completions->setStringList({});
     m_edit->setText(m_path);
     m_crumbHost->setVisible(false);
     m_edit->setVisible(true);
@@ -69,14 +130,33 @@ bool Breadcrumb::eventFilter(QObject *watched, QEvent *event) {
         }
     }
     if (watched == m_edit && event->type() == QEvent::FocusOut) {
-        endEditing(false);
+        // Clicking elsewhere abandons the edit - but the completer's own popup
+        // takes the focus when it opens, and treating that as "the user has
+        // gone somewhere else" closed the field the moment its suggestions
+        // appeared. The focus then landed back in the file list, so the next
+        // letter typed ran a command instead of continuing the path.
+        //
+        // Qt says where the focus went: `Qt::PopupFocusReason` is this case
+        // and nothing else.
+        const auto reason = static_cast<QFocusEvent *>(event)->reason();
+        if (reason != Qt::PopupFocusReason
+            && (m_completer == nullptr || !m_completer->popup()->isVisible())) {
+            endEditing(false);
+        }
     }
     return QWidget::eventFilter(watched, event);
 }
 
 void Breadcrumb::mousePressEvent(QMouseEvent *event) {
+    // The left button only. A right click here is on its way to the folder's
+    // context menu, and turning the bar into a text field underneath the menu
+    // that is about to open left the path selected for editing when all the
+    // user asked for was a menu.
+    if (event->button() != Qt::LeftButton) {
+        QWidget::mousePressEvent(event);
+        return;
+    }
     // Only the empty space: a click on a crumb is a click on that crumb.
-    Q_UNUSED(event);
     beginEditing();
 }
 
@@ -90,8 +170,17 @@ void Breadcrumb::setPath(const QString &path) {
 
 void Breadcrumb::resizeEvent(QResizeEvent *event) {
     QWidget::resizeEvent(event);
-    // What fits changes with the width, so the elision is recomputed rather
-    // than decided once.
+    // Only when the width actually changed. Rebuilding on every resize was a
+    // feedback loop: adding and removing the crumb widgets changes this
+    // widget's size hint, the parent layout answers by resizing it, and that
+    // resize rebuilt them again. It never settled - the crumbs were destroyed
+    // and recreated thousands of times a second, so Qt never reached the point
+    // in the event loop where it would have shown and laid them out, and the
+    // path bar was simply blank. The width is the only input the elision
+    // depends on, so it is also the only thing worth reacting to.
+    if (width() == m_builtForWidth) {
+        return;
+    }
     rebuild();
 }
 
@@ -99,6 +188,11 @@ void Breadcrumb::rebuild() {
     if (m_edit != nullptr && m_edit->isVisible()) {
         return; // never rebuild the crumbs out from under an edit in progress
     }
+    if (m_rebuilding) {
+        return;
+    }
+    m_rebuilding = true;
+    m_builtForWidth = width();
     while (QLayoutItem *item = m_layout->takeAt(0)) {
         if (QWidget *widget = item->widget()) {
             // Hidden and reparented out of the layout now, destroyed later.
@@ -113,13 +207,34 @@ void Breadcrumb::rebuild() {
         delete item;
     }
 
-    const QStringList parts = m_path.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    // A remote path arrives as `sftp://user@host/a/b`. Split on `/` alone and
+    // the scheme comes apart into a crumb saying `sftp:` and another saying
+    // `user@host`, neither of which is a folder anyone can click to. The
+    // authority is one thing - it is the root of that server - so it is taken
+    // off first and becomes the leading crumb, in place of `/`.
+    QString remaining = m_path;
+    QString root = QStringLiteral("/");
+    QString rootLabel = QStringLiteral("/");
+    const int scheme = m_path.indexOf(QStringLiteral("://"));
+    if (scheme > 0) {
+        const int firstSlash = m_path.indexOf(QLatin1Char('/'), scheme + 3);
+        if (firstSlash > 0) {
+            root = m_path.left(firstSlash);
+            remaining = m_path.mid(firstSlash);
+        } else {
+            root = m_path;
+            remaining.clear();
+        }
+        rootLabel = root;
+    }
+
+    const QStringList parts = remaining.split(QLatin1Char('/'), Qt::SkipEmptyParts);
     QStringList labels;
     QStringList paths;
-    labels << QStringLiteral("/");
-    paths << QStringLiteral("/");
+    labels << rootLabel;
+    paths << root;
 
-    QString walked;
+    QString walked = (root == QStringLiteral("/")) ? QString() : root;
     for (const QString &part : parts) {
         walked += QLatin1Char('/') + part;
         labels << part;
@@ -145,6 +260,11 @@ void Breadcrumb::rebuild() {
     const auto addSegment = [this](const QString &label, const QString &path) {
         auto *button = new QPushButton(label, m_crumbHost);
         button->setFlat(true);
+        // Fixed, and only as wide as its text. A default QPushButton asks for
+        // 30px of height and a minimum width far past its label, which is
+        // both wrong for a path bar and enough to keep the size hint moving.
+        button->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+        button->setFixedHeight(kCrumbHeight);
         button->setCursor(Qt::PointingHandCursor);
         button->setProperty("jtfCrumb", true);
         connect(button, &QPushButton::clicked, this, [this, path] { emit navigate(path); });
@@ -181,5 +301,6 @@ void Breadcrumb::rebuild() {
         addSegment(labels.at(i), paths.at(i));
     }
     m_layout->addStretch(1);
+    m_rebuilding = false;
     Q_UNUSED(available);
 }

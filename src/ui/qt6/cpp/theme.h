@@ -11,7 +11,7 @@
 #include <QString>
 
 struct Theme {
-    QColor window, pane, preview, header, rowAlternate, rowHover;
+    QColor window, pane, preview, header, menu, rowAlternate, rowHover;
     QColor textPrimary, textSecondary, textOnAccent;
     QColor border, selection, selectionInactive, mark, focusRing, indicator, executable;
     QColor error;

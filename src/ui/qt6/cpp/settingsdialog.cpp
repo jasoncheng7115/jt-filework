@@ -1,8 +1,14 @@
 #include "settingsdialog.h"
+#include "dialogbuttons.h"
+#include "icons.h"
 #include "jtfstring.h"
 
 #include <QCheckBox>
+#include <QColorDialog>
 #include <QComboBox>
+#include <QFontDatabase>
+#include <QFontMetricsF>
+#include <QAbstractButton>
 #include <QDialogButtonBox>
 #include <QFileDialog>
 #include <QFormLayout>
@@ -18,6 +24,14 @@
 #include <QVBoxLayout>
 
 namespace {
+
+// The sidebar's recent list. The floor is 1 rather than 0 because turning the
+// list off belongs to a switch, not to a number nobody would think to drag to
+// zero; the ceiling is what `Places` keeps, so the setting can never promise
+// more history than exists.
+constexpr int kRecentMin = 1;
+constexpr int kRecentMax = 32;
+constexpr int kRecentDefault = 10;
 
 // Qt key -> the keymap file's spelling. Only keys the format knows about are
 // accepted; anything else is refused rather than stored as something that
@@ -56,7 +70,8 @@ QString keyName(int key) {
 
 // ---------------------------------------------------------- ShortcutCapture
 
-ShortcutCapture::ShortcutCapture(const QString &title, const QString &prompt, QWidget *parent)
+ShortcutCapture::ShortcutCapture(const QString &title, const QString &prompt,
+                                 const QString &cancelText, QWidget *parent)
     : QDialog(parent) {
     setWindowTitle(title);
     auto *layout = new QVBoxLayout(this);
@@ -68,6 +83,13 @@ ShortcutCapture::ShortcutCapture(const QString &title, const QString &prompt, QW
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Cancel, this);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    // This class has no catalogue of its own, so the one word it shows comes
+    // in already translated from the dialog that opens it.
+    if (QAbstractButton *cancel = buttons->button(QDialogButtonBox::Cancel)) {
+        cancel->setText(cancelText);
+        cancel->setIcon(glyph::make(glyph::Shape::Close, palette().color(QPalette::Text)));
+        cancel->setProperty("jtfCloseIcon", true);
+    }
     layout->addWidget(buttons);
     setMinimumWidth(340);
 }
@@ -122,6 +144,34 @@ QString SettingsDialog::trKey(const QString &key) const {
     return jtfText([&](char *buf, int len) { return jtf_tr(m_app, utf8.constData(), buf, len); });
 }
 
+void SettingsDialog::recolourIcons() {
+    // Drawn glyphs carry the colour they were made with, so they have to be
+    // remade when the colour changes. The theme is chosen *in this dialog*,
+    // and rebuilding on `changed()` happened before the new palette had
+    // reached us - so the tab icons kept the old theme's colour until the
+    // dialog was reopened.
+    const QColor colour = palette().color(QPalette::Text);
+    if (m_tabs != nullptr && m_tabs->count() >= 3) {
+        m_tabs->setTabIcon(0, glyph::make(glyph::Shape::Settings, colour));
+        m_tabs->setTabIcon(1, glyph::make(glyph::Shape::Visible, colour));
+        m_tabs->setTabIcon(2, glyph::make(glyph::Shape::Keyboard, colour));
+    }
+    for (QAbstractButton *button : findChildren<QAbstractButton *>()) {
+        if (!button->icon().isNull() && button->property("jtfCloseIcon").toBool()) {
+            button->setIcon(glyph::make(glyph::Shape::Close, colour));
+        }
+    }
+}
+
+void SettingsDialog::changeEvent(QEvent *event) {
+    QDialog::changeEvent(event);
+    // Asked of Qt rather than of whoever changed the theme: a palette change
+    // arrives however it was caused, and this does not have to know.
+    if (event->type() == QEvent::PaletteChange) {
+        recolourIcons();
+    }
+}
+
 void SettingsDialog::buildTabs() {
     // The dialog holds no state of its own - every control reads and writes
     // the model - so rebuilding is the honest way to change its language.
@@ -134,9 +184,10 @@ void SettingsDialog::buildTabs() {
         m_tabs->removeTab(0);
         page->deleteLater();
     }
-    m_tabs->addTab(buildGeneralTab(), tr_("settings.tab.general"));
-    m_tabs->addTab(buildAppearanceTab(), tr_("settings.tab.appearance"));
-    m_tabs->addTab(buildKeyboardTab(), tr_("settings.tab.keyboard"));
+    m_tabs->addTab(buildGeneralTab(), QIcon(), tr_("settings.tab.general"));
+    m_tabs->addTab(buildAppearanceTab(), QIcon(), tr_("settings.tab.appearance"));
+    m_tabs->addTab(buildKeyboardTab(), QIcon(), tr_("settings.tab.keyboard"));
+    recolourIcons();
     if (wasOn >= 0 && wasOn < m_tabs->count()) {
         m_tabs->setCurrentIndex(wasOn);
     }
@@ -154,6 +205,7 @@ SettingsDialog::SettingsDialog(JtfApp *app, QWidget *parent) : QDialog(parent), 
     m_buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     auto *buttons = m_buttons;
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::accept);
+    dialogs::localizeButtons(buttons, [this](const char *key) { return tr_(key); }, palette().color(QPalette::Text));
 
     auto *layout = new QVBoxLayout(this);
     layout->addWidget(tabs);
@@ -163,6 +215,14 @@ SettingsDialog::SettingsDialog(JtfApp *app, QWidget *parent) : QDialog(parent), 
 QWidget *SettingsDialog::buildGeneralTab() {
     auto *page = new QWidget(this);
     auto *form = new QFormLayout(page);
+    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    form->setHorizontalSpacing(14);
+    form->setVerticalSpacing(10);
+    form->setContentsMargins(16, 14, 16, 14);
+    // Rows keep their height and the slack goes to the bottom, rather than
+    // the rows spreading out to fill a tall tab.
+    form->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
 
     m_startupMode = new QComboBox(page);
     m_startupMode->addItem(tr_("settings.startup.last_session"));
@@ -175,8 +235,15 @@ QWidget *SettingsDialog::buildGeneralTab() {
         jtfText([&](char *buf, int len) { return jtf_startup_location(m_app, buf, len); }));
     m_startupLocation->setEnabled(m_startupMode->currentIndex() == 2);
 
+    // Not the default: Return on a settings page should not open a file
+    // chooser.
     auto *browse = new QPushButton(tr_("settings.browse"), page);
     browse->setEnabled(m_startupLocation->isEnabled());
+    // Not the default action: Return on a settings page should not open a
+    // file chooser, and Qt makes the first button in a dialog the default
+    // unless told otherwise.
+    browse->setAutoDefault(false);
+    browse->setDefault(false);
 
     const auto applyStartup = [this, browse] {
         const int mode = m_startupMode->currentIndex();
@@ -232,6 +299,14 @@ QWidget *SettingsDialog::buildGeneralTab() {
 QWidget *SettingsDialog::buildAppearanceTab() {
     auto *page = new QWidget(this);
     auto *form = new QFormLayout(page);
+    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    form->setHorizontalSpacing(14);
+    form->setVerticalSpacing(10);
+    form->setContentsMargins(16, 14, 16, 14);
+    // Rows keep their height and the slack goes to the bottom, rather than
+    // the rows spreading out to fill a tall tab.
+    form->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
 
     auto *theme = new QComboBox(page);
     theme->addItem(tr_("theme.system"));
@@ -243,6 +318,60 @@ QWidget *SettingsDialog::buildAppearanceTab() {
         emit changed();
     });
     form->addRow(tr_("menu.theme"), theme);
+
+    // What the preview area is drawn on. Three modes and a colour well, in
+    // one row, because the colour only means anything with the third mode
+    // chosen and separating them would leave a control that usually does
+    // nothing.
+    auto *previewRow = new QWidget(page);
+    auto *previewLayout = new QHBoxLayout(previewRow);
+    previewLayout->setContentsMargins(0, 0, 0, 0);
+    previewLayout->setSpacing(8);
+    auto *previewMode = new QComboBox(previewRow);
+    previewMode->addItem(tr_("preview.background.theme"));
+    previewMode->addItem(tr_("preview.background.chequer"));
+    previewMode->addItem(tr_("preview.background.custom"));
+    previewMode->setCurrentIndex(jtf_preview_background(m_app));
+    auto *previewColour = new QPushButton(previewRow);
+    previewColour->setText(tr_("preview.background.choose"));
+    const auto storedColour = [this] {
+        return jtfText(
+            [&](char *buf, int len) { return jtf_preview_background_colour(m_app, buf, len); });
+    };
+    const auto applyPreview = [this, previewMode, previewColour, storedColour] {
+        const int mode = previewMode->currentIndex();
+        previewColour->setEnabled(mode == 2);
+        const QByteArray colour = storedColour().toUtf8();
+        jtf_set_preview_background(m_app, mode, colour.constData());
+        emit changed();
+    };
+    connect(previewMode, &QComboBox::currentIndexChanged, this,
+            [applyPreview](int) { applyPreview(); });
+    connect(previewColour, &QPushButton::clicked, this,
+            [this, previewMode, storedColour, applyPreview] {
+                const QColor chosen = QColorDialog::getColor(
+                    QColor(storedColour()), this, tr_("preview.background.choose"));
+                if (!chosen.isValid()) {
+                    return;
+                }
+                const QByteArray name = chosen.name(QColor::HexRgb).toUtf8();
+                jtf_set_preview_background(m_app, previewMode->currentIndex(), name.constData());
+                applyPreview();
+            });
+    previewColour->setEnabled(previewMode->currentIndex() == 2);
+    previewLayout->addWidget(previewMode, 1);
+    previewLayout->addWidget(previewColour);
+    form->addRow(tr_("preview.background"), previewRow);
+
+    auto *inspectorSide = new QComboBox(page);
+    inspectorSide->addItem(tr_("inspector.position.right"));
+    inspectorSide->addItem(tr_("inspector.position.bottom"));
+    inspectorSide->setCurrentIndex(jtf_inspector_position(m_app));
+    connect(inspectorSide, &QComboBox::currentIndexChanged, this, [this](int index) {
+        jtf_set_inspector_position(m_app, index);
+        emit changed();
+    });
+    form->addRow(tr_("inspector.position"), inspectorSide);
 
     auto *locale = new QComboBox(page);
     // Empty means "follow the system", and it is first because it is the
@@ -267,22 +396,106 @@ QWidget *SettingsDialog::buildAppearanceTab() {
 
     auto *monospace = new QCheckBox(tr_("settings.monospace"), page);
     monospace->setChecked(jtf_font_monospace(m_app) != 0);
-    auto *family = new QLineEdit(page);
-    family->setText(jtfText([&](char *buf, int len) { return jtf_font_family(m_app, buf, len); }));
-    family->setPlaceholderText(tr_("settings.font_placeholder"));
+    // The families actually installed, rather than a box to type a name into
+    // and find out later that it was not one. Editable, so a family this
+    // machine does not have - a session copied from another one - is still
+    // shown and kept rather than silently replaced.
+    auto *family = new QComboBox(page);
+    family->setEditable(true);
+
+    // Fills the list for the current mode, and says how wide each family is.
+    //
+    // Two things this fixes. Offering proportional families while "fixed-width"
+    // is ticked is offering a choice that contradicts the tick. And a person
+    // asking for a narrower face to fit more columns cannot tell which of forty
+    // monospace families is narrower by reading their names - so each one
+    // carries the width of a digit, which is the only number that matters when
+    // every character is that wide.
+    const QString currentFamily =
+        jtfText([&](char *buf, int len) { return jtf_font_family(m_app, buf, len); });
+    const auto fillFamilies = [this, family, currentFamily](bool fixedOnly) {
+        const QString kept = family->currentIndex() <= 0
+                                 ? currentFamily
+                                 : family->currentData().toString();
+        QSignalBlocker blocker(family);
+        family->clear();
+        family->addItem(tr_("settings.font_placeholder"), QString());
+
+        QStringList families = QFontDatabase::families();
+        families.removeDuplicates();
+        for (const QString &name : std::as_const(families)) {
+            if (fixedOnly && !QFontDatabase::isFixedPitch(name)) {
+                continue;
+            }
+            QString label = name;
+            if (fixedOnly) {
+                QFont probe(name);
+                probe.setPointSize(13);
+                const qreal advance = QFontMetricsF(probe).horizontalAdvance(QLatin1Char('0'));
+                label = QStringLiteral("%1  —  %2 px").arg(name).arg(advance, 0, 'f', 1);
+            }
+            family->addItem(label, name);
+        }
+
+        if (kept.isEmpty()) {
+            family->setCurrentIndex(0);
+            return;
+        }
+        const int at = family->findData(kept);
+        if (at >= 0) {
+            family->setCurrentIndex(at);
+        } else {
+            // A family this machine does not have - a session copied from
+            // another one - is shown and kept rather than silently replaced.
+            family->setEditText(kept);
+        }
+    };
+    fillFamilies(monospace->isChecked());
     auto *size = new QSpinBox(page);
     size->setRange(0, 32);
     size->setSpecialValueText(tr_("settings.font_default_size"));
     size->setValue(jtf_font_point_size(m_app));
 
     const auto applyFont = [this, monospace, family, size] {
-        const QByteArray name = family->text().trimmed().toUtf8();
+        // Index 0 is "the system's own", which is an empty name.
+        const QString chosen =
+            family->currentIndex() == 0 ? QString() : family->currentText().trimmed();
+        const QByteArray name = chosen.toUtf8();
         jtf_set_font(m_app, name.constData(), size->value(), monospace->isChecked() ? 1 : 0);
         emit changed();
     };
-    connect(monospace, &QCheckBox::toggled, this, [applyFont](bool) { applyFont(); });
-    connect(family, &QLineEdit::editingFinished, this, applyFont);
+    // Where the fixed-width face applies. The default is the aligned columns
+    // alone: sizes, dates and permissions are compared down the column and
+    // want digits that line up, while names are read one at a time and are
+    // easier in proportional type.
+    auto *scope = new QComboBox(page);
+    scope->addItem(tr_("settings.monospace_aligned"));
+    scope->addItem(tr_("settings.monospace_all"));
+    scope->setCurrentIndex(jtf_font_monospace_everywhere(m_app) != 0 ? 1 : 0);
+    scope->setEnabled(monospace->isChecked());
+    connect(scope, &QComboBox::currentIndexChanged, this, [this](int index) {
+        jtf_set_font_monospace_everywhere(m_app, index == 1 ? 1 : 0);
+        emit changed();
+    });
+
+    connect(monospace, &QCheckBox::toggled, this, [applyFont, scope, fillFamilies](bool on) {
+        // The scope means nothing when there is no fixed-width face in play,
+        // and the family list should stop offering faces that contradict the
+        // tick that was just made.
+        scope->setEnabled(on);
+        fillFamilies(on);
+        applyFont();
+    });
+    connect(family, &QComboBox::currentIndexChanged, this, [applyFont](int) { applyFont(); });
+    connect(family->lineEdit(), &QLineEdit::editingFinished, this, applyFont);
     connect(size, &QSpinBox::valueChanged, this, [applyFont](int) { applyFont(); });
+
+    auto *parentRow = new QCheckBox(tr_("settings.parent_row"), page);
+    parentRow->setChecked(jtf_parent_row(m_app) != 0);
+    connect(parentRow, &QCheckBox::toggled, this, [this](bool on) {
+        jtf_set_parent_row(m_app, on ? 1 : 0);
+        emit changed();
+    });
 
     auto *foldersFirst = new QCheckBox(tr_("settings.folders_first"), page);
     foldersFirst->setChecked(jtf_folders_first(m_app) != 0);
@@ -290,9 +503,25 @@ QWidget *SettingsDialog::buildAppearanceTab() {
         jtf_set_folders_first(m_app, on ? 1 : 0);
         emit changed();
     });
+    // How long the sidebar's 最近使用 list is. The useful number depends on how
+    // the person works - long enough to hold this morning is clutter to
+    // someone who only wants the last three - so it is a setting rather than
+    // a constant.
+    auto *recent = new QSpinBox(page);
+    recent->setRange(kRecentMin, kRecentMax);
+    const int storedRecent = jtf_recent_limit(m_app);
+    recent->setValue(storedRecent > 0 ? storedRecent : kRecentDefault);
+    connect(recent, &QSpinBox::valueChanged, this, [this](int value) {
+        jtf_set_recent_limit(m_app, value);
+        emit changed();
+    });
+
     form->addRow(QString(), foldersFirst);
+    form->addRow(QString(), parentRow);
+    form->addRow(tr_("settings.recent_limit"), recent);
 
     form->addRow(QString(), monospace);
+    form->addRow(tr_("settings.monospace_scope"), scope);
     form->addRow(tr_("settings.font_family"), family);
     form->addRow(tr_("settings.font_size"), size);
     return page;
@@ -405,7 +634,8 @@ void SettingsDialog::editShortcut(int row) {
     }
     const QString id = commandItem->data(Qt::UserRole).toString();
 
-    ShortcutCapture capture(tr_("settings.capture_title"), tr_("settings.capture_prompt"), this);
+    ShortcutCapture capture(tr_("settings.capture_title"), tr_("settings.capture_prompt"),
+                            tr_("dialog.cancel"), this);
     if (capture.exec() != QDialog::Accepted || capture.chord().isEmpty()) {
         return;
     }

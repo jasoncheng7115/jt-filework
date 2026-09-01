@@ -1,14 +1,19 @@
 #include "viewerwindow.h"
+
+#include "matchdelegate.h"
+#include "icons.h"
 #include "jtfstring.h"
 
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QFontDatabase>
+#include <QSlider>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
+#include <QAction>
 #include <QListView>
 #include <QVBoxLayout>
 #include <limits>
@@ -69,8 +74,10 @@ ViewerWindow::ViewerWindow(JtfApp *app, QWidget *parent)
     layout->setSpacing(0);
 
     auto *bar = new QWidget(this);
+    bar->setObjectName(QStringLiteral("JtfViewerBar"));
     auto *barLayout = new QHBoxLayout(bar);
-    barLayout->setContentsMargins(6, 4, 6, 4);
+    barLayout->setContentsMargins(8, 6, 8, 6);
+    barLayout->setSpacing(8);
 
     m_encoding = new QComboBox(bar);
     for (int i = 0; i < jtf_encoding_count(); ++i) {
@@ -94,13 +101,19 @@ ViewerWindow::ViewerWindow(JtfApp *app, QWidget *parent)
     m_find = new QLineEdit(bar);
     m_find->setPlaceholderText(tr_("viewer.find_placeholder"));
     m_find->setClearButtonEnabled(true);
+    // The same magnifier the main window's search box carries. A bare box
+    // beside two other controls reads as one more field; the glyph says which
+    // of them is the one you type a search into.
+    m_findIcon = m_find->addAction(QIcon(), QLineEdit::LeadingPosition);
     connect(m_find, &QLineEdit::returnPressed, this, &ViewerWindow::findNext);
     barLayout->addWidget(m_find, 1);
     layout->addWidget(bar);
 
     m_model = new ViewerModel(app, this);
     m_view = new QListView(this);
+    m_view->setObjectName(QStringLiteral("JtfViewerList"));
     m_view->setModel(m_model);
+    m_view->setFrameShape(QFrame::NoFrame);
     m_view->setUniformItemSizes(true); // what keeps the list virtualized
     m_view->setSelectionMode(QAbstractItemView::SingleSelection);
     m_view->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -108,13 +121,63 @@ ViewerWindow::ViewerWindow(JtfApp *app, QWidget *parent)
     // A viewer is always monospace: hex needs columns to line up, and so does
     // most of what people open a viewer for.
     m_view->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    m_matches = new MatchDelegate(this);
+    m_view->setItemDelegate(m_matches);
     layout->addWidget(m_view, 1);
 
-    m_status = new QLabel(this);
-    m_status->setContentsMargins(6, 3, 6, 3);
-    layout->addWidget(m_status);
+    // The keys this window answers to, along its foot, the way the file list
+    // has them. A viewer with no visible keys is a window you can only scroll.
+    m_hints = new QWidget(this);
+    m_hints->setObjectName(QStringLiteral("JtfViewerHints"));
+    auto *hintRow = new QHBoxLayout(m_hints);
+    hintRow->setContentsMargins(10, 5, 10, 5);
+    hintRow->setSpacing(14);
+    layout->addWidget(m_hints);
+
+    auto *foot = new QWidget(this);
+    foot->setObjectName(QStringLiteral("JtfViewerFoot"));
+    auto *footLayout = new QHBoxLayout(foot);
+    footLayout->setContentsMargins(8, 3, 8, 3);
+    footLayout->setSpacing(8);
+    m_status = new QLabel(foot);
+    footLayout->addWidget(m_status, 1);
+
+    // Reading a log at the list's font size is not the same as reading a
+    // folder at it, so the viewer carries its own.
+    auto *smaller = new QLabel(QStringLiteral("A"), foot);
+    smaller->setProperty("jtfZoomMark", true);
+    m_zoom = new QSlider(Qt::Horizontal, foot);
+    m_zoom->setObjectName(QStringLiteral("JtfZoom"));
+    m_zoom->setRange(9, 24);
+    m_zoom->setFixedWidth(96);
+    m_zoom->setValue(m_view->font().pointSize() > 0 ? m_view->font().pointSize() : 12);
+    auto *larger = new QLabel(QStringLiteral("A"), foot);
+    larger->setProperty("jtfZoomMark", true);
+    QFont bigMark = larger->font();
+    bigMark.setPointSizeF(bigMark.pointSizeF() * 1.25);
+    larger->setFont(bigMark);
+    connect(m_zoom, &QSlider::valueChanged, this, [this](int points) {
+        QFont font = m_view->font();
+        font.setPointSize(points);
+        m_view->setFont(font);
+    });
+    footLayout->addWidget(smaller);
+    footLayout->addWidget(m_zoom);
+    footLayout->addWidget(larger);
+    layout->addWidget(foot);
 
     refresh();
+
+    // The keyboard belongs in the content. Opening with the focus in the find
+    // box means the first arrow key or Page Down goes nowhere, and the first
+    // thing anyone does in a viewer is scroll.
+    if (m_model->rowCount() > 0) {
+        m_view->setCurrentIndex(m_model->index(0, 0));
+    }
+    m_view->setFocus();
+    updateHints();
+    m_findIcon->setIcon(
+        glyph::make(glyph::Shape::Search, palette().color(QPalette::PlaceholderText)));
 }
 
 ViewerWindow::~ViewerWindow() {
@@ -155,6 +218,8 @@ void ViewerWindow::updateStatus() {
 void ViewerWindow::findNext() {
     const QString needle = m_find->text();
     if (needle.isEmpty()) {
+        m_matches->setNeedle(QString());
+        m_view->viewport()->update();
         return;
     }
     const QModelIndex current = m_view->currentIndex();
@@ -164,11 +229,18 @@ void ViewerWindow::findNext() {
     const int64_t found = jtf_viewer_find(m_app, utf8.constData(), from);
     if (found < 0) {
         m_status->setText(tr_("viewer.not_found"));
+        m_matches->setNeedle(QString());
+        m_view->viewport()->update();
         return;
     }
     const QModelIndex index = m_model->index(static_cast<int>(found), 0);
     m_view->setCurrentIndex(index);
     m_view->scrollTo(index, QAbstractItemView::PositionAtCenter);
+    // The line is long and the match is a few characters in it. Lighting the
+    // whole row says which line; it does not say where to look.
+    m_matches->setNeedle(needle);
+    m_view->viewport()->update();
+    m_view->setFocus();
     updateStatus();
 }
 
@@ -178,7 +250,91 @@ void ViewerWindow::keyPressEvent(QKeyEvent *event) {
         close();
         return;
     }
+    // Single keys, as everywhere else in this program: CV.HLP gives H for the
+    // hex view, and a viewer whose only key is Escape makes the rest of the
+    // window a mouse target.
+    if (event->modifiers() == Qt::NoModifier && !m_find->hasFocus()) {
+        switch (event->key()) {
+        case Qt::Key_H:
+            jtf_viewer_toggle_hex(m_app);
+            refresh();
+            return;
+        case Qt::Key_Slash:
+            m_find->setFocus();
+            m_find->selectAll();
+            return;
+        case Qt::Key_N:
+        case Qt::Key_F3:
+            findNext();
+            return;
+        default:
+            break;
+        }
+    }
     QWidget::keyPressEvent(event);
+}
+
+void ViewerWindow::updateHints() {
+    if (m_hints == nullptr) {
+        return;
+    }
+    // Built from the same catalogue as everything else, so it follows the
+    // language; the keys are this window's own and are not in the keymap,
+    // which is why they are named here rather than looked up.
+    struct Hint {
+        const char *key;
+        const char *label;
+    };
+    static const Hint kHints[] = {
+        {"H", "viewer.hint.hex"},   {"/", "viewer.hint.find"},
+        {"N", "viewer.hint.next"},  {"Esc", "viewer.hint.close"},
+    };
+    auto *row = qobject_cast<QHBoxLayout *>(m_hints->layout());
+    if (row == nullptr) {
+        return;
+    }
+    while (QLayoutItem *old = row->takeAt(0)) {
+        delete old->widget();
+        delete old;
+    }
+
+    // A keycap is fixed-width, so the chips are too: in proportional type
+    // `/` and `Esc` make boxes of wildly different heights and weights, and
+    // the row stops reading as a row of keys.
+    QFont keyFont = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    keyFont.setPointSizeF(font().pointSizeF());
+    keyFont.setBold(true);
+
+    for (const Hint &hint : kHints) {
+        auto *chip = new QWidget(m_hints);
+        auto *pair = new QHBoxLayout(chip);
+        pair->setContentsMargins(0, 0, 0, 0);
+        pair->setSpacing(5);
+        auto *key = new QLabel(QLatin1String(hint.key), chip);
+        key->setProperty("jtfHintKey", true);
+        key->setFont(keyFont);
+        auto *text = new QLabel(tr_(hint.label), chip);
+        text->setProperty("jtfHintLabel", true);
+        pair->addWidget(key);
+        pair->addWidget(text);
+        row->addWidget(chip);
+    }
+    row->addStretch(1);
+}
+
+void ViewerWindow::applyTheme(const QColor &mark, const QColor &text) {
+    if (m_matches != nullptr) {
+        m_matches->setHighlight(mark, text);
+        m_view->viewport()->update();
+    }
+}
+
+void ViewerWindow::changeEvent(QEvent *event) {
+    QWidget::changeEvent(event);
+    if (event->type() == QEvent::PaletteChange && m_findIcon != nullptr) {
+        m_findIcon->setIcon(
+            glyph::make(glyph::Shape::Search, palette().color(QPalette::PlaceholderText)));
+    }
 }
 
 void ViewerWindow::closeEvent(QCloseEvent *event) {

@@ -8,6 +8,8 @@
 #include "bridge.h"
 #include "iconprovider.h"
 
+#include <QFileInfo>
+
 #include <QColor>
 #include <QFont>
 #include <QWidget>
@@ -25,8 +27,13 @@ public:
 
     /// Show the file at `path`. An empty path shows the empty state.
     void setTarget(const QString &path, int markedCount);
+    /// Read the current target again, for when the facts changed but the path
+    /// did not - a folder that has just been measured, for instance.
+    void refreshTarget();
     void setListFont(const QFont &font);
-    void applyTheme(const QColor &glyphColour);
+    void applyTheme(const QColor &glyphColour, const QColor &previewSurface);
+    /// Re-read the stored preview background. Called when the setting changes.
+    void applyPreviewBackground();
     void retranslate();
 
 signals:
@@ -40,8 +47,13 @@ private:
     bool showArchivePreview(const QString &path);
     bool showTextPreview(const QString &path);
     void addRow(const QString &labelKey, const QString &value);
+
+    QColor m_previewSurface;
     void showPreview(const QString &path);
     void rebuild();
+    // The list's 種類 column and this panel's 類型 row must never disagree, so
+    // both go through IconProvider rather than each asking its own database.
+    QString typeName(const QString &path, const QFileInfo &info);
 
     QLabel *m_name = nullptr;
     QPushButton *m_close = nullptr;

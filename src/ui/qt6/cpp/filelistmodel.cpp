@@ -2,6 +2,8 @@
 #include "jtfstring.h"
 #include "platform/filetype.h"
 
+#include <QApplication>
+#include <QFontDatabase>
 #include <QBrush>
 #include <QPixmap>
 #include <QMimeData>
@@ -18,6 +20,17 @@ constexpr int kThumbnailEdge = 32;
 
 FileListModel::FileListModel(JtfApp *app, int paneId, QObject *parent)
     : QAbstractTableModel(parent), m_app(app), m_pane(paneId) {
+    // Sensible fonts from the start, not empty ones waiting to be told.
+    //
+    // `setListFonts` arrives with the rest of the theme, one turn of the event
+    // loop after a pane is built - and until it did, the aligned columns were
+    // drawn in the default proportional face. The dates rendered ragged and
+    // then snapped into line a moment later, which reads as a fault rather
+    // than as loading.
+    m_proportional = QApplication::font();
+    m_fixed = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    m_fixed.setPointSizeF(m_proportional.pointSizeF());
+
     m_thumbnails = new ThumbnailCache(this);
     // A thumbnail arrives later than the row that asked for it, so the row is
     // repainted when it does. Only that row: repainting the list would undo
@@ -154,7 +167,7 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const {
         return m_icons.iconFor(path, isDirectory);
     }
 
-    case Qt::ForegroundRole:
+    case Qt::ForegroundRole: {
         // A marked row is coloured, and marks are distinct from selection -
         // AGENTS.md 10 keeps them separate in the model, so the UI must keep
         // them distinguishable on screen.
@@ -166,21 +179,61 @@ QVariant FileListModel::data(const QModelIndex &index, int role) const {
         if (jtf_row_is_executable(m_app, m_pane, row)) {
             return QBrush(m_execColor);
         }
+        QColor colour;
         if (column == 0 && jtf_row_is_directory(m_app, m_pane, row)) {
-            return QBrush(m_dirColor);
+            colour = m_dirColor;
+        }
+        // Hidden entries are drawn dimmer, which is what CView and WinCV both
+        // do. Dimming whatever colour the row would otherwise have, rather
+        // than replacing it with one flat grey: a hidden folder is still a
+        // folder, and losing that says less than fading it says.
+        if (jtf_row_is_hidden(m_app, m_pane, row)) {
+            if (!colour.isValid()) {
+                colour = m_textColor;
+            }
+            colour.setAlphaF(0.55F);
+            return QBrush(colour);
+        }
+        if (colour.isValid()) {
+            return QBrush(colour);
+        }
+        return {};
+    }
+
+    case Qt::BackgroundRole:
+        // The whole row, not the text alone. A mark that shows only as a
+        // colour on the letters is easy to miss against a list where names
+        // are already coloured by kind - a folder is blue, an executable is
+        // green - so the marked rows have to differ in something the other
+        // colouring does not use. A wash of the mark colour behind the row
+        // does that, and it reads at a glance as a block of chosen rows
+        // rather than as a scatter of differently-coloured names.
+        if (jtf_row_is_marked(m_app, m_pane, row)) {
+            QColor wash = m_markColor;
+            wash.setAlpha(38);
+            return QBrush(wash);
         }
         return {};
 
-    case Qt::FontRole:
+    case Qt::FontRole: {
+        // A fixed-width face where the column is read *down* - sizes, dates,
+        // permissions all line up digit under digit and are compared that way.
+        // Names are not read down a column, they are read one at a time, and
+        // proportional type is what names are set in everywhere else. The user
+        // can ask for one face throughout instead.
+        QFont font = (m_fixedEverywhere || isAlignedColumn(column)) ? m_fixed : m_proportional;
         if (jtf_row_is_marked(m_app, m_pane, row)) {
-            QFont font;
             font.setBold(true);
-            return font;
         }
-        return {};
+        return font;
+    }
 
     case Qt::TextAlignmentRole:
-        if (column == 1) {
+        // Asked by key, not assumed to be column 1. The columns are data and
+        // their order has already changed once - which is why `kindColumn`
+        // exists - so a hardcoded index right-aligns whatever happens to sit
+        // there. That is the header and the numbers drifting apart.
+        if (column == sizeColumn()) {
             return QVariant(Qt::AlignRight | Qt::AlignVCenter);
         }
         return {};
@@ -195,6 +248,39 @@ int FileListModel::tagsColumn() const {
         m_tagsColumn = columnWithKey(QStringLiteral("column.tags"));
     }
     return m_tagsColumn;
+}
+
+void FileListModel::setListFonts(const QFont &proportional, const QFont &fixed,
+                                 bool fixedEverywhere) {
+    m_proportional = proportional;
+    m_fixed = fixed;
+    m_fixedEverywhere = fixedEverywhere;
+    if (rowCount() > 0 && columnCount() > 0) {
+        emit dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1),
+                         {Qt::FontRole});
+    }
+}
+
+/// Whether this column is read as a column of aligned values.
+///
+/// By key, like every other question about a column, because their order is
+/// data and has changed once already.
+bool FileListModel::isAlignedColumn(int column) const {
+    static const QStringList aligned = {
+        QStringLiteral("column.size"),        QStringLiteral("column.modified"),
+        QStringLiteral("column.created"),     QStringLiteral("column.accessed"),
+        QStringLiteral("column.permissions"),
+    };
+    char buf[128];
+    jtf_column_key(column, buf, static_cast<int>(sizeof(buf)));
+    return aligned.contains(QString::fromUtf8(buf));
+}
+
+int FileListModel::sizeColumn() const {
+    if (m_sizeColumn == -2) {
+        m_sizeColumn = columnWithKey(QStringLiteral("column.size"));
+    }
+    return m_sizeColumn;
 }
 
 int FileListModel::columnWithKey(const QString &wanted) const {
@@ -224,8 +310,8 @@ QVariant FileListModel::headerData(int section, Qt::Orientation orientation, int
     // Headers align with their data: text left, numbers right. A centred
     // header over left-aligned rows is what makes a column look crooked.
     if (role == Qt::TextAlignmentRole) {
-        return section == 1 ? QVariant(Qt::AlignRight | Qt::AlignVCenter)
-                            : QVariant(Qt::AlignLeft | Qt::AlignVCenter);
+        return section == sizeColumn() ? QVariant(Qt::AlignRight | Qt::AlignVCenter)
+                                       : QVariant(Qt::AlignLeft | Qt::AlignVCenter);
     }
     if (role != Qt::DisplayRole) {
         return {};
@@ -250,7 +336,8 @@ bool FileListModel::setData(const QModelIndex &index, const QVariant &value, int
     // row's colour and weight.
     emit dataChanged(index.siblingAtColumn(0),
                      index.siblingAtColumn(columnCount() - 1),
-                     {Qt::CheckStateRole, Qt::ForegroundRole, Qt::FontRole});
+                     {Qt::CheckStateRole, Qt::ForegroundRole, Qt::BackgroundRole,
+                      Qt::FontRole});
     emit markChanged();
     return true;
 }

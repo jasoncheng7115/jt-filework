@@ -4,7 +4,7 @@
 #include <QPainter>
 #include <QStyle>
 
-MatchDelegate::MatchDelegate(QObject *parent) : QStyledItemDelegate(parent) {}
+MatchDelegate::MatchDelegate(QObject *parent) : RowDelegate(parent) {}
 
 void MatchDelegate::setNeedle(const QString &needle) { m_needle = needle.trimmed(); }
 
@@ -17,7 +17,7 @@ void MatchDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
                           const QModelIndex &index) const {
     const QString text = index.data(Qt::DisplayRole).toString();
     if (m_needle.isEmpty() || text.isEmpty()) {
-        QStyledItemDelegate::paint(painter, option, index);
+        RowDelegate::paint(painter, option, index);
         return;
     }
 
@@ -26,7 +26,7 @@ void MatchDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
     // date - simply draws normally.
     const int at = text.indexOf(m_needle, 0, Qt::CaseInsensitive);
     if (at < 0) {
-        QStyledItemDelegate::paint(painter, option, index);
+        RowDelegate::paint(painter, option, index);
         return;
     }
 
@@ -74,4 +74,8 @@ void MatchDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
         draw(shown.mid(start + m_needle.size()), false);
     }
     painter->restore();
+    // This branch draws the row itself rather than calling the base, so the
+    // tick has to be drawn here as well; without it a marked row loses its
+    // tick the moment a search or filter is running.
+    paintTick(painter, option, index);
 }

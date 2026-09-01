@@ -1,9 +1,17 @@
 #include "panewidget.h"
+
+#include <algorithm>
+
+#include <QItemSelection>
 #include "filelistmodel.h"
 #include "breadcrumb.h"
 #include "headerview.h"
 #include "icons.h"
 #include "matchdelegate.h"
+#include "rowdelegate.h"
+#include "searchoverlay.h"
+
+#include <QTimer>
 
 #include <QApplication>
 #include "jtfstring.h"
@@ -22,6 +30,7 @@
 #include <QEvent>
 #include <QHeaderView>
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QHBoxLayout>
@@ -33,18 +42,60 @@
 #include <QTableView>
 #include <QVBoxLayout>
 
+namespace {
+// The payload a tab drag carries. Ours alone, so a drop from anywhere else is
+// not mistaken for a tab. Declared here rather than beside the drag code
+// because a tab can now be dropped on the pane as well as on its tab strip,
+// and those two handlers sit at opposite ends of the file.
+constexpr const char *kTabMimeType = "application/x-jt-filework-tab";
+
+// The close mark on a tab, and the button around it. Both were smaller: at
+// 11px, dimmed, and pressed against the tab's right border, the mark was
+// something you had to already know was there.
+// The pane's own edge. The same on an active and an inactive pane, so that
+// taking the focus does not move the contents by two pixels; only the colour
+// changes.
+constexpr int kPaneBorder = 2;
+
+// The close mark on a tab. Three things had to be right before it could be
+// seen at all:
+//
+//   - the glyph: `xmark.svg` was a copy of `xmark-circle.svg`, whose cross
+//     fills a quarter of its box;
+//   - the size asked for: 13 is not one of the sizes renderIcon draws, so Qt
+//     scaled the 16px pixmap down and thinned the stroke with it;
+//   - the room left to draw in: the stylesheet's margins and padding came out
+//     of the button's own box, so a 24px button had 7px of drawing area.
+//
+// So the gap to the tab title is now part of the widget's width rather than a
+// margin inside it, and the box keeps its whole size for the mark.
+constexpr int kTabCloseIcon = 20;
+constexpr int kTabCloseBox = 22;
+// Kept the same as JtfTabClose's margin-left in theme.cpp.
+constexpr int kTabCloseGap = 6;
+} // namespace
+
+
 PaneWidget::~PaneWidget() { delete m_typeAheadClock; }
 
 PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     : QWidget(parent), m_app(app), m_pane(paneId) {
     setObjectName(QStringLiteral("JtfPane"));
+    // Without this a plain QWidget subclass ignores the stylesheet's
+    // background and border entirely - Qt only paints them for a widget that
+    // asks. The pane's border has been in the stylesheet since the beginning
+    // and has never once been drawn, which is why the active pane looked no
+    // different from the other one.
+    setAttribute(Qt::WA_StyledBackground, true);
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
+    // Room for that border. The children fill the pane, so with no margin they
+    // paint straight over the edge the stylesheet just drew.
+    layout->setContentsMargins(kPaneBorder, kPaneBorder, kPaneBorder, kPaneBorder);
     layout->setSpacing(0);
 
     m_tabs = new QTabBar(this);
     m_tabs->setExpanding(false);
-    m_tabs->setTabsClosable(true);
+    m_tabs->setTabsClosable(false); // we install our own, see syncTabs
     m_tabs->setMovable(true);
     m_tabs->setDrawBase(false);
     m_tabs->setElideMode(Qt::ElideMiddle);
@@ -71,9 +122,44 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     });
     tabRowLayout->addWidget(m_newTab);
     tabRowLayout->addStretch(1);
+    // Which pane a copy or a move would land in. Pressing C with two panes
+    // open is a decision about a folder full of files, and "the one that is
+    // not focused" is a rule the user has to remember and apply under a
+    // highlight that is easy to misread. This says it instead.
+    m_targetBadge = new QLabel(tabRow);
+    m_targetBadge->setObjectName(QStringLiteral("JtfTargetBadge"));
+    m_targetBadge->setVisible(false);
+    tabRowLayout->addWidget(m_targetBadge);
+
+    // Closing a pane from the menu closes whichever one has focus, so getting
+    // rid of the pane you are looking at means focusing it first. The button
+    // says which pane it closes by sitting in it. It focuses that pane before
+    // closing, so the click and the menu item run the same command on the
+    // same pane rather than two paths that can disagree.
+    m_close = new QToolButton(tabRow);
+    m_close->setObjectName(QStringLiteral("JtfClosePane"));
+    m_close->setAutoRaise(true);
+    m_close->setFocusPolicy(Qt::NoFocus);
+    connect(m_close, &QToolButton::clicked, this, [this] {
+        jtf_focus_pane(m_app, m_pane);
+        jtf_close_active_pane(m_app);
+        emit stateChanged();
+    });
+    tabRowLayout->addWidget(m_close);
     layout->addWidget(tabRow);
 
     m_crumbs = new Breadcrumb(this);
+    // Completions come from the same call the folder tree lists with, so what
+    // completes here and what the tree shows are the same set - and a path on
+    // a server completes, which Qt's own file-system completer could not do.
+    m_crumbs->setCompletionSource([this](const QString &folder) {
+        const QByteArray utf8 = folder.toUtf8();
+        const QString joined = jtfText([&](char *buf, int len) {
+            return jtf_child_directories(m_app, utf8.constData(), buf, len);
+        });
+        return joined.isEmpty() ? QStringList()
+                                : joined.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    });
     connect(m_crumbs, &Breadcrumb::navigate, this, [this](const QString &path) {
         const QByteArray utf8 = path.toUtf8();
         jtf_navigate(m_app, m_pane, utf8.constData());
@@ -121,8 +207,6 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_filterClose->setObjectName(QStringLiteral("JtfFilterClose"));
     m_filterClose->setAutoRaise(true);
     m_filterClose->setFocusPolicy(Qt::NoFocus);
-    m_filterClose->setToolTip(jtfText(
-        [&](char *b, int l) { return jtf_tr(m_app, "filter.close", b, l); }));
     connect(m_filterClose, &QToolButton::clicked, this, [this] { clearFilter(); });
     filterRow->addWidget(m_filterClose);
     connect(m_filter, &QLineEdit::textChanged, this, [this](const QString &text) {
@@ -136,34 +220,15 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // Search walks a tree, so it is a separate box from the filter and says
     // so: conflating them would make one of the two feel wrong
     // (docs/SEARCH_AI.md 1).
-    m_search = new QLineEdit(this);
-    m_search->setObjectName(QStringLiteral("JtfSearch"));
-    m_search->setClearButtonEnabled(true);
-    m_search->setVisible(false);
-    connect(m_search, &QLineEdit::returnPressed, this, [this] {
-        const QByteArray query = m_search->text().trimmed().toUtf8();
-        if (query.isEmpty()) {
-            clearSearch();
-            return;
-        }
-        char error[128] = {};
-        if (!jtf_search_start(m_app, m_pane, query.constData(), error, sizeof(error))) {
-            // The query is wrong in a specific way, and saying which is the
-            // difference between fixing it and guessing.
-            const QByteArray key(error);
-            m_status->setText(jtfText(
-                [&](char *buf, int len) { return jtf_tr(m_app, key.constData(), buf, len); }));
-            return;
-        }
-        m_model->refresh();
-        emit stateChanged();
-    });
-    layout->addWidget(m_search);
 
     m_view = new QTableView(this);
     m_model = new FileListModel(app, paneId, this);
     m_view->setModel(m_model);
     m_view->setSelectionBehavior(QAbstractItemView::SelectRows);
+    // The columns are fitted to the width, so there is nothing to scroll to
+    // sideways - and a bar that appears on hover would change the list's
+    // height as the pointer crossed the pane's edge.
+    m_view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_view->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_view->setAlternatingRowColors(true);
     m_view->setMouseTracking(true); // so :hover in the stylesheet applies
@@ -180,10 +245,57 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // looks like it did nothing.
     m_header = new JtfHeaderView(m_view);
     m_view->setHorizontalHeader(m_header);
+    // A box at the head of the column of boxes, meaning all of them. Selection
+    // is the mark (`AGENTS.md` §10), so it does both: ticking it selects every
+    // row, clearing it leaves nothing selected.
+    m_header->setMarkAllVisible(true);
+    // A mark made by clicking a row's own box has to move the header's box
+    // too. `markChanged` was emitted and nobody was listening.
+    connect(m_model, &FileListModel::markChanged, this, [this] {
+        // And the selection follows, because selection *is* the mark
+        // (`AGENTS.md` §10). Ticking a box marked the row in the model and
+        // left it out of the view's selection, so a row marked by its box was
+        // drawn one way and a row marked by being selected another - two
+        // appearances for one state, in the same column, three rows apart.
+        syncSelectionFromMarks();
+        syncMarkAll();
+        emit stateChanged();
+    });
+    connect(m_header, &JtfHeaderView::markAllToggled, this, [this](bool wanted) {
+        // 0 marks every listed entry, 1 clears them - the same two actions the
+        // Edit menu offers, so there is one implementation of "all".
+        jtf_mark_listed(m_app, m_pane, wanted ? 0 : 1);
+        // refreshRows puts the highlight back from the marks, so the rows go
+        // dark with their boxes. Clearing the header box used to leave every
+        // row still lit, which said the rows were selected while their boxes
+        // said they were not - the two halves of one thing disagreeing.
+        refreshRows();
+        emit stateChanged();
+    });
     // Only the name column: highlighting a date because the query happens to
     // contain a digit would be noise, not information.
     m_matches = new MatchDelegate(this);
+    // Every other column gets the plain row-aware delegate, so hover covers
+    // the row rather than stopping at the name column's edge.
+    connect(m_model, &QAbstractItemModel::modelReset, this,
+            [this] { scheduleFitNameColumn(); });
+    connect(m_model, &QAbstractItemModel::columnsInserted, this,
+            [this] { scheduleFitNameColumn(); });
+    m_rows = new RowDelegate(this);
+    m_view->setItemDelegate(m_rows);
     m_view->setItemDelegateForColumn(0, m_matches);
+    // Both delegates have to agree on which row is hovered, or the row lights
+    // up in pieces.
+    m_searchOverlay = new SearchOverlay(this);
+    m_searchOverlay->setVisible(false);
+    connect(m_searchOverlay, &SearchOverlay::cancelled, this, [this] {
+        clearSearch();
+        emit stateChanged();
+    });
+
+    connect(m_view, &QAbstractItemView::entered, this, [this](const QModelIndex &index) {
+        setHoveredRow(index.isValid() ? index.row() : -1);
+    });
     // The name column takes whatever the others do not, so the list fills
     // the pane instead of ending in dead space, and widening a pane widens
     // the one column where the extra room is worth anything. The rest stay
@@ -203,9 +315,28 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_view->setDefaultDropAction(Qt::MoveAction);
     layout->addWidget(m_view, 1);
 
-    m_status = new QLabel(this);
+    // The status line, and beside it the one thing worth doing about a
+    // failure. A pane that could not open says so and then leaves you with
+    // nothing to press; the folder is unreachable, so the usual refresh key is
+    // not an obvious answer and does not drop the dead session anyway.
+    auto *statusRow = new QWidget(this);
+    statusRow->setObjectName(QStringLiteral("JtfStatusRow"));
+    auto *statusLayout = new QHBoxLayout(statusRow);
+    statusLayout->setContentsMargins(0, 0, 0, 0);
+    statusLayout->setSpacing(0);
+    m_status = new QLabel(statusRow);
     m_status->setObjectName(QStringLiteral("JtfStatus"));
-    layout->addWidget(m_status);
+    statusLayout->addWidget(m_status, 1);
+    m_reconnect = new QToolButton(statusRow);
+    m_reconnect->setObjectName(QStringLiteral("JtfReconnect"));
+    m_reconnect->setAutoRaise(true);
+    m_reconnect->setFocusPolicy(Qt::NoFocus);
+    m_reconnect->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_reconnect->setVisible(false);
+    connect(m_reconnect, &QToolButton::clicked, this,
+            [this] { emit reconnectRequested(m_pane); });
+    statusLayout->addWidget(m_reconnect);
+    layout->addWidget(statusRow);
 
     m_typeAheadClock = new QElapsedTimer();
     m_typeAheadClock->start();
@@ -241,8 +372,12 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_grid->setVisible(false);
     m_grid->installEventFilter(this);
     m_grid->viewport()->installEventFilter(this);
-    connect(m_grid, &QAbstractItemView::doubleClicked, this,
-            [this](const QModelIndex &index) { openRow(index.row()); });
+    connect(m_grid, &QAbstractItemView::doubleClicked, this, [this](const QModelIndex &index) {
+        // As in the list view: one route for opening, so the archive window
+        // and the platform hand-off are decided in one place.
+        setCurrentRow(index.row(), QAbstractItemView::EnsureVisible);
+        emit commandRequested(QStringLiteral("file.open"));
+    });
     layout->addWidget(m_grid, 1);
     connect(m_grid, &QWidget::customContextMenuRequested, this, [this](const QPoint &at) {
         jtf_focus_pane(m_app, m_pane);
@@ -265,11 +400,36 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
             rows.append(index.row());
         }
         jtf_set_selection(m_app, m_pane, rows.constData(), static_cast<int>(rows.size()));
+        // Selecting is marking. What is highlighted is what is ticked,
+        // however the rows were picked - mouse, Shift and the arrows, or
+        // Space. `AGENTS.md` §10 used to keep the two apart; the project
+        // owner decided they should be one, and the rule was changed with it.
+        //
+        // Guarded because restoring the selection from the marks on arriving
+        // in a folder would otherwise come straight back round here.
+        if (!m_restoringMarks) {
+            jtf_set_marks_from_selection(m_app, m_pane, rows.constData(),
+                                         static_cast<int>(rows.size()));
+            syncMarkAll();
+        }
         emit selectionChanged();
     });
 
-    connect(m_view, &QTableView::doubleClicked, this,
-            [this](const QModelIndex &index) { openRow(index.row()); });
+    // And which row the cursor itself is on, which is a different question
+    // from what is selected: `Tab::active_entry` is what answers "what am I
+    // pointing at" for Enter on an archive, `Z` on a folder, and the last
+    // fallback of `operation_target`.
+    connect(m_view->selectionModel(), &QItemSelectionModel::currentRowChanged, this,
+            [this](const QModelIndex &current, const QModelIndex &) {
+                jtf_set_current_row(m_app, m_pane, current.isValid() ? current.row() : -1);
+            });
+
+    connect(m_view, &QTableView::doubleClicked, this, [this](const QModelIndex &index) {
+        // The same route as Enter, so a double click and the key cannot mean
+        // two different things.
+        setCurrentRow(index.row(), QAbstractItemView::EnsureVisible);
+        emit commandRequested(QStringLiteral("file.open"));
+    });
 
     connect(m_view->horizontalHeader(), &QHeaderView::sectionClicked, this,
             [this](int section) {
@@ -304,20 +464,111 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
         if (index < 0) {
             return;
         }
+        // Acting on a pane makes it the active one - the `+` button, the list's
+        // own context menu and the breadcrumb all do this, and this menu was
+        // the one that did not. Without it, 新增分頁 opened the tab in whichever
+        // pane was already active rather than the one being right-clicked.
+        jtf_focus_pane(m_app, m_pane);
+        const auto label = [this](const char *key) {
+            return jtfText([&](char *b, int l) { return jtf_tr(m_app, key, b, l); });
+        };
+        const QColor iconColour = palette().color(QPalette::Text);
+
         QMenu menu(this);
-        QAction *tearOff = menu.addAction(jtfText(
-            [&](char *b, int l) { return jtf_tr(m_app, "tab.tear_off", b, l); }));
+        QAction *newTab = menu.addAction(glyph::forCommand(QStringLiteral("tab.new"), iconColour),
+                                         label("command.tab.new"));
+        QAction *duplicate = menu.addAction(glyph::make(glyph::Shape::Copy, iconColour),
+                                            label("tab.duplicate"));
+        const bool pinned = jtf_tab_is_pinned(m_app, m_pane, index) != 0;
+        QAction *pin = menu.addAction(glyph::make(glyph::Shape::Bookmark, iconColour),
+                                      label(pinned ? "tab.unpin" : "command.tab.pin"));
+        // The tab's own folder, which is not always the pane's: this menu
+        // answers a right-click on one particular tab.
+        const QString tabPath = jtfText(
+            [&](char *b, int l) { return jtf_tab_path(m_app, m_pane, index, b, l); });
+        const QByteArray tabUtf8 = tabPath.toUtf8();
+        QAction *bookmark = nullptr;
+        if (!tabPath.isEmpty()) {
+            const bool marked = jtf_path_is_bookmarked(m_app, tabUtf8.constData()) != 0;
+            bookmark = menu.addAction(glyph::forCommand(QStringLiteral("file.bookmark"),
+                                                        iconColour),
+                                      label(marked ? "crumb.unbookmark" : "crumb.bookmark"));
+        }
+        menu.addSeparator();
+        QAction *close = menu.addAction(glyph::make(glyph::Shape::Close, iconColour),
+                                        label("command.tab.close"));
+        QAction *closeOthers = menu.addAction(glyph::make(glyph::Shape::Close, iconColour),
+                                              label("tab.close_others"));
+        QAction *closeLeft = menu.addAction(glyph::make(glyph::Shape::ArrowLeft, iconColour),
+                                            label("tab.close_to_left"));
+        QAction *closeRight = menu.addAction(glyph::make(glyph::Shape::ArrowRight, iconColour),
+                                             label("tab.close_to_right"));
+        // Nothing to close when this is the only tab, nothing to the right of
+        // the last one and nothing to the left of the first. A menu that
+        // offers an action which does nothing teaches the user to distrust
+        // the menu.
+        closeOthers->setEnabled(m_tabs->count() > 1);
+        closeLeft->setEnabled(index > 0);
+        closeRight->setEnabled(index < m_tabs->count() - 1);
+        menu.addSeparator();
+        QAction *tearOff = menu.addAction(glyph::make(glyph::Shape::NewWindow, iconColour),
+                                          label("tab.tear_off"));
         // Only offered when it would do something: the last tab of the last
         // pane cannot become its own window.
         tearOff->setEnabled(m_tabs->count() > 1 || jtf_pane_count(m_app) > 1);
-        if (menu.exec(m_tabs->mapToGlobal(at)) == tearOff) {
+
+        QAction *chosen = menu.exec(m_tabs->mapToGlobal(at));
+        if (chosen == tearOff) {
             emit tearOffRequested(index);
+        } else if (chosen == newTab) {
+            jtf_new_tab(m_app);
+            emit stateChanged();
+        } else if (chosen == duplicate) {
+            // A second tab on the same folder: the usual reason for one is to
+            // keep this place while going somewhere else from it.
+            //
+            // The tab that was right-clicked, in this pane - not whichever tab
+            // and pane happen to be active. This used to read a path out of
+            // the active tab and navigate a new tab to it, which duplicated
+            // the wrong tab whenever the menu was opened on another one, and
+            // duplicated nothing at all on a server, whose location has no
+            // local path to read.
+            jtf_duplicate_tab(m_app, m_pane, index);
+            emit stateChanged();
+        } else if (bookmark != nullptr && chosen == bookmark) {
+            jtf_toggle_bookmark_path(m_app, tabUtf8.constData());
+            emit stateChanged();
+        } else if (chosen == pin) {
+            jtf_toggle_tab_pinned(m_app, m_pane, index);
+            emit stateChanged();
+        } else if (chosen == close) {
+            closeTab(index);
+        } else if (chosen == closeOthers) {
+            // Backwards, so closing one does not renumber the ones still to
+            // go; and the kept tab's own index moves as those before it go, so
+            // it is found by title-independent arithmetic rather than assumed.
+            for (int at2 = m_tabs->count() - 1; at2 >= 0; --at2) {
+                if (at2 != index) {
+                    jtf_close_tab(m_app, m_pane, at2);
+                }
+            }
+            emit stateChanged();
+        } else if (chosen == closeRight) {
+            for (int at2 = m_tabs->count() - 1; at2 > index; --at2) {
+                jtf_close_tab(m_app, m_pane, at2);
+            }
+            emit stateChanged();
+        } else if (chosen == closeLeft) {
+            // Backwards again, so the indices of the ones still to close do
+            // not shift under the loop.
+            for (int at2 = index - 1; at2 >= 0; --at2) {
+                jtf_close_tab(m_app, m_pane, at2);
+            }
+            emit stateChanged();
         }
     });
-    connect(m_tabs, &QTabBar::tabCloseRequested, this, [this](int index) {
-        jtf_close_tab(m_app, m_pane, index);
-        emit stateChanged();
-    });
+    connect(m_tabs, &QTabBar::tabCloseRequested, this,
+            [this](int index) { closeTab(index); });
 
     syncTabs();
     syncPath();
@@ -418,26 +669,24 @@ void PaneWidget::searchFor(const QString &query) {
 
 void PaneWidget::editPath() { m_crumbs->beginEditing(); }
 
-void PaneWidget::toggleSearch() {
-    if (m_search->isVisible() && m_search->hasFocus()) {
-        clearSearch();
-        return;
-    }
-    m_search->setVisible(true);
-    m_search->setPlaceholderText(jtfText(
-        [&](char *buf, int len) { return jtf_tr(m_app, "search.placeholder", buf, len); }));
-    m_search->setFocus();
-    m_search->selectAll();
-}
 
 void PaneWidget::clearSearch() {
     // Clearing returns to the folder the pane was already on, rather than
     // navigating anywhere: a search never moved you.
     if (jtf_is_searching(m_app, m_pane)) {
         jtf_search_clear(m_app, m_pane);
+        m_view->setFocus();
+        emit stateChanged();
+        return;
     }
-    m_search->clear();
-    m_search->setVisible(false);
+    // A filter narrows the list too, and Escape means "stop narrowing it"
+    // whichever of the two is in force. Bound as `search.clear`, but the key
+    // is Escape and pressing it over a filtered list did nothing at all -
+    // which reads as a broken key, not as a distinction between two features.
+    if (m_filterBar->isVisible()) {
+        clearFilter();
+        return;
+    }
     m_view->setFocus();
     emit stateChanged();
 }
@@ -454,11 +703,44 @@ void PaneWidget::toggleFilter() {
     m_filter->selectAll();
 }
 
+void PaneWidget::syncFilterBar() {
+    // A filter is saved with the tab and restored with it, but nothing used to
+    // put it back on screen - so a folder came up filtered with no filter box,
+    // no text and no hint that anything was being hidden. `~/Downloads` showed
+    // 163 zip files and not one of its 92 folders, and there was no way to
+    // find out why, let alone undo it.
+    //
+    // Whatever the core is actually filtering by is what the box shows.
+    const QString active =
+        jtfText([&](char *b, int l) { return jtf_filter(m_app, m_pane, b, l); });
+    if (active.isEmpty()) {
+        return; // Never hides the bar: the user may have just opened an empty one.
+    }
+    if (m_filter->text() != active) {
+        QSignalBlocker blocker(m_filter);
+        m_filter->setText(active);
+    }
+    if (!m_filterBar->isVisible()) {
+        m_filter->setPlaceholderText(jtfText(
+            [&](char *buf, int len) { return jtf_tr(m_app, "filter.placeholder", buf, len); }));
+        m_filterBar->setVisible(true);
+    }
+}
+
 void PaneWidget::clearFilter() {
     // Escape clears and hides, rather than leaving an empty box that still
     // looks like a mode the user is in.
     m_filter->clear();
     m_filterBar->setVisible(false);
+    // And the highlight goes with it. The matched text was still picked out in
+    // orange after the filter had been left, which says the list is still
+    // narrowed by something when it is not - the one thing the highlight
+    // exists to communicate, said wrongly.
+    if (m_matches != nullptr) {
+        m_matches->setNeedle(QString());
+        m_view->viewport()->update();
+        m_grid->viewport()->update();
+    }
     m_view->setFocus();
 }
 
@@ -524,14 +806,17 @@ void PaneWidget::applyColumnVisibility() {
     }
     m_matches->setNeedle(needle);
 
+    m_wantedColumns.clear();
     for (int column = 0; column < jtf_column_count(); ++column) {
         bool visible = jtf_column_visible(m_app, m_pane, column) != 0;
         if (searching && isPathColumn(column)) {
             visible = true;
         }
-        m_view->setColumnHidden(column, !visible);
+        if (visible) {
+            m_wantedColumns.append(column);
+        }
     }
-    fitNameColumn();
+    scheduleFitNameColumn();
 }
 
 bool PaneWidget::isPathColumn(int column) const {
@@ -541,20 +826,157 @@ bool PaneWidget::isPathColumn(int column) const {
     return key == QLatin1String("column.path");
 }
 
+void PaneWidget::setHoveredRow(int row) {
+    if (row == m_hoveredRow) {
+        return;
+    }
+    const int previous = m_hoveredRow;
+    m_hoveredRow = row;
+    m_matches->setHoveredRow(row);
+    m_rows->setHoveredRow(row);
+    // Only the two rows that changed, so moving the pointer down a long list
+    // does not repaint the whole viewport per pixel.
+    const auto repaint = [this](int line) {
+        if (line >= 0 && line < m_model->rowCount()) {
+            m_view->viewport()->update(m_view->visualRect(m_model->index(line, 0)).adjusted(
+                0, 0, m_view->viewport()->width(), 0));
+        }
+    };
+    repaint(previous);
+    repaint(row);
+}
+
+void PaneWidget::scheduleFitNameColumn() {
+    // Coalesced onto the event loop. The width the name column should have
+    // depends on three things that settle in no fixed order at startup - the
+    // viewport's real width, which columns are visible, and whether the model
+    // has its columns yet - and fitting from whichever one happened to arrive
+    // last is what left the list either half-filled or spilling past the
+    // right edge. Running once after they have all been applied is the only
+    // ordering that is right regardless of which came first.
+    if (m_fitScheduled) {
+        return;
+    }
+    m_fitScheduled = true;
+    QTimer::singleShot(0, this, [this] {
+        m_fitScheduled = false;
+        fitNameColumn();
+    });
+}
+
 void PaneWidget::fitNameColumn() {
-    // Whatever the other visible columns do not use, with a floor. Below the
-    // floor the list scrolls sideways, which is the honest outcome: the
-    // columns genuinely do not fit, and hiding the file names to pretend they
-    // do is not an improvement.
+    // Whatever the other visible columns do not use, with a floor. The floor
+    // matters more than any other column: a date you cannot fully read is an
+    // inconvenience, a file name you cannot read at all is the list failing at
+    // its one job.
     static constexpr int kNameFloor = 160;
+    // Below this a column shows an ellipsis and nothing else, which is worse
+    // than not showing it: it costs the width and gives back no fact.
+    static constexpr int kUseful = 78;
+
+    if (m_fittingName) {
+        return;
+    }
+    const QSignalBlocker blockFit(m_view->horizontalHeader());
+    m_fittingName = true;
+
+    const int viewport = m_view->viewport()->width();
+    if (viewport <= 0) {
+        m_fittingName = false;
+        return;
+    }
+
+    // Start from what the user asked for and drop from the right - the
+    // columns are ordered by how often they are wanted, so the last is the
+    // first that can go. In a three-way split there is not room for four
+    // columns, and squeezing all of them into ellipses serves nobody.
+    QList<int> shown = m_wantedColumns;
+    if (shown.isEmpty()) {
+        for (int column = 0; column < m_model->columnCount(); ++column) {
+            shown.append(column);
+        }
+    }
+    while (shown.size() > 1 && kNameFloor + (shown.size() - 1) * kUseful > viewport) {
+        shown.removeLast();
+    }
+
+    for (int column = 0; column < m_model->columnCount(); ++column) {
+        m_view->setColumnHidden(column, !shown.contains(column));
+    }
+
+    // Give every other column the width its contents actually need, before
+    // working out what is left for the name. Without this the pass only ever
+    // *shrank* them: a column that started narrow stayed narrow no matter how
+    // wide the window grew, so 修改日期 sat at "2023-12-11 …" with empty space
+    // to its right and the name column swallowing all of it.
+    //
+    // Sampling is bounded - a directory of a hundred thousand rows must not
+    // cost a hundred thousand text measurements on every resize - and the cap
+    // stops one absurd value from taking the row.
+    static constexpr int kColumnPadding = 16;
+    static constexpr int kColumnCeiling = 260;
+
+    // Measured once per folder, not on every pass.
+    //
+    // Rows arrive in batches, and every batch re-runs this. Measuring the
+    // contents each time meant the widths grew as rows landed, so the columns
+    // visibly shifted and then settled a moment later. What a column needs is
+    // a property of the folder, so it is worked out when the folder changes
+    // and reused for the resizes in between.
+    const QString here = m_shownPath;
+    if (here != m_measuredFor) {
+        m_measuredFor = here;
+        m_view->horizontalHeader()->setResizeContentsPrecision(64);
+        for (int column : shown) {
+            if (column == 0) {
+                continue;
+            }
+            // `resizeColumnToContents` is the public way to ask; the width it
+            // leaves behind is then read back and clamped.
+            m_view->resizeColumnToContents(column);
+            m_view->setColumnWidth(
+                column,
+                qBound(kUseful, m_view->columnWidth(column) + kColumnPadding, kColumnCeiling));
+        }
+    }
     int used = 0;
-    for (int column = 1; column < m_model->columnCount(); ++column) {
-        if (!m_view->isColumnHidden(column)) {
+    for (int column : shown) {
+        if (column != 0) {
             used += m_view->columnWidth(column);
         }
     }
-    const int available = m_view->viewport()->width() - used;
-    m_view->setColumnWidth(0, qMax(kNameFloor, available));
+
+    int nameWidth = viewport - used;
+    if (nameWidth < kNameFloor) {
+        // The survivors give way rather than the name, proportionally, and
+        // never below what is useful.
+        int squeezable = 0;
+        for (int column : shown) {
+            if (column != 0) {
+                squeezable += qMax(0, m_view->columnWidth(column) - kUseful);
+            }
+        }
+        const int wanted = qMin(kNameFloor - nameWidth, squeezable);
+        if (wanted > 0 && squeezable > 0) {
+            int reclaimed = 0;
+            for (int column : shown) {
+                if (column == 0) {
+                    continue;
+                }
+                const int slack = qMax(0, m_view->columnWidth(column) - kUseful);
+                // Rounded down per column, so the total taken never exceeds
+                // what was asked for; the remainder stays with the columns,
+                // which is the harmless direction to be wrong in.
+                const int take =
+                    static_cast<int>(static_cast<qint64>(slack) * wanted / squeezable);
+                m_view->setColumnWidth(column, m_view->columnWidth(column) - take);
+                reclaimed += take;
+            }
+            nameWidth += reclaimed;
+        }
+    }
+    m_view->setColumnWidth(0, qMax(nameWidth, m_view->horizontalHeader()->minimumSectionSize()));
+    m_fittingName = false;
 }
 
 namespace {
@@ -568,30 +990,101 @@ constexpr int kTearOffDistance = 28;
 // small enough that a folder of a thousand files is still navigable.
 constexpr int kGridIconEdge = 72;
 
-// The payload a tab drag carries. Ours alone, so a drop from anywhere else is
-// not mistaken for a tab.
-constexpr const char *kTabMimeType = "application/x-jt-filework-tab";
-
-// What the drop should do, from the action Qt resolved out of the platform's
-// own modifier conventions. Respecting Qt here is what makes Option-drag mean
-// copy on macOS and Ctrl-drag mean copy elsewhere without this code knowing
-// which platform it is on.
-int dropKind(Qt::DropAction action) {
-    return action == Qt::CopyAction ? 0 : 1; // ops::Copy : ops::Move
-}
 
 } // namespace
+
+void PaneWidget::toggleCurrentInSelection() {
+    // Through the selection, because the selection is what the tick shows.
+    // `Toggle | Rows` adds the row if it is out and removes it if it is in,
+    // which is exactly what Space meant when it worked on a separate mark set.
+    const int row = currentRow();
+    if (row < 0) {
+        return;
+    }
+    const int columns = m_model->columnCount();
+    const QItemSelection range(m_model->index(row, 0), m_model->index(row, columns - 1));
+    currentView()->selectionModel()->select(range, QItemSelectionModel::Toggle |
+                                                       QItemSelectionModel::Rows);
+    advanceCurrentRow();
+}
+
+QList<int> PaneWidget::selectedRows() const {
+    QList<int> rows;
+    const QModelIndexList indexes = currentView()->selectionModel()->selectedRows();
+    rows.reserve(indexes.size());
+    for (const QModelIndex &index : indexes) {
+        rows.append(index.row());
+    }
+    std::sort(rows.begin(), rows.end());
+    return rows;
+}
 
 int PaneWidget::currentRow() const {
     const QModelIndex current = m_view->currentIndex();
     return current.isValid() ? current.row() : -1;
 }
 
+void PaneWidget::syncSelectionFromMarks() {
+    // Guarded, because setting the selection is what emits `selectionChanged`,
+    // which writes the selection back as the mark set - and a mark made here
+    // would arrive there as a mark to make, forever.
+    if (m_syncingSelection) {
+        return;
+    }
+    m_syncingSelection = true;
+
+    QVector<int> rows(m_model->rowCount());
+    const int count = jtf_marked_rows(m_app, m_pane, rows.data(), rows.size());
+    QItemSelection wanted;
+    const int columns = m_model->columnCount();
+    for (int i = 0; i < count; ++i) {
+        const int row = rows.at(i);
+        wanted.select(m_model->index(row, 0), m_model->index(row, columns - 1));
+    }
+    currentView()->selectionModel()->select(wanted, QItemSelectionModel::ClearAndSelect
+                                                        | QItemSelectionModel::Rows);
+    m_syncingSelection = false;
+}
+
+/// How far Page Up and Page Down move when the cursor is walking on its own.
+///
+/// A fixed step rather than a measured screenful: the two are the same for any
+/// list tall enough to page through, and asking the viewport mid-event brings
+/// in a geometry that is being scrolled at the same time.
+static constexpr int kPageStep = 20;
+
 void PaneWidget::advanceCurrentRow() {
     const int next = qMin(currentRow() + 1, m_model->rowCount() - 1);
-    if (next >= 0) {
-        m_view->setCurrentIndex(m_model->index(next, 0));
+    if (next < 0) {
+        return;
     }
+    // The cursor moves; the selection does not.
+    //
+    // `QAbstractItemView::setCurrentIndex` also *selects* what it moves to,
+    // and since selection is the mark that undid the mark Space had just
+    // made: the tick appeared and vanished as the cursor stepped off the row.
+    // Marking a second file from the keyboard was impossible.
+    m_view->selectionModel()->setCurrentIndex(m_model->index(next, 0),
+                                              QItemSelectionModel::NoUpdate);
+}
+
+/// Whether `at` is inside the row's tick box rather than on the row.
+///
+/// Asked of the style rather than measured here, so it stays right when the
+/// style, the font size or the platform changes the box.
+bool PaneWidget::onCheckBox(const QModelIndex &index, const QPoint &at) const {
+    if (index.column() != 0) {
+        return false;
+    }
+    QStyleOptionViewItem option;
+    option.initFrom(m_view);
+    option.rect = m_view->visualRect(index);
+    option.features |= QStyleOptionViewItem::HasCheckIndicator;
+    const QRect box = m_view->style()->subElementRect(QStyle::SE_ItemViewItemCheckIndicator,
+                                                      &option, m_view);
+    // A little slack: the box is small, and a press a pixel outside it is a
+    // press meant for it.
+    return box.adjusted(-2, -2, 2, 2).contains(at);
 }
 
 QString PaneWidget::formatSize(quint64 bytes) {
@@ -627,13 +1120,32 @@ bool PaneWidget::handleDrop(QDropEvent *event) {
     }
 
     emit focusRequested(m_pane);
-    emit dropRequested(paths, dropKind(event->dropAction()));
+    // The window asks whether this is a move or a copy. What is passed on is
+    // only where the drag came from: a drag out of one of our own panes is
+    // ordinarily a move, one from another application ordinarily a copy, and
+    // that decides which button the dialog offers first - not what happens.
+    emit dropRequested(paths, event->source() != nullptr ? 1 : 0);
     return true;
 }
 
 void PaneWidget::resizeEvent(QResizeEvent *event) {
     QWidget::resizeEvent(event);
-    fitNameColumn();
+    scheduleFitNameColumn();
+    positionSearchOverlay();
+}
+
+void PaneWidget::positionSearchOverlay() {
+    if (m_searchOverlay == nullptr || !m_searchOverlay->isVisible()) {
+        return;
+    }
+    // Centred horizontally over the list and near its top, where the eye
+    // already is - dead centre would sit on top of the results it is
+    // reporting, which is the one place it must not be.
+    const QRect area = m_view->geometry();
+    const QSize hint = m_searchOverlay->sizeHint();
+    m_searchOverlay->setGeometry(area.x() + (area.width() - hint.width()) / 2,
+                                 area.y() + 18, hint.width(), hint.height());
+    m_searchOverlay->raise();
 }
 
 bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
@@ -641,10 +1153,90 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
         emit focusRequested(m_pane);
     }
 
+    // A drag carries what the cursor is on, not what happens to be selected.
+    //
+    // Qt builds a drag's payload from the selected rows, so pressing on an
+    // unselected row and dragging it away sent the *old* selection instead -
+    // drag `bb` while `aa` is selected and the drop was handed `aa`. Selecting
+    // the pressed row first is what every file manager does, and here it also
+    // sets the mark, because selection is the mark (`AGENTS.md` §10).
+    if (watched == m_view && event->type() == QEvent::MouseButtonPress) {
+        auto *mouse = static_cast<QMouseEvent *>(event);
+        if (mouse->button() == Qt::LeftButton
+            && (mouse->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier | Qt::MetaModifier))
+                   == Qt::NoModifier) {
+            const QModelIndex under = m_view->indexAt(mouse->pos());
+            // Not when the press lands on the tick box. Selection *is* the
+            // mark here, so replacing the selection with the pressed row
+            // clears every other mark - which is what ticking a second box
+            // did: the first box emptied itself as the second filled.
+            //
+            // A box is for adding one thing to a set. The row beside it is for
+            // choosing one thing. They must not be the same gesture.
+            if (under.isValid() && !onCheckBox(under, mouse->pos())
+                && !m_view->selectionModel()->isSelected(under)) {
+                m_view->selectionModel()->select(
+                    under, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+                m_view->setCurrentIndex(under);
+            }
+        }
+    }
+
+    // Claim Shift+letter before the shortcut system does.
+    //
+    // Qt matches a one-letter QKeySequence against Shift+letter as well as the
+    // bare letter, because the text both produce is the same capital. Shortcuts
+    // are also delivered *before* the focus widget sees a key press. Together
+    // that meant `Shift-H` ran `file.view_hex`, `Shift-C` would have copied and
+    // `Shift-M` moved - every bare-letter command swallowing its own shifted
+    // form, and CV.HLP §二's Shift+letter jump never reaching the code that
+    // implements it.
+    //
+    // `ShortcutOverride` is the mechanism for exactly this: accepting it says
+    // "this key is mine", and the key then arrives as an ordinary press below.
+    if (event->type() == QEvent::ShortcutOverride && watched == m_view
+        && !jtf_type_ahead(m_app)) {
+        auto *key = static_cast<QKeyEvent *>(event);
+        const int code = key->key();
+        const bool jumpable = (code >= Qt::Key_A && code <= Qt::Key_Z)
+                              || (code >= Qt::Key_0 && code <= Qt::Key_9);
+        const Qt::KeyboardModifiers mods = key->modifiers();
+        if (jumpable && mods.testFlag(Qt::ShiftModifier)
+            && !mods.testFlag(Qt::ControlModifier) && !mods.testFlag(Qt::AltModifier)
+            && !mods.testFlag(Qt::MetaModifier)) {
+            event->accept();
+            return true;
+        }
+    }
+
+    // The name column is fitted here rather than in the pane's resizeEvent.
+    // The pane learns its new size before the view inside it does, so fitting
+    // there computed the surplus from the *previous* viewport width - which on
+    // the very first show is the width the view had before any layout ran, and
+    // no later resize arrives to correct it. That is why the columns came up
+    // filling half the window and stayed there. The viewport's own resize
+    // always carries the width the rows are actually drawn at.
+    if (watched == m_view->viewport() && event->type() == QEvent::Resize) {
+        scheduleFitNameColumn();
+    }
+    if (watched == m_view->viewport() && event->type() == QEvent::Leave) {
+        // Otherwise the last row the pointer touched stays lit after the
+        // pointer has gone somewhere else entirely.
+        setHoveredRow(-1);
+    }
+
     switch (event->type()) {
     case QEvent::DragEnter:
     case QEvent::DragMove: {
         auto *drag = static_cast<QDragMoveEvent *>(event);
+        // A tab dragged onto this pane at all, not only onto its tab strip.
+        // The strip is a thin target, and "put this tab over there" means the
+        // pane, not the two-centimetre band along its top.
+        if (drag->mimeData()->hasFormat(kTabMimeType)) {
+            drag->setDropAction(Qt::MoveAction);
+            drag->accept();
+            return true;
+        }
         if (drag->mimeData()->hasUrls()) {
             drag->acceptProposedAction();
             return true;
@@ -653,6 +1245,16 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     }
     case QEvent::Drop: {
         auto *drop = static_cast<QDropEvent *>(event);
+        if (drop->mimeData()->hasFormat(kTabMimeType)) {
+            const QList<QByteArray> parts = drop->mimeData()->data(kTabMimeType).split(':');
+            if (parts.size() == 2) {
+                drop->setDropAction(Qt::MoveAction);
+                drop->accept();
+                emit tabMergeRequested(parts.at(0).toInt(), parts.at(1).toInt(), m_pane);
+                return true;
+            }
+            return false;
+        }
         if (handleDrop(drop)) {
             drop->acceptProposedAction();
             return true;
@@ -745,21 +1347,83 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
         }
     }
 
-    if (event->type() == QEvent::KeyPress && (watched == m_filter || watched == m_search)) {
+    if (event->type() == QEvent::KeyPress && watched == m_filter) {
         auto *key = static_cast<QKeyEvent *>(event);
         switch (key->key()) {
         case Qt::Key_Tab:
         case Qt::Key_Return:
         case Qt::Key_Enter:
         case Qt::Key_Down:
+            // Tab, Enter and Down all mean "I have typed enough, take me to
+            // the results". The filter itself stays in force - the list is
+            // narrowed and the box still shows why.
             focusList();
             if (m_view->currentIndex().isValid()) {
                 return true;
             }
             ensureCurrentRow();
             return true;
+        case Qt::Key_Escape:
+            // Escape ends the filter and empties it. Leaving the text behind
+            // would mean the next `F` reopened a box already narrowing the
+            // list, which is a mode the user thought they had left.
+            clearFilter();
+            return true;
         default:
             break;
+        }
+    }
+
+    // Moving the cursor must not undo the marks.
+    //
+    // Selection is the mark here, and Qt's own navigation replaces the
+    // selection on every plain arrow key - so `Space`, `Down`, `Space` marked
+    // one file rather than two, and there was no way to build a set from the
+    // keyboard at all. The cursor moves on its own; `Space` is what marks.
+    //
+    // Only while something is marked. With an empty set the arrows behave the
+    // way every list behaves, moving the highlight with the cursor, because
+    // that is what browsing a folder should feel like. Once a set is being
+    // built, moving through the list stops destroying it.
+    if (event->type() == QEvent::KeyPress && watched == m_view
+        && jtf_marked_count(m_app, m_pane) > 0) {
+        auto *key = static_cast<QKeyEvent *>(event);
+        const bool plain =
+            (key->modifiers()
+             & (Qt::ShiftModifier | Qt::ControlModifier | Qt::MetaModifier | Qt::AltModifier))
+            == Qt::NoModifier;
+        int target = -1;
+        const int rows = m_model->rowCount();
+        const int at = currentRow();
+        if (plain && rows > 0) {
+            switch (key->key()) {
+            case Qt::Key_Down:
+                target = qMin(at + 1, rows - 1);
+                break;
+            case Qt::Key_Up:
+                target = qMax(at - 1, 0);
+                break;
+            case Qt::Key_PageDown:
+                target = qMin(at + kPageStep, rows - 1);
+                break;
+            case Qt::Key_PageUp:
+                target = qMax(at - kPageStep, 0);
+                break;
+            case Qt::Key_Home:
+                target = 0;
+                break;
+            case Qt::Key_End:
+                target = rows - 1;
+                break;
+            default:
+                break;
+            }
+        }
+        if (target >= 0) {
+            const QModelIndex to = m_model->index(target, 0);
+            m_view->selectionModel()->setCurrentIndex(to, QItemSelectionModel::NoUpdate);
+            m_view->scrollTo(to, QAbstractItemView::EnsureVisible);
+            return true;
         }
     }
 
@@ -768,9 +1432,15 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
         switch (key->key()) {
         case Qt::Key_Return:
         case Qt::Key_Enter: {
-            const QModelIndex current = m_view->currentIndex();
-            if (current.isValid()) {
-                openRow(current.row());
+            // Through the command, not straight to `openRow`.
+            //
+            // Opening is not always "hand this to the platform": on an archive
+            // it shows the contents in a window instead, and that decision
+            // lives with the window rather than here. Calling `openRow`
+            // directly bypassed it, so Enter on a `.zip` did the ordinary
+            // thing and the archive window never appeared.
+            if (m_view->currentIndex().isValid()) {
+                emit commandRequested(QStringLiteral("file.open"));
             }
             return true;
         }
@@ -785,7 +1455,7 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
             return true;
 
         case Qt::Key_Escape:
-            if (m_search->isVisible() || jtf_is_searching(m_app, m_pane)) {
+            if (jtf_is_searching(m_app, m_pane)) {
                 clearSearch();
                 return true;
             }
@@ -826,7 +1496,18 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
             // sideways. In a file manager the horizontal axis is the folder
             // hierarchy, not the column list, and both CView and every
             // tree-walking file manager read Left as "out" and Right as "in".
-            if (key->modifiers() != Qt::NoModifier) {
+            //
+            // Tested against the modifiers that mean something, not against
+            // "no modifiers at all". macOS reports the arrow keys with
+            // `KeypadModifier` set - they are on the keypad as far as the
+            // window system is concerned - so an exact comparison with
+            // NoModifier was never true, Left and Right fell through to Qt,
+            // and the cursor walked across the columns instead of the folder
+            // tree. Up and Down were unaffected because they test individual
+            // flags, which is why only these two looked broken.
+            constexpr Qt::KeyboardModifiers kMeaningful =
+                Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier | Qt::MetaModifier;
+            if ((key->modifiers() & kMeaningful) != Qt::NoModifier) {
                 break;
             }
             const QString chord = chordFor(key);
@@ -859,6 +1540,46 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
             // type-ahead gets a chance, because in that tradition typing a
             // letter is not how you find a file.
             if (!jtf_type_ahead(m_app)) {
+                // `CV.HLP` §二: Shift-A..Z and 0..9 move the cursor to the
+                // first entry starting with that character. This is CView's
+                // own answer to having spent the bare letters on commands,
+                // and it is what keeps the mode navigable without them.
+                //
+                // Checked before the keymap, so a chord the keymap happens to
+                // bind on Shift+letter does not take a key CView reserves for
+                // this. Nothing else does today; the check being first is what
+                // keeps it that way.
+                const int code = key->key();
+                const bool shiftOnly =
+                    key->modifiers().testFlag(Qt::ShiftModifier)
+                    && !key->modifiers().testFlag(Qt::ControlModifier)
+                    && !key->modifiers().testFlag(Qt::AltModifier)
+                    && !key->modifiers().testFlag(Qt::MetaModifier);
+                const bool jumpable = (code >= Qt::Key_A && code <= Qt::Key_Z)
+                                      || (code >= Qt::Key_0 && code <= Qt::Key_9);
+                if (shiftOnly && jumpable) {
+                    const QChar letter = code <= Qt::Key_Z && code >= Qt::Key_A
+                                             ? QChar(QLatin1Char('a' + (code - Qt::Key_A)))
+                                             : QChar(QLatin1Char('0' + (code - Qt::Key_0)));
+                    // From the row after the current one, so pressing it again
+                    // walks through the entries sharing that first letter -
+                    // which is what makes it useful in a folder of hundreds.
+                    const int rows = m_model->rowCount();
+                    if (rows > 0) {
+                        const int from = qMax(0, m_view->currentIndex().row()) + 1;
+                        for (int step = 0; step < rows; ++step) {
+                            const int row = (from + step) % rows;
+                            const QString name =
+                                m_model->data(m_model->index(row, 0), Qt::DisplayRole).toString();
+                            if (name.startsWith(letter, Qt::CaseInsensitive)) {
+                                setCurrentRow(row, QAbstractItemView::PositionAtCenter);
+                                break;
+                            }
+                        }
+                    }
+                    return true;
+                }
+
                 const QString chord = chordFor(key);
                 if (!chord.isEmpty()) {
                     const QByteArray utf8 = chord.toUtf8();
@@ -932,6 +1653,60 @@ bool PaneWidget::typeAhead(const QString &prefix) {
     return false;
 }
 
+void PaneWidget::closeTab(int index) {
+    // Deferred, because closing the last tab of a pane closes the pane, and
+    // the pane is the widget whose close button we are standing inside. Doing
+    // it here would delete this object and the button that called us while
+    // Qt is still delivering that button's click.
+    QTimer::singleShot(0, this, [this, index] {
+        jtf_close_tab(m_app, m_pane, index);
+        emit stateChanged();
+    });
+}
+
+void PaneWidget::syncTabCloseButtons() {
+    // The last tab of the last pane has nothing to close to, so it shows no
+    // close control. A button that is present and does nothing is worse than
+    // no button: the rule becomes indistinguishable from a fault.
+    //
+    // Sized away rather than hidden. QTabBar shows the buttons it has been
+    // given whenever it lays its tabs out, so setVisible(false) lasts only
+    // until the next layout; a button with no size is laid out, shown, and
+    // occupies nothing. Removing it instead would mean owning its lifetime
+    // against a tab bar that may already have deleted it.
+    //
+    // Both callers come through here rather than each setting the icon
+    // themselves: applyTheme re-coloured every close mark unconditionally,
+    // which put back the one syncTabs had just taken away.
+    // Asked of the core rather than guessed from a pane count: a torn-off
+    // window's last pane can close (the window goes with it) while the main
+    // window's cannot, and that is not something a count can tell you.
+    const bool closable = m_tabs->count() > 1 || jtf_can_close_pane(m_app, m_pane) != 0;
+    for (int i = 0; i < m_tabs->count(); ++i) {
+        if (auto *close = qobject_cast<QToolButton *>(m_tabs->tabButton(i, QTabBar::RightSide))) {
+            close->setEnabled(closable);
+            // Full strength on the tab you are on, quiet on the others. The
+            // one you are most likely to close is the one you can see the
+            // mark on, and the rest do not compete with their own titles.
+            // The mark on the current tab is at full strength; the others are
+            // quieter but not faint. The secondary text colour turned out to
+            // be near enough to the tab background that the mark was
+            // effectively invisible - "quiet" has to stay legible, or the
+            // control might as well not be drawn.
+            QColor colour = m_tabCloseStrong;
+            if (i != m_tabs->currentIndex()) {
+                colour.setAlphaF(0.70F);
+            }
+            // The icon is what actually paints, so taking it away is what
+            // takes the mark away; a zero icon size still draws a scaled-down
+            // one. The zero geometry then stops it holding room open.
+            close->setIcon(closable ? glyph::make(glyph::Shape::Close, colour) : QIcon());
+            close->setFixedSize(closable ? QSize(kTabCloseBox + kTabCloseGap, kTabCloseBox)
+                                        : QSize(0, 0));
+        }
+    }
+}
+
 void PaneWidget::syncTabs() {
     const int count = jtf_tab_count(m_app, m_pane);
     QSignalBlocker blocker(m_tabs);
@@ -946,6 +1721,54 @@ void PaneWidget::syncTabs() {
                                return jtf_tab_title(m_app, m_pane, i, buf, len);
                            }));
     }
+    // Our own close buttons rather than Qt's. Styling QTabBar::close-button
+    // to give it room from the tab's edge is what made it vanish: a
+    // stylesheet rule on a subcontrol with no `image` leaves Qt drawing
+    // nothing at all. A real widget is also the only way the mark can follow
+    // the theme's colour instead of the platform's.
+    for (int i = 0; i < count; ++i) {
+        if (m_tabs->tabButton(i, QTabBar::RightSide) != nullptr) {
+            continue;
+        }
+        auto *close = new QToolButton(m_tabs);
+        close->setObjectName(QStringLiteral("JtfTabClose"));
+        close->setAutoRaise(true);
+        close->setFocusPolicy(Qt::NoFocus);
+        close->setIconSize(QSize(kTabCloseIcon, kTabCloseIcon));
+        close->setIcon(glyph::make(glyph::Shape::Close, m_tabCloseColour));
+        close->setToolTip(jtfText(
+            [&](char *buf, int len) { return jtf_tr(m_app, "command.tab.close", buf, len); }));
+        connect(close, &QToolButton::clicked, this, [this, close] {
+            // By identity, not by a captured index: closing tab 0 renumbers
+            // every tab after it, and a captured index would then close the
+            // wrong one.
+            for (int at = 0; at < m_tabs->count(); ++at) {
+                if (m_tabs->tabButton(at, QTabBar::RightSide) == close) {
+                    closeTab(at);
+                    return;
+                }
+            }
+        });
+        m_tabs->setTabButton(i, QTabBar::RightSide, close);
+    }
+
+    // A pinned tab is marked in the strip. Pinning changes what the tab does -
+    // it will not close and will not reorder out of the leading block - and a
+    // state with no appearance is a state nobody can see they are in.
+    for (int i = 0; i < m_tabs->count(); ++i) {
+        m_tabs->setTabIcon(i, jtf_tab_is_pinned(m_app, m_pane, i) != 0
+                                  ? glyph::make(glyph::Shape::Bookmark, m_tabCloseColour)
+                                  : QIcon());
+    }
+
+    syncTabCloseButtons();
+
+    // One tab is not a choice, so there is nothing to show. The strip goes and
+    // the row keeps only the `+`, which is the one thing still worth reaching
+    // for - hiding that too would leave no way to open a second tab from the
+    // pane itself.
+    m_tabs->setVisible(count > 1);
+
     m_tabs->setCurrentIndex(jtf_active_tab(m_app, m_pane));
     // Always shown, even for a single tab. Hiding the bar there left the "+"
     // beside it floating on an otherwise empty row, and a lone plus with
@@ -962,12 +1785,48 @@ void PaneWidget::syncSortIndicator() {
 }
 
 void PaneWidget::syncPath() {
-    m_crumbs->setPath(
-        jtfText([&](char *buf, int len) { return jtf_current_path(m_app, m_pane, buf, len); }));
+    // The shown path, not the local one: a pane on a server has no local path
+    // at all, and asking for one left the bar blank.
+    const QString path =
+        jtfText([&](char *buf, int len) { return jtf_display_path(m_app, m_pane, buf, len); });
+    const bool moved = !m_shownPath.isEmpty() && path != m_shownPath;
+    m_shownPath = path;
+    m_crumbs->setPath(path);
+
+    // Having arrived somewhere, the keyboard belongs in the list. Decided here
+    // rather than at each command because there are many ways to move - a
+    // menu, the tree, the sidebar, a breadcrumb segment, a double click, a
+    // key - and all of them end here. Deciding it per route means the routes
+    // added later are the ones that get forgotten.
+    //
+    // Deferred, because a menu hands the focus back to whatever had it before
+    // it opened, and that happens after this runs. Skipped while a text field
+    // has the focus: the user is typing, and taking it away mid-word is worse
+    // than an arrow key that goes to the wrong widget.
+    if (moved && m_active) {
+        QTimer::singleShot(0, this, [this] {
+            // Only when nothing holds it. Taking the keyboard from something
+            // that has it would break walking the folder tree with the arrow
+            // keys - every step there is a navigation, and the focus would
+            // jump to the list after each one. This is for the case the user
+            // actually hits: a menu or a click has left the window with no
+            // focused widget at all, and the arrows then go nowhere.
+            if (QApplication::focusWidget() != nullptr) {
+                return;
+            }
+            focusList();
+        });
+    }
 }
 
 void PaneWidget::refresh() {
+    // Nothing to close down to: one pane is the floor, and a button that
+    // cannot do anything is worse than no button.
+    if (m_close != nullptr) {
+        m_close->setVisible(jtf_pane_count(m_app) > 1);
+    }
     syncTabs();
+    syncFilterBar();
     syncPath();
     syncSortIndicator();
     m_model->setThumbnailsEnabled(jtf_thumbnails(m_app) != 0);
@@ -981,7 +1840,52 @@ void PaneWidget::refresh() {
 void PaneWidget::refreshRows() {
     m_model->refresh();
     ensureCurrentRow();
+    restoreSelectionFromMarks();
+    syncMarkAll();
     retranslate();
+}
+
+void PaneWidget::restoreSelectionFromMarks() {
+    // The marks are the stored state - the session keeps them and an operation
+    // reads them - so arriving in a folder puts the selection back to match,
+    // which is what lets marks survive navigating away and back now that the
+    // two are one thing (`docs/UI_TEST_PLAN.md` MARK-004).
+    // Nothing marked means nothing selected. Returning early here instead
+    // left the previous highlight standing after the marks were cleared.
+    const int count = jtf_marked_rows(m_app, m_pane, nullptr, 0);
+    if (count <= 0) {
+        m_restoringMarks = true;
+        m_view->selectionModel()->clearSelection();
+        m_restoringMarks = false;
+        return;
+    }
+    QVector<int> rows(count);
+    jtf_marked_rows(m_app, m_pane, rows.data(), count);
+
+    QItemSelection selection;
+    const int columns = m_model->columnCount();
+    for (const int row : rows) {
+        if (row >= 0 && row < m_model->rowCount()) {
+            selection.select(m_model->index(row, 0), m_model->index(row, columns - 1));
+        }
+    }
+    m_restoringMarks = true;
+    if (selection.isEmpty()) {
+        m_view->selectionModel()->clearSelection();
+    } else {
+        m_view->selectionModel()->select(selection, QItemSelectionModel::ClearAndSelect);
+    }
+    m_restoringMarks = false;
+}
+
+void PaneWidget::syncMarkAll() {
+    // Three states, because two would lie: with some rows marked the box has
+    // to say "some", or it claims everything is marked when it is not.
+    const int marked = jtf_marked_count(m_app, m_pane);
+    const int listed = jtf_listed_count(m_app, m_pane);
+    m_header->setMarkAllState(marked == 0                     ? Qt::Unchecked
+                              : marked >= listed && listed > 0 ? Qt::Checked
+                                                               : Qt::PartiallyChecked);
 }
 
 void PaneWidget::focusList() { currentView()->setFocus(Qt::OtherFocusReason); }
@@ -1065,15 +1969,21 @@ void PaneWidget::setCurrentRow(int row, QAbstractItemView::ScrollHint hint) {
     currentView()->scrollTo(index, hint);
 }
 
-void PaneWidget::setListFont(const QFont &font) {
+void PaneWidget::setListFont(const QFont &font, const QFont &fixed, bool fixedEverywhere) {
+    // The widget's own font is the proportional one; the model overrides it
+    // per column for the ones that are read as aligned values. Row height is
+    // measured from whichever is taller, so switching scope does not make the
+    // rows jump.
     m_view->setFont(font);
     m_view->horizontalHeader()->setFont(font);
+    m_model->setListFonts(font, fixed, fixedEverywhere);
     // Row height follows the font, or descenders clip and the list looks
     // cramped at larger sizes.
     // Generous rather than tight: the reference layouts get their calm from
     // row height more than from anything else, and a list at the minimum
     // legible spacing is the single thing that makes an interface look cheap.
-    const int rowHeight = QFontMetrics(font).height() + 12;
+    const int rowHeight =
+        qMax(QFontMetrics(font).height(), QFontMetrics(fixed).height()) + 12;
     m_view->verticalHeader()->setDefaultSectionSize(qMax(26, rowHeight));
 
     QFont chrome = font;
@@ -1090,14 +2000,38 @@ void PaneWidget::retranslate() {
         return jtfText([&](char *buf, int len) { return jtf_tr(m_app, key, buf, len); });
     };
 
+    if (m_close != nullptr) {
+        m_close->setToolTip(tr_("command.workspace.pane.close"));
+    }
+    if (m_filterClose != nullptr) {
+        // Set here rather than at construction: a tooltip written once never
+        // follows a language change, and this one names a key as well.
+        m_filterClose->setToolTip(tr_("filter.close"));
+    }
+
     QString status;
     const QString errorKey =
         jtfText([&](char *buf, int len) { return jtf_error_key(m_app, m_pane, buf, len); });
+    if (m_reconnect != nullptr) {
+        // Offered whenever the folder would not open, not only for servers: a
+        // local folder can be a mount that has gone away, and trying again is
+        // the same answer.
+        m_reconnect->setVisible(!errorKey.isEmpty());
+        m_reconnect->setText(tr_("pane.reconnect"));
+    }
     if (!errorKey.isEmpty()) {
         const QByteArray keyUtf8 = errorKey.toUtf8();
         status = jtfText([&](char *buf, int len) {
             return jtf_tr(m_app, keyUtf8.constData(), buf, len);
         });
+        // And what it actually said. Without this every sign-in failure read
+        // 「你沒有執行這項操作的權限」, which named the wrong thing - the folder
+        // was readable, the sign-in was not - and gave nothing to act on.
+        const QString detail =
+            jtfText([&](char *b, int l) { return jtf_error_detail(m_app, m_pane, b, l); });
+        if (!detail.isEmpty()) {
+            status += QStringLiteral("  (") + detail + QLatin1Char(')');
+        }
     } else if (jtf_is_loading(m_app, m_pane) && jtf_is_searching(m_app, m_pane)) {
         status = jtfFill(tr_("status.searching"), "count",
                          QString::number(jtf_listed_count(m_app, m_pane)));
@@ -1168,15 +2102,60 @@ void PaneWidget::retranslate() {
         }
     }
     m_status->setText(status);
+
+    // The overlay says the same thing the status line does, in the place the
+    // eye is actually looking, and adds the way out. Shown while a search is
+    // running and while its results stand, so there is always a way back to
+    // the folder without emptying the search box by hand.
+    if (m_searchOverlay != nullptr) {
+        const bool searching = jtf_is_searching(m_app, m_pane) != 0;
+        const bool running = searching && jtf_is_loading(m_app, m_pane) != 0;
+        m_searchOverlay->setVisible(searching);
+        if (searching) {
+            const int found = jtf_listed_count(m_app, m_pane);
+            m_searchOverlay->setState(
+                running, found,
+                jtfFill(tr_("status.searching"), "count", QString::number(found)),
+                jtfFill(tr_("status.results"), "count", QString::number(found)),
+                tr_("search.cancel"));
+            positionSearchOverlay();
+        }
+    }
 }
 
 void PaneWidget::applyTheme(const QColor &mark, const QColor &directory, const QColor &dim,
                             const QColor &indicator, const QColor &border,
                             const QColor &executable) {
+    // The tick is drawn by the delegates, so it is coloured here with
+    // everything else rather than left to the stylesheet.
+    if (m_rows != nullptr) {
+        m_rows->setTickColour(indicator);
+        m_rows->setCursorColour(indicator);
+    }
+    if (m_matches != nullptr) {
+        m_matches->setTickColour(indicator);
+        m_matches->setCursorColour(indicator);
+    }
+
+    if (m_searchOverlay != nullptr) {
+        m_searchOverlay->applyTheme(palette().color(QPalette::Text), indicator);
+    }
+
+    // The close marks are widgets we own, so they are repainted here rather
+    // than by the stylesheet.
+    m_tabCloseColour = dim;
+    m_tabCloseStrong = palette().color(QPalette::Text);
+    syncTabCloseButtons();
+
     m_model->setMarkColor(mark);
     m_model->setDirectoryColor(directory);
     m_model->setExecutableColor(executable);
+    m_model->setTextColor(palette().color(QPalette::Text));
     m_indicator = indicator;
+    if (m_close != nullptr) {
+        m_close->setIcon(glyph::make(glyph::Shape::Close, dim));
+        m_close->setIconSize(QSize(kTabCloseIcon, kTabCloseIcon));
+    }
     if (m_filterIcon != nullptr) {
         m_filterIcon->setPixmap(
             glyph::make(glyph::Shape::Filter, dim).pixmap(14, 14));
@@ -1199,6 +2178,22 @@ void PaneWidget::applyTheme(const QColor &mark, const QColor &directory, const Q
     m_border = border;
     setActive(m_active);
     m_model->refresh();
+}
+
+void PaneWidget::setTarget(bool target) {
+    if (m_targetBadge != nullptr) {
+        m_targetBadge->setText(target ? jtfText([&](char *b, int l) {
+                                   return jtf_tr(m_app, "pane.target", b, l);
+                               })
+                                      : QString());
+        m_targetBadge->setVisible(target);
+    }
+    // The outline is on the pane itself, so the whole side of the window is
+    // marked rather than a word in one corner of it.
+    setProperty("jtfTarget", target);
+    style()->unpolish(this);
+    style()->polish(this);
+    update();
 }
 
 void PaneWidget::setActive(bool active) {

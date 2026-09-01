@@ -37,4 +37,15 @@ bool reveal(const QString &path);
 /// rather than offering something that does nothing.
 bool canReveal();
 
+/// Unmount a removable volume, the way the platform's own eject does.
+///
+/// The sidebar shows an eject control on a removable device, and a control
+/// that unmounts by hand - `umount`, or worse, nothing - is not what the
+/// system means by ejecting: the platform has to tell its own services the
+/// disk is going, or the next thing to touch it remounts it.
+bool eject(const QString &mountPoint);
+
+/// Whether this build can eject, so the control is absent rather than inert.
+bool canEject();
+
 } // namespace platform

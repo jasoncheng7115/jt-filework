@@ -28,6 +28,7 @@ backspace            = nav.up                    # CV.HLP
 right                = file.open                 # confirmed
 enter                = file.open                 # CV.HLP 觀看該檔案(或進入該目錄)
 p                    = nav.goto                  # CV.HLP
+backslash            = nav.goto                  # CV.HLP \ 也是輸入路徑
 alt+left             = nav.back
 alt+right            = nav.forward
 primary+home         = nav.home
@@ -35,7 +36,9 @@ primary+home         = nav.home
 # --- marking
 # CV.HLP: SPACE 標記 · Alt-T 全標 · Alt-U 全不標 · + - 依條件 · * 反轉
 space                = file.mark.toggle          # CV.HLP, confirmed
-t                    = file.mark.all             # confirmed
+# Mark-all is on Alt-T, which is where CV.HLP puts it. WinCV moved it to a
+# bare T; `T` here is the folder tree instead, asked for directly by the
+# project owner - and since Alt-T is the original chord, nothing is lost.
 alt+t                = file.mark.all             # CV.HLP
 alt+u                = file.mark.none            # CV.HLP
 asterisk             = file.mark.invert          # CV.HLP, confirmed
@@ -46,17 +49,35 @@ minus                = file.unmark.pattern       # CV.HLP
 # --- files
 # CV.HLP: C/INS 拷貝 · M 移動 · R 改檔名 · D/DEL 刪除 · T 垃圾桶 · V 看檔
 # WinCV: E 編輯
-c                    = file.copy_to_target_pane  # CV.HLP
+# CV.HLP gives C for 拷貝檔案 and M for 移動檔案. In CView those asked where
+# to; here they open the destination chooser, which lists every open tab with
+# the one the two-pane keys would have used already selected - so with two
+# panes it is still C then Enter, and with one pane it now works at all.
+c                    = file.copy_to              # CV.HLP 拷貝檔案
+m                    = file.move_to              # CV.HLP 移動檔案
+# CV.HLP §二 gives `INS` as 拷貝檔案; Shift-Insert is the move, by the same
+# convention every editor uses for cut and paste.
+#
+# These were on Shift-C and Shift-M, which CView reserves for jumping to the
+# first entry starting with that letter - its own answer to having spent the
+# bare letters on commands. That jump is built now, so the chords go back.
 insert               = file.copy_to_target_pane  # CV.HLP
-m                    = file.move_to_target_pane  # CV.HLP
+shift+insert         = file.move_to_target_pane
 r                    = file.rename               # CV.HLP
-d                    = file.delete               # CV.HLP
-delete               = file.delete               # CV.HLP
+# CV.HLP gives D and DEL as 刪除檔案. On DOS that meant the file was gone;
+# on a machine with a trash can the standard meaning of Delete is "put it in
+# the trash", and that is what these do. The irreversible one is kept behind
+# a chord of its own so it cannot be reached by the key people press without
+# looking.
+d                    = file.trash                # CV.HLP 刪除檔案
+delete               = file.trash                # CV.HLP 刪除檔案
+shift+delete         = file.delete
 # `T` marks every file, confirmed against WinCV. CV.HLP gives DOS CView's `T`
 # as delete-to-trash instead - the one place the two versions disagree - and
 # the later behaviour wins. Trash keeps the host platform's chord.
 primary+backspace    = file.trash
 v                    = file.view                 # CV.HLP
+h                    = file.view_hex             # CV.HLP 以 HEX 16 進制方式觀看
 e                    = file.edit                 # wincv
 # CV.HLP: G 執行該檔案. Opening a file hands it to the platform, which runs an
 # executable and opens a document - the same thing CView's G did, since on DOS
@@ -68,6 +89,13 @@ primary+u            = file.undo
 primary+shift+r      = file.reveal
 primary+d            = file.duplicate
 f7                   = file.new_folder
+# CV.HLP: Alt-O 呼叫 ce.exe 建立或編輯檔案. WinCV moved it to a bare O,
+# 編輯(建立新)檔案(Open), so both spellings work.
+o                    = file.new_file             # wincv
+alt+o                = file.new_file             # CV.HLP
+# CV.HLP: Ctrl-ENTER 執行 DOS 指令. The modern reading of "drop me at a shell
+# here" is a terminal opened on this folder.
+primary+enter        = file.terminal             # CV.HLP
 
 # --- clipboard
 primary+c            = file.clipboard.copy
@@ -77,7 +105,11 @@ primary+v            = file.clipboard.paste
 # --- panes and tabs
 # TAB switches list format in CView; here it moves between panes, because
 # CView had no panes and something has to.
-tab                  = workspace.pane.next
+# Tab walks the parts of the window that can take the keyboard, in the order
+# they are laid out: the places, the folder tree, then each pane. A part that
+# is not on screen is not a stop - a key that appears to do nothing is worse
+# than a key that does less.
+tab                  = workspace.focus.next
 shift+tab            = workspace.pane.previous
 primary+t            = tab.new
 primary+w            = tab.close
@@ -99,6 +131,8 @@ primary+4            = workspace.preset.quad
 
 # --- view
 primary+shift+e      = view.tree
+# The folder tree, on the letter that names it.
+t                    = view.tree
 primary+alt+i        = view.inspector
 # The keyboard-mode toggle. Bound to the same chord in BOTH presets on
 # purpose: a switch that only exists in the mode you left is a door that locks
@@ -108,9 +142,32 @@ primary+slash        = help.shortcuts
 primary+shift+slash  = view.key_hints
 primary+2            = view.mode.list
 primary+3            = view.mode.grid
-s                    = view.sort               # confirmed
+s                    = view.sort                       # confirmed
+# Folder sizes are not counted until asked for, so there has to be a way to
+# ask. CView has no key for this - it never measured folders - so this one is
+# ours, on a letter nothing else wants. Not marked confirmed: there is no
+# CView binding to confirm it against.
+# CV.HLP §二 gives `Z` as 解壓縮檔案 and `Alt-Z` as 壓縮. Ours also measures a
+# folder, which CView never did - the key reads the row it is on, the way
+# Enter does. `alt+z` only ever compresses.
+z                    = file.folder_size          # CV.HLP 解壓縮 · folder size is ours
+alt+z                = file.compress             # CV.HLP 壓縮檔案
+# The preview panel, on the letter that names it. Not a CView key - CView had
+# no preview panel - so it takes a free letter rather than displacing one.
+i                    = view.inspector
+# CV.HLP: Alt-P 切換是否要在畫面下方出現文書檔的前幾行內容(預視). CView's own
+# key for the same panel, kept so the muscle memory carries over.
+alt+p                = view.inspector            # CV.HLP
+# The queue window. A chord rather than a letter: it is not something you
+# reach for while working through a folder, and every letter that is is spoken
+# for.
+primary+j            = jobs.show
 primary+shift+period = view.hidden
 f5                   = view.refresh
+# Cmd-R on macOS, Ctrl-R elsewhere. `R` itself is CView's 改檔名 and stays
+# that way; the chord is free, and refresh is one of the few things people
+# reach for by the platform's habit even in this mode.
+primary+r            = view.refresh
 primary+equal        = view.font.larger
 primary+minus        = view.font.smaller
 
@@ -120,6 +177,11 @@ primary+minus        = view.font.smaller
 # search keeps the platform chord.
 f                    = view.filter               # confirmed
 f6                   = view.filter               # confirmed
+# CV.HLP: W 找尋合乎條件的檔名 · Alt-S 尋找含有該字串之檔案. Both look past
+# the current listing, which is what our search does; the filter above is the
+# one that stays inside it.
+w                    = search.open               # CV.HLP
+alt+s                = search.open               # CV.HLP
 primary+f            = search.open
 escape               = search.clear
 primary+shift+p      = command.palette

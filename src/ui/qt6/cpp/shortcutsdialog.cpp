@@ -1,5 +1,8 @@
 #include "shortcutsdialog.h"
 
+#include "icons.h"
+#include "dialogbuttons.h"
+
 #include "jtfstring.h"
 
 #include <QDialogButtonBox>
@@ -23,8 +26,14 @@ ShortcutsDialog::ShortcutsDialog(JtfApp *app, QWidget *parent)
     auto *mode = new QLabel(this);
     const QString keymap =
         jtfText([&](char *b, int l) { return jtf_keymap_name(m_app, b, l); });
-    mode->setText(jtfFill(tr_("shortcuts.mode"), "name",
-                          tr_(QStringLiteral("keymap.%1").arg(keymap).toUtf8().constData())));
+    // `single-key` names a file; `keyboard.profile.single_key` names a
+    // catalogue entry - one prefix and one underscore apart. This built
+    // `keymap.single-key`, which is in no catalogue, so the line read
+    // "鍵盤模式：keymap.single-key".
+    QString profileKey = QStringLiteral("keyboard.profile.%1").arg(keymap);
+    profileKey.replace(QLatin1Char('-'), QLatin1Char('_'));
+    mode->setText(
+        jtfFill(tr_("shortcuts.mode"), "name", tr_(profileKey.toUtf8().constData())));
     mode->setProperty("jtfFactLabel", true);
     layout->addWidget(mode);
 
@@ -46,6 +55,7 @@ ShortcutsDialog::ShortcutsDialog(JtfApp *app, QWidget *parent)
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    dialogs::localizeButtons(buttons, [this](const char *key) { return tr_(key); }, palette().color(QPalette::Text));
     layout->addWidget(buttons);
 
     connect(m_search, &QLineEdit::textChanged, this, &ShortcutsDialog::rebuild);
@@ -89,8 +99,12 @@ void ShortcutsDialog::rebuild(const QString &needle) {
         jtf_command_at(m_app, i, idBuf, sizeof(idBuf), labelBuf, sizeof(labelBuf), categoryBuf,
                        sizeof(categoryBuf));
         const QString id = QString::fromUtf8(idBuf);
-        const QString label = QString::fromUtf8(labelBuf);
-        const QString category = QString::fromUtf8(categoryBuf);
+        // `jtf_command_at` hands back catalogue *keys*, not text - the same
+        // contract the command palette works to. Showing them unlocalized is
+        // how this dialog came to list `command.file.attributes` instead of
+        // 屬性, in every language including English.
+        const QString label = tr_(labelBuf);
+        const QString category = tr_(categoryBuf);
         const QByteArray idUtf8 = id.toUtf8();
         const QString shortcut = jtfText(
             [&](char *b, int l) { return jtf_shortcut_for(m_app, idUtf8.constData(), b, l); });
@@ -103,6 +117,13 @@ void ShortcutsDialog::rebuild(const QString &needle) {
         }
         auto *item = new QTreeWidgetItem(groupFor(category));
         item->setText(0, label);
+        // The same picture the command wears in the menus. A list of every
+        // command is exactly where knowing what a command looks like is worth
+        // something: it is how you connect the row you are reading to the
+        // entry you have seen on the toolbar.
+        if (glyph::hasCommandIcon(id)) {
+            item->setIcon(0, glyph::forCommand(id, palette().color(QPalette::Text)));
+        }
         item->setText(1, shortcut.isEmpty() ? tr_("shortcuts.unbound") : shortcut);
         item->setToolTip(0, id);
         if (shortcut.isEmpty()) {

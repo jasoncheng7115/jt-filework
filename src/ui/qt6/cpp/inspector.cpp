@@ -9,6 +9,7 @@
 #include <QDateTime>
 #include <QFileInfo>
 #include <QFormLayout>
+#include <QPainter>
 #include <QHBoxLayout>
 #include <QImageReader>
 #include <QLabel>
@@ -83,6 +84,7 @@ Inspector::Inspector(JtfApp *app, QWidget *parent) : QWidget(parent), m_app(app)
     m_preview->setAlignment(Qt::AlignCenter);
     m_preview->setMinimumHeight(120);
     m_preview->setObjectName(QStringLiteral("JtfInspectorPreview"));
+    m_preview->setAutoFillBackground(true);
     bodyLayout->addWidget(m_preview);
 
     // Text gets read, not looked at, so it is a real text widget rather than
@@ -104,6 +106,12 @@ Inspector::Inspector(JtfApp *app, QWidget *parent) : QWidget(parent), m_app(app)
     m_facts = new QFormLayout();
     m_facts->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
     m_facts->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
+    // A narrow panel and a long value - "Portable Document Format", a size
+    // with its exact byte count - do not fit on one line. Wrapping the row
+    // puts the value under its label and gives it the height it asked for;
+    // without this the label kept its width and the value was simply cut.
+    m_facts->setRowWrapPolicy(QFormLayout::WrapLongRows);
+    m_facts->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     m_facts->setHorizontalSpacing(12);
     m_facts->setVerticalSpacing(6);
     bodyLayout->addLayout(m_facts);
@@ -116,8 +124,10 @@ Inspector::Inspector(JtfApp *app, QWidget *parent) : QWidget(parent), m_app(app)
     outer->addWidget(m_scroll, 1);
 }
 
-void Inspector::applyTheme(const QColor &glyphColour) {
+void Inspector::applyTheme(const QColor &glyphColour, const QColor &previewSurface) {
     m_close->setIcon(glyph::make(glyph::Shape::Close, glyphColour));
+    m_previewSurface = previewSurface;
+    applyPreviewBackground();
 }
 
 QString Inspector::tr_(const char *key) const {
@@ -131,6 +141,19 @@ void Inspector::setTarget(const QString &path, int markedCount) {
     m_path = path;
     m_marked = markedCount;
     rebuild();
+}
+
+void Inspector::refreshTarget() {
+    // The same target, read again.
+    //
+    // `setTarget` returns early when the path has not changed, which is what
+    // keeps the panel from rebuilding on every cursor move. But a folder that
+    // has just been measured has the same path and a different size: pressing
+    // `Z` filled the size column in the list and left the panel still saying
+    // 「未計算」about the very folder the cursor was on.
+    if (!m_path.isEmpty()) {
+        rebuild();
+    }
 }
 
 void Inspector::setListFont(const QFont &font) {
@@ -160,6 +183,34 @@ void Inspector::clearRows() {
     }
 }
 
+void Inspector::applyPreviewBackground() {
+    // A dark panel hides a scanned page and a white-bordered photograph, and
+    // a chequer is the only honest way to show that a PNG has no background
+    // of its own. Which of the three is right depends on what the user looks
+    // at, so it is theirs to choose rather than the theme's to decide.
+    const int mode = jtf_preview_background(m_app);
+    QPalette pal = m_preview->palette();
+    if (mode == 1) {
+        // Painted rather than filled: a chequer has to be a texture.
+        QPixmap tile(16, 16);
+        tile.fill(QColor(0xC8, 0xC8, 0xC8));
+        QPainter painter(&tile);
+        painter.fillRect(0, 0, 8, 8, QColor(0xF0, 0xF0, 0xF0));
+        painter.fillRect(8, 8, 8, 8, QColor(0xF0, 0xF0, 0xF0));
+        painter.end();
+        pal.setBrush(QPalette::Window, QBrush(tile));
+    } else if (mode == 2) {
+        const QString name = jtfText(
+            [&](char *buf, int len) { return jtf_preview_background_colour(m_app, buf, len); });
+        const QColor colour(name);
+        pal.setBrush(QPalette::Window,
+                     colour.isValid() ? QBrush(colour) : QBrush(m_previewSurface));
+    } else {
+        pal.setBrush(QPalette::Window, QBrush(m_previewSurface));
+    }
+    m_preview->setPalette(pal);
+}
+
 void Inspector::addRow(const QString &labelKey, const QString &value) {
     auto *label = new QLabel(tr_(labelKey.toUtf8().constData()), this);
     label->setProperty("jtfFactLabel", true);
@@ -167,6 +218,13 @@ void Inspector::addRow(const QString &labelKey, const QString &value) {
     field->setTextInteractionFlags(Qt::TextSelectableByMouse);
     field->setWordWrap(true);
     field->setFont(m_listFont);
+    // Word wrap only produces more lines if the layout is willing to give
+    // them room.
+    QSizePolicy grows = field->sizePolicy();
+    grows.setVerticalPolicy(QSizePolicy::MinimumExpanding);
+    grows.setHeightForWidth(true);
+    field->setSizePolicy(grows);
+    field->setMinimumWidth(0);
     m_facts->addRow(label, field);
 }
 
@@ -259,6 +317,24 @@ void Inspector::showPreview(const QString &path) {
     m_preview->setPixmap(m_icons.iconFor(path, info.isDir()).pixmap(96, 96));
 }
 
+/// What kind of thing this is, worded exactly as the list's 種類 column words
+/// it.
+///
+/// The two used to disagree twice over: the column asked the platform and the
+/// panel asked Qt, so an archive read 「Zip封存檔」 in one and "Compressed
+/// Archive File" in the other. One chain, one answer.
+QString Inspector::typeName(const QString &path, const QFileInfo &info) {
+    const QString name = m_icons.typeNameFor(path, info.isDir());
+    if (!name.isEmpty()) {
+        return name;
+    }
+    const QString suffix = info.suffix().toUpper();
+    if (suffix.isEmpty()) {
+        return tr_("kind.file");
+    }
+    return jtfFill(tr_("kind.suffix_file"), "ext", suffix);
+}
+
 void Inspector::rebuild() {
     clearRows();
     if (m_path.isEmpty()) {
@@ -266,21 +342,29 @@ void Inspector::rebuild() {
         m_preview->clear();
         return;
     }
-    // More than one marked file: report the set, not one member of it. Saying
-    // "3 items" is honest; showing the first one's size is not.
-    if (m_marked > 1) {
-        m_name->setText(jtfFill(tr_("inspector.multiple"), "count", QString::number(m_marked)));
-        m_preview->clear();
-        return;
-    }
-
     const QFileInfo info(m_path);
     m_name->setText(info.fileName());
     m_name->setToolTip(m_path);
     showPreview(m_path);
 
-    const QMimeDatabase mime;
-    addRow(QStringLiteral("inspector.kind"), mime.mimeTypeForFile(info).comment());
+    // How many are marked, as a fact about the folder rather than as a
+    // replacement for the panel.
+    //
+    // The panel used to show "4 items" and nothing else whenever more than one
+    // was marked, which meant marks made an hour ago hid the preview of the
+    // file under the cursor - and moving the cursor changed nothing. The set
+    // is worth saying; it is not worth saying *instead*.
+    if (m_marked > 1) {
+        addRow(QStringLiteral("inspector.marked"),
+               jtfFill(tr_("inspector.multiple"), "count", QString::number(m_marked)));
+    }
+
+    // The same answer the list's 種類 column gives, from the same place: the
+    // platform first, Qt second, and the suffix phrased through the catalogue
+    // if neither can name it. Asking QMimeDatabase directly here is what made
+    // the panel say "Compressed Archive File" beside a row reading 「Zip封存檔」
+    // - Qt's database has no Chinese, and the platform's does.
+    addRow(QStringLiteral("inspector.kind"), typeName(m_path, info));
     if (info.isDir()) {
         addRow(QStringLiteral("inspector.size"), tr_("inspector.folder_size_hint"));
     } else {

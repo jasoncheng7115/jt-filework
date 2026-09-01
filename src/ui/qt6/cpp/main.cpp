@@ -4,6 +4,9 @@
 #include "watchdog.h"
 
 #include <QApplication>
+#include <QIcon>
+#include <QFileInfo>
+#include <QDir>
 #include "platform/filetype.h"
 
 #include <QLocale>
@@ -20,6 +23,31 @@ int main(int argc, char **argv) {
     QApplication::setAttribute(Qt::AA_DontShowIconsInMenus, false);
     QApplication::setApplicationName(QStringLiteral("jt-filework"));
     QApplication::setOrganizationName(QStringLiteral("jt-filework"));
+
+    // The window icon, from the PNGs shipped beside the other data.
+    //
+    // macOS reads the .icns for the Dock and Finder and Qt reads neither, so
+    // `QApplication::windowIcon()` was empty - which is why the About box,
+    // which asks for exactly that, opened with a blank space where the icon
+    // goes. On Windows and Linux this is also the taskbar icon.
+    {
+        QIcon icon;
+        const QDir here(QCoreApplication::applicationDirPath());
+        for (const QString &folder : {QStringLiteral("../Resources/appicon"),
+                                      QStringLiteral("appicon")}) {
+            const QDir dir(here.absoluteFilePath(folder));
+            if (!dir.exists()) {
+                continue;
+            }
+            for (const QFileInfo &png : dir.entryInfoList({QStringLiteral("*.png")}, QDir::Files)) {
+                icon.addFile(png.absoluteFilePath());
+            }
+            break;
+        }
+        if (!icon.isNull()) {
+            QApplication::setWindowIcon(icon);
+        }
+    }
 
     // The C++ token enum and Rust's ThemeToken::ALL must agree. Checking it
     // once at startup turns a silent wrong-colour bug into an immediate,
@@ -73,6 +101,12 @@ int main(int argc, char **argv) {
 
     MainWindow window(app);
     window.show();
+    // A session can hold more than one window: tearing a tab off makes one,
+    // and that is remembered. Only the main window is built here, so without
+    // this the rest stayed in the model with nothing on screen - counted by
+    // everything that asks the model how many panes there are, and reachable
+    // by nothing.
+    MainWindow::syncWindows(app);
 
     const int status = QApplication::exec();
     jtf_app_free(app);

@@ -1,4 +1,9 @@
 #include "operations.h"
+#include "icons.h"
+#include <QApplication>
+#include <QAbstractButton>
+
+#include "dialogbuttons.h"
 #include "jtfstring.h"
 
 #include <QElapsedTimer>
@@ -29,9 +34,66 @@ QString errorMessage(const JtfApp *app) {
 } // namespace
 
 // Asks about conflicts. Returns the policy, or -1 if the user backed out.
-int ops::askConflictPolicy(JtfApp *app, QWidget *parent, int conflicts) {
+int ops::askDropKind(JtfApp *app, QWidget *parent, int count, bool sameApplication) {
     QMessageBox box(parent);
     box.setIcon(QMessageBox::Question);
+    box.setWindowTitle(tr_(app, "drop.title"));
+    box.setText(jtfFill(tr_(app, "drop.question"), "count", QString::number(count)));
+
+    // Copy first and default: it is the choice that cannot lose the original,
+    // and a dialog people dismiss by reflex should do the safe thing - the
+    // same rule the conflict dialog follows.
+    auto *copy = box.addButton(tr_(app, "drop.copy"), QMessageBox::AcceptRole);
+    auto *move = box.addButton(tr_(app, "drop.move"), QMessageBox::AcceptRole);
+    auto *cancel = box.addButton(tr_(app, "drop.cancel"), QMessageBox::RejectRole);
+    // Within our own window the drag started from a folder we are showing, so
+    // moving is the ordinary intent and is offered as the default. From
+    // another application it is somebody else's file and copying is.
+    box.setDefaultButton(sameApplication ? move : copy);
+    box.setEscapeButton(cancel);
+    box.exec();
+
+    if (box.clickedButton() == copy) {
+        return ops::Copy;
+    }
+    if (box.clickedButton() == move) {
+        return ops::Move;
+    }
+    return -1;
+}
+
+namespace {
+
+/// The colour anything drawn into a dialog is drawn in.
+QColor dialogInk(const QWidget *parent) {
+    return parent != nullptr ? parent->palette().color(QPalette::Text)
+                             : QApplication::palette().color(QPalette::Text);
+}
+
+/// Put our own icon on a message box, in place of the style's.
+///
+/// `QMessageBox::Question` and friends are drawn by the platform style in its
+/// own colours: on a dark theme the standard question mark came out black on
+/// near-black and could not be read at all. Ours are drawn from the palette
+/// like every other glyph in the program - and a picture of the command is
+/// more use than a punctuation mark, because it says what is about to happen.
+void setBoxIcon(QMessageBox *box, const QIcon &icon) {
+    box->setIconPixmap(icon.pixmap(48, 48));
+}
+
+/// The icon a button in one of these boxes carries.
+void iconise(QAbstractButton *button, const QIcon &icon) {
+    if (button != nullptr) {
+        button->setIcon(icon);
+    }
+}
+
+} // namespace
+
+int ops::askConflictPolicy(JtfApp *app, QWidget *parent, int conflicts) {
+    const QColor ink = dialogInk(parent);
+    QMessageBox box(parent);
+    setBoxIcon(&box, glyph::forCommand(QStringLiteral("file.copy_to"), ink));
     box.setWindowTitle(tr_(app, "operation.confirm_title"));
     box.setText(jtfFill(tr_(app, "operation.confirm_conflicts"), "count",
                         QString::number(conflicts)));
@@ -44,6 +106,10 @@ int ops::askConflictPolicy(JtfApp *app, QWidget *parent, int conflicts) {
     auto *keep = box.addButton(tr_(app, "conflict.keep_both"), QMessageBox::AcceptRole);
     auto *replace = box.addButton(tr_(app, "conflict.overwrite"), QMessageBox::DestructiveRole);
     auto *cancel = box.addButton(tr_(app, "conflict.abort"), QMessageBox::RejectRole);
+    iconise(skip, glyph::make(glyph::Shape::ArrowRight, ink));
+    iconise(keep, glyph::make(glyph::Shape::Copy, ink));
+    iconise(replace, glyph::make(glyph::Shape::Check, ink));
+    iconise(cancel, glyph::make(glyph::Shape::Close, ink));
     box.setDefaultButton(skip);
     box.setEscapeButton(cancel);
     box.exec();
@@ -62,15 +128,41 @@ int ops::askConflictPolicy(JtfApp *app, QWidget *parent, int conflicts) {
 
 namespace {
 
-bool confirmIrreversible(JtfApp *app, QWidget *parent, int entries) {
+// Moving to the trash is recoverable, and still asked about.
+//
+// The question is not only whether the data survives: `D` is one key away from
+// `S` and `F` on this keyboard, and an operation that takes twenty files off
+// the screen with no question asked is one nobody can tell from a bug. The
+// wording says where they are going, so the answer is easy to give.
+bool confirmTrash(JtfApp *app, QWidget *parent, int entries) {
+    const QColor ink = dialogInk(parent);
     QMessageBox box(parent);
-    box.setIcon(QMessageBox::Warning);
+    setBoxIcon(&box, glyph::forCommand(QStringLiteral("file.trash"), ink));
+    box.setWindowTitle(tr_(app, "operation.confirm_title"));
+    box.setText(
+        jtfFill(tr_(app, "operation.confirm_trash"), "count", QString::number(entries)));
+    auto *proceed = box.addButton(tr_(app, "command.file.trash"), QMessageBox::AcceptRole);
+    auto *cancel = box.addButton(tr_(app, "conflict.abort"), QMessageBox::RejectRole);
+    iconise(proceed, glyph::forCommand(QStringLiteral("file.trash"), ink));
+    iconise(cancel, glyph::make(glyph::Shape::Close, ink));
+    box.setDefaultButton(cancel);
+    box.setEscapeButton(cancel);
+    box.exec();
+    return box.clickedButton() == proceed;
+}
+
+bool confirmIrreversible(JtfApp *app, QWidget *parent, int entries) {
+    const QColor ink = dialogInk(parent);
+    QMessageBox box(parent);
+    setBoxIcon(&box, glyph::forCommand(QStringLiteral("file.delete"), ink));
     box.setWindowTitle(tr_(app, "operation.confirm_title"));
     // docs/UI_UX_SPEC.md 10: say undo is impossible *before* the action.
     box.setText(jtfFill(tr_(app, "operation.confirm_irreversible"), "count",
                         QString::number(entries)));
     auto *proceed = box.addButton(tr_(app, "command.file.delete"), QMessageBox::DestructiveRole);
     auto *cancel = box.addButton(tr_(app, "conflict.abort"), QMessageBox::RejectRole);
+    iconise(proceed, glyph::forCommand(QStringLiteral("file.delete"), ink));
+    iconise(cancel, glyph::make(glyph::Shape::Close, ink));
     box.setDefaultButton(cancel);
     box.setEscapeButton(cancel);
     box.exec();
@@ -125,6 +217,34 @@ bool ops::awaitPlan(JtfApp *app, QWidget *parent) {
     return result == 1;
 }
 
+bool ops::confirmAndStartTo(JtfApp *app, QWidget *parent, int pane, Kind kind,
+                            const QString &destination, QString *message) {
+    const QByteArray utf8 = destination.toUtf8();
+    if (!jtf_op_prepare_to(app, pane, static_cast<int>(kind), utf8.constData()) ||
+        !ops::awaitPlan(app, parent)) {
+        if (message) {
+            *message = errorMessage(app);
+        }
+        return false;
+    }
+    return ops::confirmAndRun(app, parent);
+}
+
+bool ops::confirmAndStartPaths(JtfApp *app, QWidget *parent, Kind kind,
+                               const QStringList &sources, const QString &destination,
+                               QString *message) {
+    const QByteArray list = sources.join(QLatin1Char('\n')).toUtf8();
+    const QByteArray into = destination.toUtf8();
+    if (!jtf_op_prepare_paths(app, static_cast<int>(kind), list.constData(), into.constData()) ||
+        !ops::awaitPlan(app, parent)) {
+        if (message) {
+            *message = errorMessage(app);
+        }
+        return false;
+    }
+    return ops::confirmAndRun(app, parent);
+}
+
 bool ops::confirmAndStart(JtfApp *app, QWidget *parent, int pane, Kind kind, QString *message) {
     if (!jtf_op_prepare(app, pane, static_cast<int>(kind)) || !ops::awaitPlan(app, parent)) {
         if (message) {
@@ -133,7 +253,20 @@ bool ops::confirmAndStart(JtfApp *app, QWidget *parent, int pane, Kind kind, QSt
         return false;
     }
 
-    if (jtf_op_is_irreversible(app) && !confirmIrreversible(app, parent, jtf_op_entries(app))) {
+    return ops::confirmAndRun(app, parent);
+}
+
+// Everything between "there is a plan" and "it is running": the same
+// questions whatever route built the plan.
+bool ops::confirmAndRun(JtfApp *app, QWidget *parent) {
+    // Every removal is confirmed, whichever route built the plan - the menu,
+    // a key, the disc usage window. Permanent deletion gets the stronger
+    // warning; the trash gets the plainer question.
+    if (jtf_op_is_irreversible(app)) {
+        if (!confirmIrreversible(app, parent, jtf_op_entries(app))) {
+            return false;
+        }
+    } else if (jtf_op_removes(app) && !confirmTrash(app, parent, jtf_op_entries(app))) {
         return false;
     }
 
@@ -155,9 +288,10 @@ bool nameThenStart(JtfApp *app, QWidget *parent, int pane, const char *titleKey,
                    const char *labelKey, const QString &initial,
                    int (*prepare)(JtfApp *, int, const char *), QString *message) {
     bool accepted = false;
-    const QString name =
-        QInputDialog::getText(parent, tr_(app, titleKey), tr_(app, labelKey), QLineEdit::Normal,
-                              initial, &accepted);
+    const QString name = dialogs::askForText(
+        parent, [app](const char *key) { return tr_(app, key); }, tr_(app, titleKey),
+        tr_(app, labelKey), initial,
+        parent != nullptr ? parent->palette().color(QPalette::Text) : QColor(), &accepted);
     if (!accepted || name.trimmed().isEmpty()) {
         return false;
     }

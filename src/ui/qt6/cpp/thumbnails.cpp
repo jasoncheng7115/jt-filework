@@ -9,10 +9,27 @@
 
 namespace {
 
-// How many thumbnails are kept. Pixmaps are small at this size; the bound is
-// here so that scrolling a directory of a million images cannot grow without
-// limit, not because the memory matters at ordinary sizes.
-constexpr int kMaxCached = 4096;
+// How much memory the thumbnails may occupy, in kilobytes.
+//
+// Counted in bytes rather than in pictures. The bound used to be 4096
+// *entries* with `QCache`'s default cost of one apiece, which says nothing
+// about size: at the grid's 72-pixel edge that is 4096 x 72 x 72 x 4 bytes,
+// about 84 MB of pixmaps, and at a larger edge proportionally more. A budget
+// in bytes holds whatever number of thumbnails fits, which is the thing worth
+// bounding.
+constexpr int kMaxCacheKilobytes = 48 * 1024;
+
+/// What one pixmap costs the cache, in kilobytes, never zero.
+///
+/// Zero-cost entries would never be evicted, so an unsuitable file remembered
+/// as "nothing" still counts for one.
+int pixmapCost(const QPixmap &pixmap) {
+    const qint64 bytes =
+        static_cast<qint64>(pixmap.width()) * pixmap.height() * (pixmap.depth() / 8);
+    const qint64 kilobytes = bytes / 1024;
+    const qint64 ceiling = static_cast<qint64>(kMaxCacheKilobytes);
+    return static_cast<int>(qBound<qint64>(1, kilobytes, ceiling));
+}
 
 // Files larger than this are not thumbnailed. A very large image is exactly
 // the one that would stall a worker, and the icon is a fine answer.
@@ -66,7 +83,7 @@ private:
 
 } // namespace
 
-ThumbnailCache::ThumbnailCache(QObject *parent) : QObject(parent), m_cache(kMaxCached) {
+ThumbnailCache::ThumbnailCache(QObject *parent) : QObject(parent), m_cache(kMaxCacheKilobytes) {
     m_pool = new QThreadPool(this);
     m_pool->setMaxThreadCount(kMaxThreads);
 }
@@ -110,7 +127,7 @@ QPixmap ThumbnailCache::thumbnail(const QString &path, int edge, int row) {
     }
     if (!canThumbnail(path)) {
         // Remembered as "nothing", so an unsuitable file is asked about once.
-        m_cache.insert(key, new QPixmap());
+        m_cache.insert(key, new QPixmap(), 1);
         return {};
     }
     m_pending.insert(key, row);
@@ -121,7 +138,7 @@ QPixmap ThumbnailCache::thumbnail(const QString &path, int edge, int row) {
 void ThumbnailCache::store(const QString &key, const QString &path, int row,
                            const QPixmap &pixmap) {
     m_pending.remove(key);
-    m_cache.insert(key, new QPixmap(pixmap));
+    m_cache.insert(key, new QPixmap(pixmap), pixmapCost(pixmap));
     if (!pixmap.isNull()) {
         emit ready(row, path);
     }

@@ -20,7 +20,12 @@ case "$mode" in
     *)       build_type=Debug;   extra=() ;;
 esac
 
-build_dir="$here/build/$mode"
+# Out of the source tree, for the same reason .cargo/config.toml puts the Rust
+# target directory there: this checkout lives in a synced folder, and 4 GB of
+# object files re-uploading on every build is not something a build should do
+# to somebody's network. Override with JTF_BUILD_ROOT.
+build_root="${JTF_BUILD_ROOT:-$HOME/.cache/jt-filework-qt}"
+build_dir="$build_root/$mode"
 
 # Prefer an arm64 Qt when one is present.
 for prefix in /opt/homebrew/opt/qt /usr/local/opt/qt; do
@@ -48,6 +53,26 @@ cmake --build "$build_dir" --parallel
 app="$build_dir/jt-filework"
 if [ -d "$build_dir/jt-filework.app" ]; then
     app="$build_dir/jt-filework.app/Contents/MacOS/jt-filework"
+fi
+
+# A release build also becomes /Applications/jt-filework.app.
+#
+# The Dock pins a path, not a project. Pinned straight at a build directory it
+# kept whichever configuration was pinned first - which is how the Dock icon
+# ended up launching a stale debug build while the release one ran beside it,
+# two icons for one application because macOS groups by bundle path. One
+# install location, refreshed by every release build, is a path worth pinning.
+if [ "$mode" = "release" ] && [ -d "$build_dir/jt-filework.app" ]; then
+    installed="/Applications/jt-filework.app"
+    # Removed rather than copied over: a stale file left from an older build
+    # inside a bundle is the kind of thing that only shows up much later.
+    rm -rf "$installed"
+    if cp -R "$build_dir/jt-filework.app" "$installed" 2>/dev/null; then
+        echo "installed: $installed"
+        app="$installed/Contents/MacOS/jt-filework"
+    else
+        echo "note: could not write $installed; leaving it as it was" >&2
+    fi
 fi
 
 echo

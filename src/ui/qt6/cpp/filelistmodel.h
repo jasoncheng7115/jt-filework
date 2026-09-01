@@ -12,6 +12,7 @@
 
 #include <QAbstractTableModel>
 #include <QColor>
+#include <QFont>
 #include <QMimeData>
 #include <QUrl>
 
@@ -53,6 +54,10 @@ public:
 private:
     int kindColumn() const;
     int tagsColumn() const;
+    // The one column whose contents are numbers, so it and its header can be
+    // right-aligned together. Found by key, never assumed to be an index.
+    int sizeColumn() const;
+    bool isAlignedColumn(int column) const;
     int columnWithKey(const QString &wanted) const;
 
 public:
@@ -67,6 +72,13 @@ public:
     void clearIconCache() { m_icons.clear(); }
     void setDirectoryColor(const QColor &color) { m_dirColor = color; }
     void setExecutableColor(const QColor &color) { m_execColor = color; }
+    // The ordinary row colour. Needed because a hidden row is drawn as a
+    // faded version of the colour it would otherwise have, and for a plain
+    // file that colour is this one rather than nothing.
+    void setTextColor(const QColor &color) { m_textColor = color; }
+    // The two faces the list draws with, and whether the fixed-width one
+    // covers every column or only the ones read as columns of values.
+    void setListFonts(const QFont &proportional, const QFont &fixed, bool fixedEverywhere);
     void setThumbnailsEnabled(bool on);
 
 private:
@@ -75,6 +87,10 @@ private:
     QColor m_markColor;
     QColor m_dirColor;
     QColor m_execColor;
+    QColor m_textColor;
+    QFont m_proportional;
+    QFont m_fixed;
+    bool m_fixedEverywhere = false;
     mutable IconProvider m_icons;
     ThumbnailCache *m_thumbnails = nullptr;
     bool m_showThumbnails = true;
@@ -82,5 +98,6 @@ private:
     /// -2 until looked up; -1 when there is no kind column.
     mutable int m_kindColumn = -2;
     mutable int m_tagsColumn = -2;
+    mutable int m_sizeColumn = -2;
     int m_rows = 0;
 };

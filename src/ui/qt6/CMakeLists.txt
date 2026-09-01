@@ -6,6 +6,21 @@
 
 cmake_minimum_required(VERSION 3.21)
 
+# The version, read from Cargo.toml and never written out again here.
+#
+# It reaches three places: the macOS bundle's Info.plist, the Windows resource
+# stamp that Explorer and the properties dialog read, and - through
+# `CARGO_PKG_VERSION` on the Rust side - the About box and the window title.
+# Every hand-written copy is a number that drifts, and a build whose properties
+# dialog disagrees with its own About box is worse than one with no version at
+# all.
+file(READ "${CMAKE_CURRENT_LIST_DIR}/../../../Cargo.toml" JTF_CARGO_TOML)
+string(REGEX MATCH "\nversion = \"([0-9]+\\.[0-9]+\\.[0-9]+)\"" _ "${JTF_CARGO_TOML}")
+set(JTF_VERSION "${CMAKE_MATCH_1}")
+if(NOT JTF_VERSION)
+    message(FATAL_ERROR "could not read the version out of Cargo.toml")
+endif()
+
 # Objective-C++ is enabled on Apple only; the platform-neutral build never
 # sees it (AGENTS.md 5).
 if(APPLE)
@@ -33,7 +48,14 @@ else()
     set(CARGO_PROFILE_DIR "release")
 endif()
 
-set(BRIDGE_LIB "${RUST_TARGET_DIR}/${CARGO_PROFILE_DIR}/libjtf_qt6_bridge.a")
+# `libfoo.a` everywhere Rust uses a Unix toolchain; `foo.lib` when it targets
+# MSVC. Named from the toolchain rather than hardcoded, or the Windows link
+# fails looking for a file cargo never writes.
+if(MSVC)
+    set(BRIDGE_LIB "${RUST_TARGET_DIR}/${CARGO_PROFILE_DIR}/jtf_qt6_bridge.lib")
+else()
+    set(BRIDGE_LIB "${RUST_TARGET_DIR}/${CARGO_PROFILE_DIR}/libjtf_qt6_bridge.a")
+endif()
 get_filename_component(REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
 
 
@@ -86,6 +108,12 @@ qt_add_executable(jt-filework
     cpp/thumbnails.cpp
     cpp/thumbnails.h
     cpp/matchdelegate.cpp
+    cpp/rowdelegate.cpp
+    cpp/dialogbuttons.cpp
+    cpp/searchoverlay.cpp
+    cpp/destinationdialog.cpp
+    cpp/jobsdialog.cpp
+    cpp/remotedialog.cpp
     cpp/matchdelegate.h
     cpp/shortcutsdialog.cpp
     cpp/shortcutsdialog.h
@@ -102,6 +130,13 @@ qt_add_executable(jt-filework
     cpp/batchrenamedialog.cpp
     cpp/batchrenamedialog.h
     cpp/commandpalette.cpp
+    cpp/archivewindow.cpp
+    cpp/comparewindow.cpp
+    cpp/listlook.cpp
+    cpp/usagewindow.cpp
+    cpp/archivewindow.h
+    cpp/aboutdialog.cpp
+    cpp/aboutdialog.h
     cpp/commandpalette.h
     cpp/viewerwindow.cpp
     cpp/viewerwindow.h
@@ -115,17 +150,42 @@ qt_add_executable(jt-filework
 if(APPLE)
     target_sources(jt-filework PRIVATE
         cpp/platform/quicklook_mac.mm
-        cpp/platform/filetype_mac.mm)
+        cpp/platform/filetype_mac.mm
+        cpp/platform/share_mac.mm)
     target_link_libraries(jt-filework PRIVATE "-framework UniformTypeIdentifiers")
 else()
     target_sources(jt-filework PRIVATE
         cpp/platform/quicklook_stub.cpp
-        cpp/platform/filetype_stub.cpp)
+        cpp/platform/filetype_stub.cpp
+        cpp/platform/share_stub.cpp)
+endif()
+
+# The Windows icon and version stamp travel in a resource script. Explorer,
+# the taskbar and the Alt-Tab list read those from the executable itself and
+# never run it to ask for a QIcon, so setting one at runtime is not enough.
+if(WIN32)
+    # The version stamp Explorer, the taskbar and the properties dialog read,
+    # filled in from Cargo.toml rather than written out again by hand.
+    string(REPLACE "." "," JTF_VERSION_COMMA "${JTF_VERSION}")
+    set(JTF_ICON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../assets/icon/generated/jt-filework.ico")
+    # Backslashes, because a resource script is not a CMake path.
+    string(REPLACE "/" "\\\\" JTF_ICON_PATH "${JTF_ICON_PATH}")
+    configure_file(jt-filework.rc.in "${CMAKE_CURRENT_BINARY_DIR}/jt-filework.rc" @ONLY)
+    target_sources(jt-filework PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/jt-filework.rc")
+    # `shlobj` for the shell's own name for the drives root.
+    target_link_libraries(jt-filework PRIVATE shell32 ole32)
 endif()
 
 add_dependencies(jt-filework rust_bridge)
 target_include_directories(jt-filework PRIVATE cpp)
 target_link_libraries(jt-filework PRIVATE Qt6::Widgets Qt6::Svg "${BRIDGE_LIB}")
+if(WIN32)
+    # What the Rust standard library and its dependencies call into. A static
+    # Rust archive carries no import list of its own, so these are named here
+    # or the link ends in a page of undefined symbols with no obvious cause.
+    target_link_libraries(jt-filework PRIVATE
+        ws2_32 userenv ntdll bcrypt advapi32 secur32 crypt32 ncrypt)
+endif()
 
 if(APPLE)
     # Frameworks the Rust standard library needs when linked into a C++ binary.
@@ -176,8 +236,8 @@ if(APPLE)
         MACOSX_PACKAGE_LOCATION "Resources")
 
     set(MACOSX_BUNDLE_GUI_IDENTIFIER "tw.jasoncheng.jt-filework")
-    set(MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1.0")
-    set(MACOSX_BUNDLE_BUNDLE_VERSION "0.1.0")
+    set(MACOSX_BUNDLE_SHORT_VERSION_STRING "${JTF_VERSION}")
+    set(MACOSX_BUNDLE_BUNDLE_VERSION "${JTF_VERSION}")
 
     set_target_properties(jt-filework PROPERTIES
         MACOSX_BUNDLE TRUE
@@ -186,8 +246,15 @@ if(APPLE)
     # The bundle carries its own locales and keymaps. Without this the app
     # only works while a source tree happens to sit above it, and the failure
     # is silent: every label falls back to its catalogue key.
+    #
+    # Attached to a target that is always out of date, not to POST_BUILD.
+    # POST_BUILD runs only when the executable itself is relinked, so editing
+    # a keymap and rebuilding copied nothing: the program went on reading the
+    # previous file and the change looked like it had had no effect. Data is
+    # not a build artifact of the code and must not depend on the code
+    # changing.
     set(JTF_DATA_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
-    add_custom_command(TARGET jt-filework POST_BUILD
+    add_custom_target(jtf_bundle_data ALL
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${JTF_DATA_ROOT}/locales"
             "$<TARGET_BUNDLE_CONTENT_DIR:jt-filework>/Resources/locales"
@@ -197,6 +264,12 @@ if(APPLE)
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${JTF_DATA_ROOT}/assets/icons"
             "$<TARGET_BUNDLE_CONTENT_DIR:jt-filework>/Resources/icons"
+        # The application's own icon, as PNGs. The .icns is what Finder and the
+        # Dock read; Qt reads neither, so a window icon and the About box had
+        # nothing to show.
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${JTF_DATA_ROOT}/assets/icon/generated/png"
+            "$<TARGET_BUNDLE_CONTENT_DIR:jt-filework>/Resources/appicon"
         # Empty .lproj directories alongside the declaration above: some of
         # the system's lookups check for a real directory rather than reading
         # Info.plist, and an absent one silently means "not localized".
@@ -205,8 +278,32 @@ if(APPLE)
         COMMAND ${CMAKE_COMMAND} -E make_directory
             "$<TARGET_BUNDLE_CONTENT_DIR:jt-filework>/Resources/zh-Hant.lproj"
         COMMENT "Copying locales and keymaps into the bundle")
+    # After the bundle exists, or the copy has nowhere to land.
+    add_dependencies(jtf_bundle_data jt-filework)
 else()
+    # No bundle to put the data in, so it goes beside the executable - which is
+    # where `locate_repo_root` and `iconRoots` look before walking up a source
+    # tree. Without this the program starts and shows every label as its
+    # catalogue key, every shortcut blank and no icons at all, because the
+    # catalogues, keymaps and icons simply are not there.
     set_target_properties(jt-filework PROPERTIES
         MACOSX_BUNDLE FALSE
         WIN32_EXECUTABLE FALSE)
+
+    set(JTF_DATA_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
+    # Always out of date, for the reason given in the Apple branch above: a
+    # POST_BUILD step runs only when the executable is relinked, so editing a
+    # keymap and rebuilding copied nothing.
+    add_custom_target(jtf_bundle_data ALL
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${JTF_DATA_ROOT}/locales" "$<TARGET_FILE_DIR:jt-filework>/locales"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${JTF_DATA_ROOT}/keymaps" "$<TARGET_FILE_DIR:jt-filework>/keymaps"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${JTF_DATA_ROOT}/assets/icons" "$<TARGET_FILE_DIR:jt-filework>/icons"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${JTF_DATA_ROOT}/assets/icon/generated/png"
+            "$<TARGET_FILE_DIR:jt-filework>/appicon"
+        COMMENT "Copying locales, keymaps and icons beside the executable")
+    add_dependencies(jtf_bundle_data jt-filework)
 endif()

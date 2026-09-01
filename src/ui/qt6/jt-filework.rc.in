@@ -1,0 +1,41 @@
+// The Windows application icon and version stamp.
+//
+// Configured from `Cargo.toml` at build time - the version appears three times
+// here, and three hand-written copies of one number is three chances to ship a
+// build whose properties dialog says something the program does not. The
+// macOS bundle takes its version the same way.
+//
+// A resource script rather than a runtime QIcon: this is what Explorer, the
+// taskbar and the Alt-Tab list read, and none of them run the program to ask.
+// `IDI_ICON1` being first is the convention Windows uses to pick the icon
+// shown for the executable itself.
+#include <windows.h>
+
+IDI_ICON1 ICON "@JTF_ICON_PATH@"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION    @JTF_VERSION_COMMA@,0
+PRODUCTVERSION @JTF_VERSION_COMMA@,0
+FILEOS         VOS__WINDOWS32
+FILETYPE       VFT_APP
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040404b0"
+        BEGIN
+            VALUE "CompanyName",      "jt-filework"
+            VALUE "FileDescription",  "jt-filework"
+            VALUE "FileVersion",      "@JTF_VERSION@"
+            VALUE "InternalName",     "jt-filework"
+            VALUE "LegalCopyright",   "GPL-3.0-or-later"
+            VALUE "OriginalFilename", "jt-filework.exe"
+            VALUE "ProductName",      "jt-filework"
+            VALUE "ProductVersion",   "@JTF_VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        // Chinese (Taiwan), Unicode.
+        VALUE "Translation", 0x404, 1200
+    END
+END

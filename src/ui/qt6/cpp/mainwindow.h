@@ -17,6 +17,7 @@
 #include <QByteArray>
 #include <QFont>
 #include <QMainWindow>
+#include <QSet>
 
 class PaneWidget;
 class QSplitter;
@@ -43,6 +44,7 @@ public:
     static void syncWindows(JtfApp *app);
 
 protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
 
 private:
@@ -56,8 +58,16 @@ private:
     void applyTheme();
     void applyFont();
     QFont listFont() const;
+    QFont fixedListFont() const;
     void buildToolbar();
     void applyCommandBindings();
+    void runOperationTo(int kind);
+    void runAndSettleFocus(const std::function<void()> &handler);
+    void returnFocusToList();
+    void connectToServer();
+    void openJobs();
+    void focusSearchField();
+    void measureFolderSizes();
     void stepFontSize(int delta);
     void chooseFontFamily();
 
@@ -78,8 +88,14 @@ private:
     void showCrumbMenu(int paneId, const QString &path, const QPoint &global);
     void showEntryMenu(int paneId, const QPoint &global, bool onEntry);
     void toggleTree();
+    /// Move the keyboard to the next visible area: places, folder tree, panes.
+    void focusNextArea();
     void setTreeVisible(bool visible);
+    /// Give the sidebar its remembered width, or a sensible one.
+    void applySidebarWidth();
     void syncTree();
+    // The title and proxy icon, named after the focused pane's folder.
+    void syncWindowTitle();
     void setFontPoints(int points);
     void openShortcuts();
     QString profileLabel(const QString &profile) const;
@@ -89,26 +105,70 @@ private:
     void runCommand(const QString &id);
     void toggleBookmark();
     void setInspectorVisible(bool visible);
+    void setInspectorPosition(int position);
+    int m_inspectorPosition = 0;
+    class QSplitter *m_paneColumn = nullptr;
     void setKeyHintsVisible(bool visible);
+    void showKeyHintMenu(const QPoint &global);
+    void setKeyHintDensity(int density);
     void syncKeyHints();
     void syncInspector();
+    void showInspectorTarget();
+    class QTimer *m_inspectorSettle = nullptr;
     void openViewer();
     void quickLookSelection();
     void openBatchRename();
     void openPalette();
     void openSettings();
     void runOperation(OperationRequest request);
-    void runDrop(int pane, const QStringList &paths, int kind);
+    void runDrop(int pane, const QStringList &paths, bool fromUs);
     QStringList targetPaths() const;
     void clipboardPut(bool cut);
     void markByPattern(bool mark);
     void clipboardPaste();
     void copyText(bool fullPath);
     void revealSelection();
+    void openTerminalHere();
+    void editSelection();
     void updateOperationUi();
     void syncToolbar();
     void markActivePane();
     PaneWidget *activePane() const;
+    // A pane this window actually owns, for deciding what this window's own
+    // chrome should say. `activePane` is null whenever the active pane lives
+    // in another window, and the toolbar of a window still has to be right.
+    int chromePaneId() const;
+    // Set on the secondary windows while the main window is quitting, so that
+    // the cascade of closes does not mistake "the program is exiting" for
+    // "the user dismissed this window" and throw the workspace away.
+    bool m_quitting = false;
+    // Folder measuring runs on a worker thread; this reads its progress.
+    QTimer *m_measurePoll = nullptr;
+    int m_measureCount = 0;
+    // Set when a new file was just created, so it can be opened for editing
+    // once the listing has settled and the cursor has landed on it.
+    bool m_editAfterCreate = false;
+    /// Ask for a server's password when it could not sign in - once per
+    /// failure, not once per refresh.
+    void askForServerPassword(int pane);
+    /// Raise the sign-in prompt for any pane whose server refused it. Called
+    /// from the pump too: the refusal arrives on a worker thread, long after
+    /// whatever refresh started the attempt.
+    void checkServerCredentials();
+    QSet<int> m_askedForPassword;
+    // Extraction and compression, watched the same way measuring is.
+    QTimer *m_archivePoll = nullptr;
+    void extractArchive();
+    // Extract `members` - empty means all - from `archive`, asking where to.
+    void extractInto(const QString &archive, const QStringList &members);
+    // Show what is inside the archive under the cursor, in its own window.
+    bool openArchiveWindow();
+    // Compare the focused pane's folder against the target pane's.
+    void openCompareWindow();
+    // Where the space went, under `path` or under the focused pane's folder.
+    void openUsageWindow(const QString &path);
+    void compressSelection();
+    void watchArchiveJob();
     QString tr_(const char *key) const;
     QByteArray familyUtf8() const;
 
@@ -127,7 +187,6 @@ private:
     class QAction *m_refreshAction = nullptr;
     class QAction *m_treeAction = nullptr;
     class QAction *m_inspectorAction = nullptr;
-    class QAction *m_keyHintsAction = nullptr;
     class QAction *m_listModeAction = nullptr;
     class QAction *m_gridModeAction = nullptr;
     class KeyHintBar *m_keyHints = nullptr;
@@ -141,15 +200,17 @@ private:
     // Command id to handler, so anything the menus can do the palette can do.
     QHash<QString, std::function<void()>> m_handlers;
     Theme m_theme;
-    class QLabel *m_statusMessage = nullptr;
+    class StatusLabel *m_statusMessage = nullptr;
     /// Whether the message area is showing the idle text rather than a report.
     bool m_statusIsIdle = true;
     class QLabel *m_statusPanes = nullptr;
     class QLabel *m_statusSelection = nullptr;
     class QLabel *m_statusItems = nullptr;
     class QLabel *m_statusTasks = nullptr;
-    class QLabel *m_statusKeymap = nullptr;
+    class QToolButton *m_statusKeymap = nullptr;
     class ModeSwitch *m_modeSwitch = nullptr;
+    QAction *m_searchIconAction = nullptr;
+    class QToolButton *m_keyHintsButton = nullptr;
     class QSlider *m_zoom = nullptr;
     class QProgressBar *m_progress = nullptr;
     class QPushButton *m_cancelButton = nullptr;

@@ -7,6 +7,7 @@
 #include "bridge.h"
 
 #include <QColor>
+#include <QList>
 #include <QPoint>
 #include <QStringList>
 #include <QFont>
@@ -36,10 +37,13 @@ public:
     // Row the keyboard is on, or -1. The window needs it for commands that
     // act on the focused entry.
     int currentRow() const;
+    /// Every row the mouse or Shift-arrow selection covers, in order.
+    QList<int> selectedRows() const;
+    /// Add or remove the cursor's row from the selection, then step down.
+    void toggleCurrentInSelection();
     /// Put the keyboard in the file list.
     void focusList();
     void openCurrentRow();
-    void toggleSearch();
     /// Run a search from the window's search field.
     void searchFor(const QString &query);
     /// Put the breadcrumb into its editable full-path form.
@@ -47,22 +51,45 @@ public:
     void clearSearch();
     void toggleFilter();
     void clearFilter();
+    // Shows the filter box whenever a filter is actually in force, so a
+    // restored one cannot hide rows without saying so.
+    void syncFilterBar();
+    /// Keep the header's mark-all box in step with the marks.
+    void syncMarkAll();
+    /// Put the selection back to the marks on arriving in a folder.
+    void restoreSelectionFromMarks();
+    /// True while doing that, so the write-back does not loop.
+    bool m_restoringMarks = false;
+    // The folder whose contents the current column widths were measured from,
+    // so a resize does not re-measure and make the columns crawl.
+    QString m_measuredFor;
     void advanceCurrentRow();
+    /// Make the view's selection say what the mark set says.
+    void syncSelectionFromMarks();
+    /// Whether a press at `at` landed on the row's tick box.
+    bool onCheckBox(const QModelIndex &index, const QPoint &at) const;
     void retranslate();
-    void setListFont(const QFont &font);
+    void setListFont(const QFont &font, const QFont &fixed, bool fixedEverywhere);
     void applyTheme(const QColor &mark, const QColor &directory, const QColor &dim,
                     const QColor &indicator, const QColor &border,
                     const QColor &executable);
     void setActive(bool active);
+    void setTarget(bool target);
 
 signals:
     /// A keymap binding fired from inside the list; the window runs it.
     void commandRequested(const QString &id);
     void focusRequested(int paneId);
+    /// Try this pane's location again. The window handles it rather than the
+    /// pane, because retrying a sign-in has to clear the record of having
+    /// already asked for a password - otherwise the second attempt fails the
+    /// same way in silence.
+    void reconnectRequested(int paneId);
     void stateChanged();
     void selectionChanged();
-    // Paths dropped on this pane, and 0 for copy or 1 for move.
-    void dropRequested(const QStringList &paths, int kind);
+    // Paths dropped on this pane, and 1 when the drag started inside this
+    // application rather than in another one.
+    void dropRequested(const QStringList &paths, int fromUs);
     void contextMenuRequested(const QPoint &global, bool onEntry);
     void crumbMenuRequested(const QString &path, const QPoint &global);
     /// Move this tab into a window of its own.
@@ -81,7 +108,13 @@ private:
     void showHeaderMenu(const QPoint &position);
     void applyColumnVisibility();
     bool isPathColumn(int column) const;
+    void setHoveredRow(int row);
+    int m_hoveredRow = -1;
+    void scheduleFitNameColumn();
+    bool m_fitScheduled = false;
     void fitNameColumn();
+    bool m_fittingName = false;
+    QList<int> m_wantedColumns;
     void applyViewMode();
     class QAbstractItemView *currentView() const;
     void ensureCurrentRow();
@@ -90,6 +123,11 @@ private:
     // Typing letters jumps to a matching row. docs/UI_UX_SPEC.md 5.4: it must
     // never start a rename and never trigger a destructive command.
     bool typeAhead(const QString &text);
+    void closeTab(int index);
+    QColor m_tabCloseColour;
+    QColor m_tabCloseStrong;
+    QString m_shownPath;
+    void syncTabCloseButtons();
     void syncTabs();
     void syncPath();
     void syncSortIndicator();
@@ -99,12 +137,13 @@ private:
     QTabBar *m_tabs;
     class Breadcrumb *m_crumbs = nullptr;
     class QToolButton *m_newTab = nullptr;
+    class QToolButton *m_close = nullptr;
+    class QToolButton *m_reconnect = nullptr;
     class QWidget *m_filterBar = nullptr;
     class QLabel *m_filterIcon = nullptr;
     class QLabel *m_filterCount = nullptr;
     class QToolButton *m_filterClose = nullptr;
     class QLineEdit *m_filter = nullptr;
-    class QLineEdit *m_search = nullptr;
     QLabel *m_status;
     QTableView *m_view;
     FileListModel *m_model;
@@ -117,6 +156,12 @@ private:
     class JtfHeaderView *m_header = nullptr;
     class QListView *m_grid = nullptr;
     class MatchDelegate *m_matches = nullptr;
+    /// Guards the selection/mark round trip against itself.
+    bool m_syncingSelection = false;
+    class RowDelegate *m_rows = nullptr;
+    class SearchOverlay *m_searchOverlay = nullptr;
+    class QLabel *m_targetBadge = nullptr;
+    void positionSearchOverlay();
     QColor m_border;
     QString m_typeAhead;
     class QElapsedTimer *m_typeAheadClock = nullptr;

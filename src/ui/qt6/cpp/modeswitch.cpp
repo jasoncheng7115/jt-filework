@@ -7,8 +7,11 @@
 #include <QPropertyAnimation>
 
 namespace {
-constexpr int kPaddingX = 12;
-constexpr int kPaddingY = 5;
+// Tight. The labels are the full mode names and must stay that way, so the
+// only room left to give back is the padding around them - at 12px the
+// control took a fifth of the toolbar and read as the loudest thing on it.
+constexpr int kPaddingX = 9;
+constexpr int kPaddingY = 4;
 constexpr int kInset = 2;
 // Long enough to be seen as movement, short enough that it never delays the
 // mode actually changing - the switch animates, the keymap does not wait.
@@ -73,7 +76,9 @@ QSize ModeSwitch::sizeHint() const {
     }
     // Every segment is the same width, so the pill is one shape that moves
     // rather than one that also resizes.
-    const int segment = widest + kPaddingX * 2;
+    // The dot and its gap, which sizeHint has to allow for or the labels
+    // shift under it.
+    const int segment = widest + kPaddingX * 2 + 12;
     const int count = qMax(1, static_cast<int>(m_labels.size()));
     return {segment * count + kInset * 2, metrics.height() + kPaddingY * 2 + kInset * 2};
 }
@@ -127,8 +132,28 @@ void ModeSwitch::paintEvent(QPaintEvent *) {
                             mix(colour.green(), m_onAccent.green()),
                             mix(colour.blue(), m_onAccent.blue()));
         }
+        // A filled dot on the segment that is on, hollow on the one that is
+        // not. The travelling pill already says which mode is current, but it
+        // says it only by position and colour; a state marker says it in a
+        // third way, and reads at a glance in a screenshot or to anyone who
+        // cannot separate the two fills.
+        const QFontMetrics metrics(font());
+        const QString label = m_labels.at(i);
+        const qreal dot = 6.0;
+        const qreal gap = 6.0;
+        const qreal textWidth = metrics.horizontalAdvance(label);
+        const qreal total = dot + gap + textWidth;
+        const qreal left = rect.center().x() - total / 2.0;
+        const QRectF marker(left, rect.center().y() - dot / 2.0, dot, dot);
+
+        painter.setPen(QPen(colour, 1.2));
+        painter.setBrush(covered > 0.5 ? QBrush(colour) : Qt::NoBrush);
+        painter.drawEllipse(marker);
+
+        painter.setBrush(Qt::NoBrush);
         painter.setPen(colour);
-        painter.drawText(rect, Qt::AlignCenter, m_labels.at(i));
+        painter.drawText(QRectF(left + dot + gap, rect.top(), textWidth, rect.height()),
+                         Qt::AlignVCenter | Qt::AlignLeft, label);
     }
 }
 
