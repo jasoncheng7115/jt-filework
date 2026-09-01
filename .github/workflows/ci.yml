@@ -84,11 +84,14 @@ jobs:
       # AGENTS.md 20.5: part of the release gate, so it runs on every change
       # rather than being remembered at release time.
       - name: install tools
-        run: cargo install --locked cargo-audit cargo-deny
-      - name: cargo audit
-        run: cargo audit
+        run: cargo install --locked cargo-deny
+      # Every check, advisories included. One tool over one policy file
+      # (`deny.toml`), because cargo-audit and cargo-deny read the same
+      # advisory database but keep separate ignore lists - and two ignore
+      # lists is how one of them ends up excusing something nobody reviewed.
+      # An accepted advisory is an entry in deny.toml with a written reason.
       - name: cargo deny
-        run: cargo deny check licenses bans sources
+        run: cargo deny check
 
   # Not yet enabled, and deliberately visible rather than forgotten:
   #

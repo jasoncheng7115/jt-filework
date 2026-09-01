@@ -69,6 +69,10 @@ credentials.json
 # Build & packaging artifacts
 /dist/
 /build/
+# CMake output, wherever it lands. It used to live at src/ui/qt6/build and
+# 24,213 of its files were committed before this line existed; the build now
+# goes to ~/.cache/jt-filework-qt, and the tracked copies are stale.
+src/ui/qt6/build/
 *.dmg
 *.app/
 *.msi

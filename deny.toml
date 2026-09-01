@@ -1,0 +1,91 @@
+# cargo-deny: what may enter this dependency tree.
+#
+# The application is GPL-3.0-or-later. That decides two things at once:
+# a permissive dependency is fine (GPL can absorb it), and a dependency under a
+# stronger copyleft or under no clear licence at all is not - not because it is
+# bad software, but because we cannot honour terms we have not read.
+#
+# Run by CI and by the release gate (docs/SECURITY.md 14). A new crate that
+# trips one of these is a decision to make in review, not a line to delete.
+
+[advisories]
+# A known advisory in the tree fails the build. There is no severity threshold:
+# "low severity" is a judgement about someone else's threat model.
+yanked = "deny"
+unmaintained = "workspace"
+
+# Advisories accepted after review. Each entry is a decision with a reason and
+# a date, not a way to make the build quiet.
+ignore = [
+    { id = "RUSTSEC-2023-0071", reason = """
+The Marvin timing sidechannel in `rsa`, reached through `russh` in the SFTP
+stack. No fixed version exists: upstream has no constant-time implementation
+yet, so there is nothing to upgrade to.
+
+What it is: someone who can make a victim perform many RSA private-key
+operations on chosen inputs, and can time them precisely, can recover the
+private key.
+
+Why this build accepts it, reviewed on the first of September 2026:
+
+  * We are an SSH *client*. Verifying a server's host key is a public-key
+    operation and leaks nothing. The only private-key operation is signing the
+    authentication challenge with the user's own key.
+  * That signature is over data the client contributes to (the session id), it
+    happens a handful of times per connection, and a server wanting the
+    timings would have to be hostile and be handed thousands of connections.
+  * A user who wants no RSA path at all can use an Ed25519 key, which is what
+    ssh-keygen produces by default.
+
+Revisit when `rsa` ships a constant-time release, or if SFTP ever grows a
+server side, where the attack model is the one the advisory describes.
+""" },
+]
+
+[licenses]
+# Licences whose terms we have read and can comply with while shipping under
+# GPL-3.0-or-later.
+allow = [
+    "GPL-3.0-or-later",  # this project
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "MIT-0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "CC0-1.0",
+    "Unicode-3.0",
+    "Unlicense",
+    "MPL-2.0",  # file-level copyleft; we do not modify these files
+]
+# Below this, a licence has been guessed from a file rather than declared.
+confidence-threshold = 0.93
+
+[bans]
+# Two versions of the same crate is usually an oversight, and for a parser of
+# untrusted input it means two attack surfaces where the reader expects one.
+multiple-versions = "warn"
+wildcards = "deny"
+# Our own crates are path dependencies and carry no version by design; the rule
+# is about crates.io wildcards, which are the ones that can move under us.
+allow-wildcard-paths = true
+
+# Crates that must never appear. Each line is a rule with a reason, not a
+# preference.
+deny = [
+    # Unmaintained and superseded; its successor is what everything should use.
+    { name = "chrono", version = "<0.4.20", reason = "CVE-2020-26235 in the time crate it wrapped" },
+    # We ship no telemetry. A dependency that phones home would do it without
+    # the user's knowledge and without appearing in any of our own code.
+    { name = "sentry", reason = "no telemetry: docs/SECURITY.md 7.4" },
+]
+
+[sources]
+# Everything comes from crates.io. A git dependency is a moving target that no
+# lockfile audit can speak for.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
