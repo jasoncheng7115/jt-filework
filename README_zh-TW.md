@@ -137,7 +137,7 @@ release 建置同時會安裝到 `/Applications/jt-filework.app`。
 
 ```bash
 sudo apt install build-essential cmake ninja-build pkg-config \
-     qt6-base-dev qt6-svg-dev libgl1-mesa-dev
+     qt6-base-dev libqt6svg6-dev libgl1-mesa-dev
 ./src/ui/qt6/build.sh release
 ```
 

@@ -34,7 +34,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Svg)
-qt_standard_project_setup()
+
+# `qt_standard_project_setup()` arrived in Qt 6.3, and Ubuntu 22.04 - the
+# oldest release this project builds on, and therefore the one the Linux
+# binaries are made on - ships 6.2.4. Everything the call does that this
+# project relies on is three variables, so they are set directly and the
+# convenience is used only where it exists.
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+if(COMMAND qt_standard_project_setup)
+    qt_standard_project_setup()
+endif()
 
 # --- Rust bridge -------------------------------------------------------------
 # Built into the CMake binary dir so the two build systems never disagree
