@@ -36,7 +36,13 @@ QString Theme::styleSheet() const {
     // Split into several literals on purpose: MSVC refuses a single string
     // literal over 16380 bytes (C2026), and this sheet is longer than that.
     // The split is at line boundaries and carries no meaning.
-    return (QStringLiteral(R"(
+    //
+    // Copied into a mutable `QString` before the substitutions: `QStringLiteral`
+    // yields a `const QString`, and `replace` is not const. Qt 6.11 on macOS
+    // accepted the chain; Qt 6.2 with GCC does not, which is the reason the
+    // Linux binaries are built on the oldest distribution rather than the
+    // newest.
+    return QString(QStringLiteral(R"(
 QMainWindow, QWidget#JtfRoot { background: %WINDOW%; }
 
 QToolBar#JtfToolbar {

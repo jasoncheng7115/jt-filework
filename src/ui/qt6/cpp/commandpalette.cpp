@@ -1,6 +1,7 @@
 #include "commandpalette.h"
 #include "jtfstring.h"
 
+#include <QCoreApplication>
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QListWidget>
