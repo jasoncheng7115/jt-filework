@@ -531,3 +531,91 @@ fn zh_tw_does_not_mix_half_width_punctuation_into_chinese() {
         wrong.join("\n  ")
     );
 }
+
+/// Traditional Chinese as it is written in Taiwan, not as it is written
+/// elsewhere.
+///
+/// The catalogue is 台灣繁體中文. The two written standards share most
+/// characters and differ in vocabulary, and the differences are exactly the
+/// words a file manager uses most - 檔案 and 文件, 資料夾 and 文件夾, 儲存
+/// and 保存, 複製 and 拷貝. A reader notices immediately, and what they
+/// notice is that the program was not written for them.
+///
+/// Checked here rather than left to review because it arrives one string at a
+/// time, and one string at a time is exactly what review misses.
+#[test]
+fn the_chinese_is_the_one_taiwan_writes() {
+    // Mainland usage on the left, what this project says on the right. Only
+    // terms that are unambiguous: a word that both standards use for
+    // different things - 文件, which is a document here and a file there -
+    // cannot be caught by a substring and is left to a human.
+    const INSTEAD: &[(&str, &str)] = &[
+        ("前綴", "前置 / 開頭"),
+        ("缺省", "預設"),
+        ("默認", "預設"),
+        ("軟件", "軟體"),
+        ("硬件", "硬體"),
+        ("內存", "記憶體"),
+        ("網絡", "網路"),
+        ("用戶", "使用者"),
+        ("信息", "資訊"),
+        ("屏幕", "螢幕"),
+        ("視頻", "影片"),
+        ("拷貝", "複製"),
+        ("激活", "啟用"),
+        ("端口", "連接埠"),
+        ("磁盤", "磁碟"),
+        ("卸載", "解除安裝"),
+        ("服務器", "伺服器"),
+        ("數據", "資料"),
+        ("鏈接", "連結"),
+        ("打開", "開啟"),
+        ("保存", "儲存"),
+        ("刷新", "重新整理"),
+        ("剪貼板", "剪貼簿"),
+        ("回車", "Enter"),
+        ("字節", "位元組"),
+        ("線程", "執行緒"),
+        ("進程", "行程"),
+        ("菜單", "選單"),
+        ("窗口", "視窗"),
+        ("文件夾", "資料夾"),
+        ("查找", "尋找"),
+        ("設置", "設定"),
+        ("兼容", "相容"),
+    ];
+
+    // Everything a reader of Chinese ever sees.
+    let surfaces = [
+        "locales/zh-TW/main.catalog",
+        "README_zh-TW.md",
+        "CHANGELOG_zh-TW.md",
+        "docs/index.html",
+        "docs/features.html",
+    ];
+
+    let mut found = Vec::new();
+    for surface in surfaces {
+        let path = repo_root().join(surface);
+        let Ok(text) = fs::read_to_string(&path) else {
+            continue; // a surface that does not exist yet is not a failure
+        };
+        for (line_no, line) in text.lines().enumerate() {
+            for (wrong, right) in INSTEAD {
+                if line.contains(wrong) {
+                    found.push(format!(
+                        "{surface}:{}  「{wrong}」 should be 「{right}」\n    {}",
+                        line_no + 1,
+                        line.trim()
+                    ));
+                }
+            }
+        }
+    }
+
+    assert!(
+        found.is_empty(),
+        "Chinese that is not the Taiwan variety:\n{}",
+        found.join("\n")
+    );
+}
