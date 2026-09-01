@@ -426,12 +426,22 @@ impl Keymap {
     pub fn diff_from(&self, preset: &Self) -> Self {
         let mut diff = Self::new(&self.name);
 
-        for (chord, command) in &self.bindings {
-            let same_as_preset = preset
-                .chords_for(command)
-                .first()
-                .is_some_and(|preset_chord| *preset_chord == chord);
-            if !same_as_preset {
+        // Compared per command, not per chord.
+        //
+        // A command may legitimately have several chords - `nav.up` is on both
+        // Left and Backspace, `file.open` on Enter, Right and G - so "is this
+        // chord the one the preset uses" is the wrong question: it answered
+        // "no" for every chord after the first and recorded them as
+        // differences from a preset they matched exactly. What differs is a
+        // command whose *set* of chords is not the preset's set, and when it
+        // differs the whole set is recorded, so `apply_diff` can replace the
+        // preset's set outright instead of guessing which chords were dropped.
+        for command in self.bindings.values() {
+            let mine = self.chords_for(command);
+            if mine == preset.chords_for(command) {
+                continue;
+            }
+            for chord in mine {
                 diff.bindings.insert(chord.clone(), command.clone());
             }
         }
@@ -461,14 +471,29 @@ impl Keymap {
                 dropped += 1;
             }
         }
+        // Each command in the diff is cleared once, then given every chord the
+        // diff lists for it. Clearing per chord instead - unbind, insert,
+        // unbind again, insert - kept only whichever chord came last, which is
+        // how a command with two keys arrived with one.
+        let mut cleared: std::collections::BTreeSet<&CommandId> = std::collections::BTreeSet::new();
+        for command in diff.bindings.values() {
+            if !keep(command) {
+                continue;
+            }
+            if cleared.insert(command) {
+                // The diff carries the command's whole set of chords, so the
+                // preset's set goes: anything the user still wants is about to
+                // be put back below.
+                self.unbind_command(command);
+            }
+        }
         for (chord, command) in &diff.bindings {
             if !keep(command) {
                 dropped += 1;
                 continue;
             }
-            // A user's choice wins over whatever held the chord in the preset.
+            // A user's choice wins over whatever else held this chord.
             self.bindings.remove(chord);
-            self.unbind_command(command);
             self.bindings.insert(chord.clone(), command.clone());
         }
         dropped
@@ -623,6 +648,10 @@ impl Keymap {
             if command.as_str().is_empty() {
                 return Err(KeymapError::MalformedLine { line: index + 1 });
             }
+            // A binding written against a name the command used to have still
+            // reaches it. Applied at parse time, so nothing downstream has to
+            // know that renames exist (`docs/UPGRADE.md` §4.1).
+            let command = crate::ids::CommandRegistry::canonical(&command);
             // `none` records an explicit removal, which a diff needs to be
             // able to say (docs/UPGRADE.md 4.1).
             if chord_text.trim().eq_ignore_ascii_case("none") {
@@ -912,6 +941,85 @@ primary+f          = search.open
                 .resolve(&KeyChord::parse("primary+t").unwrap())
                 .is_none(),
             "the old chord did not come back"
+        );
+    }
+
+    /// A command with two chords keeps both when a diff is applied.
+    ///
+    /// This is the shape the presets actually use - `nav.up` on Left and
+    /// Backspace, `file.open` on Enter, Right and G - and both halves of the
+    /// diff got it wrong. `diff_from` compared each chord with only the
+    /// *first* chord the preset gave the command, so every other chord was
+    /// recorded as a difference from a preset it matched exactly; `apply_diff`
+    /// then unbound the whole command per recorded chord and bound that one
+    /// back, so the command arrived with whichever chord came last. Left
+    /// stopped going up a level, and Right stopped entering folders, in a
+    /// keymap that still read `left = nav.up`.
+    #[test]
+    fn a_command_with_two_chords_keeps_both_through_a_diff() {
+        let preset = Keymap::parse(
+            "p",
+            "left = nav.up
+backspace = nav.up
+primary+w = tab.close",
+        )
+        .unwrap();
+
+        // A map identical to the preset must produce a diff that changes
+        // nothing about `nav.up`.
+        let mine = preset.clone();
+        let diff = mine.diff_from(&preset);
+        assert!(
+            diff.bindings.values().all(|c| c.as_str() != "nav.up"),
+            "an unchanged command does not belong in the diff: {:?}",
+            diff.bindings
+        );
+
+        let mut fresh = preset.clone();
+        assert_eq!(fresh.apply_diff(&diff, |_| true), 0);
+        assert_eq!(
+            fresh
+                .resolve(&KeyChord::parse("left").unwrap())
+                .map(CommandId::as_str),
+            Some("nav.up"),
+            "Left survives a diff that never mentioned it"
+        );
+        assert_eq!(
+            fresh
+                .resolve(&KeyChord::parse("backspace").unwrap())
+                .map(CommandId::as_str),
+            Some("nav.up"),
+            "and so does Backspace"
+        );
+    }
+
+    /// Dropping one of a command's two chords is still a change that carries.
+    #[test]
+    fn dropping_one_of_two_chords_is_recorded_and_applied() {
+        let preset = Keymap::parse(
+            "p",
+            "left = nav.up
+backspace = nav.up",
+        )
+        .unwrap();
+
+        let mut mine = preset.clone();
+        mine.bindings.remove(&KeyChord::parse("backspace").unwrap());
+        let diff = mine.diff_from(&preset);
+
+        let mut fresh = preset.clone();
+        fresh.apply_diff(&diff, |_| true);
+        assert_eq!(
+            fresh
+                .resolve(&KeyChord::parse("left").unwrap())
+                .map(CommandId::as_str),
+            Some("nav.up")
+        );
+        assert!(
+            fresh
+                .resolve(&KeyChord::parse("backspace").unwrap())
+                .is_none(),
+            "the chord the user dropped stays dropped"
         );
     }
 

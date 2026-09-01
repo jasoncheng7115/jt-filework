@@ -42,6 +42,55 @@ fn open(path: &Path) -> TextView {
     TextView::open(path, &CancellationToken::never()).unwrap()
 }
 
+/// A file larger than the bound is presented as its first part, and says so.
+///
+/// Without a bound the index is eight bytes per line over the whole file and
+/// the pass that builds it reads every byte, so opening a multi-gigabyte log
+/// froze on the read and then held hundreds of megabytes of offsets.
+#[test]
+fn a_large_file_is_indexed_only_as_far_as_the_bound() {
+    // 10 bytes a line, so the bound lands mid-file at a known place.
+    let text = numbered_lines(1000);
+    let path = write("big.txt", text.as_bytes());
+    let full = text.len() as u64;
+
+    let bounded = TextView::open_bounded(&path, 512, &CancellationToken::never()).unwrap();
+    assert!(
+        !bounded.is_complete(),
+        "512 bytes of a larger file is a part"
+    );
+    assert_eq!(bounded.size(), 512, "only the bound is addressable");
+    assert_eq!(bounded.full_size(), full, "the real size is still reported");
+    assert!(
+        bounded.line_count() < 1000,
+        "indexing stopped at the bound, not at the end of the file"
+    );
+    // Eight bytes a line: the index must be bounded too, not merely the read.
+    assert!(
+        bounded.index_bytes() <= 8 * 100,
+        "index grew past the bound"
+    );
+
+    let whole = TextView::open_bounded(&path, full * 2, &CancellationToken::never()).unwrap();
+    assert!(whole.is_complete());
+    assert_eq!(whole.line_count(), 1000);
+    assert_eq!(whole.size(), full);
+}
+
+/// A file that fits is complete, and nothing about it changes.
+#[test]
+fn a_small_file_is_complete() {
+    let path = write(
+        "small.txt",
+        b"one
+two
+",
+    );
+    let view = open(&path);
+    assert!(view.is_complete());
+    assert_eq!(view.size(), view.full_size());
+}
+
 #[test]
 fn counts_lines_and_reads_a_window() {
     let path = write("a.txt", b"one\ntwo\nthree\n");

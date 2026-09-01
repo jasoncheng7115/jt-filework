@@ -7,10 +7,15 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
+publish.workspace = true
 
 [dependencies]
 jtf-core = { workspace = true }
 jtf-jobs = { workspace = true }
+# Creating a symbolic link, which has no portable API (AGENTS.md 5).
+jtf-platform-links = { workspace = true }
+# Removing a tree without a path that can be swapped underneath it.
+jtf-platform-removal = { workspace = true }
 serde = { workspace = true }
 # A user-supplied find expression in batch rename is untrusted input; the
 # regex crate has no backtracking, so a crafted pattern cannot hang the

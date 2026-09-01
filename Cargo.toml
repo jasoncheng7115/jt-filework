@@ -21,6 +21,8 @@ members = [
     "src/workspace",
     "src/fs",
     "src/ops",
+    "src/platform/links",
+    "src/platform/removal",
     "src/viewer",
     "src/search",
     "src/commands",
@@ -31,12 +33,15 @@ members = [
 ]
 
 [workspace.package]
-version = "0.0.0"
+version = "0.6.0"
 edition = "2021"
 rust-version = "1.98"
 license = "GPL-3.0-or-later"
-repository = "https://github.com/jasoncheng/jt-filework"
-authors = ["jt-filework contributors"]
+repository = "https://github.com/jasoncheng7115/jt-filework"
+authors = ["Jason Cheng (Jason Tools)"]
+# None of these crates go to crates.io. Said once, here, so a crate added later
+# inherits it: an accidental publish cannot be taken back.
+publish = false
 
 [workspace.dependencies]
 jtf-core = { path = "src/core" }
@@ -44,6 +49,8 @@ jtf-jobs = { path = "src/jobs" }
 jtf-workspace = { path = "src/workspace" }
 jtf-fs = { path = "src/fs" }
 jtf-ops = { path = "src/ops" }
+jtf-platform-links = { path = "src/platform/links" }
+jtf-platform-removal = { path = "src/platform/removal" }
 jtf-viewer = { path = "src/viewer" }
 jtf-commands = { path = "src/commands" }
 jtf-search = { path = "src/search" }
@@ -53,6 +60,43 @@ jtf-cli = { path = "src/cli" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# SFTP (ADR-0004). A Rust SSH stack rather than libssh2: the protocol, the
+# key handling and the SFTP layer are Rust, so the parsing of anything a
+# server sends is Rust.
+#
+# Not C-free, and the original wording here said it was. russh's default
+# crypto backend is `aws-lc-rs`, whose `aws-lc-sys` is C and assembly - it is
+# why a Windows build needs NASM. The alternative backend, `ring`, is also C
+# and assembly, so there is no pure-Rust option to switch to; what the choice
+# actually bought is that no C parses untrusted protocol data, which is where
+# SSH implementations have historically gone wrong.
+russh = "0.63"
+russh-sftp = "2.4"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "net", "io-util", "sync", "time"] }
+dirs = "6"
+
+# Archive extraction and creation (ADR-0003). `flate2` is pinned to its Rust
+# backend on purpose: the default is a C zlib, and letting one in would quietly
+# undo "the bridge is the only place with unsafe" - the same reasoning that
+# chose a pure-Rust SSH stack above.
+# `deflate` is the feature that selects `flate2/rust_backend`; the default
+# feature set drags in bzip2, lzma, xz and zstd, all of which are C.
+zip = { version = "2", default-features = false, features = ["deflate"] }
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+# tar and the stream compressors (ADR-0006). `tar` carries no compression of
+# its own; the three decompressors below are what make `.tar.gz`, `.tar.bz2`
+# and `.tar.xz` readable.
+#
+# `bzip2-rs` and `lzma-rs` rather than `bzip2` and `xz2`: those two bind C
+# libraries, and a C parser of a downloaded file in this address space is a
+# memory-safety bug waiting to be someone's way in. These are safe Rust, so a
+# bug in them is a panic - and the defence that actually stops a decompression
+# bomb is the bound on what comes *out*, which holds whichever decoder made it.
+# The price is that neither compresses: `.tar.gz` is the only one we write.
+tar = { version = "0.4", default-features = false }
+bzip2-rs = { version = "0.1", default-features = false }
+lzma-rs = { version = "0.3", default-features = false }
 
 # Applied by every member via `[lints] workspace = true`.
 [workspace.lints.rust]

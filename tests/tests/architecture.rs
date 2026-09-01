@@ -209,6 +209,12 @@ const FORBIDDEN_PLATFORM: &[&str] = &[
     "glib",
     "block2",
     "dispatch",
+    // Syscall wrappers. Safe to call, still platform code: a crate that
+    // reaches for `openat` is a crate that has an opinion about which
+    // operating system it is on.
+    "rustix",
+    "nix",
+    "libc",
 ];
 
 #[test]
@@ -268,9 +274,12 @@ fn no_crate_depends_on_the_ui_layer() {
 /// The list exists so an exception is a deliberate, reviewable entry rather
 /// than a habit. Every line is also a `TODO.md` item.
 const CFG_ALLOWLIST: &[(&str, &str)] = &[(
-    "src/ops/src/run.rs",
-    "creating a symbolic link has no portable API; moves to the platform \
-     adapter in Phase 4 together with Windows privilege handling",
+    "src/fs/src/sftp/connect.rs",
+    "reaching the running ssh-agent has no portable API: Unix reads \
+         SSH_AUTH_SOCK and opens a Unix socket, Windows keeps its agent behind \
+         a named pipe and russh offers no client for it. The Windows build \
+         falls through to key files rather than pretending to have looked; \
+         moves to the platform adapter in Phase 4",
 )];
 
 #[test]
@@ -534,7 +543,13 @@ fn token_names(text: &str, in_replace: bool) -> std::collections::BTreeSet<Strin
 #[test]
 fn every_named_glyph_is_a_real_svg() {
     let root = repo_root();
-    let icons_dir = root.join("assets/icons/iconoir");
+    // Two sets: the vendored Iconoir icons, and the few drawn for this
+    // project where Iconoir has no equivalent. Both are searched by name at
+    // runtime, so both are checked here.
+    let icon_dirs = [
+        root.join("assets/icons/iconoir"),
+        root.join("assets/icons/jtf"),
+    ];
     let source =
         fs::read_to_string(root.join("src/ui/qt6/cpp/icons.cpp")).expect("icons.cpp is readable");
 
@@ -560,8 +575,9 @@ fn every_named_glyph_is_a_real_svg() {
     );
 
     let mut on_disk = std::collections::BTreeSet::new();
-    for entry in fs::read_dir(&icons_dir)
-        .expect("the icon directory exists")
+    for entry in icon_dirs
+        .iter()
+        .flat_map(|dir| fs::read_dir(dir).expect("the icon directory exists"))
         .flatten()
     {
         let path = entry.path();

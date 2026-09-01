@@ -31,8 +31,8 @@ mod workspace;
 
 pub use ids::{PaneId, SplitId, TabId, WindowId};
 pub use pane::Pane;
-pub use places::{Bookmark, Places, MAX_BOOKMARKS, MAX_RECENT};
-pub use selection::{MarkSet, OperationTarget, Selection};
+pub use places::{Bookmark, Places, Server, MAX_BOOKMARKS, MAX_RECENT};
+pub use selection::{MarkSet, OperationTarget, Selection, MAX_MARKS};
 pub use session::{
     app_version, FontSettings, RestoreOnLaunch, RestoreOutcome, Restored, Session, SessionSettings,
     SESSION_FORMAT_VERSION,

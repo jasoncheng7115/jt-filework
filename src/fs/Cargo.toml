@@ -7,10 +7,32 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
+publish.workspace = true
 
 [dependencies]
 jtf-core = { workspace = true }
+# The ISO reader (ADR-0005). Reading a container's table of contents is the
+# viewer's job - it is where the ZIP central-directory reader lives, for the
+# same reason - and extraction here uses it rather than parsing the image a
+# second time. The dependency runs fs -> viewer; the viewer depends only on
+# core and jobs, so there is no cycle.
+jtf-viewer = { workspace = true }
+zip = { workspace = true }
+flate2 = { workspace = true }
+tar = { workspace = true }
+bzip2-rs = { workspace = true }
+lzma-rs = { workspace = true }
 jtf-jobs = { workspace = true }
+dirs = { workspace = true }
+russh = { workspace = true }
+russh-sftp = { workspace = true }
+tokio = { workspace = true }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+zip = { workspace = true }
+# The safety tests build hostile archives by hand, so they need the writers.
+tar = { workspace = true }
+flate2 = { workspace = true }

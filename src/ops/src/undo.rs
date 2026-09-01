@@ -53,6 +53,19 @@ pub enum UndoStep {
     },
 }
 
+/// How many steps one record may hold.
+///
+/// A record carries one step per file that actually moved, and the stack keeps
+/// thirty-two records — so moving a million files would retain two million
+/// paths long after the operation finished, and thirty-two such moves would
+/// retain them all.
+///
+/// Past this the operation gets **no** undo entry rather than a partial one.
+/// A partial undo is worse than none: it would put the tree in a state that is
+/// neither where it started nor where the user left it, and nothing on screen
+/// would say which files came back.
+pub const MAX_STEPS: usize = 20_000;
+
 /// Everything needed to reverse one completed operation.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct UndoRecord {
@@ -106,6 +119,13 @@ impl UndoRecord {
             }
         }
         if steps.is_empty() {
+            return None;
+        }
+        if steps.len() > MAX_STEPS {
+            // No entry at all, rather than one that would only half work.
+            // The caller reports that the operation was too large to undo,
+            // which is a fact the user can act on - and the paths are dropped
+            // here rather than retained for something that would never run.
             return None;
         }
         Some(Self { steps, label_key })
@@ -223,5 +243,71 @@ pub fn undo(record: &UndoRecord, cancel: &CancellationToken) -> Report {
     Report {
         outcomes,
         cancelled: false,
+    }
+}
+
+#[cfg(test)]
+mod bound_tests {
+    use super::{UndoRecord, MAX_STEPS};
+    use crate::plan::Operation;
+    use crate::run::{Outcome, Report};
+    use std::path::PathBuf;
+
+    fn move_report(count: usize) -> (Operation, Report) {
+        let sources: Vec<PathBuf> = (0..count)
+            .map(|n| PathBuf::from(format!("/a/{n}")))
+            .collect();
+        let outcomes = sources
+            .iter()
+            .map(|source| {
+                (
+                    source.clone(),
+                    Outcome::Done {
+                        destination: Some(PathBuf::from(format!(
+                            "/b/{}",
+                            source.file_name().unwrap().to_string_lossy()
+                        ))),
+                    },
+                )
+            })
+            .collect();
+        (
+            Operation::Move {
+                sources,
+                destination: PathBuf::from("/b"),
+            },
+            Report {
+                outcomes,
+                cancelled: false,
+            },
+        )
+    }
+
+    /// An ordinary move is undoable, which is the behaviour the bound must not
+    /// take away.
+    #[test]
+    fn an_ordinary_move_still_gets_an_undo_entry() {
+        let (operation, report) = move_report(500);
+        let record = UndoRecord::from_report(&operation, &report).expect("undoable");
+        assert_eq!(record.len(), 500);
+    }
+
+    /// A move of a million files would otherwise retain two million paths for
+    /// as long as the stack holds the record.
+    #[test]
+    fn a_move_too_large_to_undo_gets_no_record_rather_than_half_a_one() {
+        let (operation, report) = move_report(MAX_STEPS + 1);
+        assert!(
+            UndoRecord::from_report(&operation, &report).is_none(),
+            "a partial undo would leave the tree in a state that is neither \
+             before nor after, with nothing on screen to say which files came back"
+        );
+    }
+
+    /// Exactly at the bound is still undoable: the limit is what it says.
+    #[test]
+    fn a_move_exactly_at_the_bound_is_undoable() {
+        let (operation, report) = move_report(MAX_STEPS);
+        assert!(UndoRecord::from_report(&operation, &report).is_some());
     }
 }

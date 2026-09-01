@@ -98,6 +98,16 @@ impl Operation {
     pub const fn is_irreversible(&self) -> bool {
         matches!(self, Self::Delete { .. })
     }
+
+    /// Whether this operation takes things away, recoverably or not.
+    ///
+    /// Separate from `is_irreversible` because the trash is recoverable and
+    /// still worth asking about: the confirmation is not only about whether
+    /// the data survives, it is about whether the person meant to press the
+    /// key at all.
+    pub const fn removes(&self) -> bool {
+        matches!(self, Self::Delete { .. } | Self::Trash { .. })
+    }
 }
 
 /// Why an operation cannot be attempted at all.

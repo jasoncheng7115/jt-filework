@@ -31,7 +31,7 @@ use crate::workspace::Workspace;
 ///
 /// A stored session from a newer version is not guessed at; it starts fresh
 /// and says why.
-pub const SESSION_FORMAT_VERSION: u32 = 1;
+pub const SESSION_FORMAT_VERSION: u32 = 2;
 
 /// The application's version, as recorded in files it writes.
 ///
@@ -51,6 +51,11 @@ pub fn app_version() -> &'static str {
 ///
 /// Takes and returns the raw JSON: a migration's whole purpose is to run
 /// *before* the value can be deserialized into today's types.
+/// `true`, for `#[serde(default)]` on a field whose default is on.
+const fn yes() -> bool {
+    true
+}
+
 fn migrate_json(mut value: serde_json::Value, from: u32) -> serde_json::Value {
     // Steps are listed oldest first. Adding a format version means bumping
     // SESSION_FORMAT_VERSION, adding a step here, and committing a fixture in
@@ -59,14 +64,21 @@ fn migrate_json(mut value: serde_json::Value, from: u32) -> serde_json::Value {
     // Version 1 is the first released format, so there is nothing before it
     // to come forward from. The loop is here so the second migration is an
     // edit rather than a design.
-    // Clippy is right that this match has one arm; it is a placeholder for
-    // the arms that arrive with the second format version, and writing the
-    // loop now is what makes that a five-line edit instead of a redesign
-    // under time pressure.
-    #[allow(clippy::match_single_binding)]
     for step in from..SESSION_FORMAT_VERSION {
         value = match step {
-            // v1 -> v2 will go here.
+            // v1 -> v2: the key hint strip became visible by default. Every v1
+            // session records the field explicitly, so leaving them alone
+            // would mean the new default reached nobody who had ever run the
+            // program. A stored `false` in a v1 file cannot be distinguished
+            // from "never decided" - the setting had no UI when most of them
+            // were written - so it is brought up to the new default rather
+            // than treated as a choice.
+            1 => {
+                if let Some(settings) = value.get_mut("settings").and_then(|s| s.as_object_mut()) {
+                    settings.insert("key_hints_visible".into(), serde_json::Value::Bool(true));
+                }
+                value
+            }
             _ => value,
         };
     }
@@ -125,6 +137,16 @@ pub struct FontSettings {
     /// Whether the list uses a fixed-width font at all.
     #[serde(default = "default_true")]
     pub monospace: bool,
+    /// Whether that fixed-width font is used for every column, or only for
+    /// the ones that are read as columns of aligned values.
+    ///
+    /// Off by default, which means only the aligned ones. A monospace face
+    /// across the whole list makes file names harder to read - proportional
+    /// type is what names are set in everywhere else - while sizes, dates and
+    /// permission strings are compared down the column and want digits that
+    /// line up.
+    #[serde(default)]
+    pub monospace_everywhere: bool,
 }
 
 impl Default for FontSettings {
@@ -133,6 +155,7 @@ impl Default for FontSettings {
             family: String::new(),
             point_size: 0,
             monospace: true,
+            monospace_everywhere: false,
         }
     }
 }
@@ -173,6 +196,20 @@ pub struct SessionSettings {
     /// Its width in logical pixels. 0 means the default.
     #[serde(default)]
     pub tree_width: u16,
+    /// Sidebar sections the user has collapsed, by section id.
+    ///
+    /// By id and not by label, because the label changes with the language and
+    /// a section the user folded away must not spring open when they switch
+    /// to English.
+    #[serde(default)]
+    pub collapsed_sections: Vec<String>,
+    /// How many recent folders the sidebar keeps. 0 means the default.
+    ///
+    /// A preference because the useful number depends on how the person
+    /// works: a list long enough to hold this morning is clutter to someone
+    /// who only wants the last three.
+    #[serde(default)]
+    pub recent_limit: u16,
     /// The language the user picked, or empty to follow the system.
     ///
     /// Stored separately from the workspace's effective locale so the two
@@ -182,8 +219,46 @@ pub struct SessionSettings {
     /// after moving the machine to another country.
     #[serde(default)]
     pub locale: String,
-    /// Whether the key hint strip is shown.
+    /// Whether the list shows a `..` row above its entries.
+    ///
+    /// Off. Left goes up a level, Backspace goes up a level, the breadcrumb
+    /// names every ancestor and the toolbar has an up button - so the row is a
+    /// fifth way to do the same thing, and it costs the first line of every
+    /// folder plus an exception in every piece of code that walks the rows.
+    /// Kept as a setting rather than deleted because it is the one route that
+    /// works without knowing any of the other four.
     #[serde(default)]
+    pub parent_row: bool,
+    /// Where the preview panel sits: 0 beside the panes, 1 below them.
+    #[serde(default)]
+    pub inspector_position: u8,
+    /// What the preview area is drawn on.
+    ///
+    /// 0 the theme's own surface, 1 a checkerboard for transparency, 2 the
+    /// colour in `preview_background_colour`. A photograph with a white
+    /// border and a PDF page are both invisible against a dark panel, and a
+    /// PNG with an alpha channel needs a background that says so - none of
+    /// which the window's own theme can decide for the user.
+    #[serde(default)]
+    pub preview_background: u8,
+    /// The colour used when `preview_background` is 2, as `#rrggbb`.
+    #[serde(default)]
+    pub preview_background_colour: String,
+    /// How much the key hint strip says.
+    ///
+    /// 0 full - the key and the command's name, which is how anyone learns
+    /// them. 1 compact - the key and a short word, once the names are known
+    /// and the width is worth more than the reminder. 2 auto - full, but out
+    /// of the way while the list is being worked, which is when the strip is
+    /// describing keys the user is already pressing.
+    #[serde(default)]
+    pub key_hints_density: u8,
+    /// Whether the key hint strip is shown.
+    ///
+    /// On by default. The strip is how this program teaches its own keyboard,
+    /// which is the whole point of it; off by default would mean the keys are
+    /// only discoverable by someone who already knows to go looking.
+    #[serde(default = "yes")]
     pub key_hints_visible: bool,
     /// Whether image files show a thumbnail instead of a type icon.
     ///
@@ -223,8 +298,15 @@ impl Default for SessionSettings {
             // is a decision made for the user rather than by them.
             tree_visible: false,
             tree_width: 0,
+            collapsed_sections: Vec::new(),
+            recent_limit: 0,
             locale: String::new(),
-            key_hints_visible: false,
+            parent_row: false,
+            inspector_position: 0,
+            preview_background: 0,
+            preview_background_colour: String::new(),
+            key_hints_density: 0,
+            key_hints_visible: true,
             thumbnails: true,
             inspector_visible: false,
             inspector_width: 0,
@@ -251,8 +333,15 @@ impl SessionSettings {
             // is a decision made for the user rather than by them.
             tree_visible: false,
             tree_width: 0,
+            collapsed_sections: Vec::new(),
+            recent_limit: 0,
             locale: String::new(),
-            key_hints_visible: false,
+            parent_row: false,
+            inspector_position: 0,
+            preview_background: 0,
+            preview_background_colour: String::new(),
+            key_hints_density: 0,
+            key_hints_visible: true,
             thumbnails: true,
             inspector_visible: false,
             inspector_width: 0,
@@ -562,11 +651,11 @@ mod tests {
     fn busy_workspace() -> Workspace {
         let mut w = Workspace::new(home());
         w.apply_preset(LayoutPreset::Quad);
-        w.new_tab(Location::local("/Users/test/Downloads"));
+        w.new_tab(Location::local("/Users/someone/Downloads"));
         w.active_tab_mut()
             .unwrap()
             .marks_mut()
-            .mark(Location::local("/Users/test/Downloads/a.zip"));
+            .mark(Location::local("/Users/someone/Downloads/a.zip"));
         w.active_tab_mut()
             .unwrap()
             .set_scroll(crate::view::ScrollPosition {
@@ -615,6 +704,7 @@ mod tests {
                 family: "JetBrains Mono".to_string(),
                 point_size: 13,
                 monospace: true,
+                monospace_everywhere: true,
             },
             ..SessionSettings::default()
         };

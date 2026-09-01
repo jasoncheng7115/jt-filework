@@ -23,6 +23,27 @@ const INDEX_CHUNK: usize = 1 << 20;
 /// (`docs/UI_TEST_PLAN.md` VIEW-004).
 const MAX_LINE_BYTES: u64 = 1 << 20;
 
+/// How much of a file the index will cover, in bytes.
+///
+/// The index is eight bytes per line and the pass that builds it reads every
+/// byte of the file, so both the memory and the wait grow with the file. A
+/// 4 GB log would cost a multi-second freeze and hundreds of megabytes of
+/// offsets before a single line appeared.
+///
+/// Past this point the file is presented as its first 64 MiB, and
+/// [`TextView::is_complete`] says so, so the interface can tell the user it is
+/// showing part of a file rather than quietly implying it is showing all of
+/// one. 64 MiB is far more than anyone reads and small enough that the pass
+/// is not felt.
+pub const MAX_INDEXED_BYTES: u64 = 64 << 20;
+
+/// How much of a file the *preview* pane indexes.
+///
+/// The preview is a glance at what a file is, not a place to read it in; the
+/// viewer window is that. Indexing a fraction is enough to answer "what is
+/// this" and keeps a preview of a large file instant.
+pub const PREVIEW_INDEXED_BYTES: u64 = 4 << 20;
+
 /// Text encodings the viewer offers.
 ///
 /// `Auto` inspects the content; the rest are explicit overrides, because
@@ -166,7 +187,11 @@ pub struct TextView {
     /// Eight bytes per line: a 10 million line log costs 80 MB of index, which
     /// is the honest price of random access and is reported to the caller.
     offsets: Vec<u64>,
+    /// How much of the file is indexed and addressable.
     size: u64,
+    /// How large the file actually is. Differs from `size` when the file is
+    /// larger than the bound the view was opened with.
+    full_size: u64,
     encoding: Encoding,
     detected: Encoding,
     line_ending: LineEnding,
@@ -180,6 +205,7 @@ impl core::fmt::Debug for TextView {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("TextView")
             .field("size", &self.size)
+            .field("full_size", &self.full_size)
             .field("lines", &self.offsets.len())
             .field("encoding", &self.effective_encoding())
             .field("line_ending", &self.line_ending)
@@ -195,8 +221,25 @@ impl TextView {
     /// Whatever the filesystem reports, or [`ErrorCode::Cancelled`] if the
     /// indexing pass was interrupted.
     pub fn open(path: &Path, cancel: &CancellationToken) -> Result<Self, Error> {
+        Self::open_bounded(path, MAX_INDEXED_BYTES, cancel)
+    }
+
+    /// Open and index at most `limit` bytes of a file.
+    ///
+    /// # Errors
+    ///
+    /// Whatever the filesystem reports, or [`ErrorCode::Cancelled`] if the
+    /// indexing pass was interrupted.
+    pub fn open_bounded(
+        path: &Path,
+        limit: u64,
+        cancel: &CancellationToken,
+    ) -> Result<Self, Error> {
         let mut file = File::open(path).map_err(|e| map_io(path, &e))?;
-        let size = file.metadata().map_err(|e| map_io(path, &e))?.len();
+        let full_size = file.metadata().map_err(|e| map_io(path, &e))?.len();
+        // Everything below indexes and addresses only what is covered, so the
+        // rest of the type can go on treating `size` as "the file".
+        let size = full_size.min(limit);
 
         let mut offsets = vec![0u64];
         let mut buffer = vec![0u8; INDEX_CHUNK];
@@ -211,7 +254,16 @@ impl TextView {
             if cancel.is_cancelled() {
                 return Err(Error::bare(ErrorCode::Cancelled));
             }
-            let read = file.read(&mut buffer).map_err(|e| map_io(path, &e))?;
+            // Never read past the bound: the point is not to touch the rest
+            // of the file at all, not merely to forget it afterwards.
+            let room = usize::try_from(size.saturating_sub(position)).unwrap_or(usize::MAX);
+            if room == 0 {
+                break;
+            }
+            let want = room.min(buffer.len());
+            let read = file
+                .read(&mut buffer[..want])
+                .map_err(|e| map_io(path, &e))?;
             if read == 0 {
                 break;
             }
@@ -266,6 +318,7 @@ impl TextView {
             file,
             offsets,
             size,
+            full_size,
             encoding: Encoding::Auto,
             detected,
             line_ending: LineEnding::from_counts(lf, crlf, cr),
@@ -277,9 +330,23 @@ impl TextView {
         self.offsets.len() as u64
     }
 
-    /// The file's size in bytes.
+    /// The indexed size in bytes - what the line numbers cover.
     pub const fn size(&self) -> u64 {
         self.size
+    }
+
+    /// The file's real size in bytes, indexed or not.
+    pub const fn full_size(&self) -> u64 {
+        self.full_size
+    }
+
+    /// Whether the whole file is indexed.
+    ///
+    /// When this is false the view covers the first [`Self::size`] bytes and
+    /// the interface must say so: a line count that silently stops partway
+    /// through a log is a wrong answer, not a small one.
+    pub const fn is_complete(&self) -> bool {
+        self.size >= self.full_size
     }
 
     /// Bytes the line index occupies, so the UI can be honest about the cost.

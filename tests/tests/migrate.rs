@@ -80,12 +80,49 @@ fn settings_added_since_v1_take_their_defaults() {
         "thumbnails are on by default, and an upgrade must not turn a \
          feature off just because the old file never mentioned it"
     );
-    assert!(!restored.settings.key_hints_visible);
+    assert!(
+        restored.settings.key_hints_visible,
+        "the v1->v2 step brings the hint strip up to its new default; a v1 \
+         file records the field explicitly, so without the step the new \
+         default would reach nobody who had ever run the program"
+    );
     assert!(!restored.settings.inspector_visible);
     assert!(
         restored.settings.locale.is_empty(),
         "no stored choice means follow the system"
     );
+}
+
+/// The current format, read by the build that writes it. Trivial today and
+/// not trivial next time: this is the test that fails when a field is renamed
+/// without a migration step, which is the mistake the chain exists to catch.
+#[test]
+fn the_current_format_version_loads_from_its_own_fixture() {
+    let restored = Session::restore(Some(&fixture(SESSION_FORMAT_VERSION)), &home());
+    assert!(
+        !restored.outcome.needs_notice(),
+        "the current format must load without complaint, got {:?}",
+        restored.outcome
+    );
+}
+
+/// Every fixture, not only the two named above. A version added later gets
+/// this for free, which is the point: the guarantee is about the chain, not
+/// about whichever versions someone remembered to write a test for.
+#[test]
+fn every_fixture_walks_the_chain_to_something_usable() {
+    for version in 1..=SESSION_FORMAT_VERSION {
+        let restored = Session::restore(Some(&fixture(version)), &home());
+        assert!(
+            !restored.outcome.needs_notice(),
+            "v{version} did not survive the chain: {:?}",
+            restored.outcome
+        );
+        assert!(
+            restored.workspace.invariants_hold(),
+            "v{version} migrated into a workspace that does not hold together"
+        );
+    }
 }
 
 #[test]

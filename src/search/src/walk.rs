@@ -38,6 +38,13 @@ pub enum SearchUpdate {
         directories: u64,
         /// Entries looked at.
         examined: u64,
+        /// The directory this update is about.
+        ///
+        /// A count alone says a search is alive but not where it has got to,
+        /// and on a home folder "482 directories" is the same number whether
+        /// it is in `Downloads` or three levels into a `node_modules`. The path
+        /// is what tells someone whether to wait or to narrow the search.
+        directory: PathBuf,
     },
     /// The walk finished.
     Done {
@@ -166,6 +173,7 @@ pub fn search(root: &Location, query: Query) -> Result<SearchHandle, Error> {
                     .send(SearchUpdate::Progress {
                         directories,
                         examined,
+                        directory: directory.clone(),
                     })
                     .is_err()
                 {

@@ -26,4 +26,4 @@ pub mod theme;
 
 pub use error::{Error, ErrorCode, Result};
 pub use file::{Attributes, FileEntry, FileKind, PermissionsSummary, RawName, Timestamps};
-pub use location::Location;
+pub use location::{Location, DEFAULT_SSH_PORT};

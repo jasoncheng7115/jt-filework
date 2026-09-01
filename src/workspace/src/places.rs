@@ -69,6 +69,63 @@ pub struct Places {
     bookmarks: Vec<Bookmark>,
     #[serde(default)]
     recent: VecDeque<PathBuf>,
+    /// Servers the user has connected to, so the details do not have to be
+    /// typed again.
+    ///
+    /// A host, a port and an account — never a password. What is remembered
+    /// here is *where to go*, not *how to get in*: the way in is the ssh
+    /// agent, a key in `~/.ssh`, or something the user types each time
+    /// (`docs/adr/0004-sftp.md`).
+    #[serde(default)]
+    servers: Vec<Server>,
+}
+
+/// A saved SFTP destination. Contains no credential.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct Server {
+    /// Hostname or address.
+    pub host: String,
+    /// Port, normally 22.
+    #[serde(default = "default_ssh_port")]
+    pub port: u16,
+    /// Account on that host.
+    #[serde(default)]
+    pub user: String,
+    /// Where to open. Empty means the login directory.
+    #[serde(default)]
+    pub path: String,
+    /// What to call it in the sidebar. Empty means "user@host".
+    #[serde(default)]
+    pub name: String,
+}
+
+const fn default_ssh_port() -> u16 {
+    22
+}
+
+impl Server {
+    /// The label to show, which names the protocol unless the user renamed it.
+    ///
+    /// `sftp://user@host`, not `user@host`: the sidebar will hold other kinds
+    /// of server eventually, and a row that does not say which protocol it is
+    /// leaves the user to remember. A non-default port is shown too, because
+    /// it is part of which machine this is.
+    #[must_use]
+    pub fn display_name(&self) -> String {
+        if !self.name.is_empty() {
+            return self.name.clone();
+        }
+        let account = if self.user.is_empty() {
+            self.host.clone()
+        } else {
+            format!("{}@{}", self.user, self.host)
+        };
+        if self.port == jtf_core::DEFAULT_SSH_PORT {
+            format!("sftp://{account}")
+        } else {
+            format!("sftp://{account}:{}", self.port)
+        }
+    }
 }
 
 impl Places {
@@ -77,7 +134,37 @@ impl Places {
         Self::default()
     }
 
+    /// The saved servers, in the order they were added.
+    #[must_use]
+    pub fn servers(&self) -> &[Server] {
+        &self.servers
+    }
+
+    /// Remember a server, or update the one that matches host, port and user.
+    ///
+    /// Matching on those three rather than appending means connecting to the
+    /// same machine twice does not fill the sidebar with duplicates.
+    pub fn add_server(&mut self, server: Server) {
+        if let Some(existing) = self
+            .servers
+            .iter_mut()
+            .find(|s| s.host == server.host && s.port == server.port && s.user == server.user)
+        {
+            *existing = server;
+            return;
+        }
+        self.servers.push(server);
+    }
+
+    /// Forget the server at `index`.
+    pub fn remove_server(&mut self, index: usize) {
+        if index < self.servers.len() {
+            self.servers.remove(index);
+        }
+    }
+
     /// The bookmarks, in the order the user arranged them.
+    #[must_use]
     pub fn bookmarks(&self) -> &[Bookmark] {
         &self.bookmarks
     }
@@ -156,6 +243,82 @@ impl Places {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_saved_server_holds_no_credential() {
+        // The type has no field for one, and this test exists so that adding
+        // one has to argue with a test rather than slip in.
+        let json = serde_json::to_string(&Server {
+            host: "example.com".into(),
+            port: 2222,
+            user: "jt".into(),
+            path: "/srv".into(),
+            name: String::new(),
+        })
+        .unwrap();
+        for forbidden in ["password", "passphrase", "secret", "token", "key"] {
+            assert!(
+                !json.contains(forbidden),
+                "a saved server must not carry a {forbidden}: {json}"
+            );
+        }
+    }
+
+    #[test]
+    fn connecting_to_the_same_machine_twice_does_not_duplicate_it() {
+        let mut places = Places::new();
+        places.add_server(Server {
+            host: "h".into(),
+            port: 22,
+            user: "jt".into(),
+            path: "/".into(),
+            name: String::new(),
+        });
+        places.add_server(Server {
+            host: "h".into(),
+            port: 22,
+            user: "jt".into(),
+            // A different folder on the same machine updates the entry rather
+            // than adding a second one.
+            path: "/srv".into(),
+            name: String::new(),
+        });
+        assert_eq!(places.servers().len(), 1);
+        assert_eq!(places.servers()[0].path, "/srv");
+
+        // A different account on the same host is a different entry.
+        places.add_server(Server {
+            host: "h".into(),
+            port: 22,
+            user: "root".into(),
+            path: "/".into(),
+            name: String::new(),
+        });
+        assert_eq!(places.servers().len(), 2);
+    }
+
+    #[test]
+    fn a_server_is_labelled_user_at_host_unless_it_was_named() {
+        let plain = Server {
+            host: "example.com".into(),
+            port: 22,
+            user: "jt".into(),
+            path: String::new(),
+            name: String::new(),
+        };
+        assert_eq!(plain.display_name(), "sftp://jt@example.com");
+        // A non-default port is part of which machine this is.
+        let odd = Server {
+            port: 2222,
+            ..plain.clone()
+        };
+        assert_eq!(odd.display_name(), "sftp://jt@example.com:2222");
+        let named = Server {
+            name: "Build box".into(),
+            ..plain
+        };
+        assert_eq!(named.display_name(), "Build box");
+    }
+
     use super::*;
 
     #[test]

@@ -71,6 +71,24 @@ impl FolderSize {
 /// this crate — so a link into a parent cannot make the walk loop, and a link
 /// to a huge file elsewhere is not counted as if it lived here.
 pub fn measure(root: &Path, cancel: &CancellationToken) -> FolderSize {
+    measure_with(root, cancel, |_| {})
+}
+
+/// Measure `root`, reporting the running total as it goes.
+///
+/// The same walk, with a way to watch it. There is no percentage to report -
+/// the total is not known until the walk ends, which is the whole reason the
+/// walk exists - so what a caller can show is how much has been counted so
+/// far, and that is what `progress` receives.
+///
+/// Called once per directory entered rather than once per file: a folder of a
+/// hundred thousand files should not send a hundred thousand updates to a
+/// screen that redraws sixty times a second.
+pub fn measure_with(
+    root: &Path,
+    cancel: &CancellationToken,
+    mut progress: impl FnMut(&FolderSize),
+) -> FolderSize {
     let mut total = FolderSize::empty();
     // (path, depth). An explicit stack, so depth costs heap and not stack.
     let mut pending: Vec<(PathBuf, usize)> = vec![(root.to_path_buf(), 0)];
@@ -86,6 +104,7 @@ pub fn measure(root: &Path, cancel: &CancellationToken) -> FolderSize {
             total.partial = true;
             continue;
         };
+        progress(&total);
         for entry in entries.flatten() {
             let Ok(meta) = entry.metadata() else {
                 total.partial = true;
@@ -266,8 +285,31 @@ mod tests {
         cache.insert(root.clone(), measure(&root, &CancellationToken::never()));
         assert!(cache.get(&root).is_some());
 
-        // Creating an entry changes the folder's own modification time.
+        // Creating an entry changes the folder's own modification time - but
+        // not necessarily within the same timestamp tick. Unix filesystems
+        // move it immediately; NTFS records directory times coarsely enough
+        // that a write a few microseconds after the measurement can land on
+        // the same value, and FAT is coarser still. So this waits for the
+        // change the cache is supposed to notice, and then checks that it
+        // noticed. Asserting immediately tested the filesystem's clock
+        // resolution rather than the cache.
+        let before = current_mtime(&root);
         write(&root.join("b"), 10);
+        let mut waited = std::time::Duration::ZERO;
+        let step = std::time::Duration::from_millis(20);
+        while current_mtime(&root) == before && waited < std::time::Duration::from_secs(3) {
+            std::thread::sleep(step);
+            waited += step;
+            // Touched again: on a filesystem with a coarse clock the first
+            // write may simply be indistinguishable from the measurement.
+            write(&root.join("b"), 11);
+        }
+        assert_ne!(
+            current_mtime(&root),
+            before,
+            "no filesystem this runs on leaves a directory's mtime alone for \
+             three seconds after entries are added to it"
+        );
         assert_eq!(
             cache.get(&root),
             None,

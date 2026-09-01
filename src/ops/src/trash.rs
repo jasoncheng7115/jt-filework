@@ -255,7 +255,7 @@ mod restore_record_tests {
         write_restore_record(
             &files,
             &files.join("gone.txt"),
-            Path::new("/home/me/gone.txt"),
+            Path::new("/home/someone/gone.txt"),
         );
 
         let info = root.join("info/gone.txt.trashinfo");
@@ -265,7 +265,7 @@ mod restore_record_tests {
         );
         let text = std::fs::read_to_string(&info).unwrap();
         assert!(text.starts_with("[Trash Info]\n"), "{text}");
-        assert!(text.contains("Path=/home/me/gone.txt"), "{text}");
+        assert!(text.contains("Path=/home/someone/gone.txt"), "{text}");
         assert!(text.contains("DeletionDate="), "{text}");
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -281,7 +281,7 @@ mod restore_record_tests {
         write_restore_record(
             &root,
             &root.join("gone.txt"),
-            Path::new("/home/me/gone.txt"),
+            Path::new("/home/someone/gone.txt"),
         );
         let stray: Vec<_> = std::fs::read_dir(&root).unwrap().flatten().collect();
         assert!(stray.is_empty(), "nothing was written beside the trash");

@@ -5,7 +5,7 @@
 //! opening it as text is how an editor corrupts a binary.
 
 use std::fs::File;
-use std::io::{self, Read};
+use std::io::{self, Read, Seek, SeekFrom};
 use std::path::Path;
 
 use jtf_core::{Error, ErrorCode};
@@ -23,6 +23,12 @@ pub enum ContentKind {
     Image,
     /// A known archive format.
     Archive,
+    /// A disc image: a filesystem in a file (ADR-0005).
+    ///
+    /// Its own kind rather than an archive, because it is not one - nothing in
+    /// it is compressed, and calling it 「壓縮檔」 in the type column would be
+    /// wrong in the one place a user goes to find out what something is.
+    DiskImage,
     /// A PDF.
     Pdf,
     /// Anything else. Hex is always available and never wrong.
@@ -38,6 +44,7 @@ impl ContentKind {
             Self::Text => "content.text",
             Self::Image => "content.image",
             Self::Archive => "content.archive",
+            Self::DiskImage => "content.disk_image",
             Self::Pdf => "content.pdf",
             Self::Binary => "content.binary",
             Self::Empty => "content.empty",
@@ -54,6 +61,7 @@ impl ContentKind {
         Self::Text,
         Self::Image,
         Self::Archive,
+        Self::DiskImage,
         Self::Pdf,
         Self::Binary,
         Self::Empty,
@@ -68,12 +76,14 @@ const SIGNATURES: &[(&[u8], ContentKind)] = &[
     (b"GIF89a", ContentKind::Image),
     (b"BM", ContentKind::Image),
     (b"%PDF-", ContentKind::Pdf),
+    // Only what this build can actually open. `.7z` and `.rar` were listed
+    // here and could not be read, so the type column called them 壓縮檔 and
+    // pressing Enter opened a window that could list nothing - a label the
+    // program cannot honour is worse than none (ADR-0006 condition 9).
     (b"PK\x03\x04", ContentKind::Archive),
     (b"\x1f\x8b", ContentKind::Archive),
     (b"BZh", ContentKind::Archive),
     (b"\xfd7zXZ\x00", ContentKind::Archive),
-    (b"7z\xbc\xaf\x27\x1c", ContentKind::Archive),
-    (b"Rar!\x1a\x07", ContentKind::Archive),
     (b"\x7fELF", ContentKind::Binary),
     (b"\xca\xfe\xba\xbe", ContentKind::Binary),
     (b"\xcf\xfa\xed\xfe", ContentKind::Binary),
@@ -89,7 +99,33 @@ pub fn detect(path: &Path) -> Result<ContentKind, Error> {
     let mut buffer = vec![0u8; SNIFF];
     let read = file.read(&mut buffer).map_err(|e| map_io(path, &e))?;
     buffer.truncate(read);
-    Ok(classify(&buffer))
+    let kind = classify(&buffer);
+    // An ISO's own signature is at byte 32769 - sector 16, one byte in - which
+    // is far past any prefix worth sniffing, so it cannot go in the table
+    // above. Checked only for files that looked like nothing else, and only
+    // for files long enough to hold it, so it costs one seek on the files it
+    // might actually be.
+    if kind == ContentKind::Binary && is_iso_9660(&mut file) {
+        return Ok(ContentKind::DiskImage);
+    }
+    Ok(kind)
+}
+
+/// Whether `file` carries the ISO 9660 signature in its first volume
+/// descriptor.
+fn is_iso_9660(file: &mut File) -> bool {
+    const SIGNATURE_AT: u64 = 16 * 2048 + 1;
+    if file
+        .metadata()
+        .is_ok_and(|meta| meta.len() < SIGNATURE_AT + 5)
+    {
+        return false;
+    }
+    if file.seek(SeekFrom::Start(SIGNATURE_AT)).is_err() {
+        return false;
+    }
+    let mut marker = [0_u8; 5];
+    file.read_exact(&mut marker).is_ok() && &marker == b"CD001"
 }
 
 /// Decide from a prefix of the content. Split out so it can be fuzzed and

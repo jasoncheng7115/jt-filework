@@ -22,6 +22,7 @@ use jtf_core::i18n::{Catalog, LocaleId, Localizer};
 use jtf_core::theme::ThemeMode;
 use jtf_core::ErrorCode;
 use jtf_jobs::{JobKind, JobState};
+use jtf_viewer::ContentKind;
 use jtf_workspace::{Column, Orientation, RestoreOnLaunch, RestoreOutcome};
 
 fn repo_root() -> PathBuf {
@@ -75,6 +76,13 @@ fn keys_used_by_code() -> BTreeSet<String> {
     }
     for column in Column::ALL {
         keys.insert(column.label_key().to_string());
+    }
+    // What the type column calls each kind of file. `label_key` returns a
+    // literal rather than calling `tr_`, so the source scan below cannot see
+    // these; walking the enum is the only thing that catches a kind added
+    // without its string.
+    for kind in ContentKind::ALL {
+        keys.insert(kind.label_key().to_string());
     }
     for orientation in [Orientation::Horizontal, Orientation::Vertical] {
         keys.insert(orientation.label_key().to_string());
@@ -225,6 +233,13 @@ const UNTRANSLATABLE: &[&str] = &[
     "command.category.ai",
     "content.pdf",
     "language.english",
+    // A product name and a number. "Qt 6.11.1" is what a bug report needs to
+    // say and is spelled that way in every language.
+    "about.qt",
+    // What is printed on the key. A hint strip that said 「空白鍵」 while the
+    // keyboard says `Space` would be naming a different key.
+    "key.space",
+    "key.escape",
 ];
 
 /// Prefixes whose values are standard names: encodings and line endings.
@@ -464,5 +479,55 @@ fn every_column_has_a_header_in_every_locale() {
     assert!(
         missing.is_empty(),
         "columns with no header text: {missing:?}"
+    );
+}
+
+/// Chinese text uses full-width punctuation.
+///
+/// A half-width comma between two Chinese characters is a typographic error,
+/// not a style choice: it sets the wrong spacing and reads as a seam. Several
+/// crept in while writing this catalogue by hand, and reading for them is not
+/// something a person should have to do.
+///
+/// Half-width punctuation *inside* Latin runs is left alone — `GPL-3.0`,
+/// `CView / WinCV` and a URL are all correct as they are.
+#[test]
+fn zh_tw_does_not_mix_half_width_punctuation_into_chinese() {
+    // The marks that have a full-width form and a different meaning at half
+    // width. The parenthesis is not here: a Latin aside like `(MIT)` is
+    // conventionally half-width even in Chinese text.
+    const HALF: [char; 6] = [',', ';', ':', '!', '?', '.'];
+
+    let tw = load(LocaleId::ZH_TW);
+    let is_han = |c: char| ('\u{4e00}'..='\u{9fff}').contains(&c);
+
+    let mut wrong: Vec<String> = Vec::new();
+    for key in tw.keys() {
+        let Some(value) = tw.get(key).map(jtf_core::i18n::Message::template) else {
+            continue;
+        };
+        let chars: Vec<char> = value.chars().collect();
+        for (i, c) in chars.iter().enumerate() {
+            if !HALF.contains(c) {
+                continue;
+            }
+            let before = i.checked_sub(1).and_then(|j| chars.get(j)).copied();
+            let after = chars.get(i + 1).copied();
+            // Wrong only when it sits against Chinese on either side. A full
+            // stop inside `0.1.0` or a colon inside `https://` is between
+            // Latin and stays.
+            if before.is_some_and(is_han) || after.is_some_and(is_han) {
+                wrong.push(format!(
+                    "{key}: …{}{c}{}…",
+                    before.unwrap_or(' '),
+                    after.unwrap_or(' ')
+                ));
+            }
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "half-width punctuation against Chinese; use the full-width form:\n  {}",
+        wrong.join("\n  ")
     );
 }

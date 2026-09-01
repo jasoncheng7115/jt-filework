@@ -56,10 +56,27 @@ fn awkward_names_survive_a_copy_unchanged() {
     fs::create_dir_all(&source).unwrap();
     fs::create_dir_all(&target).unwrap();
 
+    // Only the names the platform actually stored, under the name we asked
+    // for.
+    //
+    // A successful write is not proof of that. Windows accepts a path with a
+    // trailing space or dot and stores it without - `"dots..."` lands as
+    // `"dots"` - and reserves `CON` and `NUL` outright, so a fixture that
+    // trusted the write would then look for a file that is not there and
+    // report a copy failure the copy did not cause. What survives this check
+    // is what the platform genuinely holds, and all of it must copy intact.
     let mut created = Vec::new();
     for name in AWKWARD {
         let path = source.join(name);
-        if fs::write(&path, name.as_bytes()).is_ok() {
+        if fs::write(&path, name.as_bytes()).is_err() {
+            continue;
+        }
+        let stored_as_asked = fs::read_dir(&source)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .any(|entry| entry.file_name() == std::ffi::OsStr::new(name));
+        if stored_as_asked {
             created.push(path);
         }
     }

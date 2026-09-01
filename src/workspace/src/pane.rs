@@ -42,6 +42,15 @@ impl Pane {
         &self.tabs
     }
 
+    /// The same, to change one of them.
+    ///
+    /// Ordering is the pane's business, so this hands out the tabs rather than
+    /// the vector: a caller can set a tab's own state but cannot reorder them
+    /// behind `reorder_tab`, which is what keeps pinned tabs in their block.
+    pub fn tabs_mut(&mut self) -> &mut [Tab] {
+        &mut self.tabs
+    }
+
     /// How many tabs the pane has.
     pub fn tab_count(&self) -> usize {
         self.tabs.len()

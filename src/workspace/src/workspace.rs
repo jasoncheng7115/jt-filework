@@ -326,6 +326,28 @@ impl Workspace {
         new_pane_id
     }
 
+    /// Whether [`close_pane`](Self::close_pane) would succeed for `id`.
+    ///
+    /// The same question the UI has to answer before it offers a close
+    /// control: a control that is present and refuses reads as a fault
+    /// rather than as a rule. Asked here so there is one answer - deciding
+    /// it again in the UI is how the two come to disagree.
+    #[must_use]
+    pub fn can_close_pane(&self, id: PaneId) -> bool {
+        if !self.panes.contains_key(&id) || self.panes.len() == 1 {
+            return false;
+        }
+        let Some(window) = self.window_of(id) else {
+            return false;
+        };
+        let Some(root) = self.windows.get(&window) else {
+            return false;
+        };
+        // Emptying a torn-off window is fine - it goes away. Emptying the
+        // main window is not, because there would be nothing left to look at.
+        root.clone().remove_pane(id).is_some() || window != Self::MAIN_WINDOW
+    }
+
     /// Close a pane, collapsing its split so the sibling takes the space.
     ///
     /// # Errors
@@ -550,16 +572,27 @@ impl Workspace {
 
     /// Replace the layout with a preset, keeping the first pane's tabs.
     pub fn apply_preset(&mut self, preset: LayoutPreset) {
-        while self.panes.len() > 1 {
-            let victim = *self.pane_order().last().unwrap_or(&self.active_pane);
+        // Within the window the preset was asked for, and no further. A
+        // preset is a statement about the window whose toolbar it came from;
+        // reaching into another window to close panes that are not even on
+        // the screen the button was pressed on is not what it means, and it
+        // destroys work the user can no longer see to object to.
+        let Some(window) = self.window_of(self.active_pane) else {
+            return;
+        };
+        while self.pane_order_in(window).len() > 1 {
+            let order = self.pane_order_in(window);
+            let victim = *order.last().unwrap_or(&self.active_pane);
             if victim == self.active_pane {
-                self.active_pane = self.pane_order()[0];
+                self.active_pane = order[0];
             }
             if self.close_pane(victim).is_err() {
                 break;
             }
         }
-        let base = self.pane_order()[0];
+        let Some(&base) = self.pane_order_in(window).first() else {
+            return;
+        };
         self.active_pane = base;
         let at = self
             .active_tab()
@@ -699,6 +732,75 @@ impl Workspace {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_single_preset_leaves_exactly_one_pane_showing_where_it_was() {
+        let mut w = workspace();
+        w.split_active(Orientation::Horizontal);
+        w.split_active(Orientation::Vertical);
+        assert_eq!(w.pane_count(), 3);
+
+        w.apply_preset(LayoutPreset::Single);
+        assert_eq!(w.pane_count(), 1, "single means one pane");
+        assert_eq!(
+            w.active_tab().unwrap().location(),
+            &loc("/home"),
+            "collapsing the layout must not throw away where you were"
+        );
+    }
+
+    #[test]
+    fn a_preset_applies_to_its_own_window_and_leaves_the_others_alone() {
+        // The preset is invoked from one window's toolbar. Reaching into
+        // another window and closing its panes is not what "make this window
+        // a single pane" means, and the panes it would destroy are not on
+        // screen where the button was pressed.
+        let mut w = workspace();
+        let torn = w.pane(w.active_pane_id()).unwrap().tabs()[0].id();
+        w.new_tab(loc("/other"));
+        let (_window, moved) = w.tear_off_tab(w.active_pane_id(), torn).unwrap();
+        w.focus_pane(moved);
+        w.split_active(Orientation::Horizontal);
+        let torn_panes = w.pane_count() - 1;
+        assert!(torn_panes >= 2);
+
+        w.apply_preset(LayoutPreset::Single);
+        assert_eq!(
+            w.pane_count(),
+            2,
+            "one pane in the window the preset was applied to, and the other \
+             window's pane untouched"
+        );
+    }
+
+    #[test]
+    fn can_close_pane_agrees_with_close_pane_everywhere() {
+        // The prediction and the act are two pieces of code answering one
+        // question, and the UI believes the prediction. Checked over every
+        // pane of every shape this can be in, rather than over one example,
+        // because the case that matters is the one nobody thought of.
+        let mut w = workspace();
+        w.split_active(Orientation::Horizontal);
+        w.split_active(Orientation::Vertical);
+        let first = w.pane_order()[0];
+        let tab = w.pane(first).unwrap().tabs()[0].id();
+        w.tear_off_tab(first, tab).ok();
+
+        for id in w.pane_order() {
+            let predicted = w.can_close_pane(id);
+            let mut trial = w.clone();
+            let actual = trial.close_pane(id).is_ok();
+            assert_eq!(
+                predicted, actual,
+                "can_close_pane said {predicted} for {id:?}, close_pane did {actual}"
+            );
+        }
+
+        // And the case the whole thing exists for: one pane, nothing to
+        // close to.
+        let lone = workspace();
+        assert!(!lone.can_close_pane(lone.active_pane_id()));
+    }
+
     use super::*;
 
     fn loc(path: &str) -> Location {
@@ -707,6 +809,59 @@ mod tests {
 
     fn workspace() -> Workspace {
         Workspace::new(loc("/home"))
+    }
+
+    /// Duplicating copies the tab's *location*, which is the whole point: the
+    /// interface used to read a path out of the tab and navigate a new one to
+    /// it, and a remote location has no local path to read - so duplicating a
+    /// tab on a server produced a tab pointing nowhere.
+    #[test]
+    fn duplicating_a_tab_keeps_where_it_points_even_on_a_server() {
+        let server = Location::remote("host.example", jtf_core::DEFAULT_SSH_PORT, "jason", "/srv");
+        let mut w = Workspace::new(server.clone());
+        let pane = w.active_pane_id();
+        let original = w.pane(pane).unwrap().tabs()[0].id();
+
+        let copy = w.duplicate_tab(pane, original).unwrap();
+
+        assert_ne!(copy, original, "a duplicate is its own tab");
+        let tabs = w.pane(pane).unwrap().tabs();
+        assert_eq!(tabs.len(), 2);
+        assert_eq!(
+            tabs[1].location(),
+            &server,
+            "the copy points at the same server, not at nothing"
+        );
+        assert!(w.invariants_hold());
+    }
+
+    /// The copy goes beside the tab it came from, not at the end of the strip.
+    #[test]
+    fn a_duplicate_is_placed_next_to_its_original() {
+        let mut w = workspace();
+        let pane = w.active_pane_id();
+        let first = w.pane(pane).unwrap().tabs()[0].id();
+        w.new_tab(loc("/last"));
+
+        let copy = w.duplicate_tab(pane, first).unwrap();
+
+        let ids: Vec<_> = w.pane(pane).unwrap().tabs().iter().map(Tab::id).collect();
+        assert_eq!(ids[0], first);
+        assert_eq!(ids[1], copy, "the copy sits beside what it copied");
+    }
+
+    /// Asking for a tab that is not there is an error, not a panic and not a
+    /// silent no-op that leaves the caller thinking it worked.
+    #[test]
+    fn duplicating_a_tab_that_is_not_in_that_pane_is_refused() {
+        let mut w = workspace();
+        let pane = w.active_pane_id();
+        let elsewhere = w.new_tab(loc("/other"));
+        w.split_active(Orientation::Horizontal);
+        let other_pane = w.active_pane_id();
+        assert_ne!(pane, other_pane);
+
+        assert!(w.duplicate_tab(other_pane, elsewhere).is_err());
     }
 
     #[test]

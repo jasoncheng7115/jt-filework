@@ -7,3 +7,10 @@ code.
 
 Adding a format version means: bump `SESSION_FORMAT_VERSION`, add a step to
 `migrate_json`, and commit the new version's file here beside the others.
+
+`v2.json` is the second released format. It differs from v1 in one setting:
+the key hint strip is on. The v1 -> v2 step exists because a v1 file always
+records `key_hints_visible` explicitly, so a changed default would otherwise
+have reached nobody who had already run the program.
+
+Like `v1.json`, it never changes again.

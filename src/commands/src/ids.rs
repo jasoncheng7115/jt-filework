@@ -183,6 +183,23 @@ impl CommandRegistry {
             .filter(move |c| c.category() == category)
     }
 
+    /// The current id for `id`, following a rename if there has been one.
+    ///
+    /// A user's keymap names commands by id. Renaming a command therefore
+    /// breaks every keymap that mentions the old name, silently - the binding
+    /// parses, the id is simply unknown, and a key the user set stops doing
+    /// anything with nothing on screen to say why (`docs/UPGRADE.md` §4.1).
+    ///
+    /// The table below is how a rename stays a rename rather than a removal.
+    /// It is empty today, and that is the point: the mechanism exists before
+    /// the first rename needs it, with tests that will not let a bad entry in.
+    pub fn canonical(id: &CommandId) -> CommandId {
+        RENAMED_COMMANDS
+            .iter()
+            .find(|(was, _)| *was == id.as_str())
+            .map_or_else(|| id.clone(), |(_, now)| CommandId::new(*now))
+    }
+
     /// The baseline command set from `docs/UI_UX_SPEC.md` §7.1.
     ///
     /// Built from a table, so adding a command is adding a row.
@@ -199,6 +216,16 @@ impl CommandRegistry {
 }
 
 use CommandCategory as C;
+
+/// Commands that have been renamed: `(old id, current id)`.
+///
+/// Read when a keymap is parsed, so a binding written against an old name
+/// still reaches the command it named. An entry is never removed: someone's
+/// keymap file is older than any deprecation window we could pick.
+///
+/// Empty until the first rename. `renamed_commands_point_at_real_commands`
+/// and `an_alias_never_shadows_a_live_command` keep it honest.
+pub(crate) const RENAMED_COMMANDS: &[(&str, &str)] = &[];
 
 /// Every ordinary command. The label is always a localization key, never
 /// text (`AGENTS.md` §11).
@@ -217,6 +244,11 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
         "workspace.pane.next",
         C::Workspace,
         "command.workspace.pane.next",
+    ),
+    (
+        "workspace.focus.next",
+        C::Workspace,
+        "command.workspace.focus.next",
     ),
     (
         "workspace.pane.previous",
@@ -253,6 +285,7 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("nav.goto", C::Navigation, "command.nav.goto"),
     ("file.open", C::File, "command.file.open"),
     ("file.view", C::File, "command.file.view"),
+    ("file.view_hex", C::File, "command.file.view_hex"),
     ("file.edit", C::File, "command.file.edit"),
     ("file.rename", C::File, "command.file.rename"),
     ("file.undo", C::File, "command.file.undo"),
@@ -275,6 +308,16 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("file.new_folder", C::File, "command.file.new_folder"),
     ("file.new_file", C::File, "command.file.new_file"),
     ("file.attributes", C::File, "command.file.attributes"),
+    ("file.terminal", C::File, "command.file.terminal"),
+    ("file.share", C::File, "command.file.share"),
+    ("remote.connect", C::Navigation, "command.remote.connect"),
+    (
+        "remote.disconnect",
+        C::Navigation,
+        "command.remote.disconnect",
+    ),
+    ("file.copy_to", C::File, "command.file.copy_to"),
+    ("file.move_to", C::File, "command.file.move_to"),
     (
         "file.copy_to_target_pane",
         C::File,
@@ -322,6 +365,7 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("view.inspector", C::View, "command.view.inspector"),
     ("keymap.toggle", C::View, "command.keymap.toggle"),
     ("help.shortcuts", C::View, "command.help.shortcuts"),
+    ("help.about", C::View, "command.help.about"),
     ("view.key_hints", C::View, "command.view.key_hints"),
     ("view.thumbnails", C::View, "command.view.thumbnails"),
     ("view.mode.list", C::View, "command.view.mode.list"),
@@ -329,6 +373,10 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("view.sort", C::View, "command.view.sort"),
     ("file.bookmark", C::Navigation, "command.file.bookmark"),
     ("file.folder_size", C::File, "command.file.folder_size"),
+    ("file.extract", C::File, "command.file.extract"),
+    ("file.compress", C::File, "command.file.compress"),
+    ("file.compare_panes", C::File, "command.file.compare_panes"),
+    ("file.disk_usage", C::File, "command.file.disk_usage"),
     ("view.font.smaller", C::View, "command.view.font.smaller"),
     ("view.font.larger", C::View, "command.view.font.larger"),
     ("preview.toggle", C::View, "command.preview.toggle"),
@@ -354,6 +402,46 @@ const DESTRUCTIVE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
 
 #[cfg(test)]
 mod tests {
+    use super::RENAMED_COMMANDS;
+
+    /// An alias that points nowhere is worse than no alias: the keymap file
+    /// still parses and the key still does nothing.
+    #[test]
+    fn renamed_commands_point_at_real_commands() {
+        let registry = super::CommandRegistry::baseline();
+        for (was, now) in RENAMED_COMMANDS {
+            assert!(
+                registry.contains(&super::CommandId::new(*now)),
+                "alias {was} -> {now}: {now} is not a registered command"
+            );
+        }
+    }
+
+    /// And an alias whose *old* name is still in use would quietly redirect a
+    /// command that never went anywhere.
+    #[test]
+    fn an_alias_never_shadows_a_live_command() {
+        let registry = super::CommandRegistry::baseline();
+        for (was, now) in RENAMED_COMMANDS {
+            assert!(
+                !registry.contains(&super::CommandId::new(*was)),
+                "alias {was} -> {now}: {was} is still a command in its own right"
+            );
+        }
+    }
+
+    /// One hop, not a chain: `a -> b -> c` would make the result depend on the
+    /// order of the table.
+    #[test]
+    fn no_alias_points_at_another_alias() {
+        for (was, now) in RENAMED_COMMANDS {
+            assert!(
+                !RENAMED_COMMANDS.iter().any(|(other, _)| other == now),
+                "alias {was} -> {now}: {now} is itself renamed"
+            );
+        }
+    }
+
     use super::*;
 
     #[test]

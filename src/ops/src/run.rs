@@ -334,60 +334,22 @@ pub(crate) fn copy_tree(
     Ok(())
 }
 
-#[cfg(unix)]
+/// Copy a symbolic link as a link: read where it points, make another that
+/// points at the same place. Creating one is the platform adapter's job.
 fn copy_symlink(source: &Path, target: &Path) -> Result<(), Error> {
     let link = fs::read_link(source).map_err(|e| io_error(source, &e))?;
-    std::os::unix::fs::symlink(link, target).map_err(|e| io_error(target, &e))
-}
-
-#[cfg(not(unix))]
-fn copy_symlink(source: &Path, target: &Path) -> Result<(), Error> {
-    // Creating a symlink on Windows needs a privilege that is often absent.
-    // Copying the target's contents instead would silently change what the
-    // user asked for, so this reports rather than guesses.
-    let _ = (source, target);
-    Err(Error::new(
-        ErrorCode::Unsupported,
-        "copying a symbolic link is not supported on this platform yet",
-    ))
+    jtf_platform_links::create(&link, target)
 }
 
 /// Remove a file, a symlink or a whole tree.
 ///
-/// Iterative, and removes a symlink as a link rather than descending through
-/// it. Following one here would delete files outside the tree the user
-/// selected, which is the single most damaging bug a file manager can have.
+/// Delegated to the platform adapter, which on Unix walks by open directory
+/// descriptor rather than by path. Following a link here would delete files
+/// outside the tree the user selected, and *re-resolving a path* here would
+/// let someone else turn a directory into such a link half-way through
+/// (`docs/SECURITY.md` §9).
 pub(crate) fn remove_tree(path: &Path) -> Result<(), Error> {
-    let meta = fs::symlink_metadata(path).map_err(|e| io_error(path, &e))?;
-
-    if meta.file_type().is_symlink() || !meta.is_dir() {
-        return fs::remove_file(path).map_err(|e| io_error(path, &e));
-    }
-
-    // Collect depth-first, delete deepest first: a directory cannot be removed
-    // until it is empty.
-    let mut directories = Vec::new();
-    let mut stack = vec![path.to_path_buf()];
-
-    while let Some(dir) = stack.pop() {
-        directories.push(dir.clone());
-        let read_dir = fs::read_dir(&dir).map_err(|e| io_error(&dir, &e))?;
-        for entry in read_dir {
-            let entry = entry.map_err(|e| io_error(&dir, &e))?;
-            let child = entry.path();
-            let child_meta = fs::symlink_metadata(&child).map_err(|e| io_error(&child, &e))?;
-            if child_meta.file_type().is_symlink() || !child_meta.is_dir() {
-                fs::remove_file(&child).map_err(|e| io_error(&child, &e))?;
-            } else {
-                stack.push(child);
-            }
-        }
-    }
-
-    for dir in directories.into_iter().rev() {
-        fs::remove_dir(&dir).map_err(|e| io_error(&dir, &e))?;
-    }
-    Ok(())
+    jtf_platform_removal::remove_tree(path)
 }
 
 fn io_error(path: &Path, error: &io::Error) -> Error {

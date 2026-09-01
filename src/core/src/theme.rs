@@ -91,6 +91,13 @@ pub enum ThemeToken {
     SurfacePreview,
     /// Toolbar and list-header background.
     SurfaceHeader,
+    /// A surface that floats above the window: menus, popups, tooltips.
+    ///
+    /// Its own token rather than reusing the pane's, because a menu drawn in
+    /// the same colour as the list behind it does not read as a menu at all -
+    /// it has to be *above* everything, and "above" in a flat dark theme is
+    /// carried by being lighter than anything it can land on.
+    SurfaceMenu,
     /// Every other row, when alternating row colours are on.
     RowAlternate,
     /// Row under the pointer.
@@ -135,6 +142,7 @@ impl ThemeToken {
         Self::SurfacePane,
         Self::SurfacePreview,
         Self::SurfaceHeader,
+        Self::SurfaceMenu,
         Self::RowAlternate,
         Self::RowHover,
         Self::TextPrimary,
@@ -159,6 +167,7 @@ impl ThemeToken {
             Self::SurfacePane => "surface.pane",
             Self::SurfacePreview => "surface.preview",
             Self::SurfaceHeader => "surface.header",
+            Self::SurfaceMenu => "surface.menu",
             Self::RowAlternate => "row.alternate",
             Self::RowHover => "row.hover",
             Self::TextPrimary => "text.primary",
@@ -290,6 +299,7 @@ impl Palette {
             ThemeToken::SurfacePane => Color::rgb(0xFF, 0xFF, 0xFF),
             ThemeToken::SurfacePreview => Color::rgb(0xF7, 0xF8, 0xFA),
             ThemeToken::SurfaceHeader => Color::rgb(0xEC, 0xEE, 0xF1),
+            ThemeToken::SurfaceMenu => Color::rgb(0xFF, 0xFF, 0xFF),
             ThemeToken::RowAlternate => Color::rgb(0xF7, 0xF8, 0xFA),
             ThemeToken::RowHover => Color::rgb(0xED, 0xF1, 0xF7),
             ThemeToken::TextPrimary => Color::rgb(0x16, 0x18, 0x1D),
@@ -322,6 +332,7 @@ impl Palette {
             ThemeToken::SurfacePane => Color::rgb(0x23, 0x24, 0x29),
             ThemeToken::SurfacePreview => Color::rgb(0x19, 0x1A, 0x1E),
             ThemeToken::SurfaceHeader => Color::rgb(0x26, 0x28, 0x2E),
+            ThemeToken::SurfaceMenu => Color::rgb(0x32, 0x35, 0x3D),
             ThemeToken::RowAlternate => Color::rgb(0x26, 0x28, 0x2E),
             ThemeToken::RowHover => Color::rgb(0x2D, 0x30, 0x38),
             ThemeToken::TextPrimary => Color::rgb(0xE9, 0xEA, 0xEE),
@@ -474,10 +485,47 @@ mod tests {
         }
     }
 
+    /// A marked row's text must be legible on the selection behind it.
+    ///
+    /// `AGENTS.md` §10 now makes selecting the same act as marking, so a
+    /// marked row is a selected row: the mark colour is what its *text* is
+    /// tinted with and the selection colour is what sits *behind* that text.
+    /// They land on top of each other on every marked row, which is a stronger
+    /// reason to keep them apart than the old rule was.
+    /// The active pane's ring is visible in both themes.
+    ///
+    /// The ring is read against the pane behind it, and those surfaces are
+    /// opposites - white in light, near-black in dark - so one colour cannot
+    /// serve both and the palette gives a different one per theme. It also has
+    /// to be tellable from the border an *inactive* pane wears, or "which pane
+    /// has the keyboard" has no answer.
+    ///
+    /// 3:1 is what a non-text indicator needs (WCAG 1.4.11).
+    #[test]
+    fn the_active_pane_ring_is_visible_in_both_themes() {
+        for palette in [Palette::light(), Palette::dark()] {
+            let ring = palette.color(ThemeToken::PaneActiveIndicator);
+            let pane = palette.color(ThemeToken::SurfacePane);
+            let border = palette.color(ThemeToken::Border);
+
+            let against_pane = ring.contrast_ratio(pane);
+            assert!(
+                against_pane >= 3.0,
+                "{:?}: the active ring is {against_pane:.2} against the pane it rings",
+                palette.theme()
+            );
+            let against_border = ring.contrast_ratio(border);
+            assert!(
+                against_border >= 3.0,
+                "{:?}: the active ring is {against_border:.2} against an inactive pane's \
+                 border, so which pane is active cannot be told apart",
+                palette.theme()
+            );
+        }
+    }
+
     #[test]
     fn mark_is_distinguishable_from_selection_in_both_themes() {
-        // AGENTS.md 10: selection and mark are different concepts, and the
-        // difference must be visible, not just modelled.
         for palette in [Palette::light(), Palette::dark()] {
             let mark = palette.color(ThemeToken::MarkActive);
             let selection = palette.color(ThemeToken::SelectionActive);
