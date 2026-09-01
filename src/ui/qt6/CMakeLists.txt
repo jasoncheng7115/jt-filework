@@ -278,9 +278,16 @@ if(APPLE)
         # The application's own icon, as PNGs. The .icns is what Finder and the
         # Dock read; Qt reads neither, so a window icon and the About box had
         # nothing to show.
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${JTF_DATA_ROOT}/assets/icon/generated/png"
-            "$<TARGET_BUNDLE_CONTENT_DIR:jt-filework>/Resources/appicon"
+        #
+        # `copy_directory_if_different` rather than `copy_directory`: these are
+        # generated from the master SVGs by assets/icon/build-icons.sh and are
+        # deliberately not committed (`AGENTS.md` 2), so a fresh clone does not
+        # have them and must still build. Without the icons the window simply
+        # has none, which is a missing picture rather than a failed build.
+        COMMAND ${CMAKE_COMMAND}
+            -D "SRC=${JTF_DATA_ROOT}/assets/icon/generated/png"
+            -D "DST=$<TARGET_BUNDLE_CONTENT_DIR:jt-filework>/Resources/appicon"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/copy-if-present.cmake"
         # Empty .lproj directories alongside the declaration above: some of
         # the system's lookups check for a real directory rather than reading
         # Info.plist, and an absent one silently means "not localized".
@@ -312,9 +319,11 @@ else()
             "${JTF_DATA_ROOT}/keymaps" "$<TARGET_FILE_DIR:jt-filework>/keymaps"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${JTF_DATA_ROOT}/assets/icons" "$<TARGET_FILE_DIR:jt-filework>/icons"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${JTF_DATA_ROOT}/assets/icon/generated/png"
-            "$<TARGET_FILE_DIR:jt-filework>/appicon"
+        # Optional, for the reason given in the Apple branch above.
+        COMMAND ${CMAKE_COMMAND}
+            -D "SRC=${JTF_DATA_ROOT}/assets/icon/generated/png"
+            -D "DST=$<TARGET_FILE_DIR:jt-filework>/appicon"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/copy-if-present.cmake"
         COMMENT "Copying locales, keymaps and icons beside the executable")
     add_dependencies(jtf_bundle_data jt-filework)
 endif()
