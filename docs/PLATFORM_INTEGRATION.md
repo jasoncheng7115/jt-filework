@@ -174,3 +174,19 @@ latency (`SECURITY.md` §2):
   null implementation elsewhere
 - every platform limitation is documented in this file rather than being
   discovered by users
+
+
+## Open in Terminal
+
+macOS opens the folder with `com.apple.Terminal` through `NSWorkspace`, so the
+path travels as a URL in an argument list and is never parsed as shell syntax.
+
+Windows tries `wt.exe -d <folder>` and falls back to `cmd.exe` started in the
+folder. Linux looks for `$TERMINAL` first, then `x-terminal-emulator` and the
+common emulators in turn, and starts the one it finds with the folder as the
+process's working directory rather than as a flag - every emulator spells that
+flag differently and all of them inherit the directory they were started in.
+
+`canOpenInTerminal()` is asked separately from `available()`: that one is about
+the platform's *type database*, which Linux builds do not have, and gating the
+menu entry on it hid a feature that works.

@@ -206,6 +206,30 @@ AI responses are untrusted. A file's contents can contain instructions.
 
 ## 10. Resource Limits
 
+Everything that accumulates has an end. The rule is not "bound the parsers" —
+it is **bound anything that grows without something ending it**, which includes
+collections the user fills by using the program normally.
+
+### 10.1 What was audited, and what it found
+
+An audit of every growing collection (2026-09-01) found two with no bound:
+
+**The marked set.** It survives navigation, spans directories, and is written
+to the session file at every save. Nothing ends it. `Mark all` over a folder of
+a million entries added a million paths in one keystroke — held in memory *and*
+serialized, turning one keypress into a session file that the next launch would
+have to parse. Bounded at `MAX_MARKS` (100,000), and a refused mark is
+**counted and reported**: a file that was not marked will not be copied, and
+that is not something to discover afterwards.
+
+**Undo records.** One step per file that moved, and the stack keeps 32 records,
+so a large move retained its whole path list long after it finished. Bounded at
+`MAX_STEPS` (20,000) per record — and past it the operation gets **no** undo
+entry rather than a partial one. A partial undo would leave the tree in a state
+that is neither where it started nor where the user left it.
+
+### 10.2 What is bounded by design
+
 Every untrusted-input path declares a limit:
 
 | Surface | Limit |

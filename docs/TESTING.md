@@ -35,6 +35,7 @@ L4  UI / interaction       toolkit-level, headless where possible
 L5  system / manual        native OS behaviour that cannot be automated
 L6  performance            benchmarks with recorded baselines
 L7  robustness             fuzz, fault injection, hostile input
+L8  migration              stored files from every released format version
 ```
 
 Every crate must be usable with `cargo test -p <crate>` in isolation.
@@ -203,7 +204,119 @@ fixture::symlinks()               valid, broken, absolute, relative, cyclic
 - session persistence: workspace with nested splits, multiple panes, multiple
   tabs, marks and scroll positions restores byte-identically
 
-### 5.3 Symlink, alias and package semantics
+### 5.3 SFTP (ADR-0004)
+
+Two layers, because the interesting failures are on different sides of the
+network.
+
+**Offline — always run, no server needed** (`src/fs/src/sftp/host_keys.rs`,
+`src/fs/src/sftp/provider.rs`):
+
+- a host recorded in `known_hosts` with the same key is `Known`
+- a host recorded with a **different** key is `Changed`, never `Unknown` —
+  `Unknown` is a question the user can answer yes to, and a changed key must
+  never be askable
+- a non-default port matches the `[host]:port` spelling OpenSSH writes, and
+  does **not** match the same host on port 22
+- one `known_hosts` line listing several names matches any of them
+- a hashed entry reports `Unknown` rather than being guessed at
+- the line written back is the one OpenSSH would match
+- a server row becomes an entry under the folder it came from
+- listing the remote root does not produce a double slash (`//etc`)
+- a symlink stays a symlink even when it points at a directory
+- the provider claims remote locations and refuses local and virtual ones
+- a remote path walks up by `/`, not by this machine's separator, and the
+  remote root has no parent
+
+**Live — against a real server** (`src/fs/tests/sftp_live.rs`). Skipped unless
+the environment describes a host, so a checkout with no network still passes:
+
+```sh
+JTF_SFTP_HOST=sftp.example.invalid \
+JTF_SFTP_USER=someone \
+JTF_SFTP_PASSWORD=… \
+JTF_SFTP_PATH=/ \
+  cargo test -p jtf-fs --test sftp_live -- --nocapture
+```
+
+- key exchange, authentication, subsystem request and a directory listing all
+  succeed against a server we did not write
+- every returned row has a name, and a unix host's root contains directories
+- the same connection lists twice — the pooling in `SftpProvider` depends on
+  a session outliving one request
+- `canonicalize(".")` returns an absolute path, because only the server knows
+  where the login directory is
+
+Verified on 2026-08-30 against a Windows SFTP server, which returned `C:` and
+`D:` as directories — a useful reminder that "remote root" is not always `/`.
+
+**Writing** — same live harness. Run serially (`--test-threads=1`): each test
+opens its own connection and its own scratch directory under the login
+folder, and removes it however the test ends.
+
+- a file uploads, the server agrees about its size, it downloads byte for byte
+  identical, renames (old name gone, new name present) and deletes
+- progress only ever moves forward, and counts bytes the **server has
+  confirmed** rather than bytes handed to a queue
+- a cancelled upload leaves nothing behind — the partial file is removed on
+  the session that created it, while that session is still open
+- a directory is created and removed, and removing a **non-empty** one is
+  refused: SFTP has no recursive remove and this layer does not invent one
+- a run of five 200 KB uploads finishes, and any failure is reported rather
+  than hung on — the property that matters whether the network is healthy or
+  not (see §5.3.1)
+
+### 5.3.1 A stall that was not ours
+
+Worth keeping, because the shape of the investigation is more useful than the
+answer. Transfers stopped being answered once roughly 64 KB had been written:
+three 20 KB uploads succeeded and the fourth stalled, exactly, every time.
+
+Ruled out in order, each by experiment rather than by argument:
+
+| Suspected | Test | Result |
+|---|---|---|
+| Chunk size too large | 32 KB → 16 KB chunks | Same |
+| Runtime starving the reader task | Multi-threaded runtime | Same |
+| Several writes in flight | Flush after every chunk | Same |
+| One SFTP channel accumulating state | A fresh channel per transfer | Same |
+| **Our client at all** | OpenSSH's own `sftp`, same server | **Stalled identically** |
+| **The server** | A second, different server (Windows and Linux) | **Stalled identically** |
+| A VPN client's network filter | Removed it, retested | Same |
+| Two interfaces on one subnet | Disabled one | Same |
+| The adapter's TCP segmentation offload | `ifconfig en12 -tso` | Same |
+| **The interface** | Same server, same moment, `ssh -b` from each | **Wi-Fi fine, Ethernet stalled** |
+
+It was a **faulty network cable**. Receive was unaffected — 1 MB downloads were
+fine throughout — and only sustained *transmit* failed, which is what a
+marginal pair in a gigabit cable looks like: enough for small bursts, not
+enough for a filled TCP window. `netstat` showed the send queue frozen at
+172 KB with the connection still established and no retransmissions.
+
+Two things to take from it. Reaching for a second implementation early —
+OpenSSH's client against the same server — would have exonerated this code in
+one step instead of five. And `REQUEST_TIMEOUT` earned its place: throughout a
+genuinely broken network the program reported "the server stopped answering"
+and stayed usable, which is the behaviour
+`a_run_of_transfers_finishes_rather_than_hanging` now holds permanently.
+
+**Saved servers** (`src/workspace/src/places.rs`):
+
+- a serialized server contains no `password`, `passphrase`, `secret`, `token`
+  or `key` field — asserted against the JSON, so adding one has to argue with
+  a test rather than slip in
+- connecting to the same host and account twice updates the entry rather than
+  duplicating it; a different account on the same host is a separate entry
+- a server is labelled `user@host` unless the user named it
+
+**Not yet covered**: copying between two remote hosts, and driving any of the
+write operations from the UI — the transfers exist and are tested at the
+library level, but nothing in the interface calls them yet. A copy or move
+attempted on a remote selection is refused with a message that says so, rather
+than reporting "nothing is selected" — which is what it did before, because a
+remote location yields no local path.
+
+### 5.4 Symlink, alias and package semantics
 
 - a symlink is never silently followed during recursive delete
 - cyclic symlink does not cause unbounded recursion
@@ -296,6 +409,41 @@ The full scenario list is `docs/UI_TEST_PLAN.md` §18 (`UI-PERF-001` …
 prove there is no unbounded growth.
 
 ---
+
+## 7A. L8 — Migration
+
+What happens to a user's stored data when they install a different build.
+Everything here is about a file this build did not write.
+
+**A committed fixture per released format version.** `tests/fixtures/session/`
+holds an actual file written by each released version, not one hand-edited to
+look like it. The shape of real data is never the shape anyone remembers, and a
+fixture reconstructed from memory tests the memory rather than the format. A
+release that changes `SESSION_FORMAT_VERSION` adds a fixture in the same
+change; the tests iterate the directory, so a missing one is a failure and not
+an omission.
+
+**Every fixture migrates to something today's types accept.** Walking the chain
+from v1 must produce a session that decodes, whose invariants hold, and whose
+user-visible choices survive - a migration that loads but silently resets the
+keymap has lost exactly what an upgrade must not.
+
+**A file from the future is refused, and left alone.** Reading a session whose
+version is greater than this build's starts fresh and says so
+(`RestoreOutcome::UnsupportedVersion`). Writing must not touch it: a downgrade
+after a bad release is an ordinary thing to do, and the first autosave used to
+replace the newer file with one this build understood. The rule lives in
+`session_write_target`, which is tested for both halves - the sidecar for a
+file from the future, the session file for everything else.
+
+**A rename is not a removal.** A binding in a user's keymap that names a
+command by an id it used to have still reaches that command
+(`CommandRegistry::canonical`). The alias table is tested for three things: it
+points at commands that exist, it never shadows a name still in use, and it
+never chains.
+
+**Corruption is recoverable.** An unreadable session is backed up before this
+run replaces it, so a bug report can include the file that caused it.
 
 ## 8. L6 — Performance and Benchmarks
 

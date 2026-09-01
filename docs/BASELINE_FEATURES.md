@@ -73,11 +73,11 @@ Status is one of **Done**, **Partial** (works, with the gap named), or
 | Feature | Status | Note |
 | --- | --- | --- |
 | 進度列 | Done | |
-| 檔案操作工作佇列 | Partial | Operations queue and run in turn, bounded; the status bar counts them, but there is no panel listing them |
+| 檔案操作工作佇列 | Done | Operations queue and run in turn, bounded; `⌘J` or the status bar's task counter opens a panel that lists them, shows the running one's progress, and lets a waiting one be dropped or the running one cancelled |
 | Skip / Replace / Rename 同名處理 | Done | Plus "keep both" and abort |
 | Copy / Move 可取消 | Done | Cancellation is irreversible by design |
 | 右鍵選單 | Done | |
-| 原生系統右鍵功能整合 | Planned | The platform's own Services / shell menu |
+| 原生系統右鍵功能整合 | Partial | macOS: the system share sheet (`NSSharingServicePicker`) for the selection, plus Open With from Launch Services and Reveal in Finder. The **Services menu** itself is not reachable: it is populated for an application whose first responder answers `validRequestorForSendType:returnType:` with the selection on a pasteboard, which Qt's views are not. Windows' `IContextMenu` is not built. See `src/ui/qt6/cpp/platform/share.h` |
 
 ## Added since this list was written
 

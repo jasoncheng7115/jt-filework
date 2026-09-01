@@ -16,6 +16,9 @@ candidate that cannot execute the gate rows at all is eliminated.
 ### 0.1 Harness layers
 
 ```text
+H0  static             a scan over the sources or the catalogues. Proves an
+                       absence - no literal string, no literal colour - which
+                       is the one thing no runtime test can prove.
 H1  model-level        drive commands through the command bus, assert on the
                        view-model. No toolkit, runs everywhere, fastest.
 H2  headless widget    instantiate real widgets offscreen, synthesize input
@@ -24,7 +27,13 @@ H3  screenshot         render deterministic scenes, compare against golden
                        images per theme / locale / DPI.
 H4  driven app         launch the real application, drive it, observe.
 H5  manual             checklist with recorded OS version and hardware.
+H6  benchmark          measured against a recorded baseline, fails on
+                       regression rather than on an absolute number.
 ```
+
+A case may name more than one, separated by `/`. A case for something that is
+not built yet carries `—`, so that it is listed and cannot be mistaken for
+something that passes.
 
 **Rule: push every case down to the lowest layer that can still prove it.**
 A case that only needs "pressing Tab moves focus to the next pane" belongs in
@@ -104,7 +113,7 @@ used to catch clipping and truncation (`docs/UI_UX_SPEC.md` §14).
 | PANE-012 | Directional focus (up/down/left/right) picks the geometrically correct pane | H1 |
 | PANE-013 | Swap panes preserves each pane's tabs and state | H1 |
 | PANE-014 | Exactly one pane is active at all times | H1 |
-| PANE-015 | Active pane is identifiable in Light and Dark, and without colour alone | H3 + manual |
+| PANE-015 | Active pane is identifiable in Light and Dark, and without colour alone | H3/H5 |
 | PANE-016 | Target-pane commands resolve against the active pane and the documented target rule | H1 |
 | PANE-017 | Save / restore named layout round-trips the tree exactly | H1 |
 | PANE-018 | A pane on a stalled mount does not freeze the other panes | H4 |
@@ -140,9 +149,9 @@ used to catch clipping and truncation (`docs/UI_UX_SPEC.md` §14).
 
 | ID | Case | Layer |
 |---|---|---|
-| LIST-001 | 100K entries: first rows visible within budget | H4 + bench |
-| LIST-002 | 100K entries: scroll frame times within budget at p95 | H4 + bench |
-| LIST-003 | 1M synthetic entries: usable, memory bounded | H4 + bench |
+| LIST-001 | 100K entries: first rows visible within budget | H4/H6 |
+| LIST-002 | 100K entries: scroll frame times within budget at p95 | H4/H6 |
+| LIST-003 | 1M synthetic entries: usable, memory bounded | H4/H6 |
 | LIST-004 | Rows appear incrementally; the list is usable before the scan ends | H4 |
 | LIST-005 | Sorting applies to the whole set, not only loaded rows | H1 |
 | LIST-006 | Sort by each column, ascending and descending, stable ties | H1 |
@@ -156,7 +165,7 @@ used to catch clipping and truncation (`docs/UI_UX_SPEC.md` §14).
 | LIST-014 | Broken symlink renders as broken, not as a missing row | H1/H3 |
 | LIST-015 | Type-ahead jumps to a match; never starts a rename or a destructive command | H2 |
 | LIST-016 | Inline rename: commit, cancel with Esc, invalid-name rejection, conflict prompt | H2 |
-| LIST-017 | Inline rename with IME composition is not interrupted by shortcuts | H4 + manual |
+| LIST-017 | Inline rename with IME composition is not interrupted by shortcuts | H4/H5 |
 | LIST-018 | Unicode names (CJK, emoji, combining marks, RTL) render without layout damage | H3 |
 | LIST-019 | A non-UTF-8 name renders with a lossy marker and is still operable | H2 |
 | LIST-020 | Extremely long name ellipsizes; the full name is available on demand | H3 |
@@ -186,20 +195,69 @@ used to catch clipping and truncation (`docs/UI_UX_SPEC.md` §14).
 
 ## 6. Marking — `UI-MARK`  *(AGENTS.md §10)*
 
+Selection **is** the mark. What is highlighted is what is ticked, and what is
+ticked is what an operation acts on, however the rows were picked. The section
+below used to describe the opposite — the two were separate states, and cases
+MARK-001/002/012 asserted that changing one left the other alone. The rule was
+changed on the project owner's decision; these cases are the current one.
+
+Every case here is about a state the user built up over several actions. That
+is the class of bug this section exists for: each action looks right on its own
+and the set is wrong by the third one.
+
 | ID | Case | Layer |
 |---|---|---|
-| MARK-001 | Mark toggle does not change selection | H1 |
-| MARK-002 | Selection change does not change marks | H1 |
-| MARK-003 | Mark all / none / invert, over the filtered set and over the full set, each explicit | H1 |
-| MARK-004 | Marks survive navigation away and back | H1 |
-| MARK-005 | Marks survive sort, filter and view-mode change | H1 |
-| MARK-006 | Marks survive tab move to another pane | H1 |
-| MARK-007 | Marks survive session restore | H1 |
-| MARK-008 | An entry deleted externally is dropped from the marked set on refresh | H4 |
-| MARK-009 | Marked rows are visually distinct from selected rows in both themes | H3 |
-| MARK-010 | A row that is both marked and selected is unambiguous | H3 |
-| MARK-011 | Marks across multiple directories are shown and counted correctly | H1/H3 |
-| MARK-012 | Operation target resolution (marked → selection → active) is shown to the user before acting | H2 |
+| MARK-001 | Space marks the row under the cursor and moves to the next | H2 |
+| MARK-002 | **Space, Space, Space marks three rows.** Moving the cursor must not clear what the previous press marked | H2 |
+| MARK-003 | **Clicking one row's tick box and then another leaves both ticked.** A box adds one thing to a set; it is not the same gesture as choosing one row | H2 |
+| MARK-004 | Clicking a row (not its box) selects only that row, which by the rule above unmarks the rest — this is the one gesture that *does* replace the set | H2 |
+| MARK-005 | A row marked by its box and a row marked by Space look identical. Two appearances for one state is the rule not holding | H3 |
+| MARK-006 | Ctrl/Cmd-click adds a row without clearing the others | H2 |
+| MARK-007 | Shift-click and Shift-arrow extend the set | H2 |
+| MARK-008 | Mark all / none / invert, over the filtered set and over the full set, each explicit | H1 |
+| MARK-009 | The header's box marks everything, clears everything, and shows "some" when only part is marked | H2 |
+| MARK-010 | Clicking a row's own box updates the header's box | H2 |
+| MARK-011 | Clearing the header's box leaves no row highlighted — the boxes and the highlight cannot disagree | H2 |
+| MARK-012 | Marks survive navigation away and back | H1 |
+| MARK-013 | Marks survive sort, filter and view-mode change | H1 |
+| MARK-014 | Marks survive a tab moving to another pane | H1 |
+| MARK-015 | Marks survive session restore | H1 |
+| MARK-016 | An entry deleted externally is dropped from the marked set on refresh | H4 |
+| MARK-017 | The status line counts the rows marked **in the folder on screen**, not every row the tab has ever marked | H1/H3 |
+| MARK-018 | An operation acts on exactly the marked rows in the folder on screen | H2 |
+| MARK-019 | Dragging a row that is not marked carries that row, not the marked set | H2 |
+| MARK-020 | A row that is both marked and the cursor row is unambiguous in both themes | H3 |
+| MARK-021 | The marked set is bounded. `Mark all` over a folder larger than the bound marks what fits and **says how many it did not** | H1/H2 |
+| MARK-022 | Unmarking makes room, and the message about the bound goes with it | H1 |
+| MARK-023 | **`Space`, `↓`, `Space`, `↓`, `Space` marks three rows.** Moving the cursor with an arrow key must not undo what Space marked | H2 |
+| MARK-024 | The same for Page Up/Down, Home and End | H2 |
+| MARK-025 | With **nothing** marked the arrows behave like any list — the highlight moves with the cursor. The rule above applies only while a set is being built | H2 |
+| MARK-026 | The row the keyboard is on is visible even when it is not selected, and a row that is both cursor and marked reads as both | H3 |
+| MARK-027 | Shift-arrow still extends the selection; Ctrl/Cmd-arrow still moves without selecting | H2 |
+| TAB-020 | A tab can be pinned from its context menu and from the File menu, and shows a mark when it is | H2 |
+| TAB-021 | A pinned tab refuses to close and cannot be dragged out of the leading block | H1 |
+
+### 6.1 Why these are listed one action at a time
+
+MARK-002 and MARK-003 were both broken at once, by two unrelated changes, and
+neither was caught by anything:
+
+- Space marked a row and then moved the cursor with
+  `QAbstractItemView::setCurrentIndex`, which *also selects* what it moves to.
+  Since selection is the mark, the tick appeared and vanished as the cursor
+  stepped off the row. Marking a second file from the keyboard was impossible.
+- And when that was fixed, the same bug remained by another route: the fix
+  covered the cursor move that Space performs itself, and not the *arrow key*
+  the user presses between two Spaces. The case that had been written was
+  "Space, Space, Space" — which passes, because Space advances on its own.
+  "Space, ↓, Space" was the one anybody would actually do.
+- A mouse-press handler added to make dragging carry the pressed row selected
+  that row on every left click — including a click on the tick box. Ticking a
+  second box emptied the first.
+
+Both were single-action-correct and multi-action-wrong. A case that says
+"pressing Space marks the row" passes in both broken builds. That is why every
+case above names a **sequence** and the state after it.
 
 ---
 
@@ -213,12 +271,12 @@ used to catch clipping and truncation (`docs/UI_UX_SPEC.md` §14).
 | DND-004 | Drag multiple selected files; count badge correct | H4 |
 | DND-005 | Drag the marked set when the drag starts on a marked row | H2 |
 | DND-006 | Esc during a drag cancels with no filesystem change | H4 |
-| DND-007 | Finder/Explorer → app | H4 + manual |
-| DND-008 | App → Finder/Explorer | H4 + manual |
+| DND-007 | Finder/Explorer → app | H4/H5 |
+| DND-008 | App → Finder/Explorer | H4/H5 |
 | DND-009 | Drop onto a read-only or full destination reports a clear error | H4 |
 | DND-010 | Drop a directory onto itself or a descendant is refused before it starts | H1 |
 | DND-011 | Drag from an archive extracts rather than moving | H2 |
-| DND-012 | Drag to a third-party app that requests file promises | manual |
+| DND-012 | Drag to a third-party app that requests file promises | H5 |
 | DND-013 | Auto-scroll while dragging near a list edge | H2 |
 | DND-014 | Spring-loaded folder open on hover, where the platform expects it | H4 |
 | DND-015 | Drag over a stalled mount does not freeze the drag session | H4 |
@@ -236,8 +294,8 @@ used to catch clipping and truncation (`docs/UI_UX_SPEC.md` §14).
 | MENU-005 | Keyboard invocation and full keyboard navigation of the menu | H2 |
 | MENU-006 | Every item is localized; no English literal leaks from a provider | H2 |
 | MENU-007 | Disabled items explain why | H2 |
-| MENU-008 | Submenus open in the right direction near a screen edge | manual |
-| MENU-009 | Menu appearance follows the platform in both themes | H3 + manual |
+| MENU-008 | Submenus open in the right direction near a screen edge | H5 |
+| MENU-009 | Menu appearance follows the platform in both themes | H3/H5 |
 | MENU-010 | No item triggers a modal OS dialog that blocks the automation session | H4 |
 
 ---
@@ -256,9 +314,22 @@ used to catch clipping and truncation (`docs/UI_UX_SPEC.md` §14).
 | KEY-008 | Focus is never trapped; Tab/Shift-Tab always escapes any panel | H2 |
 | KEY-009 | Focus order is deterministic and follows visual order | H2 |
 | KEY-010 | Focus ring is always visible in both themes | H3 |
-| KEY-011 | Shortcuts do not fire while an IME composition is active | H4 + manual |
+| KEY-011 | Shortcuts do not fire while an IME composition is active | H4/H5 |
 | KEY-012 | Shortcuts do not fire while a text field has focus, unless documented | H2 |
 | KEY-013 | Modifier-key state is correct after window focus loss and regain | H4 |
+| KEY-014 | `W` and `Alt-S` open search; `O` and `Alt-O` create a file; `Alt-P` toggles the preview panel; `primary+Enter` opens a terminal here — CV.HLP §二 keys we had commands for but had never bound | H2 |
+| KEY-015 | Every command id named by the key hint strip exists in the registry | H1 |
+| KEY-016 | In Single-Key mode the strip shows `C` and `M` for copy and move, not `Ins` and `Shift-C` — single keys come first | H2 |
+| KEY-018 | `E` opens the entry under the cursor in the platform's text editor, and is absent on a folder or a remote row | H2 |
+| KEY-019 | `O` creates a file and opens it for editing without a second keystroke | H2 |
+| KEY-020 | `Shift`+letter moves the cursor to the first entry starting with it; pressing it again moves to the next, and wraps | H2 |
+| KEY-021 | `Shift`+digit does the same for entries starting with that digit | H2 |
+| KEY-022 | `Shift-Ins` moves to the other pane, and `Shift-C`/`Shift-M` no longer copy or move | H2 |
+| KEY-023 | `H` opens the viewer in hex mode | H2 |
+| KEY-024 | `Shift`+letter does **not** run the command bound to that bare letter — `Shift-H` jumps, it does not open the hex viewer | H2 |
+| SET-020 | With fixed-width ticked the font list shows only fixed-width families, each with a digit's width beside it | H2 |
+| SET-021 | Unticking it restores the full family list and keeps the chosen family | H2 |
+| KEY-017 | In Native mode the strip shows no entry for a command that mode does not bind, rather than a blank | H2 |
 | PAL-001 | Command palette lists every command by localized name and by id | H1/H2 |
 | PAL-002 | Palette fuzzy match, ranking and recent-commands ordering | H1 |
 | PAL-003 | Palette shows the binding for each command | H2 |
@@ -277,11 +348,11 @@ used to catch clipping and truncation (`docs/UI_UX_SPEC.md` §14).
 | PREV-004 | Oversized file shows a bounded state with "open in viewer", not an error | H2 |
 | PREV-005 | Unsupported type falls back to hex, never to a blank panel | H2 |
 | PREV-006 | Preview of a file on a stalled mount cancels cleanly | H4 |
-| PREV-007 | macOS: Space opens native Quick Look; Space again closes | H4 + manual |
-| PREV-008 | macOS: embedded Quick Look renders inside the tool area | manual |
+| PREV-007 | macOS: Space opens native Quick Look; Space again closes | H4/H5 |
+| PREV-008 | macOS: embedded Quick Look renders inside the tool area | H5 |
 | PREV-009 | Preview panel resize does not re-trigger a full reload | H2 |
 | PREV-010 | Preview never executes content: no script, macro, or remote load | H2 |
-| VIEW-001 | Text viewer: 10 GB log opens without loading it all | H4 + bench |
+| VIEW-001 | Text viewer: 10 GB log opens without loading it all | H4/H6 |
 | VIEW-002 | Text viewer: encoding override including Big5, GB18030, Shift-JIS, UTF-16 | H2 |
 | VIEW-003 | Text viewer: mixed line endings shown, not normalized | H2 |
 | VIEW-004 | Text viewer: a single 100 MB line does not hang | H4 |
@@ -319,6 +390,69 @@ used to catch clipping and truncation (`docs/UI_UX_SPEC.md` §14).
 
 ---
 
+## 11a. Remote (SFTP) UI — `UI-RMT`  *(ADR-0004)*
+
+Stage one is browsing. The rows about writing are listed so they are not
+forgotten, and marked as belonging to stage two.
+
+| ID | Case | Layer |
+|---|---|---|
+| RMT-001 | 前往 → 連線到伺服器 opens a dialog asking host, port, user, folder and an optional password | H2 |
+| RMT-002 | Connect is disabled until a host is typed | H2 |
+| RMT-003 | Leaving the user empty uses this machine's account, as `ssh host` does | H1 |
+| RMT-004 | The dialog states plainly that it signs in with the agent or a key, and that no password is stored | H2 |
+| RMT-005 | A successful connection lists the remote folder in the pane, with sorting and filtering working as they do locally | H4 |
+| RMT-006 | An unreachable host reports an error in the pane and never blocks the UI thread | H4 |
+| RMT-007 | A host key that has **changed** is refused, showing both fingerprints, and the refusal cannot be dismissed by any setting | H1 |
+| RMT-008 | An unknown host is refused unless the user ticked "trust this host the first time"; accepting writes to `~/.ssh/known_hosts`, not to a store of our own | H1 |
+| RMT-009 | A password typed in the dialog is used for one connection and is not present in the saved session | H1 |
+| RMT-010 | Quick Look, Reveal in Finder, Open in Terminal and Move to Trash are absent or refuse on a remote row — they are about local files | H2 |
+| RMT-011 | 中斷所有伺服器連線 closes the sessions and the panes report it | H4 |
+| RMT-012 | Navigating away from a remote folder cancels its enumeration; no late rows arrive | H1 |
+| RMT-013 | A session holding a remote tab reopens without the host being reachable, showing it as disconnected rather than failing at startup | H4 |
+| RMT-014 | A connected server appears under 伺服器 in the sidebar and reopens with one click | H4 |
+| RMT-015 | A saved server records host, port and account and **no credential** — asserted by serializing one and searching the JSON | H1 |
+| RMT-016 | Connecting to the same host and account twice updates the entry rather than adding a second | H1 |
+| RMT-017 | A server is labelled `user@host` unless the user named it | H1 |
+| RMT-018 | Clicking a server connects rather than trying to open a local folder called `user@host` | H2 |
+| RMT-019 | 忘記這台伺服器 removes it from the sidebar and the session | H2 |
+| RMT-020 | Copy or move on a remote selection is refused with "writing is the next stage", not with "nothing is selected" | H1 |
+| RMT-021 | Upload, remote rename and remote delete — **stage two**, not built | — |
+| RMT-022 | The path bar on a remote pane reads `sftp://user@host/path`, not blank | H1 |
+| RMT-023 | The port appears in that path only when it is not 22 | H1 |
+| RMT-024 | The folder tree shows **no** selection while the pane is on a server, rather than keeping the last local folder highlighted | H2 |
+| RMT-025 | Returning from a server to a local folder restores the tree's selection to that folder | H2 |
+| RMT-026 | Bookmarking is refused on a remote folder — the bookmark list is about local paths | H1 |
+| RMT-027 | A server that refuses the sign-in prompts for a password and retries with it | H2 |
+| RMT-028 | That prompt hides what is typed, and the password is not in the saved session | H1 |
+| RMT-029 | It appears once per failure, not once per refresh, and not at all for an ordinary permission error | H2 |
+| RMT-030 | Clicking a saved server whose machine is off does not block the window; the error arrives when the attempt gives up | H4 |
+
+---
+
+## 11b. Archives — `UI-ARC`  *(ADR-0003)*
+
+| ID | Case | Layer |
+|---|---|---|
+| ARC-001 | `Z` on a `.zip` asks where to extract; `Z` on a folder measures it instead | H2 |
+| ARC-002 | `Z` on anything else says so rather than failing part way through | H2 |
+| ARC-003 | `Alt-Z` compresses the marked entries, or the one under the cursor, into a ZIP the user names | H2 |
+| ARC-004 | Extraction shows a live file count and byte total, and the window keeps redrawing throughout | H4 |
+| ARC-005 | Cancel stops an extraction and removes the partial file | H1 |
+| ARC-006 | A member whose path leads outside the destination is refused — `../`, absolute, drive letter, UNC, and the backslash spelling — and the count of refusals is shown | H1 |
+| ARC-007 | A symlink member is refused, never created | H1 |
+| ARC-008 | An archive that expands past the per-member or total bound stops and says so | H1 |
+| ARC-009 | A ZIP written by `Alt-Z` extracts back to exactly what went in | H1 |
+| ARC-010 | Extract and Compress appear in the context menu only where they apply, and are absent on a remote pane | H2 |
+| ARC-011 | Deleting a member from an existing archive is absent, not broken — it is deliberately not built | H2 |
+| ARC-012 | `Enter` on a ZIP opens a window listing its contents; `Enter` on anything else opens it the ordinary way | H2 |
+| ARC-013 | A file named `.zip` that is not a readable ZIP falls back to opening it, rather than showing an empty listing | H2 |
+| ARC-014 | In that window, `C` extracts the selected members and `X` extracts everything, both asking where to | H2 |
+| ARC-015 | A member whose path leads outside the destination is shown in the listing, marked, with a tooltip saying it will be refused | H2 |
+| ARC-016 | Closing the archive window releases the listing; reopening re-reads it | H1 |
+
+---
+
 ## 12. Search UI — `UI-SRCH`
 
 | ID | Case | Layer |
@@ -334,6 +468,271 @@ used to catch clipping and truncation (`docs/UI_UX_SPEC.md` §14).
 | SRCH-009 | A deterministic query never routes through AI, even when the AI panel is open | H1 |
 | SRCH-010 | Provenance (deterministic / semantic / reranked) is visible per row | H3 |
 | SRCH-011 | Zero results is distinct from "still searching" and from "scan failed" | H3 |
+
+---
+
+## 12a. Sidebar: Places — `UI-PLACES`
+
+The fixed half of the sidebar: favourites, bookmarks, servers, disks, recent
+places. It cannot be hidden; only the folder tree below it folds away.
+
+| ID | Case | Layer |
+|---|---|---|
+| PLACES-001 | Every section can be collapsed, and what was collapsed comes back collapsed after a restart | H4 |
+| PLACES-002 | A section with nothing in it is not drawn — an empty heading is a promise of content | H2 |
+| PLACES-003 | Clicking a place navigates the active pane; the sidebar does not become the focus | H2 |
+| PLACES-004 | The selected row is drawn as **one** shape across the whole row, with no notch where the indentation meets it | H3 |
+| PLACES-005 | A bookmark's menu offers rename, remove and reorder, and says「從書籤中移除」rather than an ambiguous「移除」 | H2 |
+| PLACES-006 | 「加入書籤」is absent from that menu when the current folder is already bookmarked | H2 |
+| PLACES-007 | A recent place can be bookmarked from its own menu, and that item is absent once it is one | H2 |
+| PLACES-008 | Reordering a bookmark survives a restart | H4 |
+| PLACES-009 | A server row shows whether it is connected, and offers connect / reconnect accordingly | H2 |
+| PLACES-010 | A volume row shows a usage bar: accent below 75%, amber to 90%, red past it | H3 |
+| PLACES-011 | The bars of two disks start and end at the same x, whether or not either can be ejected | H3 |
+| PLACES-012 | The bar is re-read while the window is open — filling a disk changes it without navigating | H4 |
+| PLACES-013 | Hovering a volume shows free and total | H2 |
+| PLACES-014 | The eject control appears only on removable volumes, and only where the platform can eject | H2 |
+| PLACES-015 | Clicking the eject control ejects and does **not** select the row behind it | H2 |
+| PLACES-016 | The pointer becomes a hand over the eject control and an arrow elsewhere | H2 |
+| PLACES-017 | **No row loses name width to a control it does not have.** A tree's column width is shared by every row; one eject button must not shorten every bookmark | H3 |
+| PLACES-018 | A volume that is unmounted while the window is open disappears within one poll | H4 |
+| PLACES-019 | Every row's menu offers「在新視窗開啟」 | H2 |
+
+---
+
+## 12b. Sidebar: Folder Tree — `UI-TREE`
+
+| ID | Case | Layer |
+|---|---|---|
+| TREE-001 | The tree can be folded away and brought back; the places above it stay either way | H2 |
+| TREE-002 | Its visibility survives a restart | H4 |
+| TREE-003 | The tree follows the focused pane, including onto a server | H2 |
+| TREE-004 | Expanding a node lists it lazily; a large folder does not block the window | H4 |
+| TREE-005 | A folder's menu offers new window, new tab and bookmark | H2 |
+| TREE-006 | An unreadable folder shows as unreadable rather than as empty | H2 |
+| TREE-007 | The sidebar comes up at a sensible width, not half the window, whether or not the tree is showing | H4 |
+| TREE-008 | A width the user dragged to is remembered; a width the layout invented is not | H4 |
+
+---
+
+## 12c. Path Bar — `UI-PATH`
+
+| ID | Case | Layer |
+|---|---|---|
+| PATH-001 | `P` and `\` both open the field with the current path selected | H2 |
+| PATH-002 | Typing filters a completion list drawn from the same source the tree lists with | H2 |
+| PATH-003 | **Typing in the field never fires a single-key command.** Every letter reaches the field | H2 |
+| PATH-004 | The same while the completion list is open — a popup taking the focus must not re-arm the commands | H2 |
+| PATH-005 | Enter navigates; Escape closes the list, and a second Escape leaves the field | H2 |
+| PATH-006 | Clicking a crumb navigates to that ancestor | H2 |
+| PATH-007 | **Right-clicking does not open the editor.** It opens the folder's menu | H2 |
+| PATH-008 | A path too long for the bar elides in the middle, keeping both ends | H3 |
+| PATH-009 | A remote path is shown as `sftp://user@host/path` and round-trips through the field | H1 |
+
+---
+
+## 12d. Disc Usage — `UI-USAGE`
+
+A report about a folder, in a window of its own.
+
+| ID | Case | Layer |
+|---|---|---|
+| USAGE-001 | Opens from the File menu and from a folder's context menu | H2 |
+| USAGE-002 | The window stays responsive while the walk runs | H4 |
+| USAGE-003 | A spinner turns while it works and stops when it finishes | H2 |
+| USAGE-004 | The status line names the folder currently being walked, elided in the middle | H2 |
+| USAGE-005 | Cancel stops the walk, and what is shown afterwards is labelled incomplete | H2 |
+| USAGE-006 | An unreadable subfolder makes the total say it is partial rather than being silently omitted | H1 |
+| USAGE-007 | Both breakdowns reconcile to the same total | H1 |
+| USAGE-008 | Files sitting directly in the folder get a row of their own, so the rows add up | H1 |
+| USAGE-009 | A folder too wide to list is capped and the remainder gathered into one labelled row | H1 |
+| USAGE-010 | The share bar is drawn against the largest row in the list, not the disk | H3 |
+| USAGE-011 | **The share bar is visible on the selected row** — the accent it uses is that row's background | H3 |
+| USAGE-012 | Every column heading sorts, and the list opens sorted by size | H2 |
+| USAGE-013 | Size sorts by bytes, not by the formatted text — "9.9 MB" must not sort above "1.2 GB" | H1 |
+| USAGE-014 | The kind column shows a different icon per type, not one generic document | H3 |
+| USAGE-015 | Right, Enter and double-click descend; Left and Backspace go back | H2 |
+| USAGE-016 | Descending puts the cursor on the first row | H2 |
+| USAGE-017 | Tab moves between the two lists; Enter on a kind does nothing, because a kind is not a place | H2 |
+| USAGE-018 | `C`, `M` and `D` act on the row under the cursor, and are on its context menu | H2 |
+| USAGE-019 | `D` asks before it acts, from this window as from anywhere else | H2 |
+| USAGE-020 | After an operation the level is measured again, and the panes refresh | H4 |
+| USAGE-021 | The key strip names exactly the keys this window answers to | H2 |
+| USAGE-022 | Symlinks are neither followed nor counted | H1 |
+| USAGE-023 | Every icon and colour in the window follows a theme change without reopening it | H3 |
+
+---
+
+## 12e. Folder Comparison — `UI-CMP`
+
+| ID | Case | Layer |
+|---|---|---|
+| CMP-001 | Compares the focused pane against the one a copy would go to — the same pair the badge names | H2 |
+| CMP-002 | Works for a top/bottom split as well as left/right; nothing in the wording assumes sides | H2 |
+| CMP-003 | "Include subfolders" is off by default and changes the result when turned on | H2 |
+| CMP-004 | The window stays responsive while both trees are read | H4 |
+| CMP-005 | Rows are classified only-here, only-there, differs, identical, and each is distinguishable in both themes | H3 |
+| CMP-006 | The rule it compared by — size and modification time — is printed under the table, not assumed | H2 |
+| CMP-007 | A row can be revealed in its pane | H2 |
+| CMP-008 | Result rows are capped, and the cap is stated rather than silently truncating | H1 |
+| CMP-009 | A symlink is a name, not a door: it is not walked into | H1 |
+
+---
+
+## 12f. Archives, Images and Compression — `UI-ARCX`
+
+Extends §11b to everything the current build reads and writes.
+
+| ID | Case | Layer |
+|---|---|---|
+| ARCX-001 | ZIP, `.tar`, `.tar.gz`/`.tgz`, `.tar.bz2`, `.tar.xz`, bare `.gz`/`.bz2`/`.xz`, and ISO 9660 all open a listing on Enter | H2 |
+| ARCX-002 | The format is decided by content, not by the name — a `.tar.gz` called anything still opens | H1 |
+| ARCX-003 | `.7z` and `.rar` are **not** offered as openable, and say so rather than failing after the attempt | H2 |
+| ARCX-004 | ISO listings show Joliet or Rock Ridge names where present | H1 |
+| ARCX-005 | `Space` marks, `C` extracts what is marked, `X` extracts everything | H2 |
+| ARCX-006 | Extraction shows progress and can be cancelled; cancelling leaves no half-written file claiming to be extracted | H2 |
+| ARCX-007 | Compressing a selection offers ZIP and `.tar.gz`; formats this build cannot write are refused plainly rather than half-attempted | H2 |
+| ARCX-008 | A member whose name would land outside the chosen folder is refused **and reported** — in every spelling: `../`, absolute, drive letter, UNC, backslash | H1 |
+| ARCX-009 | A symlink member is refused, not created | H1 |
+| ARCX-010 | Expansion is bounded against bytes that actually arrive, not against what the header claims | H1 |
+| ARCX-011 | A listing of a huge archive is bounded and says it was | H1 |
+| ARCX-012 | The listing window's key strip matches the keys it answers to | H2 |
+
+---
+
+## 12g. Hint Strip and Status Bar — `UI-HINT`, `UI-STATUS`
+
+| ID | Case | Layer |
+|---|---|---|
+| HINT-001 | The strip is built from the live keymap, never from a written list — rebinding a key changes it | H1 |
+| HINT-002 | It changes with what the cursor is on: nothing, a file, a folder, several | H2 |
+| HINT-003 | A key that would do nothing is not shown — switching panes with one pane open, for instance | H2 |
+| HINT-004 | A hint that does not fit is dropped and the strip says so, rather than ending silently | H2 |
+| HINT-005 | The strip uses short names; the menus keep the full ones — `D` reads「回收」in the strip and「移到資源回收筒」in the menu | H2 |
+| HINT-006 | Its three density modes each do what they say, and the choice survives a restart | H4 |
+| HINT-007 | Auto fades the strip while the list is worked and brings it back when the hands stop | H2 |
+| STATUS-001 | Counts are per workspace, summed over every pane | H1 |
+| STATUS-002 | The selection count counts rows **in the folder on screen** | H1 |
+| STATUS-003 | A long message on the left elides in the middle and never pushes the counters off the end | H3 |
+| STATUS-004 | An empty counter is hidden, not left as padding and a divider | H3 |
+| STATUS-005 | A running search names the folder it is in | H2 |
+| STATUS-006 | The shortcut chip opens the reference, and reads as a control rather than a readout | H2 |
+| STATUS-007 | The job counter opens the job list | H2 |
+| STATUS-008 | The zoom slider changes the list font and the setting survives a restart | H4 |
+
+---
+
+## 12h. Destructive Operations and Undo — `UI-SAFE`
+
+| ID | Case | Layer |
+|---|---|---|
+| SAFE-001 | **Every removal is confirmed** — menu, key, or disc usage window, trash as well as permanent delete | H2 |
+| SAFE-002 | Cancel is the default button; Escape cancels | H2 |
+| SAFE-003 | Permanent deletion says it cannot be undone **before** it runs | H2 |
+| SAFE-004 | The confirmation names how many items, and the icon shows the action rather than a question mark | H3 |
+| SAFE-005 | The dialog is readable in both themes — no black glyph on a black ground | H3 |
+| SAFE-006 | A conflict is reported with the first conflicting name and a choice, never resolved by guessing | H2 |
+| SAFE-007 | Undo reverses the last operation and says what it reversed | H2 |
+| SAFE-008 | Undo history is bounded and the bound is not a surprise | H1 |
+| SAFE-011 | An operation too large to undo gets **no** undo entry, not a partial one, and the user is told | H1/H2 |
+| SAFE-009 | An operation reports what it did, including what it refused | H2 |
+| SAFE-010 | A delete never touches anything outside the selection, whatever the tree does while it runs | H1 |
+
+---
+
+## 12i. About, Version and Upgrade — `UI-ABOUT`, `UI-UPG`
+
+| ID | Case | Layer |
+|---|---|---|
+| ABOUT-001 | The About box shows the application icon, the version and the Qt version | H3 |
+| ABOUT-002 | The version it shows is the version that was built | H4 |
+| ABOUT-003 | The window and taskbar icon is set on all three platforms | H3 |
+| UPG-001 | A session from an older format is migrated and nothing the user chose is lost | H1 |
+| UPG-002 | The pre-migration file is kept, named with its version | H4 |
+| UPG-003 | **A session from a newer build is refused and left untouched** — the older build writes beside it, never over it | H1 |
+| UPG-004 | The user is told, once, when the previous session could not be used | H2 |
+| UPG-005 | A keymap naming a command by an id it used to have still reaches that command | H1 |
+| UPG-006 | A corrupt session starts fresh, keeps the bad file, and says so | H1 |
+
+---
+
+## 12j. File Operations in the Interface — `UI-OPS`
+
+The dialogs and the feedback, not the engine. `docs/TESTING.md` §5.2 covers
+what the operations do to a filesystem; this covers what the user is told.
+
+| ID | Case | Layer |
+|---|---|---|
+| OPS-001 | Copy and move to the other pane, and to a folder chosen in a dialog, are both offered and both say where they will land | H2 |
+| OPS-002 | The destination dialog opens on the current folder and remembers nothing it should not | H2 |
+| OPS-003 | Rename opens with the name selected and the extension excluded from the selection | H2 |
+| OPS-004 | Rename to a name that exists reports the clash instead of overwriting | H2 |
+| OPS-005 | Batch rename previews every result **before** anything is renamed, and refuses to run if the preview shows a collision | H2 |
+| OPS-006 | A batch-rename pattern that is user input cannot hang the preview | H1 |
+| OPS-007 | Duplicate produces a name that does not collide and says what it made | H2 |
+| OPS-008 | New folder and new file ask for a name, reject an empty one, and put the cursor on what they created | H2 |
+| OPS-009 | The read-only toggle opens showing what is currently true rather than a guess | H2 |
+| OPS-010 | Properties shows size, dates, permissions and location, and says「未計算」for an unmeasured folder rather than 0 | H2 |
+| OPS-011 | **A folder measured with `Z` updates the properties panel**, whose path did not change | H2 |
+| OPS-012 | A long operation shows progress, names what it is on, and can be cancelled | H2 |
+| OPS-013 | A queued second operation is shown as queued, not as lost | H2 |
+| OPS-014 | Every operation's result is reported once, in words, and cleared as it is read | H2 |
+| OPS-015 | Copy path puts exactly the marked rows on the clipboard — not rows marked in a folder no longer on screen | H1 |
+| OPS-016 | Cut/copy/paste through the system clipboard round-trips with the platform's own file manager | H5 |
+
+---
+
+## 12k. Views, Sorting and Thumbnails — `UI-VIEWS`
+
+| ID | Case | Layer |
+|---|---|---|
+| VIEWS-001 | List and icon view show the same set, the same marks and the same cursor row | H2 |
+| VIEWS-002 | Switching view keeps the cursor on the same entry | H2 |
+| VIEWS-003 | The view mode is per tab and survives a restart | H4 |
+| VIEWS-004 | Thumbnails load off the UI thread; a folder of large images does not stall the window | H4 |
+| VIEWS-005 | A thumbnail that cannot be made falls back to the type icon rather than to blank | H2 |
+| VIEWS-006 | Sorting by each column ascends and descends, and the heading says which | H2 |
+| VIEWS-007 | Size sorts by bytes and date by instant, never by the formatted text | H1 |
+| VIEWS-008 | Folders-first is honoured in both directions of every sort | H1 |
+| VIEWS-009 | The sort is per tab and survives a restart | H4 |
+| VIEWS-010 | Hidden files appear and disappear with the setting, and the count changes with them | H2 |
+| VIEWS-011 | Column widths survive a restart; the name column fits the width it is actually drawn at | H2 |
+| VIEWS-012 | **Columns are aligned on first paint**, not one resize later | H3 |
+
+---
+
+## 12l. Windows and Tear-off — `UI-MULTI`
+
+| ID | Case | Layer |
+|---|---|---|
+| MULTI-001 | A tab dragged out becomes its own window holding that tab | H2 |
+| MULTI-002 | A tab dragged onto another window's pane joins it | H2 |
+| MULTI-003 | Dropping a tab anywhere on a pane works, not only on the tab strip | H2 |
+| MULTI-004 | Every window shows the same model: a change in one appears in the others | H4 |
+| MULTI-005 | Closing the main window closes the torn-off ones — they are parts of one workspace | H2 |
+| MULTI-006 | Window positions and sizes survive a restart | H4 |
+| MULTI-007 | The window title follows the focused pane | H2 |
+| MULTI-008 | "Open in new window" from a folder's menu opens that folder | H2 |
+
+---
+
+## 12m. Platform Integration — `UI-PLAT`
+
+Where the platforms differ, the difference must be visible rather than a
+command that does nothing.
+
+| ID | Case | Layer |
+|---|---|---|
+| PLAT-001 | Quick Look on macOS is the system panel, and the same one Finder shows | H5 |
+| PLAT-002 | Where there is no system equivalent the command is **hidden**, not offered and inert | H2 |
+| PLAT-003 | "Reveal in file manager" opens the platform's own and selects the entry | H5 |
+| PLAT-004 | "Open in terminal" opens at the current folder | H5 |
+| PLAT-005 | Open With lists the applications the platform associates, and ends with a chooser | H2 |
+| PLAT-006 | Eject is offered only where the platform can, and reports failure rather than assuming success | H2 |
+| PLAT-007 | Trash goes to the platform's own trash and is recoverable from it | H5 |
+| PLAT-008 | A dropped file from another application is copied or moved after asking which | H2 |
+| PLAT-009 | A file dragged out is accepted by the platform's own file manager | H5 |
+| PLAT-010 | The type icon for an entry is the platform's, and a row about a *kind* asks about the type rather than about a file | H3 |
 
 ---
 
@@ -384,13 +783,13 @@ used to catch clipping and truncation (`docs/UI_UX_SPEC.md` §14).
 | I18N-003 | No user-visible string literal in UI sources (static scan) | H0 |
 | I18N-004 | Every visible string resolves to a key present in both locales | H2 |
 | I18N-005 | Pseudo-locale (+40 % length): no clipping, no overlap, no truncated control | H3 |
-| I18N-006 | Taiwan terminology check on the zh-TW catalogue | manual |
+| I18N-006 | Taiwan terminology check on the zh-TW catalogue | H5 |
 | I18N-007 | Dates, times, numbers and file sizes are locale-formatted | H1 |
 | I18N-008 | Filenames are never translated or transformed for display | H1 |
 | I18N-009 | Plural forms render correctly at 0, 1, 2 and many | H1 |
 | I18N-010 | No sentence is assembled from translated fragments (catalogue lint) | H0 |
 | I18N-011 | Error display text comes from the catalogue; the code is shown separately | H1 |
-| I18N-012 | IME composition works in filter, rename, search and AI fields | H4 + manual |
+| I18N-012 | IME composition works in filter, rename, search and AI fields | H4/H5 |
 | I18N-013 | Layout does not break with RTL glyphs in filenames | H3 |
 | I18N-014 | Locale switch while a job is running relabels the job without disturbing it | H4 |
 
@@ -401,7 +800,7 @@ used to catch clipping and truncation (`docs/UI_UX_SPEC.md` §14).
 | ID | Case | Layer |
 |---|---|---|
 | THEME-001 | Runtime switch Light ↔ Dark ↔ System, no restart | H4 |
-| THEME-002 | Follow System reacts to an OS appearance change while running | H4 + manual |
+| THEME-002 | Follow System reacts to an OS appearance change while running | H4/H5 |
 | THEME-003 | Explicit Light/Dark ignores an OS appearance change | H4 |
 | THEME-004 | Theme preference persists across relaunch | H4 |
 | THEME-005 | No literal colour outside the token module (static scan) | H0 |
@@ -409,7 +808,7 @@ used to catch clipping and truncation (`docs/UI_UX_SPEC.md` §14).
 | THEME-007 | Contrast: primary and secondary text meet WCAG AA in both themes | H1 |
 | THEME-008 | Contrast: active-pane indicator, focus ring, mark and selection all distinguishable in both themes | H1/H3 |
 | THEME-009 | Icons legible in both themes; no baked-in single-theme asset | H3 |
-| THEME-010 | Native menus and platform panels follow OS appearance | manual |
+| THEME-010 | Native menus and platform panels follow OS appearance | H5 |
 | THEME-011 | Theme switch mid-drag, mid-job and mid-preview does not corrupt state | H4 |
 | THEME-012 | Screenshot matrix for every major surface in both themes | H3 |
 
@@ -437,9 +836,9 @@ settings, status bar, drag indicator.
 | A11Y-007 | Progress and job state are announced as they change | H2 |
 | A11Y-008 | Errors are announced, not only rendered | H2 |
 | A11Y-009 | Contrast AA for text, selection and marks in both themes | H1/H3 |
-| A11Y-010 | No information conveyed by colour alone | H3 + manual |
-| A11Y-011 | Respects reduce-motion and increase-contrast system settings | manual |
-| A11Y-012 | VoiceOver / Narrator / Orca walkthrough per release | manual |
+| A11Y-010 | No information conveyed by colour alone | H3/H5 |
+| A11Y-011 | Respects reduce-motion and increase-contrast system settings | H5 |
+| A11Y-012 | VoiceOver / Narrator / Orca walkthrough per release | H5 |
 
 ---
 
@@ -532,5 +931,24 @@ A UI change is not complete until:
 - a new interaction has a new `UI-*` case in this document
 - the screenshot matrix is regenerated and reviewed in `git diff`
 - the UI-thread watchdog run is unchanged or improved
+
+### 22.1 A case names a sequence, not an action
+
+Most of what has actually broken in this program was correct for one action
+and wrong for three. Marking, twice: `Space` marked a row and the cursor move
+that followed unmarked it; a mouse handler added for dragging cleared the set
+on every click, so ticking a second box emptied the first. Both would pass a
+case that said "pressing Space marks the row".
+
+So: **a case says what state exists after a sequence of actions.** "Space,
+Space, Space marks three rows" is a case. "Space marks a row" is not enough.
+The same goes for anything that accumulates — marks, tabs, undo history, the
+job queue, bookmarks, recent places.
+
+### 22.2 Every fix earns a case
+
+A bug that reached the user is a gap in this document, not only in the code.
+The change that fixes it adds the case that would have caught it, at the
+lowest layer that can prove it, and says in the case what the sequence was.
 
 This is part of the Definition of Done (`docs/TESTING.md` §15).

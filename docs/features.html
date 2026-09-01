@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en" data-show="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jt-filework — Full specification</title>
+<meta name="description" content="Every feature of jt-filework, what it supports, and where its limits are.">
+<link rel="icon" href="site/logo.png">
+<style>
+  /* One file, no build step, no framework. The page is small enough that a
+     toolchain would cost more than it saves. */
+  :root {
+    --bg: #ffffff;
+    --bg-alt: #f5f7fa;
+    --bg-tint: #f0f6ff;      /* a section ground that is not just grey */
+    --text: #14171c;
+    --dim: #58606e;
+    --line: #dfe4ec;
+    --accent: #2f6fed;
+    --accent-2: #7c4dff;     /* the second half of the hero wash */
+    --accent-soft: #e8f0ff;
+    --ok: #1f9d55;
+    --warm: #c2410c;
+    --code-bg: #eef1f6;
+    --shadow: 0 1px 3px rgba(20,30,60,.07), 0 10px 30px rgba(20,30,60,.08);
+  }
+  /* Light, on purpose, whatever the reader's system is set to. A project page
+     is read once by someone deciding whether to look further; one deliberate
+     appearance is easier to get right than two, and the screenshots below are
+     dark, which reads better against a light page than against another dark
+     one. `color-scheme` stops the browser darkening form controls under it. */
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC",
+          "PingFang TC", "Microsoft JhengHei", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 22px; }
+
+  header.bar {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar .wrap { display: flex; align-items: center; gap: 14px; height: 56px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -.01em; }
+  .brand img { width: 26px; height: 26px; border-radius: 6px; }
+  .bar nav { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .bar nav a { color: var(--dim); text-decoration: none; font-size: 14px; padding: 6px 8px; border-radius: 6px; }
+  .bar nav a:hover { color: var(--text); background: var(--bg-alt); }
+
+  .langs { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .langs a { padding: 5px 12px; font-size: 13px; text-decoration: none; color: var(--dim); }
+  .langs a[aria-current="true"] { background: var(--accent); color: #fff; }
+
+  /* A wash behind the hero rather than flat white. Two accents at low opacity,
+     so it reads as colour without competing with the screenshot under it. */
+  .hero {
+    padding: 68px 0 28px;
+    position: relative;
+  }
+  .hero::before {
+    content: ""; position: absolute; inset: -40px -50vw 40% -50vw; z-index: -1;
+    background:
+      radial-gradient(60% 80% at 22% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%),
+      radial-gradient(50% 70% at 82% 10%, color-mix(in srgb, var(--accent-2) 11%, transparent), transparent 70%),
+      linear-gradient(var(--bg-tint), var(--bg));
+  }
+  h1 .lead-accent {
+    background: linear-gradient(92deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  /* Alternating grounds, so the page has a rhythm rather than one long sheet. */
+  section:nth-of-type(even) {
+    background: var(--bg-alt);
+    /* The band runs full width while the text stays in the column. */
+    box-shadow: -50vw 0 0 var(--bg-alt), 50vw 0 0 var(--bg-alt);
+  }
+  .hero h1 { font-size: clamp(30px, 5.4vw, 46px); line-height: 1.15; margin: 0 0 14px; letter-spacing: -.02em; }
+  .hero p.lede { font-size: clamp(17px, 2.4vw, 20px); color: var(--dim); margin: 0 0 26px; max-width: 62ch; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .btn {
+    display: inline-block; padding: 11px 20px; border-radius: 9px;
+    text-decoration: none; font-weight: 560; font-size: 15px;
+    background: var(--accent); color: #fff; border: 1px solid transparent;
+  }
+  .btn.ghost { background: transparent; color: var(--text); border-color: var(--line); }
+  .status { font-size: 14px; color: var(--dim); margin-top: 14px; }
+  .status code { background: var(--code-bg); padding: 2px 6px; border-radius: 5px; }
+
+  figure.shot { margin: 34px 0 0; }
+  figure.shot img { width: 100%; border-radius: 12px; border: 1px solid var(--line); box-shadow: var(--shadow); display: block; }
+  figure.shot figcaption { font-size: 13.5px; color: var(--dim); margin-top: 10px; text-align: center; }
+
+  section { padding: 46px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: clamp(22px, 3.2vw, 28px); margin: 0 0 8px; letter-spacing: -.015em; }
+  h2 + p.sub { color: var(--dim); margin: 0 0 26px; max-width: 68ch; }
+  h3 { font-size: 17px; margin: 0 0 6px; }
+
+  .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(272px, 1fr)); }
+  .card {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 11px;
+    padding: 18px 18px 16px; position: relative; overflow: hidden;
+  }
+  /* A coloured edge per card, cycling, so a grid of six is not six grey boxes. */
+  .card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--accent);
+  }
+  .card:nth-child(2)::before { background: var(--accent-2); }
+  .card:nth-child(3)::before { background: var(--ok); }
+  .card:nth-child(4)::before { background: var(--warm); }
+  .card:nth-child(5)::before { background: var(--accent-2); }
+  .card:nth-child(6)::before { background: var(--ok); }
+  .card p { margin: 0; color: var(--dim); font-size: 14.5px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--dim); font-weight: 560; font-size: 13px; }
+  td.yes { color: #1f9d55; font-weight: 600; }
+  td.no { color: var(--dim); }
+  .scroll { overflow-x: auto; }
+
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 9px; padding: 14px 16px; overflow-x: auto; font-size: 13.5px; line-height: 1.55; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px; background: var(--code-bg); border: 1px solid var(--line);
+    border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px;
+  }
+  /* Two or three columns wherever the width allows: a single column of
+     twenty-eight keys is a scroll, and the point of the list is to be taken in
+     at a glance. */
+  .keys { display: grid; gap: 8px 26px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin: 0; }
+  .keys div { display: flex; gap: 10px; align-items: baseline; font-size: 14.5px; }
+  .keys .k { min-width: 52px; }
+  .keys .or { color: var(--dim); font-size: 12.5px; padding: 0 2px; }
+
+  .card.dl h3 { margin-bottom: 8px; }
+  .card.dl .soon {
+    margin-top: 12px; display: inline-block; font-size: 12.5px; font-weight: 560;
+    color: var(--dim); background: var(--code-bg); border: 1px solid var(--line);
+    border-radius: 999px; padding: 3px 11px;
+  }
+  /* When a build is published, the badge becomes a link and picks this up. */
+  .card.dl a.get {
+    margin-top: 12px; display: inline-block; font-size: 13.5px; font-weight: 560;
+    background: var(--accent); color: #fff; text-decoration: none;
+    border-radius: 8px; padding: 7px 14px;
+  }
+
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; font-size: 14.5px; }
+  ul.plain { padding-left: 20px; color: var(--dim); font-size: 14.5px; }
+  ul.plain li { margin: 5px 0; }
+
+  footer { border-top: 1px solid var(--line); padding: 30px 0 50px; color: var(--dim); font-size: 14px; }
+  footer a { color: var(--accent); }
+
+  /* Both languages are in the page; the root element says which one shows.
+     Driven by CSS rather than by setting inline styles, because clearing an
+     inline `display` only falls back to the rule below - which is `none`, so
+     the text stayed hidden. `revert` gives each element its natural display
+     back, whether that is a block or an inline. */
+  [data-lang] { display: none; }
+  html[data-show="en"] [data-lang="en"],
+  html[data-show="zh-tw"] [data-lang="zh-tw"] { display: revert; }
+</style>
+
+<style>
+  /* The spec tables. Dense on purpose: this page is read to look something up,
+     not to be persuaded of anything. */
+  .spec { width: 100%; border-collapse: collapse; margin: 14px 0 26px; font-size: 14.5px; }
+  .spec caption { text-align: left; font-weight: 650; padding: 0 0 8px; color: var(--text); }
+  .spec th, .spec td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .spec thead th { background: var(--bg-alt); font-size: 13px; letter-spacing: .02em; color: var(--dim); font-weight: 650; }
+  .spec tbody tr:hover { background: var(--bg-tint); }
+  .spec td code, .spec th code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .spec .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .yes { color: var(--ok); font-weight: 650; }
+  .no  { color: var(--dim); }
+  .part { color: var(--warm); font-weight: 650; }
+  .scroller { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* A key cap, the same idea the program draws along its own foot. */
+  kbd {
+    display: inline-block; min-width: 22px; text-align: center;
+    font: 600 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: var(--bg-alt); border: 1px solid var(--line); border-bottom-width: 2px;
+    border-radius: 5px; padding: 1px 6px; color: var(--text);
+  }
+  .toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px 18px; margin: 8px 0 34px; }
+  .toc a { color: var(--accent); text-decoration: none; font-size: 14.5px; padding: 3px 0; }
+  .toc a:hover { text-decoration: underline; }
+  h2 { margin-top: 46px; scroll-margin-top: 72px; padding-top: 6px; border-top: 3px solid var(--accent-soft); }
+  h3 { margin-top: 30px; scroll-margin-top: 72px; }
+  .note { border-left: 3px solid var(--accent); background: var(--bg-tint); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 18px 0; font-size: 15px; }
+  .warn { border-left-color: var(--warm); background: #fff7ed; }
+</style>
+
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="index.html" style="text-decoration:none;color:inherit"><img src="site/logo.png" alt="">jt-filework</a>
+    <nav>
+      <a href="index.html" data-lang="en">Overview</a><a href="index.html" data-lang="zh-tw">首頁</a>
+      <a href="#keyboard" data-lang="en">Keyboard</a><a href="#keyboard" data-lang="zh-tw">鍵盤</a>
+      <a href="#formats" data-lang="en">Formats</a><a href="#formats" data-lang="zh-tw">格式</a>
+      <a href="#limits" data-lang="en">Limits</a><a href="#limits" data-lang="zh-tw">上限</a>
+      <a href="https://github.com/jasoncheng7115/jt-filework">GitHub</a>
+      <span class="langs">
+        <a href="?lang=en" id="lang-en">EN</a><a href="?lang=zh-tw" id="lang-zh">中</a>
+      </span>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="hero" style="padding-bottom:14px">
+    <div data-lang="en">
+      <h1>Full specification</h1>
+      <p class="lede">Every feature this build has, every format it reads, and every limit it
+        enforces — with the numbers. Written to be looked things up in, not read through.</p>
+    </div>
+    <div data-lang="zh-tw">
+      <h1>完整功能規格</h1>
+      <p class="lede">這個版本有的每一項功能、讀得懂的每一種格式、以及每一道上限——連數字一起。
+        這一頁是拿來查的，不是拿來讀完的。</p>
+    </div>
+    <p class="status" data-lang="en"><strong>0.6.0</strong> — 570 tests pass. Anything not listed
+      here is not built; the last section says so explicitly.</p>
+    <p class="status" data-lang="zh-tw"><strong>0.6.0</strong> — 570 個測試通過。這一頁沒列到的就是
+      沒做，最後一節有明確清單。</p>
+  </div>
+
+  <nav class="toc">
+    <a href="#glance" data-lang="en">1. At a glance</a><a href="#glance" data-lang="zh-tw">1. 一覽</a>
+    <a href="#keyboard" data-lang="en">2. Keyboard</a><a href="#keyboard" data-lang="zh-tw">2. 鍵盤</a>
+    <a href="#layout" data-lang="en">3. Panes, tabs, windows</a><a href="#layout" data-lang="zh-tw">3. 面板、分頁、視窗</a>
+    <a href="#marks" data-lang="en">4. Selection and marks</a><a href="#marks" data-lang="zh-tw">4. 選取與標記</a>
+    <a href="#operations" data-lang="en">5. File operations</a><a href="#operations" data-lang="zh-tw">5. 檔案操作</a>
+    <a href="#viewing" data-lang="en">6. Viewing files</a><a href="#viewing" data-lang="zh-tw">6. 檢視檔案</a>
+    <a href="#formats" data-lang="en">7. Formats</a><a href="#formats" data-lang="zh-tw">7. 支援格式</a>
+    <a href="#remote" data-lang="en">8. Remote folders</a><a href="#remote" data-lang="zh-tw">8. 遠端資料夾</a>
+    <a href="#finding" data-lang="en">9. Finding things</a><a href="#finding" data-lang="zh-tw">9. 尋找</a>
+    <a href="#appearance" data-lang="en">10. Appearance</a><a href="#appearance" data-lang="zh-tw">10. 外觀與語言</a>
+    <a href="#limits" data-lang="en">11. Limits</a><a href="#limits" data-lang="zh-tw">11. 上限與界線</a>
+    <a href="#refuses" data-lang="en">12. What it refuses</a><a href="#refuses" data-lang="zh-tw">12. 拒絕的事</a>
+    <a href="#platforms" data-lang="en">13. Platform differences</a><a href="#platforms" data-lang="zh-tw">13. 平台差異</a>
+    <a href="#notbuilt" data-lang="en">14. Not built</a><a href="#notbuilt" data-lang="zh-tw">14. 尚未完成</a>
+  </nav>
+
+  <h2 id="glance" data-lang="en">1. At a glance</h2>
+  <h2 id="glance" data-lang="zh-tw">1. 一覽</h2>
+  <div class="scroller"><table class="spec">
+    <tbody>
+      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.0</td></tr>
+      <tr><th data-lang="en">Platforms</th><th data-lang="zh-tw">平台</th>
+        <td data-lang="en">macOS 12+ (Apple Silicon and Intel), Windows 10/11 x64, Linux (Qt 6.2+)</td>
+        <td data-lang="zh-tw">macOS 12 以上（Apple Silicon 與 Intel）、Windows 10/11 x64、Linux（Qt 6.2 以上）</td></tr>
+      <tr><th data-lang="en">Written in</th><th data-lang="zh-tw">實作</th>
+        <td data-lang="en">Rust 1.98 for everything that decides; Qt 6 Widgets for what is drawn</td>
+        <td data-lang="zh-tw">所有判斷邏輯用 Rust 1.98；畫面用 Qt 6 Widgets</td></tr>
+      <tr><th><code>unsafe</code></th>
+        <td data-lang="en">Only in the C ABI bridge between the two, every block with a written safety argument</td>
+        <td data-lang="zh-tw">只存在於兩者之間的 C ABI 橋接層，每一塊都寫明安全性論證</td></tr>
+      <tr><th data-lang="en">Licence</th><th data-lang="zh-tw">授權</th><td>GPL-3.0-or-later</td></tr>
+      <tr><th data-lang="en">Tests</th><th data-lang="zh-tw">測試</th>
+        <td data-lang="en">570 automated, including architecture, migration and hostile-input levels</td>
+        <td data-lang="zh-tw">570 個自動化測試，含架構、遷移與惡意輸入層級</td></tr>
+      <tr><th data-lang="en">Telemetry</th><th data-lang="zh-tw">遙測</th>
+        <td data-lang="en"><span class="no">None.</span> The program makes no network connection you did not ask for</td>
+        <td data-lang="zh-tw"><span class="no">沒有。</span>除了你要求的連線之外，程式不會連任何地方</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="keyboard" data-lang="en">2. Keyboard</h2>
+  <h2 id="keyboard" data-lang="zh-tw">2. 鍵盤</h2>
+  <p data-lang="en">Two profiles, both plain text files in <code>keymaps/</code>. A binding is a line;
+    adding one rebuilds nothing. The keys you can press right now are named along the foot of the
+    window and change with what the cursor is on.</p>
+  <p data-lang="zh-tw">兩套設定檔，都是 <code>keymaps/</code> 裡的純文字檔。一個綁定就是一行，
+    新增一個不用重建任何東西。當下可以按的鍵就寫在視窗下緣，而且會跟著游標所在的東西改變。</p>
+
+  <h3 data-lang="en">Single-Key mode — one letter, one command</h3>
+  <h3 data-lang="zh-tw">全鍵模式 — 一個字母，一個命令</h3>
+  <div class="scroller"><table class="spec">
+    <thead><tr>
+      <th data-lang="en">Key</th><th data-lang="zh-tw">按鍵</th>
+      <th data-lang="en">Does</th><th data-lang="zh-tw">動作</th>
+      <th data-lang="en">Notes</th><th data-lang="zh-tw">說明</th>
+    </tr></thead>
+    <tbody>
+      <tr><td><kbd>G</kbd></td>
+        <td data-lang="en">Open</td><td data-lang="zh-tw">開啟</td>
+        <td data-lang="en">Enter a folder, or open a file with its application</td>
+        <td data-lang="zh-tw">進入資料夾，或用對應的應用程式開啟檔案</td></tr>
+      <tr><td><kbd>V</kbd></td>
+        <td data-lang="en">View</td><td data-lang="zh-tw">檢視</td>
+        <td data-lang="en">The built-in viewer: text, hex, image, archive listing</td>
+        <td data-lang="zh-tw">內建檢視器：文字、十六進位、圖片、壓縮檔列表</td></tr>
+      <tr><td><kbd>H</kbd></td>
+        <td data-lang="en">View as hex</td><td data-lang="zh-tw">以十六進位檢視</td>
+        <td data-lang="en">Always available, never wrong about what a file contains</td>
+        <td data-lang="zh-tw">永遠可用，對檔案內容的呈現永遠不會錯</td></tr>
+      <tr><td><kbd>E</kbd></td>
+        <td data-lang="en">Edit</td><td data-lang="zh-tw">編輯</td>
+        <td data-lang="en">The external editor, where the platform has one</td>
+        <td data-lang="zh-tw">外部編輯器（平台有的話）</td></tr>
+      <tr><td><kbd>C</kbd></td>
+        <td data-lang="en">Copy to…</td><td data-lang="zh-tw">複製到…</td>
+        <td data-lang="en">Asks where; <kbd>Ins</kbd> copies to the other pane</td>
+        <td data-lang="zh-tw">會問目的地；<kbd>Ins</kbd> 直接複製到另一個面板</td></tr>
+      <tr><td><kbd>M</kbd></td>
+        <td data-lang="en">Move to…</td><td data-lang="zh-tw">移動到…</td>
+        <td data-lang="en">Same, moving</td><td data-lang="zh-tw">同上，但是移動</td></tr>
+      <tr><td><kbd>R</kbd></td>
+        <td data-lang="en">Rename</td><td data-lang="zh-tw">更名</td>
+        <td data-lang="en">Opens with the extension outside the selection</td>
+        <td data-lang="zh-tw">開啟時副檔名不在選取範圍內</td></tr>
+      <tr><td><kbd>D</kbd></td>
+        <td data-lang="en">Move to the trash</td><td data-lang="zh-tw">移到資源回收筒</td>
+        <td data-lang="en">Always asks first; the platform's own trash</td>
+        <td data-lang="zh-tw">一定會先問；用的是作業系統自己的回收筒</td></tr>
+      <tr><td><kbd>Space</kbd></td>
+        <td data-lang="en">Mark, and move on</td><td data-lang="zh-tw">標記，並移到下一列</td>
+        <td data-lang="en">Marks accumulate; the cursor moving does not clear them</td>
+        <td data-lang="zh-tw">標記會累積，游標移動不會清掉它們</td></tr>
+      <tr><td><kbd>Z</kbd></td>
+        <td data-lang="en">Measure a folder</td><td data-lang="zh-tw">計算資料夾大小</td>
+        <td data-lang="en">On a worker thread, with a running count and a working Cancel</td>
+        <td data-lang="zh-tw">在背景執行緒上跑，有即時計數與可用的取消</td></tr>
+      <tr><td><kbd>F</kbd></td>
+        <td data-lang="en">Filter this folder</td><td data-lang="zh-tw">篩選目前資料夾</td>
+        <td data-lang="en">Narrows as you type; matches are picked out</td>
+        <td data-lang="zh-tw">邊打邊縮小，命中的部分會標出來</td></tr>
+      <tr><td><kbd>W</kbd></td>
+        <td data-lang="en">Search</td><td data-lang="zh-tw">搜尋</td>
+        <td data-lang="en">Walks subfolders, streaming results, says which folder it is in</td>
+        <td data-lang="zh-tw">會走訪子資料夾，結果邊找邊出現，並顯示正在搜尋哪個資料夾</td></tr>
+      <tr><td><kbd>S</kbd></td>
+        <td data-lang="en">Sort by…</td><td data-lang="zh-tw">排序…</td>
+        <td data-lang="en">Per tab, remembered across restarts</td>
+        <td data-lang="zh-tw">每個分頁各自記住，重啟後仍在</td></tr>
+      <tr><td><kbd>T</kbd></td>
+        <td data-lang="en">Folder tree</td><td data-lang="zh-tw">樹狀清單</td>
+        <td data-lang="en">Folds the tree away; the places above it stay</td>
+        <td data-lang="zh-tw">收合資料夾樹；上面的「位置」不受影響</td></tr>
+      <tr><td><kbd>I</kbd></td>
+        <td data-lang="en">Inspector panel</td><td data-lang="zh-tw">檢視面板</td>
+        <td data-lang="en">Preview and facts about what the cursor is on</td>
+        <td data-lang="zh-tw">游標所在項目的預覽與屬性</td></tr>
+      <tr><td><kbd>A</kbd></td>
+        <td data-lang="en">Properties</td><td data-lang="zh-tw">屬性</td>
+        <td data-lang="en">Size, dates, permissions, location</td>
+        <td data-lang="zh-tw">大小、日期、權限、位置</td></tr>
+      <tr><td><kbd>P</kbd> <span class="no">or</span> <kbd>\</kbd></td>
+        <td data-lang="en">Type a path</td><td data-lang="zh-tw">輸入路徑</td>
+        <td data-lang="en">With completion; accepts <code>sftp://user@host/path</code></td>
+        <td data-lang="zh-tw">有自動完成；接受 <code>sftp://user@host/path</code></td></tr>
+      <tr><td><kbd>←</kbd></td>
+        <td data-lang="en">Up one level</td><td data-lang="zh-tw">上一層</td>
+        <td data-lang="en">The cursor lands on the folder you just left</td>
+        <td data-lang="zh-tw">游標會落在剛離開的那個資料夾上</td></tr>
+      <tr><td><kbd>→</kbd></td>
+        <td data-lang="en">Go in</td><td data-lang="zh-tw">進入</td>
+        <td data-lang="en">Same as <kbd>Enter</kbd></td><td data-lang="zh-tw">與 <kbd>Enter</kbd> 相同</td></tr>
+      <tr><td><kbd>Tab</kbd></td>
+        <td data-lang="en">Next area</td><td data-lang="zh-tw">下一個區域</td>
+        <td data-lang="en">Places → folder tree → each pane. Areas that are hidden are not stops</td>
+        <td data-lang="zh-tw">位置 → 資料夾樹 → 各個面板。沒顯示的區域不算一站</td></tr>
+      <tr><td><kbd>F5</kbd></td>
+        <td data-lang="en">Refresh</td><td data-lang="zh-tw">重新整理</td><td>—</td></tr>
+      <tr><td><kbd>F7</kbd></td>
+        <td data-lang="en">New folder</td><td data-lang="zh-tw">新增資料夾</td>
+        <td data-lang="en"><kbd>0</kbd> makes a new file</td><td data-lang="zh-tw"><kbd>0</kbd> 是新增檔案</td></tr>
+      <tr><td><kbd>Esc</kbd></td>
+        <td data-lang="en">Stop narrowing</td><td data-lang="zh-tw">停止縮小範圍</td>
+        <td data-lang="en">Clears a filter or a search, whichever is in force</td>
+        <td data-lang="zh-tw">清掉篩選或搜尋，看當下生效的是哪一個</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note">
+    <p data-lang="en"><strong>Typing is typing.</strong> The moment the keyboard is in a text field —
+      the path bar, the filter, a rename box, the search box — every letter goes to that field.
+      A single-key command cannot fire out from under someone who is typing, and that holds while a
+      completion list is open too.</p>
+    <p data-lang="zh-tw"><strong>打字就是打字。</strong>只要鍵盤在輸入欄位裡——路徑列、篩選框、
+      更名框、搜尋框——每一個字母都歸那個欄位。單鍵命令不會在有人正在打字時竄出來，
+      自動完成清單開著的時候也一樣。</p>
+  </div>
+
+  <h3 data-lang="en">Native mode</h3>
+  <h3 data-lang="zh-tw">原生模式</h3>
+  <p data-lang="en">The operating system's own combinations, for when muscle memory says
+    <kbd>Cmd-C</kbd>. Switching between the two profiles is one chord, and that chord is the same in
+    both — a switch that only exists in the mode you left is a door that locks behind you.</p>
+  <p data-lang="zh-tw">作業系統自己的組合鍵，給肌肉記憶說「Cmd-C」的時候。兩套設定檔之間的切換是一個
+    組合鍵，而且兩邊都是同一個——只存在於你剛離開的那個模式裡的開關，是一扇會在背後鎖上的門。</p>
+  <h2 id="layout" data-lang="en">3. Panes, tabs and windows</h2>
+  <h2 id="layout" data-lang="zh-tw">3. 面板、分頁與視窗</h2>
+  <div class="scroller"><table class="spec">
+    <tbody>
+      <tr><th data-lang="en">Splitting</th><th data-lang="zh-tw">分割</th>
+        <td data-lang="en">A recursive tree, not two fixed panes. Split any pane horizontally or
+          vertically, and split the result again, up to 16 levels</td>
+        <td data-lang="zh-tw">遞迴的分割樹，不是固定的兩個面板。任何面板都能水平或垂直再分，
+          分出來的還能再分，最多 16 層</td></tr>
+      <tr><th data-lang="en">Presets</th><th data-lang="zh-tw">預設版面</th>
+        <td data-lang="en">One pane, two, or a 2×2 grid, in one command</td>
+        <td data-lang="zh-tw">單面板、雙面板、2×2 四格，一個命令切換</td></tr>
+      <tr><th data-lang="en">Tabs</th><th data-lang="zh-tw">分頁</th>
+        <td data-lang="en">Every pane owns its own. A tab remembers its folder, its sort, its view
+          mode, its filter, its marks and its history</td>
+        <td data-lang="zh-tw">每個面板有自己的分頁。分頁會記住資料夾、排序、檢視模式、篩選、標記與瀏覽歷程</td></tr>
+      <tr><th data-lang="en">Pinning</th><th data-lang="zh-tw">釘選</th>
+        <td data-lang="en">A pinned tab refuses to close and stays at the front of the strip</td>
+        <td data-lang="zh-tw">釘選的分頁不會被關掉，並固定在最前面</td></tr>
+      <tr><th data-lang="en">Reopen</th><th data-lang="zh-tw">重新開啟</th>
+        <td data-lang="en">A closed tab comes back with its folder and its history</td>
+        <td data-lang="zh-tw">關掉的分頁可以連同資料夾與歷程一起復原</td></tr>
+      <tr><th data-lang="en">Tear-off</th><th data-lang="zh-tw">拉出視窗</th>
+        <td data-lang="en">Drag a tab out to make a window of it, or into another pane to move it.
+          Every window shows the same workspace</td>
+        <td data-lang="zh-tw">把分頁拖出來就成為獨立視窗，拖進別的面板就是移動過去。所有視窗看的是同一個工作區</td></tr>
+      <tr><th data-lang="en">Focus</th><th data-lang="zh-tw">焦點</th>
+        <td data-lang="en">The folder tree, the window title and the preview all follow the focused
+          pane. The focus ring is drawn only when there is more than one pane</td>
+        <td data-lang="zh-tw">資料夾樹、視窗標題與預覽都跟著有焦點的面板。只有面板超過一個時才畫焦點框</td></tr>
+      <tr><th data-lang="en">Restored</th><th data-lang="zh-tw">重啟還原</th>
+        <td data-lang="en">The whole layout, every tab and every mark, unless you ask it not to</td>
+        <td data-lang="zh-tw">整個版面、每個分頁、每個標記都會還原，除非你設定不要</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="marks" data-lang="en">4. Selection and marks</h2>
+  <h2 id="marks" data-lang="zh-tw">4. 選取與標記</h2>
+  <p data-lang="en"><strong>Selecting a row marks it, and marking a row selects it.</strong> They
+    were two separate concepts and are now one, because keeping them apart meant Shift-selecting six
+    files and finding none of them ticked — and then an operation acting on something other than
+    what was highlighted.</p>
+  <p data-lang="zh-tw"><strong>選取一列就是標記它，標記一列就是選取它。</strong>這兩件事原本是分開的，
+    現在合而為一——因為分開的結果是：用 Shift 選了六個檔案，卻一個都沒被勾起來，接著操作動到的
+    又不是畫面上亮著的那些。</p>
+  <div class="scroller"><table class="spec">
+    <tbody>
+      <tr><th data-lang="en">Tick box</th><th data-lang="zh-tw">勾選框</th>
+        <td data-lang="en">Adds one row to the set. Clicking a second box does not empty the first</td>
+        <td data-lang="zh-tw">把一列加進集合。勾第二個不會把第一個清掉</td></tr>
+      <tr><th data-lang="en">Clicking a row</th><th data-lang="zh-tw">點一列</th>
+        <td data-lang="en">Chooses that row, and only that row. This is the one gesture that replaces the set</td>
+        <td data-lang="zh-tw">選那一列，而且只有那一列。這是唯一會替換整個集合的手勢</td></tr>
+      <tr><th><kbd>Space</kbd></th>
+        <td data-lang="en">Marks and moves on. Three presses mark three rows</td>
+        <td data-lang="zh-tw">標記並移到下一列。按三次就標記三列</td></tr>
+      <tr><th data-lang="en">Header box</th><th data-lang="zh-tw">標題列的框</th>
+        <td data-lang="en">All, none, and a third state when only part of the list is marked</td>
+        <td data-lang="zh-tw">全選、全不選，只標記了一部分時是第三種狀態</td></tr>
+      <tr><th data-lang="en">Counting</th><th data-lang="zh-tw">計數</th>
+        <td data-lang="en">The status line counts rows <em>in the folder on screen</em>. Marks made
+          elsewhere are kept but not counted here, and never acted on by accident</td>
+        <td data-lang="zh-tw">狀態列數的是<em>畫面上這個資料夾</em>的列。在別處做的標記會保留但不列入計數，
+          也不會被誤動到</td></tr>
+      <tr><th data-lang="en">Dragging</th><th data-lang="zh-tw">拖曳</th>
+        <td data-lang="en">Carries what the cursor is on. Dragging an unmarked row does not drag the
+          marked set instead</td>
+        <td data-lang="zh-tw">帶的是游標所在的那一列。拖一個沒標記的列，不會變成拖走整組標記</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="operations" data-lang="en">5. File operations</h2>
+  <h2 id="operations" data-lang="zh-tw">5. 檔案操作</h2>
+  <p data-lang="en">Every one is planned before it runs, shows progress, can be cancelled, and
+    reports conflicts rather than guessing. There is an undo.</p>
+  <p data-lang="zh-tw">每個操作都先規劃再執行，有進度、可取消，遇到衝突會回報而不是自己猜。有復原。</p>
+  <div class="scroller"><table class="spec">
+    <thead><tr>
+      <th data-lang="en">Operation</th><th data-lang="zh-tw">操作</th>
+      <th data-lang="en">Detail</th><th data-lang="zh-tw">細節</th>
+    </tr></thead>
+    <tbody>
+      <tr><td data-lang="en">Copy / Move</td><td data-lang="zh-tw">複製／移動</td>
+        <td data-lang="en">To the other pane, or to a folder chosen in a dialog. Conflicts offer
+          skip, keep both, overwrite, or stop — never resolved by guessing</td>
+        <td data-lang="zh-tw">複製到另一個面板，或用對話框選目的地。遇到衝突提供略過、兩者都留、
+          覆寫、中止——絕不自己猜</td></tr>
+      <tr><td data-lang="en">Rename</td><td data-lang="zh-tw">更名</td>
+        <td data-lang="en">Opens with the extension outside the selection; a clash is reported, not
+          overwritten</td>
+        <td data-lang="zh-tw">開啟時副檔名不在選取範圍；名稱撞到會回報，不會覆寫</td></tr>
+      <tr><td data-lang="en">Batch rename</td><td data-lang="zh-tw">批次更名</td>
+        <td data-lang="en">Every result is previewed before anything is renamed. The pattern is user
+          input, so the matcher has no backtracking and cannot be made to hang</td>
+        <td data-lang="zh-tw">全部結果先預覽再動手。比對樣式是使用者輸入，所以用的是不會回溯的比對器，
+          做不出會卡死的樣式</td></tr>
+      <tr><td data-lang="en">Duplicate</td><td data-lang="zh-tw">製作副本</td>
+        <td data-lang="en">A name that does not collide, said out loud</td>
+        <td data-lang="zh-tw">產生不會撞名的名稱，並告訴你叫什麼</td></tr>
+      <tr><td data-lang="en">Trash / Delete</td><td data-lang="zh-tw">移到回收筒／永久刪除</td>
+        <td data-lang="en">Both ask first. Permanent deletion says it cannot be undone
+          <em>before</em> it runs. Deletion walks by open directory descriptor, so a directory
+          swapped for a symlink mid-run cannot lead it out of the selection</td>
+        <td data-lang="zh-tw">兩者都會先問。永久刪除會在<em>執行前</em>說明無法復原。刪除是以開啟的
+          目錄描述符走訪，所以中途被換成符號連結的資料夾無法把它引出選取範圍</td></tr>
+      <tr><td data-lang="en">New folder / file</td><td data-lang="zh-tw">新增資料夾／檔案</td>
+        <td data-lang="en">Asks for a name, then puts the cursor on what it made</td>
+        <td data-lang="zh-tw">問名稱，然後把游標放到剛建立的東西上</td></tr>
+      <tr><td data-lang="en">Read-only</td><td data-lang="zh-tw">唯讀</td>
+        <td data-lang="en">Opens showing what is currently true rather than a guess</td>
+        <td data-lang="zh-tw">開啟時顯示的是目前的實際狀態，不是猜的</td></tr>
+      <tr><td data-lang="en">Undo</td><td data-lang="zh-tw">復原</td>
+        <td data-lang="en">Bounded to the last 32 operations — undo is for the mistake you just
+          made, not an archive</td>
+        <td data-lang="zh-tw">上限 32 次——復原是給剛剛犯的錯用的，不是歷史檔案</td></tr>
+      <tr><td data-lang="en">Drag and drop</td><td data-lang="zh-tw">拖放</td>
+        <td data-lang="en">Between panes and to and from other applications. A drop asks whether to
+          copy or move rather than inferring it from a modifier nobody can see</td>
+        <td data-lang="zh-tw">面板之間、以及與其他程式之間都可以。放下時會問要複製還是移動，
+          而不是從一個沒人看得見的修飾鍵推斷</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="viewing" data-lang="en">6. Viewing files</h2>
+  <h2 id="viewing" data-lang="zh-tw">6. 檢視檔案</h2>
+  <div class="scroller"><table class="spec">
+    <thead><tr>
+      <th></th>
+      <th data-lang="en">Preview panel</th><th data-lang="zh-tw">預覽面板</th>
+      <th data-lang="en">Viewer window</th><th data-lang="zh-tw">檢視視窗</th>
+    </tr></thead>
+    <tbody>
+      <tr><th data-lang="en">Opened by</th><th data-lang="zh-tw">開啟方式</th>
+        <td><kbd>I</kbd></td><td><kbd>V</kbd></td></tr>
+      <tr><th data-lang="en">Text</th><th data-lang="zh-tw">文字</th>
+        <td class="yes">✓</td><td class="yes">✓</td></tr>
+      <tr><th data-lang="en">Hex</th><th data-lang="zh-tw">十六進位</th>
+        <td class="no">—</td><td class="yes">✓ <kbd>H</kbd></td></tr>
+      <tr><th data-lang="en">Images</th><th data-lang="zh-tw">圖片</th>
+        <td class="yes">✓</td><td class="yes">✓</td></tr>
+      <tr><th data-lang="en">Archive listing</th><th data-lang="zh-tw">壓縮檔列表</th>
+        <td class="yes">✓</td><td class="yes">✓</td></tr>
+      <tr><th data-lang="en">Find in file</th><th data-lang="zh-tw">檔案內尋找</th>
+        <td class="no">—</td><td class="yes">✓ <kbd>/</kbd> <kbd>N</kbd></td></tr>
+      <tr><th data-lang="en">Indexes at most</th><th data-lang="zh-tw">建立索引上限</th>
+        <td class="num">4 MiB</td><td class="num">64 MiB</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <p data-lang="en">Both say when they are showing part of a file rather than pretending to show
+      all of it. The limits are deliberate: the line index is eight bytes per line and building it
+      reads every byte, so an unbounded one meant a multi-gigabyte log froze the window and held
+      hundreds of megabytes before showing a single line.</p>
+    <p data-lang="zh-tw">兩者在只顯示部分內容時都會說出來，不會假裝顯示了全部。這些上限是刻意的：
+      行索引是每行八個位元組，而且建立索引要讀過整個檔案——沒有上限的話，開一個好幾 GB 的日誌
+      會讓視窗凍住，而且在顯示第一行之前就吃掉幾百 MB。</p>
+  </div>
+  <p data-lang="en"><strong>Text encodings:</strong> detected from the byte-order mark and then from
+    the content, and selectable by hand — UTF-8, UTF-16 LE and BE, Big5, GB18030, Shift-JIS, EUC-KR,
+    Latin-1. Line endings (LF, CRLF, CR) are detected and reported rather than normalised away.</p>
+  <p data-lang="zh-tw"><strong>文字編碼：</strong>先看位元組順序記號、再看內容自動偵測，也可以手動指定
+    —— UTF-8、UTF-16 LE 與 BE、Big5、GB18030、Shift-JIS、EUC-KR、Latin-1。換行字元（LF、CRLF、CR）
+    會偵測並顯示，而不是被悄悄統一掉。</p>
+  <p data-lang="en"><strong>Quick Look</strong> on macOS is the real system panel, the same one
+    Finder shows. Windows and Linux have no equivalent, so the command is hidden there rather than
+    offered and inert.</p>
+  <p data-lang="zh-tw"><strong>快速查看</strong>在 macOS 上是真正的系統面板，跟 Finder 開的是同一個。
+    Windows 與 Linux 沒有對等機制，所以那裡是隱藏這個命令，而不是提供一個按了沒反應的東西。</p>
+  <h2 id="formats" data-lang="en">7. Formats</h2>
+  <h2 id="formats" data-lang="zh-tw">7. 支援格式</h2>
+  <p data-lang="en">Every format is recognised by its <em>content</em>, not by its name. A
+    <code>.tar.gz</code> called anything still opens; a text file called <code>.zip</code> is not
+    claimed as an archive.</p>
+  <p data-lang="zh-tw">所有格式都由<em>內容</em>判定，不看副檔名。叫任何名字的 <code>.tar.gz</code>
+    都打得開；叫 <code>.zip</code> 的文字檔不會被當成壓縮檔。</p>
+
+  <h3 data-lang="en">Archives and disc images</h3>
+  <h3 data-lang="zh-tw">壓縮檔與映像檔</h3>
+  <div class="scroller"><table class="spec">
+    <thead><tr>
+      <th data-lang="en">Format</th><th data-lang="zh-tw">格式</th>
+      <th data-lang="en">Browse</th><th data-lang="zh-tw">瀏覽</th>
+      <th data-lang="en">Extract</th><th data-lang="zh-tw">解出</th>
+      <th data-lang="en">Create</th><th data-lang="zh-tw">建立</th>
+      <th data-lang="en">Notes</th><th data-lang="zh-tw">說明</th>
+    </tr></thead>
+    <tbody>
+      <tr><td><code>.zip</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td>
+        <td data-lang="en">Deflate and stored</td><td data-lang="zh-tw">Deflate 與未壓縮</td></tr>
+      <tr><td><code>.tar</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td>
+        <td data-lang="en">Uncompressed</td><td data-lang="zh-tw">未壓縮</td></tr>
+      <tr><td><code>.tar.gz</code> · <code>.tgz</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td>
+        <td>—</td></tr>
+      <tr><td><code>.tar.bz2</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td>
+        <td data-lang="en">Read only</td><td data-lang="zh-tw">唯讀</td></tr>
+      <tr><td><code>.tar.xz</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td>
+        <td data-lang="en">Read only</td><td data-lang="zh-tw">唯讀</td></tr>
+      <tr><td data-lang="en">bare <code>.gz</code> · <code>.bz2</code> · <code>.xz</code></td>
+        <td data-lang="zh-tw">單獨的 <code>.gz</code>／<code>.bz2</code>／<code>.xz</code></td>
+        <td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td>
+        <td data-lang="en">One file, unwrapped to its own name without the suffix</td>
+        <td data-lang="zh-tw">一個檔案，解出時去掉副檔名</td></tr>
+      <tr><td><code>.iso</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td>
+        <td data-lang="en">ISO 9660, with Joliet and Rock Ridge names. Our own reader, not a
+          dependency (ADR-0005)</td>
+        <td data-lang="zh-tw">ISO 9660，支援 Joliet 與 Rock Ridge 長檔名。自己寫的讀取器，
+          不是套件（ADR-0005）</td></tr>
+      <tr><td><code>.7z</code> · <code>.rar</code></td>
+        <td class="no">—</td><td class="no">—</td><td class="no">—</td>
+        <td data-lang="en"><strong>Not supported</strong>, and not labelled as archives this build
+          can open</td>
+        <td data-lang="zh-tw"><strong>不支援</strong>，而且不會被標示成這個版本打得開的壓縮檔</td></tr>
+    </tbody>
+  </table></div>
+  <p data-lang="en">Pressing <kbd>Enter</kbd> on any supported one opens a listing:
+    <kbd>Space</kbd> marks, <kbd>C</kbd> extracts what is marked, <kbd>X</kbd> extracts everything.</p>
+  <p data-lang="zh-tw">在任何一種支援的格式上按 <kbd>Enter</kbd> 都會開啟列表：<kbd>Space</kbd> 標記、
+    <kbd>C</kbd> 解出已標記的、<kbd>X</kbd> 全部解出。</p>
+
+  <h3 data-lang="en">Everything else it recognises</h3>
+  <h3 data-lang="zh-tw">其他可辨識的內容</h3>
+  <div class="scroller"><table class="spec">
+    <tbody>
+      <tr><th data-lang="en">Images</th><th data-lang="zh-tw">圖片</th>
+        <td data-lang="en">PNG, JPEG, GIF, BMP by signature; everything else the Qt image plugins on
+          the machine can read, which normally adds WebP, TIFF, ICO and SVG</td>
+        <td data-lang="zh-tw">PNG、JPEG、GIF、BMP 由檔頭辨識；其餘由該機器上的 Qt 影像外掛決定，
+          通常還包含 WebP、TIFF、ICO 與 SVG</td></tr>
+      <tr><th>PDF</th>
+        <td data-lang="en">Recognised and labelled. Opened with the system's own reader — this
+          program does not render PDF</td>
+        <td data-lang="zh-tw">可辨識並標示。用系統的閱讀器開啟——本程式不算繪 PDF</td></tr>
+      <tr><th data-lang="en">Text</th><th data-lang="zh-tw">文字</th>
+        <td data-lang="en">Anything that decodes in one of the encodings above</td>
+        <td data-lang="zh-tw">任何能用上述編碼解出來的內容</td></tr>
+      <tr><th data-lang="en">Anything else</th><th data-lang="zh-tw">其他一切</th>
+        <td data-lang="en">Hex, which is always available and never wrong about what a file holds</td>
+        <td data-lang="zh-tw">十六進位——永遠可用，而且對檔案內容的呈現永遠不會錯</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="remote" data-lang="en">8. Remote folders</h2>
+  <h2 id="remote" data-lang="zh-tw">8. 遠端資料夾</h2>
+  <div class="scroller"><table class="spec">
+    <tbody>
+      <tr><th data-lang="en">Protocol</th><th data-lang="zh-tw">通訊協定</th><td>SFTP (SSH)</td></tr>
+      <tr><th data-lang="en">Host keys</th><th data-lang="zh-tw">主機金鑰</th>
+        <td data-lang="en">Checked and remembered. A changed key stops the connection and says so</td>
+        <td data-lang="zh-tw">會檢查並記住。金鑰變了就停止連線並說明</td></tr>
+      <tr><th data-lang="en">Authentication</th><th data-lang="zh-tw">認證</th>
+        <td data-lang="en">The running agent first, then keys in <code>~/.ssh</code>, then a
+          password prompt — in that order, and only asking when the earlier ones failed</td>
+        <td data-lang="zh-tw">先找執行中的 agent，再找 <code>~/.ssh</code> 裡的金鑰，
+          都不行才詢問密碼——依此順序，前面都失敗才問</td></tr>
+      <tr><th data-lang="en">Passwords</th><th data-lang="zh-tw">密碼</th>
+        <td data-lang="en">Held in memory for the process lifetime, dropped on disconnect,
+          <strong>never written to disk</strong> (ADR-0004)</td>
+        <td data-lang="zh-tw">只保留在記憶體中直到行程結束，斷線即丟棄，<strong>絕不寫入磁碟</strong>（ADR-0004）</td></tr>
+      <tr><th data-lang="en">What works</th><th data-lang="zh-tw">可用的部分</th>
+        <td data-lang="en">Browsing, the folder tree, the path bar, tabs, sorting, filtering,
+          viewing a file, reconnecting</td>
+        <td data-lang="zh-tw">瀏覽、資料夾樹、路徑列、分頁、排序、篩選、檢視檔案、重新連線</td></tr>
+      <tr><th data-lang="en">What does not</th><th data-lang="zh-tw">尚未支援</th>
+        <td class="part" data-lang="en">Upload, download, remote rename and remote delete — stage two</td>
+        <td class="part" data-lang="zh-tw">上傳、下載、在伺服器上更名與刪除——屬於第二階段</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="finding" data-lang="en">9. Finding things</h2>
+  <h2 id="finding" data-lang="zh-tw">9. 尋找</h2>
+  <div class="scroller"><table class="spec">
+    <tbody>
+      <tr><th data-lang="en">Filter <kbd>F</kbd></th><th data-lang="zh-tw">篩選 <kbd>F</kbd></th>
+        <td data-lang="en">Narrows the current folder as you type. Nothing is re-read, so clearing
+          it is instant. Matches are picked out in the name</td>
+        <td data-lang="zh-tw">邊打邊縮小目前資料夾。不會重讀任何東西，所以清掉是瞬間的。
+          命中的部分會在名稱裡標出來</td></tr>
+      <tr><th data-lang="en">Search <kbd>W</kbd></th><th data-lang="zh-tw">搜尋 <kbd>W</kbd></th>
+        <td data-lang="en">Walks subfolders, streaming results as they arrive, and the status line
+          names the folder it is currently in. Symlinks are never followed, so a cycle cannot be
+          entered. Cancellable</td>
+        <td data-lang="zh-tw">走訪子資料夾，結果邊找邊出現，狀態列顯示正在搜尋哪個資料夾。
+          不追符號連結，所以不會繞進迴圈。可取消</td></tr>
+      <tr><th data-lang="en">Compare folders</th><th data-lang="zh-tw">比較資料夾</th>
+        <td data-lang="en">Two panes side by side: only here, only there, differs, identical.
+          Subfolders optional. Compared by size and modification time — a rule printed under the
+          table rather than left to be assumed</td>
+        <td data-lang="zh-tw">兩個面板並排比對：只在這邊、只在那邊、不同、相同。子資料夾可選。
+          依大小與修改時間比對——這條規則印在表格下方，不是讓人自己假設</td></tr>
+      <tr><th data-lang="en">Disc usage</th><th data-lang="zh-tw">磁碟用量</th>
+        <td data-lang="en">One walk, two answers: which child folder holds the most, and
+          <strong>which kind of file adds up to the most</strong>. Files sitting in the folder get a
+          row of their own so the rows add up. Copy, move and trash work from inside the report, and
+          it measures again afterwards</td>
+        <td data-lang="zh-tw">一次走訪、兩個答案：哪個子資料夾佔最多，以及<strong>哪一類檔案加起來最多</strong>。
+          直接放在該資料夾裡的檔案有自己的一列，所以各列會加總回總計。複製、移動、移到回收筒都可以
+          在報告裡直接做，操作完會重新統計</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="appearance" data-lang="en">10. Appearance and language</h2>
+  <h2 id="appearance" data-lang="zh-tw">10. 外觀與語言</h2>
+  <div class="scroller"><table class="spec">
+    <tbody>
+      <tr><th data-lang="en">Themes</th><th data-lang="zh-tw">佈景主題</th>
+        <td data-lang="en">Light, dark, and follow the system. Every colour on screen comes from a
+          semantic token resolved in Rust; there is no literal colour anywhere in the interface
+          code, and a test fails the build if one appears</td>
+        <td data-lang="zh-tw">淺色、深色、跟隨系統。畫面上每個顏色都來自 Rust 裡解析的語意 token；
+          介面程式碼裡沒有任何字面顏色值，出現一個就會有測試讓建置失敗</td></tr>
+      <tr><th data-lang="en">Following the system</th><th data-lang="zh-tw">跟隨系統</th>
+        <td data-lang="en">Live on Qt 6.5 and newer. On older Qt the theme is read once at launch,
+          which is stated rather than hidden</td>
+        <td data-lang="zh-tw">Qt 6.5 以上是即時的。較舊的 Qt 只在啟動時判斷一次，這件事有寫出來而不是藏起來</td></tr>
+      <tr><th data-lang="en">Fonts</th><th data-lang="zh-tw">字型</th>
+        <td data-lang="en">Family and size for the lists, with an option to use a monospace face
+          everywhere. A slider in the status bar changes the size directly</td>
+        <td data-lang="zh-tw">可設定清單的字型與大小，也可以整個介面都用等寬字。狀態列的滑桿可直接調整大小</td></tr>
+      <tr><th data-lang="en">Languages</th><th data-lang="zh-tw">語言</th>
+        <td data-lang="en">English and 台灣繁體中文, switchable while running. Every user-visible
+          string is in a catalogue; a key missing from either language is a test failure, not a
+          label nobody notices</td>
+        <td data-lang="zh-tw">English 與台灣繁體中文，執行中可切換。每個使用者看得到的字串都在語系檔裡；
+          任一語言少一個 key 就是測試失敗，而不是變成沒人注意到的標籤</td></tr>
+    </tbody>
+  </table></div>
+  <h2 id="limits" data-lang="en">11. Limits and bounds</h2>
+  <h2 id="limits" data-lang="zh-tw">11. 上限與界線</h2>
+  <p data-lang="en">Every one of these is a real constant in the source, not a guideline. They exist
+    because the input is often something the user did not make — an archive from the internet, a
+    disc image, a session file someone shared — and a reader with no bound is a reader that can be
+    made to exhaust the machine.</p>
+  <p data-lang="zh-tw">下面每一個都是原始碼裡真正的常數，不是建議值。它們存在的原因是：輸入常常不是
+    使用者自己做的東西——網路上抓的壓縮檔、映像檔、別人分享的工作階段檔——而沒有上限的讀取器，
+    是可以被誘導去把機器耗盡的。</p>
+  <div class="scroller"><table class="spec">
+    <thead><tr>
+      <th data-lang="en">Where</th><th data-lang="zh-tw">位置</th>
+      <th data-lang="en">Bound</th><th data-lang="zh-tw">上限</th>
+      <th data-lang="en">Why</th><th data-lang="zh-tw">原因</th>
+    </tr></thead>
+    <tbody>
+      <tr><td data-lang="en">Extraction — one member</td><td data-lang="zh-tw">解壓縮 — 單一成員</td>
+        <td class="num">8 GiB</td>
+        <td data-lang="en">Checked against bytes that actually arrive, not the header</td>
+        <td data-lang="zh-tw">對照實際讀到的位元組，不是標頭宣稱的數字</td></tr>
+      <tr><td data-lang="en">Extraction — total</td><td data-lang="zh-tw">解壓縮 — 總量</td>
+        <td class="num">32 GiB</td>
+        <td data-lang="en">A lying header is what a decompression bomb is</td>
+        <td data-lang="zh-tw">會說謊的標頭正是解壓炸彈的本體</td></tr>
+      <tr><td data-lang="en">Archive listing</td><td data-lang="zh-tw">壓縮檔列表</td>
+        <td class="num">100,000 <span data-lang="en">entries</span><span data-lang="zh-tw">個項目</span> · 64 MiB</td>
+        <td data-lang="en">Member names bounded at 4,096 bytes each</td>
+        <td data-lang="zh-tw">成員名稱每個上限 4,096 位元組</td></tr>
+      <tr><td data-lang="en">ISO listing</td><td data-lang="zh-tw">ISO 列表</td>
+        <td class="num">100,000 <span data-lang="en">entries</span><span data-lang="zh-tw">個項目</span> · 32 <span data-lang="en">levels</span><span data-lang="zh-tw">層</span> · 16 MiB</td>
+        <td data-lang="en">Extents already visited are remembered, so a loop cannot be walked</td>
+        <td data-lang="zh-tw">會記住走過的區段，所以無法被繞進迴圈</td></tr>
+      <tr><td data-lang="en">tar listing</td><td data-lang="zh-tw">tar 列表</td>
+        <td class="num">100,000 <span data-lang="en">entries</span><span data-lang="zh-tw">個項目</span></td><td>—</td></tr>
+      <tr><td data-lang="en">Search / measure / compare / usage</td><td data-lang="zh-tw">搜尋／計算／比較／用量</td>
+        <td class="num">64 <span data-lang="en">levels deep</span><span data-lang="zh-tw">層深</span></td>
+        <td data-lang="en">Iterative, so depth costs heap and not stack</td>
+        <td data-lang="zh-tw">用迴圈而非遞迴，深度耗的是堆積不是堆疊</td></tr>
+      <tr><td data-lang="en">Comparison result</td><td data-lang="zh-tw">比較結果</td>
+        <td class="num">200,000 <span data-lang="en">rows</span><span data-lang="zh-tw">列</span></td>
+        <td data-lang="en">Stated when reached, never silently truncated</td>
+        <td data-lang="zh-tw">達到時會說出來，絕不悄悄截斷</td></tr>
+      <tr><td data-lang="en">Disc usage breakdown</td><td data-lang="zh-tw">磁碟用量統計</td>
+        <td class="num">200 <span data-lang="en">folders</span><span data-lang="zh-tw">個資料夾</span> · 20 <span data-lang="en">kinds</span><span data-lang="zh-tw">種類型</span></td>
+        <td data-lang="en">The rest is gathered into one labelled row, so the total still reconciles</td>
+        <td data-lang="zh-tw">其餘彙整成一列並標明，總計仍然對得起來</td></tr>
+      <tr><td data-lang="en">Deletion depth</td><td data-lang="zh-tw">刪除深度</td>
+        <td class="num">64</td>
+        <td data-lang="en">Refused past that rather than recursed into</td>
+        <td data-lang="zh-tw">超過就拒絕，不會繼續遞迴</td></tr>
+      <tr><td data-lang="en">Preview index</td><td data-lang="zh-tw">預覽索引</td>
+        <td class="num">4 MiB</td>
+        <td data-lang="en">Says it is showing part of the file</td><td data-lang="zh-tw">會說明只顯示了一部分</td></tr>
+      <tr><td data-lang="en">Viewer index</td><td data-lang="zh-tw">檢視索引</td>
+        <td class="num">64 MiB</td><td data-lang="en">The same</td><td data-lang="zh-tw">同上</td></tr>
+      <tr><td data-lang="en">Split nesting</td><td data-lang="zh-tw">分割巢狀</td>
+        <td class="num">16</td>
+        <td data-lang="en">Not a UI limit. The layout is restored from a file the user can edit,
+          and the interface builds it by recursing over it</td>
+        <td data-lang="zh-tw">這不是介面限制。版面是從使用者可編輯的檔案還原的，而介面是用遞迴把它建起來的</td></tr>
+      <tr><td data-lang="en">Path input</td><td data-lang="zh-tw">路徑輸入</td>
+        <td class="num">4,096 <span data-lang="en">bytes</span><span data-lang="zh-tw">位元組</span></td><td>—</td></tr>
+      <tr><td data-lang="en">Directory listing batch</td><td data-lang="zh-tw">目錄列舉批次</td>
+        <td class="num">4,096</td>
+        <td data-lang="en">Rows arrive in batches so a folder of a million entries paints as it reads</td>
+        <td data-lang="zh-tw">分批送出，所以一百萬個項目的資料夾是邊讀邊畫</td></tr>
+      <tr><td data-lang="en">Undo history</td><td data-lang="zh-tw">復原歷程</td>
+        <td class="num">32 <span data-lang="en">operations</span><span data-lang="zh-tw">次操作</span></td>
+        <td data-lang="en">Undo is for the mistake you just made</td><td data-lang="zh-tw">復原是給剛剛犯的錯用的</td></tr>
+      <tr><td data-lang="en">One undo record</td><td data-lang="zh-tw">單次復原紀錄</td>
+        <td class="num">20,000 <span data-lang="en">files</span><span data-lang="zh-tw">個檔案</span></td>
+        <td data-lang="en">Past it the operation gets <strong>no</strong> undo entry rather than a
+          partial one — a half-undo leaves the tree neither where it started nor where you left it</td>
+        <td data-lang="zh-tw">超過就<strong>完全沒有</strong>復原項目，而不是只復原一半——半套復原會讓
+          結構停在既不是原本、也不是你操作後的狀態</td></tr>
+      <tr><td data-lang="en">Marked set</td><td data-lang="zh-tw">標記集合</td>
+        <td class="num">100,000</td>
+        <td data-lang="en">It survives navigation and is written to the session file, so nothing
+          else ends it. A refused mark is counted and reported, never silently dropped</td>
+        <td data-lang="zh-tw">它會跨資料夾保留並寫進工作階段檔，沒有別的東西會結束它。
+          被拒絕的標記會計數並回報，絕不悄悄丟掉</td></tr>
+      <tr><td data-lang="en">Stored session nesting</td><td data-lang="zh-tw">工作階段巢狀</td>
+        <td class="num">128</td>
+        <td data-lang="en">The JSON reader's own limit; a file past it is an error, never a crash</td>
+        <td data-lang="zh-tw">JSON 讀取器本身的上限；超過就是錯誤，絕不會是當掉</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="refuses" data-lang="en">12. What it refuses to do</h2>
+  <h2 id="refuses" data-lang="zh-tw">12. 拒絕的事</h2>
+  <p data-lang="en">A file manager that quietly does something other than what it was asked is worse
+    than one that says no. These are the cases where it says no.</p>
+  <p data-lang="zh-tw">一個悄悄做了別的事的檔案管理器，比一個說「不行」的更糟。以下是它會說不行的情況。</p>
+  <div class="scroller"><table class="spec">
+    <tbody>
+      <tr><th data-lang="en">A member that would land outside the folder you chose</th>
+        <th data-lang="zh-tw">會落在你所選資料夾之外的成員</th>
+        <td data-lang="en"><strong>Refused and reported</strong> — never written, never silently
+          renamed — in every spelling: <code>../</code>, an absolute path, a Windows drive letter, a
+          UNC prefix, backslashes on any platform</td>
+        <td data-lang="zh-tw"><strong>拒絕並回報</strong>——絕不寫入、絕不悄悄改名——不論它怎麼拼：
+          <code>../</code>、絕對路徑、Windows 磁碟機代號、UNC 前綴、任何平台上的反斜線</td></tr>
+      <tr><th data-lang="en">A symlink inside an archive</th><th data-lang="zh-tw">壓縮檔裡的符號連結</th>
+        <td data-lang="en">Refused, not created. Writing one means a later write through it lands
+          wherever the archive chose</td>
+        <td data-lang="zh-tw">拒絕而不是建立。建了它，之後經由它的寫入就會落在壓縮檔決定的地方</td></tr>
+      <tr><th data-lang="en">A symlink during a walk</th><th data-lang="zh-tw">走訪時遇到的符號連結</th>
+        <td data-lang="en">Never followed — not when searching, measuring, comparing, analysing or
+          deleting. A link is a name, not a door</td>
+        <td data-lang="zh-tw">永不追蹤——搜尋、計算、比較、分析、刪除都一樣。連結是一個名字，不是一扇門</td></tr>
+      <tr><th data-lang="en">A directory swapped mid-delete</th><th data-lang="zh-tw">刪除中途被掉包的資料夾</th>
+        <td data-lang="en">Cannot lead the delete out of the selection: the walk holds an open
+          directory descriptor and never resolves a path twice</td>
+        <td data-lang="zh-tw">無法把刪除引出選取範圍：走訪持有開啟的目錄描述符，路徑不會被解析第二次</td></tr>
+      <tr><th data-lang="en">A session file from a newer build</th><th data-lang="zh-tw">較新版本寫的工作階段檔</th>
+        <td data-lang="en">Refused, <strong>and left exactly as it is</strong>. This build writes
+          beside it, never over it</td>
+        <td data-lang="zh-tw">拒絕，<strong>而且原封不動保留</strong>。這個版本會寫在它旁邊，不會蓋掉它</td></tr>
+      <tr><th data-lang="en">Any removal</th><th data-lang="zh-tw">任何刪除</th>
+        <td data-lang="en">Confirmed first, every time, from every route. Permanent deletion says it
+          cannot be undone before it runs</td>
+        <td data-lang="zh-tw">每次都先確認，不管從哪裡發動。永久刪除會在執行前說明無法復原</td></tr>
+      <tr><th data-lang="en">A conflict</th><th data-lang="zh-tw">名稱衝突</th>
+        <td data-lang="en">Reported with the first conflicting name and a choice. Never resolved by
+          guessing</td>
+        <td data-lang="zh-tw">會回報第一個衝突的名稱並提供選擇。絕不自己猜</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="platforms" data-lang="en">13. Platform differences</h2>
+  <h2 id="platforms" data-lang="zh-tw">13. 平台差異</h2>
+  <p data-lang="en">Where a platform cannot do something, the command is <strong>hidden</strong>
+    rather than offered and inert. A button that does nothing teaches people to distrust every other
+    button.</p>
+  <p data-lang="zh-tw">平台做不到的事，那個命令是<strong>隱藏</strong>，而不是提供一個按了沒反應的東西。
+    一個按了沒反應的按鈕，會讓人開始不信任其他每一個按鈕。</p>
+  <div class="scroller"><table class="spec">
+    <thead><tr>
+      <th></th><th>macOS</th><th>Windows</th><th>Linux</th>
+    </tr></thead>
+    <tbody>
+      <tr><th data-lang="en">Everything above</th><th data-lang="zh-tw">以上所有功能</th>
+        <td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+      <tr><th data-lang="en">Quick Look</th><th data-lang="zh-tw">快速查看</th>
+        <td class="yes" data-lang="en">✓ the system panel</td><td class="yes" data-lang="zh-tw">✓ 系統面板</td>
+        <td class="no" data-lang="en">hidden</td><td class="no" data-lang="zh-tw">隱藏</td>
+        <td class="no" data-lang="en">hidden</td><td class="no" data-lang="zh-tw">隱藏</td></tr>
+      <tr><th data-lang="en">Reveal in file manager</th><th data-lang="zh-tw">在檔案管理員中顯示</th>
+        <td class="yes">✓</td>
+        <td class="no" data-lang="en">not yet</td><td class="no" data-lang="zh-tw">尚未</td>
+        <td class="no" data-lang="en">not yet</td><td class="no" data-lang="zh-tw">尚未</td></tr>
+      <tr><th data-lang="en">Eject</th><th data-lang="zh-tw">退出磁碟</th>
+        <td class="yes">✓</td>
+        <td class="no" data-lang="en">not yet</td><td class="no" data-lang="zh-tw">尚未</td>
+        <td class="no" data-lang="en">not yet</td><td class="no" data-lang="zh-tw">尚未</td></tr>
+      <tr><th data-lang="en">External editor</th><th data-lang="zh-tw">外部編輯器</th>
+        <td class="yes">✓</td>
+        <td class="no" data-lang="en">not yet</td><td class="no" data-lang="zh-tw">尚未</td>
+        <td class="no" data-lang="en">not yet</td><td class="no" data-lang="zh-tw">尚未</td></tr>
+      <tr><th data-lang="en">Copying a symlink</th><th data-lang="zh-tw">複製符號連結</th>
+        <td class="yes">✓</td>
+        <td class="part" data-lang="en">refused — needs a privilege an ordinary account lacks</td>
+        <td class="part" data-lang="zh-tw">拒絕——需要一般帳號沒有的權限</td>
+        <td class="yes">✓</td></tr>
+      <tr><th data-lang="en">Race-free deletion</th><th data-lang="zh-tw">無競態刪除</th>
+        <td class="yes" data-lang="en">✓ directory descriptors</td><td class="yes" data-lang="zh-tw">✓ 目錄描述符</td>
+        <td class="part" data-lang="en">path-based; no <code>openat</code> equivalent is reachable portably</td>
+        <td class="part" data-lang="zh-tw">以路徑為基礎；沒有可移植的 <code>openat</code> 對應機制</td>
+        <td class="yes" data-lang="en">✓ directory descriptors</td><td class="yes" data-lang="zh-tw">✓ 目錄描述符</td></tr>
+      <tr><th data-lang="en">Live theme following</th><th data-lang="zh-tw">即時跟隨主題</th>
+        <td class="yes">✓</td><td class="yes">✓</td>
+        <td class="part" data-lang="en">Qt 6.5+; older reads it once at launch</td>
+        <td class="part" data-lang="zh-tw">需 Qt 6.5 以上；較舊的只在啟動時讀一次</td></tr>
+      <tr><th data-lang="en">SSH agent</th><th data-lang="zh-tw">SSH agent</th>
+        <td class="yes">✓</td>
+        <td class="part" data-lang="en">falls through to key files rather than pretending to have looked</td>
+        <td class="part" data-lang="zh-tw">直接改用金鑰檔，而不是假裝找過</td>
+        <td class="yes">✓</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="notbuilt" data-lang="en">14. Not built</h2>
+  <h2 id="notbuilt" data-lang="zh-tw">14. 尚未完成</h2>
+  <p data-lang="en">Named here rather than left to be discovered.</p>
+  <p data-lang="zh-tw">明講出來，而不是留給人自己踩到。</p>
+  <div class="scroller"><table class="spec">
+    <tbody>
+      <tr><th data-lang="en">SFTP writes</th><th data-lang="zh-tw">SFTP 寫入</th>
+        <td data-lang="en">Upload, download, remote rename, remote delete</td>
+        <td data-lang="zh-tw">上傳、下載、在伺服器上更名與刪除</td></tr>
+      <tr><th><code>.7z</code> · <code>.rar</code></th>
+        <td data-lang="en">Neither reading nor writing</td><td data-lang="zh-tw">讀寫都沒有</td></tr>
+      <tr><th data-lang="en">Windows and Linux platform services</th><th data-lang="zh-tw">Windows 與 Linux 的平台服務</th>
+        <td data-lang="en">Quick Look, reveal, eject, external editor — the adapters report honestly
+          that they cannot, so the commands are hidden</td>
+        <td data-lang="zh-tw">快速查看、在檔案管理員中顯示、退出磁碟、外部編輯器——配接器會誠實回報做不到，
+          所以那些命令是隱藏的</td></tr>
+      <tr><th data-lang="en">Batch command over marked files</th><th data-lang="zh-tw">對已標記檔案下批次命令</th>
+        <td>—</td></tr>
+      <tr><th data-lang="en">Repeat find</th><th data-lang="zh-tw">繼續找</th>
+        <td data-lang="en">Deliberate: <kbd>F</kbd> is a filter rather than a find, so "find next"
+          has no meaning in this model</td>
+        <td data-lang="zh-tw">刻意不做：<kbd>F</kbd> 是篩選而不是尋找，在這個模型裡「找下一個」沒有意義</td></tr>
+      <tr><th data-lang="en">Signed installers</th><th data-lang="zh-tw">簽章的安裝檔</th>
+        <td data-lang="en">Not yet. Until then a downloaded build is unsigned and the operating
+          system will say so — which it should</td>
+        <td data-lang="zh-tw">還沒有。在那之前，下載的版本沒有簽章，作業系統會提出警告——它本來就該這樣</td></tr>
+    </tbody>
+  </table></div>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p data-lang="en">jt-filework — by Jason Cheng (Jason Tools). GPL-3.0-or-later.
+      <a href="index.html">Back to the overview</a> ·
+      <a href="https://github.com/jasoncheng7115/jt-filework">Source</a></p>
+    <p data-lang="zh-tw">jt-filework — 作者 Jason Cheng（Jason Tools）。GPL-3.0-or-later。
+      <a href="index.html">回到首頁</a> ·
+      <a href="https://github.com/jasoncheng7115/jt-filework">原始碼</a></p>
+  </div>
+</footer>
+
+<script>
+// The language is a query parameter so a link can carry it, and it falls back
+// to what the browser asks for. Everything is already in the page; switching
+// shows one set of nodes and hides the other, so there is no second request
+// and no flash of the wrong language on a slow connection.
+(function () {
+  var params = new URLSearchParams(location.search);
+  var wanted = (params.get('lang') || '').toLowerCase();
+  if (wanted !== 'en' && wanted !== 'zh-tw') {
+    var browser = (navigator.languages || [navigator.language || 'en']).join(',').toLowerCase();
+    // Traditional Chinese specifically: zh-CN is simplified and there is no
+    // simplified translation, so it gets English rather than the wrong Chinese.
+    wanted = /zh-tw|zh-hant|zh-hk|zh-mo/.test(browser) ? 'zh-tw' : 'en';
+  }
+  document.documentElement.lang = wanted === 'zh-tw' ? 'zh-Hant-TW' : 'en';
+  document.documentElement.setAttribute('data-show', wanted);
+  var current = document.getElementById(wanted === 'zh-tw' ? 'lang-zh' : 'lang-en');
+  if (current) { current.setAttribute('aria-current', 'true'); }
+  // Keep the anchor when switching, so the switcher does not send the reader
+  // back to the top of a page they were halfway down.
+  document.querySelectorAll('.langs a').forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      var url = new URL(link.getAttribute('href'), location.href);
+      url.hash = location.hash;
+      location.href = url.toString();
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

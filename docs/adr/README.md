@@ -22,3 +22,6 @@ update an ADR **first**.
 |---|---|---|
 | [0001](0001-gui-stack.md) | GUI technology stack | Proposed — blocked on Phase 0B PoC |
 | [0002](0002-repository-and-crate-layout.md) | Repository and crate layout | Accepted |
+| [0003](0003-archive-extraction.md) | Archive extraction and creation | Accepted — built |
+| [0004](0004-sftp.md) | SFTP support | Accepted — stage one built |
+| [0005](0005-iso-images.md) | Browsing and extracting ISO images | Accepted — built |

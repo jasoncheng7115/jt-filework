@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en" data-show="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jt-filework — a keyboard-first file workspace</title>
+<meta name="description" content="A keyboard-first, mouse-complete file workspace for macOS, Windows and Linux. Single-key commands, recursive pane splitting, browsable archives and SFTP.">
+<link rel="icon" href="site/logo.png">
+<style>
+  /* One file, no build step, no framework. The page is small enough that a
+     toolchain would cost more than it saves. */
+  :root {
+    --bg: #ffffff;
+    --bg-alt: #f5f7fa;
+    --bg-tint: #f0f6ff;      /* a section ground that is not just grey */
+    --text: #14171c;
+    --dim: #58606e;
+    --line: #dfe4ec;
+    --accent: #2f6fed;
+    --accent-2: #7c4dff;     /* the second half of the hero wash */
+    --accent-soft: #e8f0ff;
+    --ok: #1f9d55;
+    --warm: #c2410c;
+    --code-bg: #eef1f6;
+    --shadow: 0 1px 3px rgba(20,30,60,.07), 0 10px 30px rgba(20,30,60,.08);
+  }
+  /* Light, on purpose, whatever the reader's system is set to. A project page
+     is read once by someone deciding whether to look further; one deliberate
+     appearance is easier to get right than two, and the screenshots below are
+     dark, which reads better against a light page than against another dark
+     one. `color-scheme` stops the browser darkening form controls under it. */
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC",
+          "PingFang TC", "Microsoft JhengHei", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 22px; }
+
+  header.bar {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar .wrap { display: flex; align-items: center; gap: 14px; height: 56px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -.01em; }
+  .brand img { width: 26px; height: 26px; border-radius: 6px; }
+  .bar nav { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .bar nav a { color: var(--dim); text-decoration: none; font-size: 14px; padding: 6px 8px; border-radius: 6px; }
+  .bar nav a:hover { color: var(--text); background: var(--bg-alt); }
+
+  .langs { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .langs a { padding: 5px 12px; font-size: 13px; text-decoration: none; color: var(--dim); }
+  .langs a[aria-current="true"] { background: var(--accent); color: #fff; }
+
+  /* A wash behind the hero rather than flat white. Two accents at low opacity,
+     so it reads as colour without competing with the screenshot under it. */
+  .hero {
+    padding: 68px 0 28px;
+    position: relative;
+  }
+  .hero::before {
+    content: ""; position: absolute; inset: -40px -50vw 40% -50vw; z-index: -1;
+    background:
+      radial-gradient(60% 80% at 22% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%),
+      radial-gradient(50% 70% at 82% 10%, color-mix(in srgb, var(--accent-2) 11%, transparent), transparent 70%),
+      linear-gradient(var(--bg-tint), var(--bg));
+  }
+  h1 .lead-accent {
+    background: linear-gradient(92deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  /* Alternating grounds, so the page has a rhythm rather than one long sheet. */
+  section:nth-of-type(even) {
+    background: var(--bg-alt);
+    /* The band runs full width while the text stays in the column. */
+    box-shadow: -50vw 0 0 var(--bg-alt), 50vw 0 0 var(--bg-alt);
+  }
+  .hero h1 { font-size: clamp(30px, 5.4vw, 46px); line-height: 1.15; margin: 0 0 14px; letter-spacing: -.02em; }
+  .hero p.lede { font-size: clamp(17px, 2.4vw, 20px); color: var(--dim); margin: 0 0 26px; max-width: 62ch; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .btn {
+    display: inline-block; padding: 11px 20px; border-radius: 9px;
+    text-decoration: none; font-weight: 560; font-size: 15px;
+    background: var(--accent); color: #fff; border: 1px solid transparent;
+  }
+  .btn.ghost { background: transparent; color: var(--text); border-color: var(--line); }
+  .status { font-size: 14px; color: var(--dim); margin-top: 14px; }
+  .status code { background: var(--code-bg); padding: 2px 6px; border-radius: 5px; }
+
+  figure.shot { margin: 34px 0 0; }
+  figure.shot img { width: 100%; border-radius: 12px; border: 1px solid var(--line); box-shadow: var(--shadow); display: block; }
+  figure.shot figcaption { font-size: 13.5px; color: var(--dim); margin-top: 10px; text-align: center; }
+
+  section { padding: 46px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: clamp(22px, 3.2vw, 28px); margin: 0 0 8px; letter-spacing: -.015em; }
+  h2 + p.sub { color: var(--dim); margin: 0 0 26px; max-width: 68ch; }
+  h3 { font-size: 17px; margin: 0 0 6px; }
+
+  .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(272px, 1fr)); }
+  .card {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 11px;
+    padding: 18px 18px 16px; position: relative; overflow: hidden;
+  }
+  /* A coloured edge per card, cycling, so a grid of six is not six grey boxes. */
+  .card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--accent);
+  }
+  .card:nth-child(2)::before { background: var(--accent-2); }
+  .card:nth-child(3)::before { background: var(--ok); }
+  .card:nth-child(4)::before { background: var(--warm); }
+  .card:nth-child(5)::before { background: var(--accent-2); }
+  .card:nth-child(6)::before { background: var(--ok); }
+  .card p { margin: 0; color: var(--dim); font-size: 14.5px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--dim); font-weight: 560; font-size: 13px; }
+  td.yes { color: #1f9d55; font-weight: 600; }
+  td.no { color: var(--dim); }
+  .scroll { overflow-x: auto; }
+
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 9px; padding: 14px 16px; overflow-x: auto; font-size: 13.5px; line-height: 1.55; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px; background: var(--code-bg); border: 1px solid var(--line);
+    border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px;
+  }
+  /* Two or three columns wherever the width allows: a single column of
+     twenty-eight keys is a scroll, and the point of the list is to be taken in
+     at a glance. */
+  .keys { display: grid; gap: 8px 26px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin: 0; }
+  .keys div { display: flex; gap: 10px; align-items: baseline; font-size: 14.5px; }
+  .keys .k { min-width: 52px; }
+  .keys .or { color: var(--dim); font-size: 12.5px; padding: 0 2px; }
+
+  .card.dl h3 { margin-bottom: 8px; }
+  .card.dl .soon {
+    margin-top: 12px; display: inline-block; font-size: 12.5px; font-weight: 560;
+    color: var(--dim); background: var(--code-bg); border: 1px solid var(--line);
+    border-radius: 999px; padding: 3px 11px;
+  }
+  /* When a build is published, the badge becomes a link and picks this up. */
+  .card.dl a.get {
+    margin-top: 12px; display: inline-block; font-size: 13.5px; font-weight: 560;
+    background: var(--accent); color: #fff; text-decoration: none;
+    border-radius: 8px; padding: 7px 14px;
+  }
+
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; font-size: 14.5px; }
+  ul.plain { padding-left: 20px; color: var(--dim); font-size: 14.5px; }
+  ul.plain li { margin: 5px 0; }
+
+  footer { border-top: 1px solid var(--line); padding: 30px 0 50px; color: var(--dim); font-size: 14px; }
+  footer a { color: var(--accent); }
+
+  /* Both languages are in the page; the root element says which one shows.
+     Driven by CSS rather than by setting inline styles, because clearing an
+     inline `display` only falls back to the rule below - which is `none`, so
+     the text stayed hidden. `revert` gives each element its natural display
+     back, whether that is a block or an inline. */
+  [data-lang] { display: none; }
+  html[data-show="en"] [data-lang="en"],
+  html[data-show="zh-tw"] [data-lang="zh-tw"] { display: revert; }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <span class="brand"><img src="site/logo.png" alt="">jt-filework</span>
+    <nav>
+      <a href="#features" data-lang="en">Features</a><a href="#features" data-lang="zh-tw">功能</a>
+      <a href="features.html" data-lang="en">Full spec</a><a href="features.html" data-lang="zh-tw">完整規格</a>
+      <a href="#download" data-lang="en">Download</a><a href="#download" data-lang="zh-tw">下載</a>
+      <a href="#keyboard" data-lang="en">Keyboard</a><a href="#keyboard" data-lang="zh-tw">鍵盤</a>
+      <a href="#build" data-lang="en">Build</a><a href="#build" data-lang="zh-tw">建置</a>
+      <a href="https://github.com/jasoncheng7115/jt-filework">GitHub</a>
+      <span class="langs">
+        <a href="?lang=en" id="lang-en">EN</a><a href="?lang=zh-tw" id="lang-zh">中</a>
+      </span>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="hero">
+    <div data-lang="en">
+      <h1>One letter, one action.</h1>
+      <p class="lede">A file workspace you drive entirely from the keyboard — one letter, one
+        action, no modifier to hold. Recursive pane splitting, independent tabs in every pane, real previews, archives you
+        can browse, and remote folders over SFTP.</p>
+    </div>
+    <div data-lang="zh-tw">
+      <h1>一個字母，一個動作。</h1>
+      <p class="lede">完全用鍵盤操作的檔案工作區——一個字母、一個動作，不必按住任何組合鍵。
+        可遞迴分割的面板、每個面板各自獨立的分頁、真正的預覽、可以瀏覽的壓縮檔，以及透過 SFTP
+        的遠端資料夾。</p>
+    </div>
+
+    <div class="cta">
+      <a class="btn" href="https://github.com/jasoncheng7115/jt-filework">GitHub</a>
+      <a class="btn ghost" href="#build" data-lang="en">Build it</a>
+      <a class="btn ghost" href="#build" data-lang="zh-tw">開始建置</a>
+    </div>
+
+    <p class="status" data-lang="en"><strong>0.6.0</strong> — running on macOS (Apple Silicon) and
+      Windows (x64); Linux builds from source. <code>545</code> tests pass.</p>
+    <p class="status" data-lang="zh-tw"><strong>0.6.0</strong> — 已在 macOS（Apple Silicon）與
+      Windows（x64）執行，Linux 可從原始碼建置。<code>545</code> 個測試通過。</p>
+
+    <figure class="shot">
+      <img src="site/main.png" alt="jt-filework showing two panes side by side">
+      <figcaption data-lang="en">Two panes, a folder tree that follows the focus, and a strip along
+        the bottom showing the keys you can press right now.</figcaption>
+      <figcaption data-lang="zh-tw">兩個面板、跟隨焦點的樹狀圖，以及底部顯示現在可以按哪些鍵的
+        提示列。</figcaption>
+    </figure>
+  </div>
+
+  <section id="features">
+    <h2 data-lang="en">What it does</h2>
+    <h2 data-lang="zh-tw">它做得到的事</h2>
+    <p class="sub" data-lang="en">Everything here is built and working, not planned.
+      The <a href="features.html">full specification</a> lists every feature, every format and
+      every limit, with the numbers.</p>
+    <p class="sub" data-lang="zh-tw">以下每一項都已完成並可用，不是規劃。
+      <a href="features.html">完整規格</a>裡列出每一項功能、每一種格式、每一道上限，連數字一起。</p>
+
+    <div class="grid">
+      <div class="card">
+        <h3 data-lang="en">Panes that split as deep as you like</h3>
+        <h3 data-lang="zh-tw">要多深就多深的分割</h3>
+        <p data-lang="en">A recursive split tree, not two fixed panes. Every pane owns independent
+          tabs, and a tab can be torn off into its own window.</p>
+        <p data-lang="zh-tw">遞迴分割樹，不是固定的兩個面板。每個面板擁有自己的分頁，分頁也能拉出來
+          變成獨立視窗。</p>
+      </div>
+      <div class="card">
+        <h3 data-lang="en">Selection is the mark</h3>
+        <h3 data-lang="zh-tw">選取就是標記</h3>
+        <p data-lang="en">They used to be separate concepts. Keeping them apart meant Shift-selecting
+          six files and finding none of them ticked, so now they are one thing.</p>
+        <p data-lang="zh-tw">這兩件事原本是分開的。分開的結果是：用 Shift 選了六個檔案，卻一個都沒被
+          勾起來——所以現在它們是同一件事。</p>
+      </div>
+      <div class="card">
+        <h3 data-lang="en">Compare two folders</h3>
+        <h3 data-lang="zh-tw">比較兩個資料夾</h3>
+        <p data-lang="en">Only here, only there, different, identical. Subfolders optional. Compared
+          by size and modification time — a rule printed under the table rather than implied.</p>
+        <p data-lang="zh-tw">只在這邊、只在那邊、不同、相同。子資料夾可選。依大小與修改時間比對——這
+          條規則印在表格下方，而不是讓人自己假設。</p>
+      </div>
+      <div class="card">
+        <h3 data-lang="en">Where the space went</h3>
+        <h3 data-lang="zh-tw">空間到哪裡去了</h3>
+        <p data-lang="en">One walk, two answers: which child folder holds the most, and which
+          <em>kind</em> of file adds up to the most. The second is the half most tools cannot
+          answer.</p>
+        <p data-lang="zh-tw">一次走訪、兩個答案：哪個子資料夾佔最多，以及哪一<em>類</em>檔案加起來
+          最多。後者是多數工具回答不了的那一半。</p>
+      </div>
+      <div class="card">
+        <h3 data-lang="en">Remote folders</h3>
+        <h3 data-lang="zh-tw">遠端資料夾</h3>
+        <p data-lang="en">SFTP with the host key checked and remembered. A password is held in memory
+          for the process lifetime, dropped on disconnect, and never written to disk.</p>
+        <p data-lang="zh-tw">SFTP，會檢查並記住主機金鑰。密碼只保留在記憶體中直到行程結束，斷線即
+          丟棄，永不寫入磁碟。</p>
+      </div>
+      <div class="card">
+        <h3 data-lang="en">Nothing blocks the window</h3>
+        <h3 data-lang="zh-tw">視窗不會被卡住</h3>
+        <p data-lang="en">Listing, searching, measuring, comparing, extracting — all on worker
+          threads, all with a running count and a Cancel that works.</p>
+        <p data-lang="zh-tw">列目錄、搜尋、計算、比較、解壓——全部在背景執行緒上，都有即時計數與真的
+          有效的取消。</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="archives">
+    <h2 data-lang="en">Archives and disc images</h2>
+    <h2 data-lang="zh-tw">壓縮檔與映像檔</h2>
+    <p class="sub" data-lang="en">Press Enter on any of these and it opens like a folder, with
+      the same single keys inside: <kbd>Space</kbd> marks, <kbd>C</kbd> extracts what is marked,
+      <kbd>X</kbd> extracts everything.</p>
+    <p class="sub" data-lang="zh-tw">在任何一種上按 Enter 都會像資料夾一樣打開，裡面用的是同一組單鍵：
+      <kbd>Space</kbd> 標記、<kbd>C</kbd> 解出已標記的、<kbd>X</kbd> 全部解出。</p>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th data-lang="en">Format</th><th data-lang="zh-tw">格式</th>
+            <th data-lang="en">Browse</th><th data-lang="zh-tw">瀏覽</th>
+            <th data-lang="en">Extract</th><th data-lang="zh-tw">解壓</th>
+            <th data-lang="en">Create</th><th data-lang="zh-tw">建立</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>ZIP</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td><code>.tar</code>, <code>.tar.gz</code>, <code>.tgz</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td><code>.tar.bz2</code>, <code>.tar.xz</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
+          <tr><td><code>.gz</code>, <code>.bz2</code>, <code>.xz</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
+          <tr><td>ISO 9660 <span style="color:var(--dim)">(Joliet, Rock Ridge)</span></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="note" data-lang="en" style="margin-top:22px">Every reader treats its input as hostile.
+      A member whose name would land outside the folder you chose is <strong>refused and
+      reported</strong> — never written, never silently renamed — however it is spelled:
+      <code>../</code>, an absolute path, a Windows drive letter, a UNC prefix, backslashes on any
+      platform. Expansion is bounded against bytes that actually arrive, not against what a header
+      claims, because a lying header is what a decompression bomb is.</p>
+    <p class="note" data-lang="zh-tw" style="margin-top:22px">每個讀取器都把輸入當成有敵意的。名稱會落
+      在你所選資料夾之外的成員一律<strong>拒絕並回報</strong>——絕不寫入、絕不悄悄改名——不論它怎麼拼：
+      <code>../</code>、絕對路徑、Windows 磁碟機代號、UNC 前綴、任何平台上的反斜線。展開量的上限是對照
+      實際讀到的位元組，不是對照標頭宣稱的數字，因為會說謊的標頭正是解壓炸彈的本體。</p>
+
+    <p style="font-size:14.5px;color:var(--dim)" data-lang="en"><code>.7z</code> and
+      <code>.rar</code> are not supported — and are not labelled as archives this build can open.</p>
+    <p style="font-size:14.5px;color:var(--dim)" data-lang="zh-tw"><code>.7z</code> 與
+      <code>.rar</code> 不支援——而且不會被標示成本版本打得開的壓縮檔。</p>
+  </section>
+
+  <section id="keyboard">
+    <h2 data-lang="en">The keyboard</h2>
+    <h2 data-lang="zh-tw">鍵盤</h2>
+    <p class="sub" data-lang="en">Two profiles, both data files rather than code. A binding is a line
+      in a text file, so changing one needs no rebuild.</p>
+    <p class="sub" data-lang="zh-tw">兩套設定檔，都是資料檔而不是程式碼。一個綁定就是文字檔裡的一行。
+      改一個綁定不需要重新編譯。</p>
+
+    <div class="keys" data-lang="en">
+      <div><kbd class="k">Enter</kbd> Open — a folder, an archive, an image</div>
+      <div><kbd class="k">←</kbd> Up one level</div>
+      <div><kbd class="k">G</kbd> Open with the system</div>
+      <div><kbd class="k">V</kbd> View</div>
+      <div><kbd class="k">H</kbd> View as hex</div>
+      <div><kbd class="k">E</kbd> Edit</div>
+      <div><kbd class="k">C</kbd> Copy to…</div>
+      <div><kbd class="k">M</kbd> Move to…</div>
+      <div><kbd class="k">Ins</kbd> Copy to the other pane</div>
+      <div><kbd class="k">R</kbd> Rename</div>
+      <div><kbd class="k">D</kbd> Move to trash</div>
+      <div><kbd class="k">F7</kbd> New folder</div>
+      <div><kbd class="k">O</kbd> New file</div>
+      <div><kbd class="k">Space</kbd> Mark, and move on</div>
+      <div><kbd class="k">*</kbd> Invert the marks</div>
+      <div><kbd class="k">+</kbd> Mark by pattern</div>
+      <div><kbd class="k">−</kbd> Unmark by pattern</div>
+      <div><kbd class="k">Tab</kbd> The other pane</div>
+      <div><span class="k"><kbd>P</kbd> <span class="or">or</span> <kbd>\</kbd></span> Type a path</div>
+      <div><kbd class="k">F</kbd> Filter this folder</div>
+      <div><kbd class="k">W</kbd> Search</div>
+      <div><kbd class="k">Esc</kbd> Leave the filter or the search</div>
+      <div><kbd class="k">S</kbd> Sort by…</div>
+      <div><kbd class="k">Z</kbd> Measure this folder</div>
+      <div><kbd class="k">A</kbd> Attributes</div>
+      <div><kbd class="k">T</kbd> Folder tree</div>
+      <div><kbd class="k">I</kbd> Preview panel</div>
+      <div><kbd class="k">F5</kbd> Refresh</div>
+    </div>
+    <div class="keys" data-lang="zh-tw">
+      <div><kbd class="k">Enter</kbd> 開啟——資料夾、壓縮檔、圖片</div>
+      <div><kbd class="k">←</kbd> 回上一層</div>
+      <div><kbd class="k">G</kbd> 用系統預設程式開啟</div>
+      <div><kbd class="k">V</kbd> 檢視</div>
+      <div><kbd class="k">H</kbd> 以十六進位檢視</div>
+      <div><kbd class="k">E</kbd> 編輯</div>
+      <div><kbd class="k">C</kbd> 複製到…</div>
+      <div><kbd class="k">M</kbd> 移動到…</div>
+      <div><kbd class="k">Ins</kbd> 複製到另一個面板</div>
+      <div><kbd class="k">R</kbd> 重新命名</div>
+      <div><kbd class="k">D</kbd> 移到回收筒</div>
+      <div><kbd class="k">F7</kbd> 新增資料夾</div>
+      <div><kbd class="k">O</kbd> 新增檔案</div>
+      <div><kbd class="k">Space</kbd> 標記並移到下一列</div>
+      <div><kbd class="k">*</kbd> 反轉標記</div>
+      <div><kbd class="k">+</kbd> 依樣式標記</div>
+      <div><kbd class="k">−</kbd> 依樣式取消標記</div>
+      <div><kbd class="k">Tab</kbd> 切換到另一個面板</div>
+      <div><span class="k"><kbd>P</kbd> <span class="or">或</span> <kbd>\</kbd></span> 輸入路徑</div>
+      <div><kbd class="k">F</kbd> 篩選目前資料夾</div>
+      <div><kbd class="k">W</kbd> 搜尋</div>
+      <div><kbd class="k">Esc</kbd> 離開篩選或搜尋</div>
+      <div><kbd class="k">S</kbd> 排序方式…</div>
+      <div><kbd class="k">Z</kbd> 計算這個資料夾的大小</div>
+      <div><kbd class="k">A</kbd> 屬性</div>
+      <div><kbd class="k">T</kbd> 資料夾樹狀清單</div>
+      <div><kbd class="k">I</kbd> 預覽面板</div>
+      <div><kbd class="k">F5</kbd> 重新整理</div>
+    </div>
+
+    <p style="margin-top:22px;font-size:14.5px;color:var(--dim)" data-lang="en">A second profile
+      follows the operating system's own conventions — the shortcuts every other
+      application on that machine uses — for when muscle memory says
+      <kbd>⌘C</kbd>.</p>
+    <p style="margin-top:22px;font-size:14.5px;color:var(--dim)" data-lang="zh-tw">另一套設定檔用的是
+      作業系統原生的操作鍵——那台機器上每個程式都在用的那一套——給肌肉記憶說
+      <kbd>⌘C</kbd> 的時候。</p>
+  </section>
+
+  <section id="download">
+    <h2 data-lang="en">Download</h2>
+    <h2 data-lang="zh-tw">下載</h2>
+    <p class="sub" data-lang="en">Packaged installers are not published yet. Until they are, the
+      build instructions below produce the same application — this section is here so it is obvious
+      which is which when they arrive, rather than a link that quietly 404s.</p>
+    <p class="sub" data-lang="zh-tw">打包好的安裝檔尚未發佈。在那之前，下面的建置說明會產出同一個
+      程式——這一區先擺著，是為了之後放上來時一目了然，而不是先給一個會 404 的連結。</p>
+
+    <div class="grid">
+      <div class="card dl">
+        <h3>macOS</h3>
+        <p data-lang="en">Apple Silicon. A <code>.dmg</code> holding <code>jt-filework.app</code>.</p>
+        <p data-lang="zh-tw">Apple Silicon。內含 <code>jt-filework.app</code> 的 <code>.dmg</code>。</p>
+        <p class="soon" data-lang="en">Not published yet</p>
+        <p class="soon" data-lang="zh-tw">尚未提供</p>
+      </div>
+      <div class="card dl">
+        <h3>Windows</h3>
+        <p data-lang="en">x64. An <code>.msi</code> installer, or a portable <code>.exe</code>.</p>
+        <p data-lang="zh-tw">x64。<code>.msi</code> 安裝檔，或免安裝的 <code>.exe</code>。</p>
+        <p class="soon" data-lang="en">Not published yet</p>
+        <p class="soon" data-lang="zh-tw">尚未提供</p>
+      </div>
+      <div class="card dl">
+        <h3>Linux</h3>
+        <p data-lang="en">x86-64, built on Ubuntu 22.04 so it runs on 22.04 and later.</p>
+        <p data-lang="zh-tw">x86-64，在 Ubuntu 22.04 上建置，所以 22.04 以後都能跑。</p>
+        <p class="soon" data-lang="en">Not published yet</p>
+        <p class="soon" data-lang="zh-tw">尚未提供</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="build">
+    <h2 data-lang="en">Building</h2>
+    <h2 data-lang="zh-tw">建置</h2>
+    <p class="sub" data-lang="en">Rust 1.98 (pinned by <code>rust-toolchain.toml</code>) and Qt 6.
+      Build output goes outside the source tree.</p>
+    <p class="sub" data-lang="zh-tw">Rust 1.98（由 <code>rust-toolchain.toml</code> 釘住）與 Qt 6。
+      建置輸出放在原始碼樹之外。</p>
+
+    <h3 style="margin-top:8px">macOS</h3>
+    <pre><code>brew install qt cmake
+./src/ui/qt6/build.sh release</code></pre>
+
+    <h3>Linux</h3>
+    <pre><code>sudo apt install build-essential cmake ninja-build pkg-config \
+     qt6-base-dev qt6-svg-dev libgl1-mesa-dev
+./src/ui/qt6/build.sh release</code></pre>
+
+    <p class="note" data-lang="en">Build on the oldest distribution you intend to support: glibc's
+      compatibility runs one way, so a binary built on Ubuntu 22.04 runs on 24.04 and not the
+      reverse. Following the desktop's light/dark setting <em>while running</em> needs Qt 6.5 or
+      newer; on 22.04's Qt 6.2 the theme is read once at launch.</p>
+    <p class="note" data-lang="zh-tw">請在你打算支援的最舊發行版上建置：glibc 的相容性是單向的，
+      Ubuntu 22.04 編出來的可以在 24.04 上跑，反過來不行。<em>執行中</em>跟隨桌面深淺色設定需要
+      Qt 6.5 以上；22.04 的 Qt 6.2 只在啟動時判斷一次。</p>
+
+    <h3 style="margin-top:22px">Windows</h3>
+    <p style="font-size:14.5px;color:var(--dim)" data-lang="en">MSVC Build Tools, CMake, Qt 6 and
+      <strong>NASM</strong> — <code>aws-lc-sys</code>, which arrives through the SFTP stack,
+      assembles its own primitives. The full runbook is in
+      <code>docs/DEVELOPMENT_ENVIRONMENT.md</code>.</p>
+    <p style="font-size:14.5px;color:var(--dim)" data-lang="zh-tw">MSVC Build Tools、CMake、Qt 6 與
+      <strong>NASM</strong>——<code>aws-lc-sys</code> 經由 SFTP 的相依進來，它在 Windows 上要自己
+      組譯。完整步驟見 <code>docs/DEVELOPMENT_ENVIRONMENT.md</code>。</p>
+  </section>
+
+  <section id="notyet">
+    <h2 data-lang="en">Not built yet</h2>
+    <h2 data-lang="zh-tw">尚未完成</h2>
+    <p class="sub" data-lang="en">Named here rather than left to be discovered.</p>
+    <p class="sub" data-lang="zh-tw">明講出來，而不是留給人自己踩到。</p>
+    <ul class="plain" data-lang="en">
+      <li>SFTP writes — upload, download, rename and delete on the server.</li>
+      <li><code>.7z</code> and <code>.rar</code>.</li>
+      <li>Quick Look, “reveal in file manager”, eject and external editor on Windows and Linux.
+        There is no system equivalent, so those commands are hidden rather than offered and inert.</li>
+      <li>Running a typed command over every marked file.</li>
+    </ul>
+    <ul class="plain" data-lang="zh-tw">
+      <li>SFTP 的寫入——上傳、下載、在伺服器上重新命名與刪除。</li>
+      <li><code>.7z</code> 與 <code>.rar</code>。</li>
+      <li>Windows 與 Linux 上的快速查看、「在檔案管理器中顯示」、退出磁碟、外部編輯器。那些平台沒有
+        對等的系統機制，所以是隱藏這些指令，而不是提供按了沒反應的東西。</li>
+      <li>對所有已標記的檔案執行自訂命令。</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p data-lang="en">GPL-3.0-or-later ·
+      <a href="https://github.com/jasoncheng7115/jt-filework">Source</a> ·
+      <a href="https://github.com/jasoncheng7115/jt-filework/issues">Issues</a></p>
+    <p data-lang="zh-tw">GPL-3.0-or-later ·
+      <a href="https://github.com/jasoncheng7115/jt-filework">原始碼</a> ·
+      <a href="https://github.com/jasoncheng7115/jt-filework/issues">問題回報</a></p>
+  </div>
+</footer>
+
+<script>
+// The language is a query parameter so a link can carry it, and it falls back
+// to what the browser asks for. Everything is already in the page; switching
+// shows one set of nodes and hides the other, so there is no second request
+// and no flash of the wrong language on a slow connection.
+(function () {
+  var params = new URLSearchParams(location.search);
+  var wanted = (params.get('lang') || '').toLowerCase();
+  if (wanted !== 'en' && wanted !== 'zh-tw') {
+    var browser = (navigator.languages || [navigator.language || 'en']).join(',').toLowerCase();
+    // Traditional Chinese specifically: zh-CN is simplified and there is no
+    // simplified translation, so it gets English rather than the wrong Chinese.
+    wanted = /zh-tw|zh-hant|zh-hk|zh-mo/.test(browser) ? 'zh-tw' : 'en';
+  }
+  document.documentElement.lang = wanted === 'zh-tw' ? 'zh-Hant-TW' : 'en';
+  document.documentElement.setAttribute('data-show', wanted);
+  var current = document.getElementById(wanted === 'zh-tw' ? 'lang-zh' : 'lang-en');
+  if (current) { current.setAttribute('aria-current', 'true'); }
+  // Keep the anchor when switching, so the switcher does not send the reader
+  // back to the top of a page they were halfway down.
+  document.querySelectorAll('.langs a').forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      var url = new URL(link.getAttribute('href'), location.href);
+      url.hash = location.hash;
+      location.href = url.toString();
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
