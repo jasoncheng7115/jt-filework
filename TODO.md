@@ -357,19 +357,19 @@ Long-lead items: both identities take real time to obtain. See
 - [x] Checked conversions for every index and length at the FFI boundary
 - [x] Hardening flags and an opt-in sanitizer build for the C++ layer
 - [x] cargo audit / cargo deny in CI
-- [ ] deny.toml licence and ban policy
+- [x] deny.toml licence and ban policy
 - [ ] Bound archive nesting, symlink chains and directory recursion
 - [ ] Bound recursion in every structured-document parser
 - [x] Symlinks are never followed by copy or delete
-- [ ] Move the symlink cfg out of src/ops into the platform adapter
+- [x] Move the symlink cfg out of src/ops into the platform adapter
 - [ ] Sanitizer smoke suite for the UI layer
 - [ ] Fuzz targets and a persisted corpus
 - [x] Hostile fixture set (docs/TESTING.md 9.2)
 - [ ] Pin library search order; audit @rpath entries
-- [ ] Directory-relative syscalls for recursive delete (TOCTOU)
+- [x] Directory-relative syscalls for recursive delete (TOCTOU)
 - [ ] Credentials in the platform keychain, never on a command line
-- [ ] Vulnerability reporting process and a published security contact
-- [ ] Release gate checklist wired into the release process
+- [x] Vulnerability reporting process and a published security contact
+- [x] Release gate checklist wired into the release process
 
 ## Upgrade / Compatibility (docs/UPGRADE.md)
 
@@ -378,15 +378,56 @@ Long-lead items: both identities take real time to obtain. See
 - [x] Serde defaults on every added setting
 - [x] Keymap stored as a diff against its preset
 - [x] Unknown command ids dropped on load, with a count shown
-- [ ] Command rename alias table
-- [ ] Migration chain, one module, one step per version
-- [ ] Committed fixture per released format version
-- [ ] Pre-migration backup of the original file
-- [ ] Application version stamp in every stored file
-- [ ] Cache schema stamp; discard on mismatch, never migrate
-- [ ] First-launch-after-update notice when anything was dropped or reset
-- [ ] Downgrade: older build refuses a newer file without overwriting it
-- [ ] Migration test level in docs/TESTING.md
+- [x] Command rename alias table
+- [x] Migration chain, one module, one step per version
+- [x] Committed fixture per released format version
+- [x] Pre-migration backup of the original file
+- [x] Application version stamp in every stored file
+- [ ] Cache schema stamp; discard on mismatch, never migrate — nothing is
+      cached to disk yet, so there is nothing to stamp. Due the moment one is.
+- [x] First-launch-after-update notice when anything was dropped or reset
+- [x] Downgrade: older build refuses a newer file without overwriting it
+- [x] Migration test level in docs/TESTING.md
+
+## P1 — Remote / SFTP (ADR-0004)
+
+Stage one — browsing — is done and tested against a real server. What is left:
+
+- [ ] Stage two: the UI calls upload, download, remote rename and remote delete
+- [ ] Duplicating a tab on a remote pane lands on nothing — it routes through
+      `jtf_navigate`, which only understands typed *local* text, so the new tab
+      gets the empty local path. Needs `navigate_to_location` instead
+- [ ] The folder tree cannot represent a server. It now clears its selection
+      rather than lying about where the pane is; showing the remote tree itself
+      is the real fix
+- [ ] Reconnect on wake, and a clear disconnected state per tab
+
+## Archives — what is left
+
+ADR-0003 is built for ZIP. Still open:
+
+- [x] `Enter` on an archive opens its listing in a window of its own
+- [x] Inside that listing: `C` extracts the selected members, `X` extracts all
+- [ ] `Enter` views a member and `G` runs one (`CV.HLP` §四). Both need the
+      member extracted to a temporary file first, and then a temporary file
+      whose lifetime somebody owns; absent rather than inert until that is
+      designed
+- [ ] Reading tar, gz, xz, RAR, LZH, 7z — a second decision, and the listing
+      reader only understands ZIP today
+- [ ] Removing a member from an existing archive (§四's `D`), which rewrites
+      the file in place; deliberately out of scope for the first step
+
+## CView keys with no command yet
+
+From `CV.HLP` §二, kept in `docs/design/CVIEW_KEYS.md` with the reasoning:
+
+- [ ] `X` 批次處理檔案 — run a typed command over the marked files
+- [x] `H` HEX view — the viewer already had a hex mode; nothing opened it
+- [ ] `N` 續找 — repeat the last find, which the filter has no step for
+- [ ] `Alt-E` / `Alt-D` per-file comments
+- [x] `Shift`+letter jumps to the first file starting with it, and again to
+      the next. `Shift-C` and `Shift-M` gave way as planned; move-to-pane is
+      on `Shift-INS`
 
 ## Quality
 

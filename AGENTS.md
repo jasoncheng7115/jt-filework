@@ -146,13 +146,24 @@ Do not wire keyboard events directly to business logic.
 
 All core commands must also be invokable from mouse/menu UI where appropriate.
 
-## 10. Selection and Mark Are Different
+## 10. Selection Is the Mark
 
-Support:
-- native current selection
-- persistent CView-style marked set
+What is highlighted is what is ticked. Selecting rows - with the mouse, with
+Shift and the arrow keys, or with Space - marks exactly those rows, and
+nothing else marks.
 
-Do not conflate their state.
+**Changed on 2026-08-31**, by the project owner, after using it. This section
+used to read "Selection and Mark Are Different / Do not conflate their state",
+and the two were kept apart: a selection highlighted rows without ticking
+them, and Space maintained a separate marked set. In use that was a list where
+five rows were blue and one was ticked, and no way to tell which the next
+command would act on. One state, shown two ways, is the answer.
+
+What survives from the old rule is the part that was doing real work: the
+**marks are the stored state** - the session keeps them, an operation reads
+them - and the selection is restored from them on arriving in a folder. So
+marks still survive navigating away and back (`docs/UI_TEST_PLAN.md`
+MARK-004); they are simply no longer a second thing to maintain.
 
 ## 10.1 The Product Name Is `jt-filework`
 
