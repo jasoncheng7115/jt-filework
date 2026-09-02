@@ -111,7 +111,27 @@ namespace {
 // readable; above the maximum a row is taller than the icons in it.
 constexpr int kMinFontPoints = 9;
 constexpr int kMaxFontPoints = 22;
+// Whether `widget` is something a person types into.
+//
+// Every text field in the program, however it was made: the path bar, the
+// filter, the toolbar search, a rename dialog, a field in the compare or usage
+// windows. Asked by class rather than kept as a list, because a list is a
+// thing that goes out of date the next time a dialog is added.
+static bool isTextEntry(const QWidget *widget) {
+    return widget != nullptr
+           && (widget->inherits("QLineEdit") || widget->inherits("QTextEdit")
+               || widget->inherits("QPlainTextEdit") || widget->inherits("QAbstractSpinBox")
+               || widget->inherits("QComboBox"));
+}
+
 constexpr int kPumpIntervalMs = 16; // one frame at 60Hz
+// How often a pane asks whether its folder has changed underneath it.
+//
+// One `stat` per pane, so the cost is small - but it is a real filesystem call
+// and this is the interval at which a sleeping disk gets woken and a network
+// mount gets a round trip. A second is far below the point where anyone reads
+// a stale list and well above the point where the polling itself is the load.
+constexpr int kWatchIntervalMs = 1000;
 }
 
 QList<MainWindow *> &MainWindow::windows() {
@@ -533,6 +553,36 @@ MainWindow::MainWindow(JtfApp *app, quint64 windowId, QWidget *parent)
         }
     });
     timer->start(kPumpIntervalMs);
+
+    // Notice changes made by anything else.
+    //
+    // Until now nothing did: a file a sync client added, a script renamed or
+    // another program removed stayed invisible until F5 or until the folder was
+    // entered again, and the list quietly showed something that was no longer
+    // true. Working out of a synced folder, that is most of the time.
+    //
+    // On its own timer rather than on the pump's, and a slow one: the pump runs
+    // at frame rate for job progress, and asking the filesystem sixty times a
+    // second for an answer that changes every few minutes is a waste of a
+    // spinning disk and a network mount.
+    auto *watch = new QTimer(this);
+    connect(watch, &QTimer::timeout, this, [this] {
+        // Never while someone is typing. Re-listing under a rename box, a
+        // filter or the path field moves the thing being named out from under
+        // the words being typed about it - and a text field is exactly where
+        // the keyboard is during the operations that change a folder.
+        if (isTextEntry(QApplication::focusWidget())
+            || QApplication::activePopupWidget() != nullptr) {
+            return;
+        }
+        if (jtf_poll_folders(m_app) != 0) {
+            for (auto *pane : std::as_const(m_panes)) {
+                pane->refreshRows();
+            }
+            updateStatus();
+        }
+    });
+    watch->start(kWatchIntervalMs);
 }
 
 QByteArray MainWindow::familyUtf8() const {
@@ -1775,19 +1825,6 @@ void MainWindow::runOperationTo(int kindCode) {
         }
     }
     refreshAll();
-}
-
-// Whether `widget` is something a person types into.
-//
-// Every text field in the program, however it was made: the path bar, the
-// filter, the toolbar search, a rename dialog, a field in the compare or usage
-// windows. Asked by class rather than kept as a list, because a list is a
-// thing that goes out of date the next time a dialog is added.
-static bool isTextEntry(const QWidget *widget) {
-    return widget != nullptr
-           && (widget->inherits("QLineEdit") || widget->inherits("QTextEdit")
-               || widget->inherits("QPlainTextEdit") || widget->inherits("QAbstractSpinBox")
-               || widget->inherits("QComboBox"));
 }
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event) {

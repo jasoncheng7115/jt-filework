@@ -925,6 +925,11 @@ than *what the dialog says*, because the dialog is read after the decision.
 | PREV-030 | **The preview background honours the chosen colour.** A stylesheet background must not override the palette the choice sets | H2 |
 | PREV-031 | The colour button shows the colour it is set to, with its hex value beside it | H2 |
 | PREV-032 | The preview background defaults to white | H2 |
+| LIVE-001 | **A file added, renamed or touched by another program appears without pressing anything** | H2/H5 |
+| LIVE-002 | A re-list keeps the cursor on the same *file*, not the same row number, when something is inserted above it | H2 |
+| LIVE-003 | A re-list keeps the marks, the scroll position and the sort order | H2 |
+| LIVE-004 | Nothing re-lists under a rename box, a filter box or a path being typed | H2 |
+| LIVE-005 | A remote pane does not poll on the same interval as a local one — each poll is a round trip | H1/H2 |
 | FILT-020 | **The filter bar can be set to stay.** With the setting on it is there in every pane from launch, and Escape clears the text without hiding the bar | H2 |
 | FILT-021 | With the setting off the bar behaves as it does today: `F` opens it, Escape closes it | H2 |
 | FILT-022 | The setting survives a restart, and a session written before the setting existed still loads | H1 |

@@ -12,6 +12,31 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.4] - 2026-09-03
+
+### Added
+
+- **The list notices changes made outside the program.** A file added, renamed
+  or removed by anything else - a sync client, a script, another file manager -
+  used to stay invisible until F5 or until the folder was entered again, so the
+  list quietly showed something that was no longer true. Working out of a synced
+  folder, that is most of the time.
+
+  Polled rather than watched, deliberately: `QFileSystemWatcher` costs a
+  descriptor per directory and on Linux `inotify` has a per-user watch limit
+  that a file manager with several panes and a folder tree reaches on its own.
+  This is one `stat` per pane per second, needs no descriptors, behaves the same
+  on all three platforms, and re-reads only when the folder actually changed.
+
+  It never re-lists under a text field. Re-reading a folder while someone is
+  typing into a rename box, a filter or the path bar moves the thing being named
+  out from under the words being typed about it. The cursor and the marks are
+  stored as locations rather than as row numbers, so a re-read puts the cursor
+  back on the same *file* even when something was inserted above it.
+
+  In-place edits to a file already listed - its size or its own timestamp
+  changing - do not move the folder's own timestamp and are not caught yet.
+
 ## [0.6.3] - 2026-09-02
 
 ### Fixed

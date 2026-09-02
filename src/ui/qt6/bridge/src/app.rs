@@ -239,6 +239,12 @@ struct PaneView {
     /// Set when leaving a folder upwards, so stepping out puts the cursor on
     /// the folder you just left rather than back at the top. Consumed once.
     focus_name: Option<String>,
+    /// The folder's own modification time when this listing was read.
+    ///
+    /// What the poll compares against to notice that something outside this
+    /// program has added, removed or renamed a file. `None` for a location
+    /// that cannot be stat'ed cheaply - a remote folder, or one that has gone.
+    listed_stamp: Option<std::time::SystemTime>,
 }
 
 /// Apply what a running search has reported. Returns whether it ended, and
@@ -290,6 +296,7 @@ impl PaneView {
             folder_count: 0,
             visible_bytes: 0,
             focus_name: None,
+            listed_stamp: None,
         }
     }
 }
@@ -4125,6 +4132,9 @@ impl App {
         if let Some(path) = location.as_path() {
             self.places.visit(path);
         }
+        // The folder as it stands at the moment it is read. The poll compares
+        // against this to notice a change made by anything else.
+        let stamp = folder_stamp(&location);
         // Read before the mutable borrow of the view below.
         let show_hidden = self.show_hidden;
         let folders_first = self.settings.folders_first;
@@ -4153,6 +4163,7 @@ impl App {
         view.error = None;
         view.sort = sort;
         view.loading = true;
+        view.listed_stamp = stamp;
         view.generation += 1;
 
         // An archive is browsed like a folder. CV.HLP 4: pressing Enter on a
@@ -5369,5 +5380,71 @@ impl App {
     /// database is the platform's job and it already has it.
     pub(crate) fn set_utc_offset(&mut self, seconds: i32) {
         self.utc_offset = seconds;
+    }
+}
+
+/// The folder's own modification time, where that can be had cheaply.
+///
+/// A directory's mtime moves when an entry is added, removed or renamed, which
+/// is what a sync client, a script or another file manager does. It does *not*
+/// move when a file already in it is edited in place; catching that needs a
+/// stat per entry and is a separate step.
+///
+/// `None` for anything not on this machine. A remote folder would cost a round
+/// trip per tick to ask, which is a different design with a different interval.
+fn folder_stamp(location: &jtf_core::Location) -> Option<std::time::SystemTime> {
+    let path = location.as_path()?;
+    std::fs::metadata(path).ok()?.modified().ok()
+}
+
+impl App {
+    /// Re-list any pane whose folder has changed underneath it.
+    ///
+    /// Returns whether anything was started, so the caller can redraw.
+    ///
+    /// Polled rather than watched, and deliberately. `QFileSystemWatcher` costs
+    /// a descriptor per directory and on Linux `inotify` has a per-user watch
+    /// limit that a file manager with several panes and a folder tree reaches
+    /// on its own. This is one `stat` per pane per tick, needs no descriptors,
+    /// behaves identically on all three platforms, and re-reads only when the
+    /// folder actually changed. A watcher can replace it later if the stat is
+    /// ever shown to cost anything.
+    ///
+    /// A pane that is already loading, showing search results, or reporting an
+    /// error is left alone: it is either about to be replaced anyway or it is
+    /// not showing a directory.
+    pub(crate) fn poll_folders(&mut self) -> bool {
+        let panes: Vec<PaneId> = self.views.keys().copied().collect();
+        let mut restarted = false;
+        for pane in panes {
+            let Some(location) = self
+                .workspace
+                .pane(pane)
+                .and_then(jtf_workspace::Pane::active_tab)
+                .map(|t| t.location().clone())
+            else {
+                continue;
+            };
+            let busy = self.views.get(&pane).is_some_and(|view| {
+                view.loading || view.search.is_some() || view.error.is_some()
+            });
+            if busy {
+                continue;
+            }
+            let Some(previous) = self.views.get(&pane).and_then(|view| view.listed_stamp) else {
+                continue; // never stamped: remote, or gone
+            };
+            let Some(current) = folder_stamp(&location) else {
+                continue;
+            };
+            if current != previous {
+                // The cursor and the marks are both stored as locations rather
+                // than as row numbers, so re-reading puts the cursor back on
+                // the same *file* even if something was inserted above it.
+                self.start_enumeration(pane);
+                restarted = true;
+            }
+        }
+        restarted
     }
 }

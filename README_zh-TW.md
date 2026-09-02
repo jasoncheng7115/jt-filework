@@ -13,7 +13,7 @@ SFTP，磁碟用量會告訴你是哪**一類**檔案把空間吃掉的。
 
 作者：Jason Cheng（Jason Tools）。
 
-**狀態：0.6.3。** macOS（Apple Silicon）跟 Windows（x64）已經在跑，Linux
+**狀態：0.6.4。** macOS（Apple Silicon）跟 Windows（x64）已經在跑，Linux
 自己建置。636 個測試通過。
 
 ---

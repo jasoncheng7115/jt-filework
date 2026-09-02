@@ -4701,3 +4701,17 @@ pub unsafe extern "C" fn jtf_set_utc_offset(app: *mut App, seconds: c_int) {
         a.set_utc_offset(seconds);
     }
 }
+
+/// Re-list any pane whose folder has changed underneath it. Returns 1 if any
+/// pane was re-read.
+///
+/// The caller decides *when* it is safe to ask: never while someone is typing
+/// into a rename box, a filter or the path field, because re-listing under a
+/// text field moves the thing being named.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_poll_folders(app: *mut App) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.poll_folders()))
+}
