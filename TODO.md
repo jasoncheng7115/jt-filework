@@ -235,6 +235,26 @@
 
 - [x] Native QLPreviewPanel, toggled by the keymap's preview command
 - [x] Space is Quick Look on the platform preset, marking on the CView preset
+- [ ] **Linux quick preview: a chain, not one desktop.** GNOME has a Quick Look
+      equivalent and most other desktops do not, so this is a list of services
+      to try in order, each detected on the bus at runtime:
+
+      - GNOME / `gnome-sushi` — `org.gnome.NautilusPreviewer`, method `ShowFile`
+      - Cinnamon / `nemo-preview` — `org.nemo.Previewer`, the same idea forked
+      - KDE Plasma — **there is nothing to call.** Dolphin has a preview *pane*,
+        not an overlay, and `KIO::PreviewJob` produces thumbnails rather than a
+        previewer window. No D-Bus service to ask.
+      - XFCE, MATE, everything else — nothing either
+
+      So the built-in viewer is not the consolation prize on those desktops, it
+      is the answer: the only previewer that exists everywhere, and ours, so it
+      behaves the same on all three platforms. The system previewers are a
+      nicety where they happen to exist.
+
+      Ask the bus whether the name is *activatable*, not whether it is currently
+      running — these are D-Bus activated and will not be up until something
+      asks for them.
+
 - [ ] **Follow the cursor with the arrow keys while the panel is open**, the way
       Finder does: with the preview up, Up and Down move to the previous and
       next file *and* the panel shows that file, without closing and reopening

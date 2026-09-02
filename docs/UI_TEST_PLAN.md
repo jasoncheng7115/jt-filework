@@ -945,6 +945,8 @@ than *what the dialog says*, because the dialog is read after the decision.
 | KEY-030 | **A shortcut is shown in the platform's own notation.** macOS prints ⌘2, not Ctrl+2, for a key that only answers to Command | H2/H5 |
 | KEY-031 | Every surface that prints a shortcut agrees: tooltips, the palette, the hint strip, the shortcut sheet and the settings pane | H2 |
 | LIST-050 | The cursor outline is a closed rectangle around the whole row at every column count, after every arrow-key move | H2/H3 |
+| QL-030 | On a desktop with a previewer service (GNOME, Cinnamon) `Q` uses it; on one without (KDE, XFCE) it uses the built-in viewer, and the user cannot tell the key is doing something different | H2/H5 |
+| QL-031 | Availability is asked of the bus as *activatable*, not *running* — a service that has not started yet must still count | H1 |
 | QL-010 | **`Q` does something on every platform.** Where the system has no previewer it opens the built-in viewer; the command is never offered inert | H2/H5 |
 | QL-011 | `Q` appears in the key hint strip, and what it does there matches what the strip says | H2 |
 | QL-001 | **Space in native mode with the Quick Look panel already open does not crash.** The panel is the key window; forwarding its keys to the key window re-entered the handler until the stack ran out | H5 |

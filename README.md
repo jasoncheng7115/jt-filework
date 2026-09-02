@@ -15,7 +15,7 @@ browse, remote folders over SFTP, and a disc usage report that says which
 
 By Jason Cheng (Jason Tools).
 
-**Status: 0.6.2.** Built and running on macOS (Apple Silicon) and Windows
+**Status: 0.6.3.** Built and running on macOS (Apple Silicon) and Windows
 (x64). Linux builds from source. 636 tests pass.
 
 ---

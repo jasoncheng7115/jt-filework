@@ -12,6 +12,36 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.3] - 2026-09-02
+
+### Fixed
+
+- **`Q` did nothing at all on Windows and Linux.** The command sat in the File
+  menu on both and the key did nothing: `quicklook::available()` was written so
+  the UI could hide it and had no callers anywhere. Rather than take the command
+  away on two platforms out of three, it falls back to the viewer this program
+  already carries — the key means the same thing everywhere, and only whose
+  window opens differs. `Q` is in the key hint strip now, which that makes
+  honest.
+
+### Documentation
+
+- Four requirements written down before the session holding them could end: what
+  "arrow keys while the preview is open" has to mean (Finder's behaviour, and
+  the note that half of it already works); the macOS shortcuts that print
+  `Ctrl+2` for a key that only answers to Command, with the six call sites; the
+  cursor outline that still breaks on arrow-key moves; Tab in the path bar not
+  completing, with the lead that the completer's popup is taking the key. Each
+  carries its diagnosis rather than a one-line title, and each has its cases in
+  `docs/UI_TEST_PLAN.md`.
+- A setting for whether a pane's filter bar is always present or only appears
+  when asked for, recorded with the one thing that would otherwise be
+  rediscovered expensively: the new field needs a serde default.
+- Linux quick preview written down as a chain rather than as GNOME: `gnome-sushi`
+  and Cinnamon's `nemo-preview` expose a previewer on the bus, KDE and XFCE have
+  nothing to call at all, and on those the built-in viewer is the answer rather
+  than the consolation prize.
+
 ## [0.6.2] - 2026-09-02
 
 ### Added
