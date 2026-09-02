@@ -1981,6 +1981,17 @@ void PaneWidget::ensureCurrentRow() {
     if (generation == m_positionedGeneration && current.isValid() && current.row() < rows) {
         return;
     }
+    // Not while the rows are still arriving.
+    //
+    // The row to put the cursor back on is a position in the finished listing,
+    // and a large folder is delivered in batches - so deciding from the first
+    // batch lands somewhere arbitrary and then never reconsiders, because the
+    // generation would already be recorded as positioned. The cursor stays put
+    // for the moment the listing takes to fill; that is the same moment the
+    // rows are visibly appearing, so there is nothing to sit still for.
+    if (jtf_is_loading(m_app, m_pane) != 0) {
+        return;
+    }
     m_positionedGeneration = generation;
 
     // Stepping out of a folder puts the cursor on the folder you left; any

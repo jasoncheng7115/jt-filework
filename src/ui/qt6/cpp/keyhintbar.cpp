@@ -210,7 +210,8 @@ void KeyHintBar::rebuild(Context context) {
             continue;
         }
         const QString shortcut =
-            jtfText([&](char *buf, int len) { return jtf_shortcut_for(m_app, *id, buf, len); });
+            jtfShortcutText(
+            jtfText([&](char *buf, int len) { return jtf_shortcut_for(m_app, *id, buf, len); }));
         if (shortcut.isEmpty()) {
             continue;
         }

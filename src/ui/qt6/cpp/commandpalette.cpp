@@ -89,7 +89,8 @@ void CommandPalette::load() {
         entry.label = translate(label);
         entry.category = translate(category);
         entry.shortcut =
-            jtfText([&](char *buf, int len) { return jtf_shortcut_for(m_app, id, buf, len); });
+            jtfShortcutText(
+            jtfText([&](char *buf, int len) { return jtf_shortcut_for(m_app, id, buf, len); }));
         m_entries.append(entry);
     }
 }

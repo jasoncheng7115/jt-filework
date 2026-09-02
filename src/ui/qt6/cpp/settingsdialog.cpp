@@ -634,8 +634,8 @@ void SettingsDialog::reloadShortcuts() {
                             sizeof(category))) {
             continue;
         }
-        const QString shortcut = jtfText(
-            [&](char *buf, int len) { return jtf_shortcut_for(m_app, id, buf, len); });
+        const QString shortcut = jtfShortcutText(jtfText(
+            [&](char *buf, int len) { return jtf_shortcut_for(m_app, id, buf, len); }));
 
         auto *categoryItem = new QTableWidgetItem(trKey(QString::fromUtf8(category)));
         auto *commandItem = new QTableWidgetItem(trKey(QString::fromUtf8(label)));

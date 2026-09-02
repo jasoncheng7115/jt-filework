@@ -2279,11 +2279,14 @@ void MainWindow::applyCommandBindings() {
         }
 
         // Toolbar buttons have no room for a label, so the tooltip carries the
-        // name and the shortcut.
+        // name and the shortcut - spelled the way this platform spells it.
+        // `shortcut` is the portable chord, which is what QKeySequence above
+        // needs and what must never be shown: on macOS its "Ctrl" is Command,
+        // so the tooltip was naming a key that does nothing.
         action->setToolTip(shortcut.isEmpty()
                                ? action->text()
-                               : action->text() + QStringLiteral("  (") + shortcut +
-                                     QStringLiteral(")"));
+                               : action->text() + QStringLiteral("  (")
+                                     + jtfShortcutText(shortcut) + QStringLiteral(")"));
 
         // A command the registry does not know about cannot be invoked; it is
         // left disabled rather than silently doing nothing.

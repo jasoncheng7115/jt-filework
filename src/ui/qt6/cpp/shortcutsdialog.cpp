@@ -106,8 +106,8 @@ void ShortcutsDialog::rebuild(const QString &needle) {
         const QString label = tr_(labelBuf);
         const QString category = tr_(categoryBuf);
         const QByteArray idUtf8 = id.toUtf8();
-        const QString shortcut = jtfText(
-            [&](char *b, int l) { return jtf_shortcut_for(m_app, idUtf8.constData(), b, l); });
+        const QString shortcut = jtfShortcutText(jtfText(
+            [&](char *b, int l) { return jtf_shortcut_for(m_app, idUtf8.constData(), b, l); }));
 
         // A command with no key is still worth listing: "this exists and has
         // no shortcut" is an answer, and it is where a user goes to pick one.

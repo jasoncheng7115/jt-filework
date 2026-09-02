@@ -88,6 +88,15 @@ Breadcrumb::Breadcrumb(QWidget *parent) : QWidget(parent) {
     connect(m_edit, &QLineEdit::textEdited, this,
             [this](const QString &typed) { refreshCompletions(typed); });
     m_edit->installEventFilter(this);
+    // And on the completer's list, which is where the keyboard actually is
+    // whenever there is anything to complete.
+    //
+    // Tab was caught on the line edit alone, and the popup takes the focus the
+    // moment it appears - so the one moment the key means something was the
+    // one moment the field could not see it, and Tab did nothing at all. The
+    // popup is created on first access and kept, so installing here holds for
+    // the life of the bar.
+    m_completer->popup()->installEventFilter(this);
     stack->addWidget(m_edit);
 }
 
@@ -142,18 +151,22 @@ void Breadcrumb::endEditing(bool navigateThere) {
 }
 
 bool Breadcrumb::eventFilter(QObject *watched, QEvent *event) {
+    // Tab means the same thing whether the list is up or not, and the list is
+    // up whenever there is something to complete.
+    const bool typingSurface =
+        watched == m_edit
+        || (m_completer != nullptr && watched == m_completer->popup());
+    if (typingSurface && event->type() == QEvent::KeyPress) {
+        auto *key = static_cast<QKeyEvent *>(event);
+        if (key->key() == Qt::Key_Tab && key->modifiers() == Qt::NoModifier) {
+            completeTyped();
+            return true;
+        }
+    }
     if (watched == m_edit && event->type() == QEvent::KeyPress) {
         auto *key = static_cast<QKeyEvent *>(event);
         if (key->key() == Qt::Key_Escape) {
             endEditing(false);
-            return true;
-        }
-        if (key->key() == Qt::Key_Tab && key->modifiers() == Qt::NoModifier) {
-            // Tab fills the path in, as it does in a shell. Claimed whether or
-            // not there is anything to add: a Tab that sometimes completes and
-            // sometimes jumps the focus out of the field is worse than one
-            // that sometimes does nothing.
-            completeTyped();
             return true;
         }
     }

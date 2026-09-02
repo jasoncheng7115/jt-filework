@@ -239,6 +239,21 @@ struct PaneView {
     /// Set when leaving a folder upwards, so stepping out puts the cursor on
     /// the folder you just left rather than back at the top. Consumed once.
     focus_name: Option<String>,
+    /// The folder these entries belong to.
+    ///
+    /// Compared on the next enumeration to tell a *refresh* from a
+    /// *navigation*: the cursor is put back only when the folder is the same
+    /// one, or a stale row number would be applied to a different list.
+    listed_location: Option<jtf_core::Location>,
+    /// Where the cursor was when this folder was last re-read, as both the
+    /// entry it was on and the row that entry occupied.
+    ///
+    /// Two answers because the first one can disappear. Deleting the file
+    /// under the cursor is the ordinary case, and then there is no location to
+    /// match - so the row it held is used instead, which is where whatever
+    /// took its place now is. Falling back to the top of the list means
+    /// scrolling all the way down again after every delete.
+    restore: Option<(jtf_core::Location, usize)>,
     /// The folder's own modification time when this listing was read.
     ///
     /// What the poll compares against to notice that something outside this
@@ -296,6 +311,8 @@ impl PaneView {
             folder_count: 0,
             visible_bytes: 0,
             focus_name: None,
+            listed_location: None,
+            restore: None,
             listed_stamp: None,
         }
     }
@@ -1539,19 +1556,45 @@ impl App {
         let Some(view) = self.views.get_mut(&pane) else {
             return -1;
         };
-        let Some(name) = view.focus_name.take() else {
+        if let Some(name) = view.focus_name.take() {
+            // Stepping out of a folder: land on the folder just left.
+            return view
+                .visible
+                .iter()
+                .position(|&index| {
+                    view.entries
+                        .get(index)
+                        .is_some_and(|entry| entry.display_name() == name)
+                })
+                .map_or(-1, |row| {
+                    isize::try_from(row).unwrap_or(0).saturating_add(parent_row)
+                });
+        }
+
+        // A re-read of the folder already shown: put the cursor back where it
+        // was. On the same entry if it is still there; otherwise on the row it
+        // held, which is where whatever replaced it now is.
+        //
+        // The second half is what a delete needs. Deleting the file under the
+        // cursor leaves nothing to match, and without this the cursor went to
+        // the top of the list - so deleting a run of files meant scrolling back
+        // down after every one.
+        let Some((entry, previous_row)) = view.restore.take() else {
             return -1;
         };
-        view.visible
-            .iter()
-            .position(|&index| {
-                view.entries
-                    .get(index)
-                    .is_some_and(|entry| entry.display_name() == name)
-            })
-            .map_or(-1, |row| {
-                isize::try_from(row).unwrap_or(0).saturating_add(parent_row)
-            })
+        let found = view.visible.iter().position(|&index| {
+            view.entries
+                .get(index)
+                .is_some_and(|listed| *listed.location() == entry)
+        });
+        let row = match found {
+            Some(row) => row,
+            None if view.visible.is_empty() => return -1,
+            // Clamped: deleting the last entry lands on the new last one
+            // rather than off the end.
+            None => previous_row.min(view.visible.len() - 1),
+        };
+        isize::try_from(row).unwrap_or(0).saturating_add(parent_row)
     }
 
     pub(crate) fn navigate_up(&mut self, pane: PaneId) {
@@ -4135,6 +4178,28 @@ impl App {
         // The folder as it stands at the moment it is read. The poll compares
         // against this to notice a change made by anything else.
         let stamp = folder_stamp(&location);
+
+        // Where the cursor is now, so it can be put back once the new listing
+        // arrives - but only when this is a re-read of the folder already
+        // shown. Navigating somewhere else must not carry a row number over
+        // into a list it means nothing in.
+        let cursor = self
+            .workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .and_then(jtf_workspace::Tab::active_entry)
+            .cloned();
+        let restore = match (self.views.get(&pane), cursor) {
+            (Some(view), Some(entry)) if view.listed_location.as_ref() == Some(&location) => {
+                let row = view.visible.iter().position(|&index| {
+                    view.entries
+                        .get(index)
+                        .is_some_and(|listed| *listed.location() == entry)
+                });
+                row.map(|row| (entry, row))
+            }
+            _ => None,
+        };
         // Read before the mutable borrow of the view below.
         let show_hidden = self.show_hidden;
         let folders_first = self.settings.folders_first;
@@ -4164,6 +4229,8 @@ impl App {
         view.sort = sort;
         view.loading = true;
         view.listed_stamp = stamp;
+        view.listed_location = Some(location.clone());
+        view.restore = restore;
         view.generation += 1;
 
         // An archive is browsed like a folder. CV.HLP 4: pressing Enter on a

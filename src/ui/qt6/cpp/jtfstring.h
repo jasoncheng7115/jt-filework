@@ -3,6 +3,7 @@
 
 #include "bridge.h"
 
+#include <QKeySequence>
 #include <QString>
 #include <vector>
 
@@ -12,6 +13,22 @@
 // slot rather than concatenating anything.
 inline QString jtfFill(QString text, const char *name, const QString &value) {
     return text.replace(QStringLiteral("{%1}").arg(QLatin1String(name)), value);
+}
+
+// A shortcut spelled the way the platform this is running on spells it.
+//
+// The core stores a *portable* chord - "Ctrl+2", "Alt+R" - which is what
+// QKeySequence parses and what Qt maps onto the platform accelerator: on macOS
+// that Ctrl is Command. Printing the portable string as-is therefore named a
+// key that does not work, and the tooltip on the list-view button said
+// "(Ctrl+2)" for something only ⌘2 answers to. Menu items were always right
+// because Qt renders those from the QKeySequence itself; it is only the places
+// that print the text by hand that were wrong, and there were six of them.
+inline QString jtfShortcutText(const QString &portable) {
+    if (portable.isEmpty()) {
+        return portable;
+    }
+    return QKeySequence(portable).toString(QKeySequence::NativeText);
 }
 
 // Calls a bridge function that writes UTF-8 into a caller buffer and returns

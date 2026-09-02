@@ -185,18 +185,6 @@
 
 ## P0 — Reported, not yet built
 
-- [ ] **The cursor jumps to the top of the list after a delete.** It should land
-      on the item that took the deleted one's place, so the next thing is under
-      the hand and the list does not have to be scrolled back down. Deleting
-      several files in a row is the case that makes this hurt.
-
-      Adjacent to the folder poll shipped in 0.6.4, which keeps the cursor on
-      the same *file* across a re-list by remembering a location rather than a
-      row number. That is exactly why this falls to the top: the remembered
-      location no longer exists, so nothing matches and the cursor defaults to
-      row zero. The answer is to fall back to the row *index* the vacated entry
-      held, clamped to the new length, when the location itself has gone.
-
 - [ ] **The disc usage window re-walks a folder it has already measured.** The
       walk produces a tree of everything beneath the root; descending into a
       subfolder should re-render from that tree, and going back up likewise.
@@ -235,28 +223,6 @@
       stay.
 
 ## P0 — Reported, not yet fixed
-
-- [ ] **Shortcuts are displayed as `Ctrl+…` on macOS where the key is actually
-      Command.** The behaviour is right - Qt maps the portable `Ctrl` to ⌘ - but
-      every place that *prints* the shortcut prints the portable string, so a
-      tooltip says "清單檢視 (Ctrl+2)" for a key that only answers to ⌘2. Six
-      call sites take `jtf_shortcut_for` and show it raw: commandpalette.cpp:92,
-      keyhintbar.cpp:213, mainwindow.cpp:1572 and 2234, shortcutsdialog.cpp:110,
-      settingsdialog.cpp:638. The fix is to render through
-      `QKeySequence(portable).toString(QKeySequence::NativeText)` at each, which
-      gives ⌘2 on macOS and leaves Ctrl+2 everywhere else. Menu items are
-      already correct because Qt renders those itself from the QKeySequence.
-
-- [ ] **Tab in the path bar still does not complete.** The code is in
-      (`Breadcrumb::completeTyped`, d0f0789, shipped in 0.6.2) and the user
-      reports it doing nothing. Most likely cause: the filter that catches Tab
-      is installed on the line edit, but the completer's popup takes the
-      keyboard the moment it appears - and it is exactly when there is
-      something to complete that the popup is open, so the key never reaches
-      the field. Try installing the same filter on `m_completer->popup()`, or
-      stop the popup taking focus. Confirm on the Linux box by typing a partial
-      path and pressing Tab, rather than by reading the code: the code looks
-      correct, which is the whole problem.
 
 - [ ] **The cursor outline still breaks up when moving with the arrow keys.**
       Reported again after the repaint fix (76e1814), which repaints the whole

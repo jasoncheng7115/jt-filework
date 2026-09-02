@@ -12,6 +12,29 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.6] - 2026-09-03
+
+### Fixed
+
+- **The cursor fell to the top of the list after a delete.** It lands on the
+  entry that took the deleted one's place now, so deleting a run of files no
+  longer means scrolling back down after every one. This is the far side of the
+  folder poll added in 0.6.4: the cursor is carried across a re-read by
+  remembering *which file* it was on, and a deleted file matches nothing — so
+  the row it held is used instead. Positioning also waits for the listing to
+  finish, because a row number decided from the first batch of a large folder
+  is a guess that never gets reconsidered.
+- **Tab in the path bar did nothing.** The key was caught on the text field,
+  and the completion list takes the keyboard the moment it appears — so the one
+  moment Tab meant something was the one moment the field could not see it. The
+  list is watched too now.
+- **macOS printed `Ctrl+2` for a key that only answers to Command.** The
+  behaviour was always right; Qt maps the portable chord onto the platform
+  accelerator. It was the places that print the chord as text that were wrong,
+  and there were several — a tooltip, the palette, the hint strip, the shortcut
+  sheet, the settings list. One helper renders them all in the platform's own
+  notation.
+
 ## [0.6.5] - 2026-09-03
 
 ### Documentation
