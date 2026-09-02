@@ -29,10 +29,27 @@ Breadcrumb::Breadcrumb(QWidget *parent) : QWidget(parent) {
     auto *stack = new QVBoxLayout(this);
     stack->setContentsMargins(0, 0, 0, 0);
 
+    // The bar takes whatever width it is given and never asks for more.
+    //
+    // `rebuild` already drops leading segments and puts an ellipsis in when
+    // the crumbs do not fit - but it measured against `width()`, and the row
+    // of buttons underneath was reporting its full length as a minimum. So the
+    // splitter widened the pane until the crumbs fitted, `width()` grew with
+    // it, and the elision it was measuring for never happened: opening a
+    // folder eight levels deep shoved the pane beside it half off the screen.
+    //
+    // `Ignored` says the size hint is not a request. The same thing the status
+    // line does, and for the same reason.
+    setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+    setMinimumWidth(0);
+
     m_crumbHost = new QWidget(this);
+    m_crumbHost->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+    m_crumbHost->setMinimumWidth(0);
     m_layout = new QHBoxLayout(m_crumbHost);
     m_layout->setContentsMargins(6, 2, 6, 2);
     m_layout->setSpacing(0);
+    m_layout->setSizeConstraint(QLayout::SetNoConstraint);
     m_layout->addStretch(1);
     stack->addWidget(m_crumbHost);
 
@@ -50,6 +67,8 @@ Breadcrumb::Breadcrumb(QWidget *parent) : QWidget(parent) {
 
     m_edit = new QLineEdit(this);
     m_edit->setObjectName(QStringLiteral("JtfPathEdit"));
+    m_edit->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+    m_edit->setMinimumWidth(0);
     m_edit->setFrame(false);
     m_edit->setVisible(false);
     connect(m_edit, &QLineEdit::returnPressed, this, [this] { endEditing(true); });
@@ -124,8 +143,17 @@ void Breadcrumb::endEditing(bool navigateThere) {
 
 bool Breadcrumb::eventFilter(QObject *watched, QEvent *event) {
     if (watched == m_edit && event->type() == QEvent::KeyPress) {
-        if (static_cast<QKeyEvent *>(event)->key() == Qt::Key_Escape) {
+        auto *key = static_cast<QKeyEvent *>(event);
+        if (key->key() == Qt::Key_Escape) {
             endEditing(false);
+            return true;
+        }
+        if (key->key() == Qt::Key_Tab && key->modifiers() == Qt::NoModifier) {
+            // Tab fills the path in, as it does in a shell. Claimed whether or
+            // not there is anything to add: a Tab that sometimes completes and
+            // sometimes jumps the focus out of the field is worse than one
+            // that sometimes does nothing.
+            completeTyped();
             return true;
         }
     }
@@ -145,6 +173,66 @@ bool Breadcrumb::eventFilter(QObject *watched, QEvent *event) {
         }
     }
     return QWidget::eventFilter(watched, event);
+}
+
+// Fill in as much of the path as is unambiguous.
+//
+// Shell behaviour, because this is a path being typed and that is what
+// everyone's fingers already expect: one match completes it and adds the
+// separator so the next Tab carries on into it; several matches fill in as far
+// as they agree and then show the list.
+void Breadcrumb::completeTyped() {
+    if (m_completions == nullptr || m_completer == nullptr) {
+        return;
+    }
+    const QString typed = m_edit->text();
+    QStringList matches;
+    const QStringList all = m_completions->stringList();
+    for (const QString &candidate : all) {
+        if (candidate.startsWith(typed, Qt::CaseInsensitive)) {
+            matches.append(candidate);
+        }
+    }
+    if (matches.isEmpty()) {
+        return;
+    }
+
+    // The longest opening every match shares. Compared without case, because
+    // the completer matches without case and `/us` has to be able to reach
+    // `/Users` - but taken from a real candidate, so what lands in the field is
+    // spelled the way the disk spells it rather than the way it was typed.
+    QString common = matches.constFirst();
+    for (const QString &match : matches) {
+        int shared = 0;
+        while (shared < common.size() && shared < match.size()
+               && common.at(shared).toCaseFolded() == match.at(shared).toCaseFolded()) {
+            ++shared;
+        }
+        common.truncate(shared);
+    }
+
+    const bool single = matches.size() == 1;
+    if (!single && common.size() <= typed.size()) {
+        // Nothing more can be added without guessing. Show the choices.
+        m_completer->setCompletionPrefix(typed);
+        m_completer->complete();
+        return;
+    }
+
+    QString filled = common;
+    // Every candidate is a directory, so ending on one means the next Tab can
+    // go straight on into it.
+    if (single && !filled.endsWith(QLatin1Char('/'))) {
+        filled += QLatin1Char('/');
+    }
+    if (filled == typed) {
+        return;
+    }
+    m_edit->setText(filled);
+    refreshCompletions(filled);
+    if (single) {
+        m_completer->popup()->hide();
+    }
 }
 
 void Breadcrumb::mousePressEvent(QMouseEvent *event) {

@@ -58,6 +58,8 @@ private:
     void endEditing(bool navigateThere);
     /// Refresh the completer's list for whatever folder is being typed into.
     void refreshCompletions(const QString &typed);
+    /// Fill the path in as far as is unambiguous, the way a shell does.
+    void completeTyped();
 
     QHBoxLayout *m_layout = nullptr;
     class QLineEdit *m_edit = nullptr;

@@ -1248,6 +1248,11 @@ void MainWindow::openSettings() {
             m_inspector->applyPreviewBackground();
         }
         refreshAll();
+        // Written now, not at exit. A setting that survives only a clean quit
+        // is a setting that has not been saved: the process can be killed, the
+        // machine can lose power, and the answer to "why did it forget" must
+        // never be "you did not close it properly".
+        jtf_app_save_session(m_app);
     });
     dialog.exec();
     refreshAll();
@@ -2408,6 +2413,7 @@ void MainWindow::buildToolbar() {
         [this] {
             jtf_set_folders_first(m_app, jtf_folders_first(m_app) ? 0 : 1);
             refreshAll();
+            jtf_app_save_session(m_app);
         },
         true);
     button("help.shortcuts", glyph::Shape::Keyboard, [this] { openShortcuts(); });

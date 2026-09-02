@@ -925,6 +925,10 @@ than *what the dialog says*, because the dialog is read after the decision.
 | PREV-030 | **The preview background honours the chosen colour.** A stylesheet background must not override the palette the choice sets | H2 |
 | PREV-031 | The colour button shows the colour it is set to, with its hex value beside it | H2 |
 | PREV-032 | The preview background defaults to white | H2 |
+| PATH-020 | **Tab fills the path in.** One match completes it and adds the separator so the next Tab carries on; several fill in as far as they agree and then show the list | H2 |
+| PATH-021 | Tab in the path field never moves the focus out of it, whether or not there was anything to complete | H2 |
+| PATH-022 | **A long path does not widen the pane.** The bar elides its leading segments instead; the pane beside it keeps its width | H2/H3 |
+| SETT-010 | A setting is written when it is changed, not at exit — killing the process does not lose it | H1/H2 |
 | QL-001 | **Space in native mode with the Quick Look panel already open does not crash.** The panel is the key window; forwarding its keys to the key window re-entered the handler until the stack ran out | H5 |
 | QL-002 | Space on the item already showing closes the panel; on a different item it swaps rather than stacking | H5 |
 | OPS-040 | **Rename acts on the row the cursor is on, not on a mark left behind.** Mark row 1, move to row 5, press R: row 5's name is in the box and row 5 is what gets renamed | H2 |
