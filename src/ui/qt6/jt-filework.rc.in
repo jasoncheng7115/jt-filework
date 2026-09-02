@@ -11,7 +11,7 @@
 // shown for the executable itself.
 #include <windows.h>
 
-IDI_ICON1 ICON "@JTF_ICON_PATH@"
+@JTF_ICON_LINE@
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION    @JTF_VERSION_COMMA@,0

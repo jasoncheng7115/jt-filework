@@ -178,9 +178,23 @@ if(WIN32)
     # The version stamp Explorer, the taskbar and the properties dialog read,
     # filled in from Cargo.toml rather than written out again by hand.
     string(REPLACE "." "," JTF_VERSION_COMMA "${JTF_VERSION}")
+    # The .ico is generated from the master SVGs by assets/icon/build-icons.sh
+    # and is deliberately not committed (`AGENTS.md` 2). `rc.exe` fails outright
+    # on an icon it cannot open - RC2135, and the build stops - so a clone must
+    # produce a resource script that does not mention one. The executable then
+    # carries the toolkit's default icon in Explorer, which is a missing picture
+    # rather than a build nobody outside this machine can run.
     set(JTF_ICON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../assets/icon/generated/jt-filework.ico")
-    # Backslashes, because a resource script is not a CMake path.
-    string(REPLACE "/" "\\\\" JTF_ICON_PATH "${JTF_ICON_PATH}")
+    if(EXISTS "${JTF_ICON_PATH}")
+        # Backslashes, because a resource script is not a CMake path.
+        string(REPLACE "/" "\\\\" JTF_ICON_PATH "${JTF_ICON_PATH}")
+        set(JTF_ICON_LINE "IDI_ICON1 ICON \"${JTF_ICON_PATH}\"")
+    else()
+        message(STATUS
+            "jt-filework: no generated .ico; run assets/icon/build-icons.sh for "
+            "an executable that carries its icon in Explorer")
+        set(JTF_ICON_LINE "// no icon: assets/icon/generated/jt-filework.ico was not built")
+    endif()
     configure_file(jt-filework.rc.in "${CMAKE_CURRENT_BINARY_DIR}/jt-filework.rc" @ONLY)
     target_sources(jt-filework PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/jt-filework.rc")
     # `shlobj` for the shell's own name for the drives root.
