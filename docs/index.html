@@ -99,6 +99,22 @@
   .status { font-size: 14px; color: var(--dim); margin-top: 14px; }
   .status code { background: var(--code-bg); padding: 2px 6px; border-radius: 5px; }
 
+  /* The screenshot gallery. Every shot is a real window on a real machine, and
+     each one says which machine, because "it runs on three platforms" is a
+     claim a reader is entitled to see rather than take. */
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 26px; margin-top: 26px; }
+  .gallery figure { margin: 0; }
+  .gallery img {
+    width: 100%; display: block; border-radius: 10px;
+    border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--bg-alt);
+  }
+  .gallery figcaption { font-size: 13.5px; color: var(--dim); margin-top: 9px; line-height: 1.5; }
+  .os {
+    display: inline-block; margin-right: 7px; padding: 1px 7px; border-radius: 5px;
+    font: 650 11.5px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    letter-spacing: .02em; color: var(--accent); background: var(--accent-soft);
+    vertical-align: 1px;
+  }
   figure.shot { margin: 34px 0 0; }
   figure.shot img { width: 100%; border-radius: 12px; border: 1px solid var(--line); box-shadow: var(--shadow); display: block; }
   figure.shot figcaption { font-size: 13.5px; color: var(--dim); margin-top: 10px; text-align: center; }
@@ -167,23 +183,16 @@
   footer { border-top: 1px solid var(--line); padding: 30px 0 50px; color: var(--dim); font-size: 14px; }
   footer a { color: var(--accent); }
 
-  /* Both languages are in the page; the root element says which one shows.
-     Driven by CSS rather than by setting inline styles, because clearing an
-     inline `display` only falls back to the rule below - which is `none`, so
-     the text stayed hidden. `revert` gives each element its natural display
-     back, whether that is a block or an inline. */
-  [data-lang] { display: none; }
-  html[data-show="en"] [data-lang="en"],
-  html[data-show="zh-tw"] [data-lang="zh-tw"] { display: revert; }
-  /* `revert` gives an element its *default* display back, which for a div is
-     `block` - so any container whose layout comes from a class lost it the
-     moment it also carried a language. The key list is a grid and was being
-     shown as one column down the left of a wide page. Anything laid out by a
-     class has to say so again here. */
-  html[data-show="en"] .keys[data-lang="en"],
-  html[data-show="zh-tw"] .keys[data-lang="zh-tw"] { display: grid; }
-  html[data-show="en"] .soon[data-lang="en"],
-  html[data-show="zh-tw"] .soon[data-lang="zh-tw"] { display: inline-block; }
+  /* One language shows, the other hides. Asked as "hide what is not the
+     current language" rather than "hide everything, then show one", because
+     the second form has to name a display value when it shows - and any
+     component whose class supplies its own layout loses that layout the moment
+     it also carries a language. That cost the key list its columns once and the
+     index its single set of cards a second time. This form never sets display
+     on a visible element at all, so there is nothing left to get wrong; and it
+     outranks a plain class rule, so a new component cannot revive the bug. */
+  html[data-show="en"] [data-lang]:not([data-lang="en"]),
+  html[data-show="zh-tw"] [data-lang]:not([data-lang="zh-tw"]) { display: none; }
 </style>
 </head>
 <body>
@@ -193,6 +202,7 @@
     <span class="brand"><img src="site/logo.png" alt="">jt-filework</span>
     <nav>
       <a href="#features" data-lang="en">Features</a><a href="#features" data-lang="zh-tw">功能</a>
+      <a href="#shots" data-lang="en">Screenshots</a><a href="#shots" data-lang="zh-tw">畫面</a>
       <a href="features.html" data-lang="en">Full spec</a><a href="features.html" data-lang="zh-tw">完整規格</a>
       <a href="#download" data-lang="en">Download</a><a href="#download" data-lang="zh-tw">下載</a>
       <a href="#keyboard" data-lang="en">Keyboard</a><a href="#keyboard" data-lang="zh-tw">鍵盤</a>
@@ -217,8 +227,8 @@
     </div>
     <div data-lang="zh-tw">
       <h1>全鍵操作，無需離手。</h1>
-      <p class="lede">一個字母就是一個命令——複製、移動、更名、檢視、標記——不必按住任何鍵，
-        也不必到選單裡翻。底下是：可以隨工作需要一再分割的面板、每個面板各自獨立的分頁、
+      <p class="lede">一個按鍵快速執行命令：複製、移動、更名、檢視、標記。不用組合鍵，
+        也不用翻選單。底下是：可以隨工作需要一再分割的面板、每個面板各自獨立的分頁、
         真正的預覽、像資料夾一樣打得開的壓縮檔、透過 SFTP 的遠端資料夾，以及一份說得出
         是哪<em>一類</em>檔案填滿磁碟的報告。</p>
     </div>
@@ -230,35 +240,35 @@
     </div>
 
     <p class="status" data-lang="en"><strong>0.6.0</strong> — running on macOS (Apple Silicon) and
-      Windows (x64); Linux builds from source. <code>545</code> tests pass.</p>
-    <p class="status" data-lang="zh-tw"><strong>0.6.0</strong> — 已在 macOS（Apple Silicon）與
-      Windows（x64）執行，Linux 可從原始碼建置。<code>545</code> 個測試通過。</p>
+      Windows (x64); Linux builds from source. <code>585</code> tests pass.</p>
+    <p class="status" data-lang="zh-tw"><strong>0.6.0</strong>　macOS（Apple Silicon）跟 Windows（x64）
+      已經在跑，Linux 自己建置。<code>585</code> 個測試通過。</p>
 
     <figure class="shot">
       <img src="site/main.png" alt="jt-filework showing two panes side by side">
       <figcaption data-lang="en">Two panes, a folder tree that follows the focus, and a strip along
         the bottom showing the keys you can press right now.</figcaption>
-      <figcaption data-lang="zh-tw">兩個面板、跟隨焦點的樹狀圖，以及底部顯示現在可以按哪些鍵的
-        提示列。</figcaption>
+      <figcaption data-lang="zh-tw">兩個面板、會跟著焦點走的樹狀圖，底下那條會顯示
+        現在可以按哪些鍵。</figcaption>
     </figure>
   </div>
 
   <section id="features">
     <h2 data-lang="en">What it does</h2>
-    <h2 data-lang="zh-tw">它做得到的事</h2>
+    <h2 data-lang="zh-tw">它做得到什麼</h2>
     <p class="sub" data-lang="en">Everything here is built and working, not planned.
       The <a href="features.html">full specification</a> lists every feature, every format and
       every limit, with the numbers.</p>
-    <p class="sub" data-lang="zh-tw">以下每一項都已完成並可用，不是規劃。
-      <a href="features.html">完整規格</a>裡列出每一項功能、每一種格式、每一道上限，連數字一起。</p>
+    <p class="sub" data-lang="zh-tw">下面這些都做完了、可以用，不是計畫。
+      每項功能、每種格式、每道上限的數字，<a href="features.html">完整規格</a>裡都查得到。</p>
 
     <div class="grid">
       <div class="card">
         <h3 data-lang="en">Split as far as the work needs</h3>
-        <h3 data-lang="zh-tw">分割到工作需要的深度</h3>
+        <h3 data-lang="zh-tw">要幾個面板就幾個</h3>
         <p data-lang="en">A recursive split tree, not two fixed panes. Every pane owns independent
           tabs, and a tab can be torn off into its own window.</p>
-        <p data-lang="zh-tw">遞迴分割樹，不是固定的兩個面板。每個面板擁有自己的分頁，分頁也能拉出來
+        <p data-lang="zh-tw">不是固定兩個面板，要幾層就切幾層。每個面板有自己的分頁，分頁也能拉出來
           變成獨立視窗。</p>
       </div>
       <div class="card">
@@ -266,42 +276,113 @@
         <h3 data-lang="zh-tw">選取即是標記</h3>
         <p data-lang="en">They used to be separate concepts. Keeping them apart meant Shift-selecting
           six files and finding none of them ticked, so now they are one thing.</p>
-        <p data-lang="zh-tw">這兩件事原本是分開的。分開的結果是：用 Shift 選了六個檔案，卻一個都沒被
-          勾起來——所以現在它們是同一件事。</p>
+        <p data-lang="zh-tw">本來是分開的兩件事，結果用 Shift 選了六個檔案，一個都沒被勾到。
+          現在就是同一件事。</p>
       </div>
       <div class="card">
         <h3 data-lang="en">What differs between two folders</h3>
-        <h3 data-lang="zh-tw">兩個資料夾之間的差異</h3>
+        <h3 data-lang="zh-tw">兩個資料夾差在哪</h3>
         <p data-lang="en">Only here, only there, different, identical. Subfolders optional. Compared
           by size and modification time — a rule printed under the table rather than implied.</p>
-        <p data-lang="zh-tw">只在這邊、只在那邊、不同、相同。子資料夾可選。依大小與修改時間比對——這
-          條規則印在表格下方，而不是讓人自己假設。</p>
+        <p data-lang="zh-tw">只在這邊、只在那邊、不一樣、一樣。要不要含子資料夾自己決定。比對用大小跟
+          修改時間，這條規則就寫在表格下面，不用猜。</p>
       </div>
       <div class="card">
         <h3 data-lang="en">Where the space went</h3>
-        <h3 data-lang="zh-tw">空間究竟去了哪裡</h3>
+        <h3 data-lang="zh-tw">空間跑去哪了</h3>
         <p data-lang="en">One walk, two answers: which child folder holds the most, and which
           <em>kind</em> of file adds up to the most. The second is the half most tools cannot
           answer.</p>
-        <p data-lang="zh-tw">一次走訪、兩個答案：哪個子資料夾佔最多，以及哪一<em>類</em>檔案加起來
-          最多。後者是多數工具回答不了的那一半。</p>
+        <p data-lang="zh-tw">掃一次給你兩個答案：哪個子資料夾最大，還有哪一<em>類</em>檔案加起來最大。
+          第二個答案大部分工具都給不出來。</p>
       </div>
       <div class="card">
         <h3 data-lang="en">Remote folders</h3>
         <h3 data-lang="zh-tw">遠端資料夾</h3>
         <p data-lang="en">SFTP with the host key checked and remembered. A password is held in memory
           for the process lifetime, dropped on disconnect, and never written to disk.</p>
-        <p data-lang="zh-tw">SFTP，會檢查並記住主機金鑰。密碼只保留在記憶體中直到行程結束，斷線即
-          丟棄，永不寫入磁碟。</p>
+        <p data-lang="zh-tw">走 SFTP，主機金鑰會檢查也會記住。密碼只放在記憶體，斷線就丟掉，
+          不會寫進磁碟。</p>
       </div>
       <div class="card">
         <h3 data-lang="en">The window never stops</h3>
-        <h3 data-lang="zh-tw">視窗永遠不會停住</h3>
+        <h3 data-lang="zh-tw">視窗不會卡住</h3>
         <p data-lang="en">Listing, searching, measuring, comparing, extracting — all on worker
           threads, all with a running count and a Cancel that works.</p>
-        <p data-lang="zh-tw">列目錄、搜尋、計算、比較、解壓縮——全部在背景執行緒上，都有即時計數與真的
-          有效的取消。</p>
+        <p data-lang="zh-tw">列目錄、搜尋、計算、比較、解壓縮，全部丟到背景執行緒跑。進度即時更新，
+          取消按了真的會停。</p>
       </div>
+    </div>
+  </section>
+
+  <section id="shots">
+    <h2 data-lang="en">Screenshots</h2>
+    <h2 data-lang="zh-tw">畫面</h2>
+    <p class="sub" data-lang="en">Real windows on real machines — macOS, Windows 11 and Ubuntu,
+      the same build from the same source.</p>
+    <p class="sub" data-lang="zh-tw">真的視窗、真的機器：macOS、Windows 11、Ubuntu，
+      同一份原始碼建出來的同一版。</p>
+    <div class="gallery">
+      <figure>
+        <img src="site/mac-panes.png" loading="lazy" alt="jt-filework on macOS">
+        <figcaption data-lang="en"><span class="os">macOS</span>Two panes side by side, the folder tree following the focused one.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">macOS</span>兩個面板並排，資料夾樹跟著有焦點的那個走。</figcaption>
+      </figure>
+      <figure>
+        <img src="site/win-main.png" loading="lazy" alt="jt-filework on Windows">
+        <figcaption data-lang="en"><span class="os">Windows</span>The same workspace on Windows 11, light theme.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">Windows</span>同一個工作區在 Windows 11 上，淺色主題。</figcaption>
+      </figure>
+      <figure>
+        <img src="site/lin-split.png" loading="lazy" alt="jt-filework on Linux">
+        <figcaption data-lang="en"><span class="os">Linux</span>Split panes on Ubuntu. The dashed outline is the active pane; the other one is marked as where a copy or move would land.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">Linux</span>Ubuntu 上的分割面板。虛線框是現在作用中的面板，另一邊標著複製或移動會放到哪。</figcaption>
+      </figure>
+      <figure>
+        <img src="site/mac-archive.png" loading="lazy" alt="jt-filework on macOS">
+        <figcaption data-lang="en"><span class="os">macOS</span>A ZIP opened like a folder — same keys inside it as outside.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">macOS</span>ZIP 當成資料夾開，裡面用的按鍵跟外面一樣。</figcaption>
+      </figure>
+      <figure>
+        <img src="site/lin-usage.png" loading="lazy" alt="jt-filework on Linux">
+        <figcaption data-lang="en"><span class="os">Linux</span>Disk usage: which subfolder is largest on the left, which kind of file adds up to the most on the right.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">Linux</span>磁碟用量：左邊是哪個子資料夾最大，右邊是哪一類檔案加起來最大。</figcaption>
+      </figure>
+      <figure>
+        <img src="site/win-filter.png" loading="lazy" alt="jt-filework on Windows">
+        <figcaption data-lang="en"><span class="os">Windows</span>The filter narrowing the current folder as you type.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">Windows</span>篩選會邊打邊縮小目前這個資料夾。</figcaption>
+      </figure>
+      <figure>
+        <img src="site/lin-tree.png" loading="lazy" alt="jt-filework on Linux">
+        <figcaption data-lang="en"><span class="os">Linux</span>The folder tree, toggled with one key.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">Linux</span>資料夾樹，一個按鍵開關。</figcaption>
+      </figure>
+      <figure>
+        <img src="site/win-keys.png" loading="lazy" alt="jt-filework on Windows">
+        <figcaption data-lang="en"><span class="os">Windows</span>The shortcut reference, opened with ?.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">Windows</span>快速鍵參考表，按 ? 叫出來。</figcaption>
+      </figure>
+      <figure>
+        <img src="site/lin-inspector.png" loading="lazy" alt="jt-filework on Linux">
+        <figcaption data-lang="en"><span class="os">Linux</span>The inspector, showing what is under the cursor.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">Linux</span>檢查器，顯示游標所在那一項的資訊。</figcaption>
+      </figure>
+      <figure>
+        <img src="site/win-archive.png" loading="lazy" alt="jt-filework on Windows">
+        <figcaption data-lang="en"><span class="os">Windows</span>An archive listing on Windows.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">Windows</span>Windows 上的壓縮檔列表。</figcaption>
+      </figure>
+      <figure>
+        <img src="site/mac-usage.png" loading="lazy" alt="jt-filework on macOS">
+        <figcaption data-lang="en"><span class="os">macOS</span>The same usage report on macOS, dark.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">macOS</span>同一份用量報告在 macOS 上，深色。</figcaption>
+      </figure>
+      <figure>
+        <img src="site/lin-archive.png" loading="lazy" alt="jt-filework on Linux">
+        <figcaption data-lang="en"><span class="os">Linux</span>Archives sitting in a folder like any other file.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">Linux</span>壓縮檔就跟其他檔案一樣擺在資料夾裡。</figcaption>
+      </figure>
     </div>
   </section>
 
@@ -311,8 +392,8 @@
     <p class="sub" data-lang="en">Press Enter on any of these and it opens like a folder, with
       the same single keys inside: <kbd>Space</kbd> marks, <kbd>C</kbd> extracts what is marked,
       <kbd>X</kbd> extracts everything.</p>
-    <p class="sub" data-lang="zh-tw">在任何一種上按 Enter 都會像資料夾一樣開啟，裡面用的是同一組單鍵：
-      <kbd>Space</kbd> 標記、<kbd>C</kbd> 解出已標記的、<kbd>X</kbd> 全部解出。</p>
+    <p class="sub" data-lang="zh-tw">按 Enter 就當成資料夾開啟，裡面用的還是同一組按鍵：
+      <kbd>Space</kbd> 標記、<kbd>C</kbd> 解出標記的、<kbd>X</kbd> 全部解出。</p>
 
     <div class="scroll">
       <table>
@@ -340,15 +421,15 @@
       <code>../</code>, an absolute path, a Windows drive letter, a UNC prefix, backslashes on any
       platform. Expansion is bounded against bytes that actually arrive, not against what a header
       claims, because a lying header is what a decompression bomb is.</p>
-    <p class="note" data-lang="zh-tw" style="margin-top:22px">每個讀取器都把輸入當成有敵意的。名稱會落
-      在你所選資料夾之外的成員一律<strong>拒絕並回報</strong>——絕不寫入、絕不悄悄改名——不論它怎麼拼：
-      <code>../</code>、絕對路徑、Windows 磁碟機代號、UNC 路徑開頭、任何平台上的反斜線。展開量的上限是對照
-      實際讀到的位元組，不是對照標頭宣稱的數字，因為會說謊的標頭正是解壓縮炸彈的本體。</p>
+    <p class="note" data-lang="zh-tw" style="margin-top:22px">每個讀取器都把輸入當成有問題的來看。檔名跑到你選的資料夾外面，
+      一律<strong>擋下來並回報</strong>，不寫、也不會自己改名。不管它怎麼寫都一樣：<code>../</code>、
+      絕對路徑、Windows 磁碟機代號、UNC 開頭、任何平台的反斜線。解出來的量是照實際讀到的位元組去算，
+      不是照標頭寫的數字，因為標頭會騙人，這就是解壓縮炸彈在做的事。</p>
 
     <p style="font-size:14.5px;color:var(--dim)" data-lang="en"><code>.7z</code> and
       <code>.rar</code> are not supported — and are not labelled as archives this build can open.</p>
     <p style="font-size:14.5px;color:var(--dim)" data-lang="zh-tw"><code>.7z</code> 與
-      <code>.rar</code> 不支援——而且不會被標示成本版本打得開的壓縮檔。</p>
+      <code>.rar</code> 不支援，也不會被列成這版打得開的壓縮檔。</p>
   </section>
 
   <section id="keyboard">
@@ -356,8 +437,8 @@
     <h2 data-lang="zh-tw">鍵盤</h2>
     <p class="sub" data-lang="en">Two profiles, both data files rather than code. A binding is a line
       in a text file, so changing one needs no rebuild.</p>
-    <p class="sub" data-lang="zh-tw">兩套設定檔，都是資料檔而不是程式碼。一個綁定就是文字檔裡的一行。
-      改一個綁定不需要重新編譯。</p>
+    <p class="sub" data-lang="zh-tw">兩套設定檔，都是資料檔，不是程式碼。一個綁定就是文字檔裡的一行，
+      改了不用重新編譯。</p>
 
     <div class="keys" data-lang="en">
       <div><kbd class="k">Enter</kbd> Open — a folder, an archive, an image</div>
@@ -390,7 +471,7 @@
       <div><kbd class="k">F5</kbd> Refresh</div>
     </div>
     <div class="keys" data-lang="zh-tw">
-      <div><kbd class="k">Enter</kbd> 開啟——資料夾、壓縮檔、圖片</div>
+      <div><kbd class="k">Enter</kbd> 開啟：資料夾、壓縮檔、圖片</div>
       <div><kbd class="k">←</kbd> 回上一層</div>
       <div><kbd class="k">G</kbd> 用系統預設程式開啟</div>
       <div><kbd class="k">V</kbd> 檢視</div>
@@ -424,9 +505,9 @@
       follows the operating system's own conventions — the shortcuts every other
       application on that machine uses — for when muscle memory says
       <kbd>⌘C</kbd>.</p>
-    <p style="margin-top:22px;font-size:14.5px;color:var(--dim)" data-lang="zh-tw">另一套設定檔用的是
-      作業系統原生的操作鍵——那台機器上每個程式都在用的那一套——給肌肉記憶說
-      <kbd>⌘C</kbd> 的時候。</p>
+    <p style="margin-top:22px;font-size:14.5px;color:var(--dim)" data-lang="zh-tw">另一套設定檔走作業系統原生的操作鍵，
+      也就是那台機器上每個程式都在用的那一套，給習慣按
+      <kbd>⌘C</kbd> 的人。</p>
   </section>
 
   <section id="download">
@@ -435,8 +516,8 @@
     <p class="sub" data-lang="en">Packaged installers are not published yet. Until they are, the
       build instructions below produce the same application — this section is here so it is obvious
       which is which when they arrive, rather than a link that quietly 404s.</p>
-    <p class="sub" data-lang="zh-tw">打包好的安裝檔尚未發佈。在那之前，下面的建置說明會產出同一個
-      程式——這一區先擺著，是為了之後放上來時一目了然，而不是先給一個會 404 的連結。</p>
+    <p class="sub" data-lang="zh-tw">安裝檔還沒放上來。在那之前，照下面的說明建置會得到同一個程式。
+      這一區先擺著，位置留好，不放會 404 的連結。</p>
 
     <div class="grid">
       <div class="card dl">
@@ -468,8 +549,8 @@
     <h2 data-lang="zh-tw">建置</h2>
     <p class="sub" data-lang="en">Rust 1.98 (pinned by <code>rust-toolchain.toml</code>) and Qt 6.
       Build output goes outside the source tree.</p>
-    <p class="sub" data-lang="zh-tw">Rust 1.98（由 <code>rust-toolchain.toml</code> 釘住）與 Qt 6。
-      建置輸出放在原始碼樹之外。</p>
+    <p class="sub" data-lang="zh-tw">Rust 1.98（<code>rust-toolchain.toml</code> 有釘住）跟 Qt 6。
+      建置輸出丟在原始碼樹外面。</p>
 
     <h3 style="margin-top:8px">macOS</h3>
     <pre><code>brew install qt cmake
@@ -484,25 +565,25 @@
       compatibility runs one way, so a binary built on Ubuntu 22.04 runs on 24.04 and not the
       reverse. Following the desktop's light/dark setting <em>while running</em> needs Qt 6.5 or
       newer; on 22.04's Qt 6.2 the theme is read once at launch.</p>
-    <p class="note" data-lang="zh-tw">請在你打算支援的最舊發行版上建置：glibc 的相容性是單向的，
-      Ubuntu 22.04 編出來的可以在 24.04 上跑，反過來不行。<em>執行中</em>跟隨桌面深淺色設定需要
-      Qt 6.5 以上；22.04 的 Qt 6.2 只在啟動時判斷一次。</p>
+    <p class="note" data-lang="zh-tw">要支援到哪個最舊的發行版，就在那台上面建置。glibc 只往上相容：
+      22.04 編出來的可以在 24.04 上跑，反過來不行。<em>執行中</em>跟著桌面切深淺色要 Qt 6.5 以上，
+      22.04 的 Qt 6.2 只在啟動時看一次。</p>
 
     <h3 style="margin-top:22px">Windows</h3>
     <p style="font-size:14.5px;color:var(--dim)" data-lang="en">MSVC Build Tools, CMake, Qt 6 and
       <strong>NASM</strong> — <code>aws-lc-sys</code>, which arrives through the SFTP stack,
       assembles its own primitives. The full runbook is in
       <code>docs/DEVELOPMENT_ENVIRONMENT.md</code>.</p>
-    <p style="font-size:14.5px;color:var(--dim)" data-lang="zh-tw">MSVC Build Tools、CMake、Qt 6 與
-      <strong>NASM</strong>——<code>aws-lc-sys</code> 經由 SFTP 的相依進來，它在 Windows 上要自己
-      組譯。完整步驟見 <code>docs/DEVELOPMENT_ENVIRONMENT.md</code>。</p>
+    <p style="font-size:14.5px;color:var(--dim)" data-lang="zh-tw">MSVC Build Tools、CMake、Qt 6，還要 <strong>NASM</strong>。
+      <code>aws-lc-sys</code> 是跟著 SFTP 進來的相依，它在 Windows 上要自己組譯。
+      完整步驟看 <code>docs/DEVELOPMENT_ENVIRONMENT.md</code>。</p>
   </section>
 
   <section id="notyet">
     <h2 data-lang="en">Not built yet</h2>
     <h2 data-lang="zh-tw">尚未完成</h2>
     <p class="sub" data-lang="en">Named here rather than left to be discovered.</p>
-    <p class="sub" data-lang="zh-tw">明講出來，而不是留給人自己踩到。</p>
+    <p class="sub" data-lang="zh-tw">先講清楚，不要讓人自己踩到才知道。</p>
     <ul class="plain" data-lang="en">
       <li>SFTP writes — upload, download, rename and delete on the server.</li>
       <li><code>.7z</code> and <code>.rar</code>.</li>
@@ -511,11 +592,11 @@
       <li>Running a typed command over every marked file.</li>
     </ul>
     <ul class="plain" data-lang="zh-tw">
-      <li>SFTP 的寫入——上傳、下載、在伺服器上重新命名與刪除。</li>
+      <li>SFTP 的寫入：上傳、下載、在伺服器上更名跟刪除。</li>
       <li><code>.7z</code> 與 <code>.rar</code>。</li>
-      <li>Windows 與 Linux 上的快速查看、「在檔案管理器中顯示」、退出磁碟、外部編輯器。那些平台沒有
-        對等的系統機制，所以是隱藏這些指令，而不是提供按了沒反應的東西。</li>
-      <li>對所有已標記的檔案執行自訂命令。</li>
+      <li>Windows 跟 Linux 上的快速查看、「在檔案管理員中顯示」、退出磁碟、外部編輯器。
+        那兩個平台沒有對應的系統機制，所以這些指令直接隱藏，不做按了沒反應的東西。</li>
+      <li>對所有標記的檔案跑自訂命令。</li>
     </ul>
   </section>
 
