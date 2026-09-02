@@ -27,6 +27,44 @@ void RowDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
     paintTick(painter, option, index);
 }
 
+namespace {
+
+/// The lowest column the view is actually showing.
+///
+/// A hidden column is never painted, so a side drawn on one is a side that
+/// never appears. Falls back to the model's own first column for a view that
+/// has no notion of hiding.
+int firstVisibleColumn(const QWidget *widget, const QAbstractItemModel *model) {
+    const auto *table = qobject_cast<const QTableView *>(widget);
+    const int columns = model == nullptr ? 0 : model->columnCount();
+    if (table == nullptr) {
+        return 0;
+    }
+    for (int column = 0; column < columns; ++column) {
+        if (!table->isColumnHidden(column)) {
+            return column;
+        }
+    }
+    return 0;
+}
+
+/// The highest column the view is actually showing.
+int lastVisibleColumn(const QWidget *widget, const QAbstractItemModel *model) {
+    const int columns = model == nullptr ? 0 : model->columnCount();
+    const auto *table = qobject_cast<const QTableView *>(widget);
+    if (table == nullptr) {
+        return columns - 1;
+    }
+    for (int column = columns - 1; column >= 0; --column) {
+        if (!table->isColumnHidden(column)) {
+            return column;
+        }
+    }
+    return columns - 1;
+}
+
+} // namespace
+
 void RowDelegate::paintCursor(QPainter *painter, const QStyleOptionViewItem &option,
                               const QModelIndex &index) const {
     // Where the keyboard is, as opposed to what is chosen.
@@ -55,19 +93,22 @@ void RowDelegate::paintCursor(QPainter *painter, const QStyleOptionViewItem &opt
     painter->setRenderHint(QPainter::Antialiasing, false);
     painter->setPen(QPen(m_cursor, 1));
     const QRect r = option.rect.adjusted(0, 0, -1, -1);
-    qWarning("JTFCUR col=%d of %d rect=%d,%d %dx%d hidden=%d", index.column(),
-             index.model()->columnCount(),
-             option.rect.x(), option.rect.y(), option.rect.width(), option.rect.height(),
-             qobject_cast<const QTableView *>(view) != nullptr
-                 && qobject_cast<const QTableView *>(view)->isColumnHidden(index.column()) ? 1 : 0);
     // Each cell draws its own segment; together they make one line round the
     // row. The ends are drawn only by the cells that own them.
     painter->drawLine(r.topLeft(), r.topRight());
     painter->drawLine(r.bottomLeft(), r.bottomRight());
-    if (index.column() == 0) {
+    // The sides are drawn by the cells at the ends of the row - and the ends
+    // are the first and last *visible* columns, not the first and last columns
+    // the model has.
+    //
+    // The model carries eleven columns and the list shows four; the other
+    // seven are hidden. Asking for `columnCount() - 1` therefore named column
+    // ten, which is hidden and never painted, so the right-hand side of the
+    // outline was never drawn at all and the rectangle hung open on the right.
+    if (index.column() == firstVisibleColumn(option.widget, index.model())) {
         painter->drawLine(r.topLeft(), r.bottomLeft());
     }
-    if (index.column() == index.model()->columnCount() - 1) {
+    if (index.column() == lastVisibleColumn(option.widget, index.model())) {
         painter->drawLine(r.topRight(), r.bottomRight());
     }
     painter->restore();
