@@ -922,9 +922,9 @@ than *what the dialog says*, because the dialog is read after the decision.
 | TIME-002 | The list and the inspector use the same date format | H2 |
 | MENU-030 | Every top-level menu has an access key, and no two claim the same letter | H2 |
 | INSP-010 | The inspector's labels are left-aligned; both columns have a straight left edge | H3 |
-| PREV-010 | **The preview background honours the chosen colour.** A stylesheet background must not override the palette the choice sets | H2 |
-| PREV-011 | The colour button shows the colour it is set to, with its hex value beside it | H2 |
-| PREV-012 | The preview background defaults to white | H2 |
+| PREV-030 | **The preview background honours the chosen colour.** A stylesheet background must not override the palette the choice sets | H2 |
+| PREV-031 | The colour button shows the colour it is set to, with its hex value beside it | H2 |
+| PREV-032 | The preview background defaults to white | H2 |
 | QL-001 | **Space in native mode with the Quick Look panel already open does not crash.** The panel is the key window; forwarding its keys to the key window re-entered the handler until the stack ran out | H5 |
 | QL-002 | Space on the item already showing closes the panel; on a different item it swaps rather than stacking | H5 |
 | OPS-040 | **Rename acts on the row the cursor is on, not on a mark left behind.** Mark row 1, move to row 5, press R: row 5's name is in the box and row 5 is what gets renamed | H2 |
