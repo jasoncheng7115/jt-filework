@@ -689,6 +689,14 @@ void MainWindow::buildMenus() {
     command(m_viewMenu, "workspace.pane.close", [this] { jtf_close_active_pane(m_app); });
     command(m_viewMenu, "workspace.pane.next", [this] { jtf_focus_next_pane(m_app); });
     command(m_viewMenu, "workspace.focus.next", [this] { focusNextArea(); });
+    // Which pane C and M go to. With two panes "the other pane" is a fact and
+    // this does nothing; with three it is a choice, and it was one that could
+    // only be made with the mouse.
+    command(m_viewMenu, "workspace.target.next", [this] {
+        if (jtf_cycle_target_pane(m_app) != 0) {
+            refreshAll();
+        }
+    });
     command(m_viewMenu, "workspace.pane.previous", [this] {
         // Cycling forward n-1 times is one step back, and needs no second
         // traversal order to keep in agreement with the first.

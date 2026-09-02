@@ -5275,3 +5275,16 @@ fn burn_failure_key(error: &jtf_core::Error) -> &'static str {
         _ => "imaging.failed_midway",
     }
 }
+
+impl App {
+    /// Move the copy/move target to the next pane round.
+    ///
+    /// Returns whether anything moved, which is false with fewer than three
+    /// panes - with two there is only one other pane and it is already the
+    /// target.
+    pub(crate) fn cycle_target_pane(&mut self) -> bool {
+        let before = self.workspace.target_pane_id();
+        let after = self.workspace.cycle_target();
+        after.is_some() && after != before
+    }
+}

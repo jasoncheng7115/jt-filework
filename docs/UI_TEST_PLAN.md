@@ -904,6 +904,16 @@ than *what the dialog says*, because the dialog is read after the decision.
 
 | ID | Case | Layer |
 |---|---|---|
+| ARCH-030 | **A folder inside an archive is a folder.** Enter or Right descends, Backspace or Left goes up, a row shows its own name and not its whole stored path | H2 |
+| ARCH-031 | Folders appear even when the archive stores no directory entries — a zip of only `a/b.txt` still shows `a` | H2 |
+| ARCH-032 | Marks survive walking into a folder and back out; the count is of the whole archive, not the level on screen | H2 |
+| ARCH-033 | Ticking a folder ticks the members under it, and extraction gets those rather than an empty directory | H2 |
+| ARCH-034 | Going up puts the cursor on the folder just left, not at the top of the list | H2 |
+| VIEW-040 | Opening the hex view narrows the window to the width of the dump, and never widens it beyond the screen | H2 |
+| PANE-030 | **With three or more panes the copy/move target can be moved from the keyboard**, round the panes and back | H1/H2 |
+| PANE-031 | Cycling the target never lands on the active pane, including after the pane it pointed at was closed | H1 |
+| PANE-032 | With two panes cycling the target is a no-op: there is only one other pane and it is already the target | H1 |
+
 | IMG-001 | **The disk carrying the running system is never listed.** Checked on a real machine, on each platform | H1/H5 |
 | IMG-002 | An internal disk is never listed, even when it is not the boot disk — a second SSD is not a write target | H1 |
 | IMG-003 | A disk whose properties could not be read is not listed. "I could not tell" never produces a row | H1 |

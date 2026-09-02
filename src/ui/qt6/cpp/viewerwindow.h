@@ -60,6 +60,8 @@ protected:
 private:
     void findNext();
     void updateStatus();
+    /// Narrow the window to the width of a hex dump, never widen it.
+    void fitToContent();
     QString tr_(const char *key) const;
     QString trKey(const QString &key) const;
 

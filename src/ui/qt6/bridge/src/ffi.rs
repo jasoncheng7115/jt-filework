@@ -4657,3 +4657,12 @@ pub unsafe extern "C" fn jtf_write_close(app: *mut App) {
         a.close_write();
     }
 }
+
+/// Move the copy/move target to the next pane. Returns 1 if it moved.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_cycle_target_pane(app: *mut App) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.cycle_target_pane()))
+}

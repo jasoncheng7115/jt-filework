@@ -72,6 +72,15 @@ pub struct Workspace {
     windows: BTreeMap<WindowId, WorkspaceNode>,
     panes: BTreeMap<PaneId, Pane>,
     active_pane: PaneId,
+    /// How far round the pane order the copy/move target sits from the active
+    /// pane.
+    ///
+    /// An offset rather than a pane id, because the target is defined relative
+    /// to wherever the keyboard is: store an id and moving the focus can leave
+    /// the target pointing at the pane you are standing in, which makes
+    /// "copy to the target" a copy onto itself. An offset of at least one
+    /// cannot express that.
+    target_offset: usize,
     locale: LocaleId,
     theme_mode: ThemeMode,
     next_pane: u64,
@@ -99,6 +108,7 @@ impl Workspace {
             windows,
             panes,
             active_pane: pane_id,
+            target_offset: 1,
             locale: LocaleId::english(),
             theme_mode: ThemeMode::default(),
             next_pane: 2,
@@ -280,15 +290,49 @@ impl Workspace {
 
     /// The pane a "copy to other pane" command targets.
     ///
-    /// The rule is: the next pane in visual order, wrapping. With one pane
-    /// there is no target (`docs/UI_TEST_PLAN.md` PANE-016).
+    /// The rule is: the next pane in visual order, wrapping, unless
+    /// [`Self::cycle_target`] has moved it further round. With one pane there
+    /// is no target (`docs/UI_TEST_PLAN.md` PANE-016).
     pub fn target_pane_id(&self) -> Option<PaneId> {
         let order = self.pane_order();
         if order.len() < 2 {
             return None;
         }
         let current = order.iter().position(|id| *id == self.active_pane)?;
-        Some(order[(current + 1) % order.len()])
+        Some(order[(current + self.effective_offset(order.len())) % order.len()])
+    }
+
+    /// The offset actually in force, clamped to the panes that exist.
+    ///
+    /// Panes close. An offset that outlived the pane it pointed at must not
+    /// wrap round to zero, which would name the active pane as its own target.
+    fn effective_offset(&self, panes: usize) -> usize {
+        if panes < 2 {
+            return 0;
+        }
+        let wrapped = self.target_offset % panes;
+        if wrapped == 0 {
+            1
+        } else {
+            wrapped
+        }
+    }
+
+    /// Move the copy/move target to the next pane round, and return it.
+    ///
+    /// With two panes there is only one other pane and this does nothing
+    /// visible, which is correct: the target is already the only candidate.
+    /// It exists for three panes and up, where "the next one" is a choice
+    /// rather than a fact and there was previously no way to make it from the
+    /// keyboard at all.
+    pub fn cycle_target(&mut self) -> Option<PaneId> {
+        let panes = self.pane_order().len();
+        if panes < 2 {
+            return None;
+        }
+        // 1..=panes-1: every pane except the one the keyboard is in.
+        self.target_offset = self.effective_offset(panes) % (panes - 1) + 1;
+        self.target_pane_id()
     }
 
     /// Split the active pane, creating a new pane beside it.
@@ -956,6 +1000,60 @@ mod tests {
         assert_eq!(w.active_pane_id(), order[0]);
         w.focus_previous_pane();
         assert_eq!(w.active_pane_id(), *order.last().unwrap());
+    }
+
+    #[test]
+    fn with_three_panes_the_target_can_be_moved_round_and_never_lands_on_the_active_one() {
+        // The case this exists for. With two panes "the other pane" is a fact;
+        // with three it is a choice, and there was no way to make it.
+        let mut w = workspace();
+        w.split_active(Orientation::Vertical);
+        w.split_active(Orientation::Vertical);
+        let order = w.pane_order();
+        assert_eq!(order.len(), 3);
+
+        let first = w.target_pane_id().unwrap();
+        let second = w.cycle_target().unwrap();
+        assert_ne!(first, second, "cycling did not move the target");
+        assert_ne!(second, w.active_pane_id(), "the target became the active pane");
+
+        // And it comes back round rather than running out.
+        assert_eq!(w.cycle_target(), Some(first));
+    }
+
+    #[test]
+    fn with_two_panes_cycling_the_target_keeps_naming_the_only_other_pane() {
+        let mut w = workspace();
+        w.split_active(Orientation::Vertical);
+        let target = w.target_pane_id().unwrap();
+        assert_eq!(w.cycle_target(), Some(target));
+        assert_eq!(w.cycle_target(), Some(target));
+    }
+
+    #[test]
+    fn cycling_the_target_with_one_pane_does_nothing_and_says_so() {
+        let mut w = workspace();
+        assert_eq!(w.cycle_target(), None);
+        assert_eq!(w.target_pane_id(), None);
+    }
+
+    #[test]
+    fn a_target_offset_that_outlives_its_pane_never_points_at_the_active_pane() {
+        // Panes close. An offset left over from a wider layout must not wrap
+        // round to zero, which would make "copy to the target" a copy onto
+        // itself - and that would silently do nothing, or worse, conflict with
+        // every file in the folder.
+        let mut w = workspace();
+        w.split_active(Orientation::Vertical);
+        w.split_active(Orientation::Vertical);
+        w.cycle_target();
+        w.cycle_target();
+        // Back to two panes, with an offset that was valid for three.
+        let doomed = w.pane_order()[2];
+        w.close_pane(doomed).unwrap();
+        assert_eq!(w.pane_order().len(), 2);
+        let target = w.target_pane_id().expect("two panes still have a target");
+        assert_ne!(target, w.active_pane_id());
     }
 
     #[test]

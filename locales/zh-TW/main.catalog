@@ -651,3 +651,4 @@ key.enter = Enter
 key.backspace = Backspace
 archive.key_enter = 進入
 archive.key_up = 上層
+command.workspace.target.next = 換複製／移動的目標面板

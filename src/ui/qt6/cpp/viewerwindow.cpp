@@ -15,6 +15,8 @@
 #include <QLineEdit>
 #include <QAction>
 #include <QListView>
+#include <QScreen>
+#include <QStyle>
 #include <QVBoxLayout>
 #include <limits>
 
@@ -192,6 +194,52 @@ void ViewerWindow::refresh() {
         m_encoding->setCurrentIndex(jtf_viewer_encoding(m_app));
     }
     updateStatus();
+    fitToContent();
+}
+
+// Narrow the window to the width of what is in it.
+//
+// A hex dump is a fixed width - an offset, sixteen bytes, and sixteen
+// characters - and it is nowhere near 900 pixels. The window opened at its
+// default and left a third of itself empty, which reads as a layout that has
+// gone wrong rather than as content that happens to be narrow.
+//
+// Only ever narrower. A window that grew to fit would fight anyone who had
+// deliberately made it small, and text can be arbitrarily wide, so growing is
+// how a viewer ends up wider than the screen.
+void ViewerWindow::fitToContent() {
+    if (m_model == nullptr || m_view == nullptr || m_model->rowCount() == 0) {
+        return;
+    }
+    // Hex only. Text lines vary, and the longest one in a large file is not
+    // worth reading every line to find - nor is it a width anyone wants the
+    // window set to. A viewer showing hex is one with no text, which is what
+    // `is_text` already answers.
+    if (jtf_viewer_is_text(m_app) != 0) {
+        return;
+    }
+
+    const QFontMetrics metrics(m_view->font());
+    // Every hex row is the same width by construction, so one is enough. The
+    // first few are sampled anyway in case the last row is short.
+    int widest = 0;
+    const int sample = qMin(m_model->rowCount(), 8);
+    for (int row = 0; row < sample; ++row) {
+        const QString line = m_model->index(row, 0).data(Qt::DisplayRole).toString();
+        widest = qMax(widest, metrics.horizontalAdvance(line));
+    }
+    if (widest <= 0) {
+        return;
+    }
+
+    // The list's own padding, a scrollbar's worth, and the frame.
+    const int chrome = m_view->style()->pixelMetric(QStyle::PM_ScrollBarExtent) + 46;
+    const int wanted = widest + chrome;
+    const int available = screen() != nullptr ? screen()->availableGeometry().width() : width();
+    const int target = qBound(420, wanted, available - 40);
+    if (target < width()) {
+        resize(target, height());
+    }
 }
 
 void ViewerWindow::updateStatus() {

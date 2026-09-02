@@ -375,6 +375,7 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("file.folder_size", C::File, "command.file.folder_size"),
     ("file.extract", C::File, "command.file.extract"),
     ("file.compress", C::File, "command.file.compress"),
+    ("workspace.target.next", C::Workspace, "command.workspace.target.next"),
     ("file.compare_panes", C::File, "command.file.compare_panes"),
     ("file.disk_usage", C::File, "command.file.disk_usage"),
     ("view.font.smaller", C::View, "command.view.font.smaller"),

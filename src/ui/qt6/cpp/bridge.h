@@ -35,6 +35,9 @@ int jtf_pane_id_at(const JtfApp *app, int index);
 int jtf_can_close_pane(const JtfApp *app, int pane);
 // The pane a copy or move would go to, or -1 when there is only one.
 int jtf_target_pane(const JtfApp *app);
+// Moves the copy/move target to the next pane. Returns 1 if it moved, which
+// it does not with fewer than three panes.
+int jtf_cycle_target_pane(JtfApp *app);
 int jtf_active_pane(const JtfApp *app);
 void jtf_focus_pane(JtfApp *app, int pane);
 void jtf_focus_next_pane(JtfApp *app);

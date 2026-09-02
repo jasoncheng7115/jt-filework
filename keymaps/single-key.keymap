@@ -123,6 +123,7 @@ primary+alt+left     = tab.previous
 # Pane switching. Cmd-` cycles windows on macOS, and a pane is the same idea
 # one level down, so the gesture transfers.
 primary+grave        = workspace.pane.next
+primary+alt+t        = workspace.target.next   # which pane C and M go to, with 3+ panes
 primary+shift+grave  = workspace.pane.previous
 primary+shift+backslash = workspace.split.vertical
 primary+backslash    = workspace.split.horizontal

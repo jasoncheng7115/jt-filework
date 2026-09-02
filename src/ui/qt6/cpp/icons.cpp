@@ -239,6 +239,8 @@ const QHash<QString, QString> &commandFiles() {
         {QStringLiteral("workspace.preset.quad"), QStringLiteral("table-2-columns")},
         {QStringLiteral("workspace.pane.close"), QStringLiteral("xmark")},
         {QStringLiteral("workspace.pane.next"), QStringLiteral("nav-arrow-right")},
+        // The same arrow the pane list draws beside the target pane.
+        {QStringLiteral("workspace.target.next"), QStringLiteral("arrow-separate-vertical")},
         // Walking the areas of the window, not the panes inside it: the
         // sidebar glyph, because the sidebar is where the walk starts.
         {QStringLiteral("workspace.focus.next"), QStringLiteral("sidebar-collapse")},
