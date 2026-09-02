@@ -920,7 +920,7 @@ than *what the dialog says*, because the dialog is read after the decision.
 | PANE-041 | The target badge is an arrow and one word, not a sentence in a tab bar | H3 |
 | TIME-001 | **A timestamp is shown in the machine's own zone**, not UTC. The list and the inspector agree to the minute | H1/H2 |
 | TIME-002 | The list and the inspector use the same date format | H2 |
-| MENU-010 | Every top-level menu has an access key, and no two claim the same letter | H2 |
+| MENU-030 | Every top-level menu has an access key, and no two claim the same letter | H2 |
 | INSP-010 | The inspector's labels are left-aligned; both columns have a straight left edge | H3 |
 | PREV-010 | **The preview background honours the chosen colour.** A stylesheet background must not override the palette the choice sets | H2 |
 | PREV-011 | The colour button shows the colour it is set to, with its hex value beside it | H2 |
