@@ -271,7 +271,20 @@ QWidget#JtfPane[jtfActive="true"] { border: 2px solid %PANERING%; }
 QWidget#JtfPane[jtfTarget="true"] {
     border: 2px dashed %MARK%;
 }
-QWidget#JtfTargetBadge { background: transparent; }
+/* A chip, the way the drawings have it: the word on a tinted ground rather
+   than loose text floating in the tab row. */
+QWidget#JtfTargetBadge {
+    background: %SELDIM%;
+    border: 1px solid %MARK%;
+    border-radius: 9px;
+}
+/* The chip keeps its room on every pane so that gaining or losing it moves
+   nothing, and shows itself only on the one it belongs to - an empty tinted
+   pill on every other pane would be worse than the sentence it replaced. */
+QWidget#JtfTargetBadge[jtfShowing="false"] {
+    background: transparent;
+    border-color: transparent;
+}
 QLabel#JtfTargetBadgeWord {
     color: %MARK%;
     background: transparent;

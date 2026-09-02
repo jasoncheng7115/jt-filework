@@ -152,6 +152,7 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_targetIcon->setObjectName(QStringLiteral("JtfTargetBadgeIcon"));
     m_targetWord = new QLabel(m_targetBadge);
     m_targetWord->setObjectName(QStringLiteral("JtfTargetBadgeWord"));
+    m_targetBadge->setProperty("jtfShowing", false);
     badgeRow->addWidget(m_targetIcon);
     badgeRow->addWidget(m_targetWord);
     tabRowLayout->addWidget(m_targetBadge);
@@ -2253,6 +2254,9 @@ void PaneWidget::setTarget(bool target) {
         // Emptied rather than hidden.
         m_targetWord->setText(target ? word : QString());
         m_targetIcon->setPixmap(target ? m_targetGlyph : QPixmap());
+        m_targetBadge->setProperty("jtfShowing", target);
+        m_targetBadge->style()->unpolish(m_targetBadge);
+        m_targetBadge->style()->polish(m_targetBadge);
     }
     // The outline is on the pane itself, so the whole side of the window is
     // marked rather than a word in one corner of it.

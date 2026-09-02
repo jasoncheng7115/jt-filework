@@ -104,12 +104,15 @@ Inspector::Inspector(JtfApp *app, QWidget *parent) : QWidget(parent), m_app(app)
     m_textStatus->setVisible(false);
     bodyLayout->addWidget(m_textStatus);
     m_facts = new QFormLayout();
-    // Labels left, not right. Right alignment keeps the gap between a label
-    // and its value constant, which is the usual argument for it - but these
-    // labels are two to four Han characters, so right-aligning them left a
-    // ragged edge down the side of the panel and nothing to read down. Both
-    // columns get a straight left edge instead.
-    m_facts->setLabelAlignment(Qt::AlignLeft | Qt::AlignTop);
+    // Labels right, values left, which is what the design drawings show and
+    // what a properties panel usually does: the gap between a label and its
+    // value stays constant, and the values line up in a column that can be
+    // read down.
+    //
+    // What made this look untidy was not the alignment - it was six pixels of
+    // vertical spacing and a value column with nothing holding it to a common
+    // left edge, so a wrapped path made the whole panel look shuffled.
+    m_facts->setLabelAlignment(Qt::AlignRight | Qt::AlignTop);
     m_facts->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
     // A narrow panel and a long value - "Portable Document Format", a size
     // with its exact byte count - do not fit on one line. Wrapping the row
@@ -219,7 +222,7 @@ void Inspector::applyPreviewBackground() {
 void Inspector::addRow(const QString &labelKey, const QString &value) {
     auto *label = new QLabel(tr_(labelKey.toUtf8().constData()), this);
     label->setProperty("jtfFactLabel", true);
-    label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    label->setAlignment(Qt::AlignRight | Qt::AlignTop);
     auto *field = new QLabel(value, this);
     field->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     field->setTextInteractionFlags(Qt::TextSelectableByMouse);
