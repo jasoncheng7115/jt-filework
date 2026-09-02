@@ -85,8 +85,7 @@ void JtfHeaderView::paintSection(QPainter *painter, const QRect &rect, int index
                                                : Qt::AlignLeft;
 
     QRect content = rect.adjusted(8, 0, -8, 0);
-    qWarning("JTFHDR idx=%d rect=%dx%d label='%s' dim=%s", index, rect.width(), rect.height(),
-             qPrintable(label), qPrintable(m_dim.name(QColor::HexArgb)));
+
 
     // The mark-all box, on the name column only, drawn before the text so the
     // text starts after it.
@@ -143,6 +142,12 @@ void JtfHeaderView::paintSection(QPainter *painter, const QRect &rect, int index
     // so a rect that runs to the edge of the section cannot overflow it.
     const QRect textRect(textLeft, rect.top(), qMax(textWidth, content.right() - textLeft + 1),
                          rect.height());
+    qWarning("JTFHDR idx=%d shown='%s' textRect=%d,%d %dx%d pen=%s clip=%d,%d %dx%d font=%d",
+             index, qPrintable(shown), textRect.x(), textRect.y(), textRect.width(),
+             textRect.height(), qPrintable(painter->pen().color().name(QColor::HexArgb)),
+             painter->clipBoundingRect().toRect().x(), painter->clipBoundingRect().toRect().y(),
+             painter->clipBoundingRect().toRect().width(),
+             painter->clipBoundingRect().toRect().height(), painter->font().pointSize());
     painter->drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, shown);
 
     paintDivider(painter, rect, index);
