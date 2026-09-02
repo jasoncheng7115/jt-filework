@@ -182,20 +182,22 @@ void JtfHeaderView::paintDivider(QPainter *painter, const QRect &rect, int index
     if (index >= count() - 1) {
         return; // nothing to resize past the last column
     }
-    // Drawn only where the pointer is. A rule between every column is a comb
-    // across the header that competes with the words in it, and the handle is
-    // needed exactly when someone is reaching for it - which is when the
-    // pointer is near. The dimmed neighbours either side make the one under
-    // the hand read as a control rather than as a stray line.
+    // Always drawn, and faintly. It says where one column's clickable strip
+    // ends, which matters because clicking a header sorts by it - and it is
+    // the thing you reach for to resize. It used to appear only under the
+    // pointer, on the argument that a rule between every column is a comb
+    // across the header; at a tenth of the text's weight it is not, and a
+    // resize handle nobody can see is a resize handle nobody uses.
+    //
+    // Three weights: quiet at rest, a little clearer beside the pointer,
+    // and solid under it, so the one that would actually be grabbed reads as
+    // a control rather than as a stray line.
     const bool hot = index == m_hoveredDivider;
     const bool near = qAbs(index - m_hoveredDivider) == 1 && m_hoveredDivider >= 0;
-    if (!hot && !near) {
-        return;
-    }
     const int inset = hot ? qMax(3, rect.height() / 5) : qMax(5, rect.height() / 3);
     QColor colour = hot ? m_text : m_dim;
     if (!hot) {
-        colour.setAlphaF(0.5);
+        colour.setAlphaF(near ? 0.5 : 0.22);
     }
     painter->save();
     painter->setPen(QPen(colour, hot ? 1.6 : 1.0));

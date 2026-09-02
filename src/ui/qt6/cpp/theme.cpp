@@ -175,18 +175,14 @@ QHeaderView::section {
     color: %DIM%;
     padding: 6px 8px;
     border: none;
+    /* One rule under the whole header. The dividers *between* the columns are
+       drawn by JtfHeaderView, not here: giving the section a border through
+       the stylesheet stopped its custom painter putting any text on the header
+       at all, and there is no reason for two places to be deciding what a
+       header looks like. */
     border-bottom: 1px solid %BORDER%;
-    /* A divider between the headers, and only between the headers. The rows
-       below keep none: a line between every cell all the way down draws the
-       table's structure instead of its contents. In the header the line is
-       doing something the alignment cannot - saying where one column's
-       clickable strip ends and the next begins, which matters because clicking
-       a header sorts by it. */
-    border-right: 1px solid %BORDER%;
     font-weight: 500;
 }
-/* Nothing to divide it from. */
-QHeaderView::section:last, QHeaderView::section:only-one { border-right: none; }
 QHeaderView::section:hover { color: %TEXT%; background: %HOVER%; }
 /* The sort caret is painted by JtfHeaderView, beside the header text rather
    than at the section's right edge, so it stays next to the word it refers
