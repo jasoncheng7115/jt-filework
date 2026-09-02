@@ -499,6 +499,8 @@ places. It cannot be hidden; only the folder tree below it folds away.
 | PLACES-020 | **Only disks a person navigates to are listed.** A machine with a dozen snaps mounts a dozen read-only squashfs images; none of them is a place | H2/H5 |
 | PAGES-001 | **The published pages show one language at a time.** The switch hides what is not current rather than showing what is; a component with its own `display` cannot outrank it | H2/H5 |
 | PAGES-002 | Every navigation and index link has a target that exists and is visible — no heading carries a language's copy of another's id | H2 |
+| PAGES-004 | Every image the pages reference exists on disk — a gallery whose images 404 is worse than no gallery | H2 |
+| PAGES-005 | The gallery shows at least two screenshots of each of macOS, Windows and Linux; the three-platform claim is shown, not asserted | H5 |
 | PAGES-003 | The Chinese on both pages and in both READMEs reads the way the author speaks: short sentences, no em-dash asides, no translated cadence | H5 |
 | PLACES-021 | The filter is by filesystem type, not by path — the paths differ per distribution and the answer does not | H1 |
 | PLACES-019 | Every row's menu offers「在新視窗開啟」 | H2 |

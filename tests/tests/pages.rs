@@ -148,3 +148,34 @@ fn the_page_starts_in_a_known_language() {
         );
     }
 }
+
+#[test]
+fn every_image_the_pages_reference_is_actually_there() {
+    // A gallery whose images 404 is worse than no gallery: the page still
+    // claims the program runs on three platforms, and shows nothing.
+    for name in PAGES {
+        let html = page(name);
+        for src in attribute_values(&html, "src=\"") {
+            if src.starts_with("http") {
+                continue;
+            }
+            let path = repo_root().join("docs").join(&src);
+            assert!(path.exists(), "{name}: references {src}, which does not exist");
+        }
+    }
+}
+
+#[test]
+fn the_gallery_shows_all_three_platforms() {
+    // The claim the page makes is "macOS, Windows and Linux". A reader is
+    // entitled to see each one rather than take it.
+    let html = page("docs/index.html");
+    for os in ["macOS", "Windows", "Linux"] {
+        let chip = format!("<span class=\"os\">{os}</span>");
+        assert!(
+            html.matches(&chip).count() >= 4,
+            "the gallery shows fewer than two screenshots of {os} \
+             (each appears twice, once per language)"
+        );
+    }
+}

@@ -358,7 +358,7 @@ preview.truncated = 僅顯示前 {count} 行
 status.keymap_chip = 快速鍵參考表
 status.keymap_switched = 鍵盤模式：{name}
 keymap.switch_to = 切換為 {name} 按鍵
-shortcuts.title = 鍵盤快速鍵
+shortcuts.title = 快速鍵參考表
 shortcuts.mode = 鍵盤模式：{name}
 shortcuts.filter = 以功能或按鍵篩選
 shortcuts.command = 功能
@@ -373,7 +373,7 @@ about.licence = 授權：<a href="https://www.gnu.org/licenses/gpl-3.0.html">GNU
 about.author = 作者：Jason Cheng（Jason Tools）
 about.source = 原始碼：<a href="https://github.com/jasoncheng7115/jt-filework">github.com/jasoncheng7115/jt-filework</a>
 about.credit = 圖示採用 Iconoir（MIT 授權），另有本專案自繪的部分。
-command.help.shortcuts = 鍵盤快速鍵
+command.help.shortcuts = 快速鍵參考表
 status.font_size = 字型大小：{size} pt
 kind.suffix_file = {ext} 檔案
 keyboard.profile.native = 原生模式

@@ -228,9 +228,9 @@
     <div data-lang="zh-tw">
       <h1>全鍵操作，無需離手。</h1>
       <p class="lede">一個按鍵快速執行命令：複製、移動、更名、檢視、標記。不用組合鍵，
-        也不用翻選單。底下是：可以隨工作需要一再分割的面板、每個面板各自獨立的分頁、
-        真正的預覽、像資料夾一樣打得開的壓縮檔、透過 SFTP 的遠端資料夾，以及一份說得出
-        是哪<em>一類</em>檔案填滿磁碟的報告。</p>
+        也不用翻選單。面板可以一直切下去，每個面板有自己的分頁，預覽是真的預覽，
+        壓縮檔按 Enter 就當成資料夾開，遠端資料夾走 SFTP，磁碟用量會告訴你是哪
+        <em>一類</em>檔案把空間吃掉的。</p>
     </div>
 
     <div class="cta">
@@ -240,12 +240,12 @@
     </div>
 
     <p class="status" data-lang="en"><strong>0.6.0</strong> — running on macOS (Apple Silicon) and
-      Windows (x64); Linux builds from source. <code>585</code> tests pass.</p>
+      Windows (x64); Linux builds from source. <code>587</code> tests pass.</p>
     <p class="status" data-lang="zh-tw"><strong>0.6.0</strong>　macOS（Apple Silicon）跟 Windows（x64）
-      已經在跑，Linux 自己建置。<code>585</code> 個測試通過。</p>
+      已經在跑，Linux 自己建置。<code>587</code> 個測試通過。</p>
 
     <figure class="shot">
-      <img src="site/main.png" alt="jt-filework showing two panes side by side">
+      <img src="site/mac-panes.png" alt="jt-filework showing two panes side by side">
       <figcaption data-lang="en">Two panes, a folder tree that follows the focus, and a strip along
         the bottom showing the keys you can press right now.</figcaption>
       <figcaption data-lang="zh-tw">兩個面板、會跟著焦點走的樹狀圖，底下那條會顯示
@@ -335,23 +335,18 @@
       </figure>
       <figure>
         <img src="site/lin-split.png" loading="lazy" alt="jt-filework on Linux">
-        <figcaption data-lang="en"><span class="os">Linux</span>Split panes on Ubuntu. The dashed outline is the active pane; the other one is marked as where a copy or move would land.</figcaption>
-        <figcaption data-lang="zh-tw"><span class="os">Linux</span>Ubuntu 上的分割面板。虛線框是現在作用中的面板，另一邊標著複製或移動會放到哪。</figcaption>
+        <figcaption data-lang="en"><span class="os">Linux</span>Split panes on Ubuntu. The dashed outline is the pane with the keyboard; the other is marked as where a copy or move would land.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">Linux</span>Ubuntu 上的分割面板。虛線框是鍵盤在的那個面板，另一邊標著複製或移動會放到哪。</figcaption>
       </figure>
       <figure>
-        <img src="site/mac-archive.png" loading="lazy" alt="jt-filework on macOS">
-        <figcaption data-lang="en"><span class="os">macOS</span>A ZIP opened like a folder — same keys inside it as outside.</figcaption>
-        <figcaption data-lang="zh-tw"><span class="os">macOS</span>ZIP 當成資料夾開，裡面用的按鍵跟外面一樣。</figcaption>
+        <img src="site/mac-viewer.png" loading="lazy" alt="jt-filework on macOS">
+        <figcaption data-lang="en"><span class="os">macOS</span>The hex view. Any file opens in it, and what it shows is always what is actually in the file.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">macOS</span>十六進位檢視。什麼檔案都開得起來，顯示的一定是檔案真正的內容。</figcaption>
       </figure>
       <figure>
-        <img src="site/lin-usage.png" loading="lazy" alt="jt-filework on Linux">
-        <figcaption data-lang="en"><span class="os">Linux</span>Disk usage: which subfolder is largest on the left, which kind of file adds up to the most on the right.</figcaption>
-        <figcaption data-lang="zh-tw"><span class="os">Linux</span>磁碟用量：左邊是哪個子資料夾最大，右邊是哪一類檔案加起來最大。</figcaption>
-      </figure>
-      <figure>
-        <img src="site/win-filter.png" loading="lazy" alt="jt-filework on Windows">
-        <figcaption data-lang="en"><span class="os">Windows</span>The filter narrowing the current folder as you type.</figcaption>
-        <figcaption data-lang="zh-tw"><span class="os">Windows</span>篩選會邊打邊縮小目前這個資料夾。</figcaption>
+        <img src="site/win-usage.png" loading="lazy" alt="jt-filework on Windows">
+        <figcaption data-lang="en"><span class="os">Windows</span>Disk usage: which subfolder is largest on the left, which kind of file adds up to the most on the right.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">Windows</span>磁碟用量：左邊是哪個子資料夾最大，右邊是哪一類檔案加起來最大。</figcaption>
       </figure>
       <figure>
         <img src="site/lin-tree.png" loading="lazy" alt="jt-filework on Linux">
@@ -359,9 +354,31 @@
         <figcaption data-lang="zh-tw"><span class="os">Linux</span>資料夾樹，一個按鍵開關。</figcaption>
       </figure>
       <figure>
+        <img src="site/mac-archive.png" loading="lazy" alt="jt-filework on macOS">
+        <figcaption data-lang="en"><span class="os">macOS</span>A ZIP opened like a folder — the same keys inside it as outside.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">macOS</span>ZIP 當成資料夾開，裡面用的按鍵跟外面一樣。</figcaption>
+      </figure>
+      <figure>
+        <img src="site/win-filter.png" loading="lazy" alt="jt-filework on Windows">
+        <figcaption data-lang="en"><span class="os">Windows</span>The filter narrowing the current folder as you type.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">Windows</span>篩選會邊打邊縮小目前這個資料夾。</figcaption>
+      </figure>
+      <figure>
+        <img src="site/lin-usage.png" loading="lazy" alt="jt-filework on Linux">
+        <figcaption data-lang="en"><span class="os">Linux</span>The same report on Ubuntu, with the file kinds broken out on the right.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">Linux</span>同一份報告在 Ubuntu 上，右邊是依檔案類型分開算的。</figcaption>
+      </figure>
+      <figure>
+        <img src="site/mac-text.png" loading="lazy" alt="jt-filework on macOS">
+        <figcaption data-lang="en"><span class="os">macOS</span>A log in the text view. The encoding and
+          the line ending are detected and stated, not quietly normalised away.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">macOS</span>文字檢視下的日誌。編碼跟換行字元會偵測
+          出來寫在下面，不會被偷偷統一掉。</figcaption>
+      </figure>
+      <figure>
         <img src="site/win-keys.png" loading="lazy" alt="jt-filework on Windows">
-        <figcaption data-lang="en"><span class="os">Windows</span>The shortcut reference, opened with ?.</figcaption>
-        <figcaption data-lang="zh-tw"><span class="os">Windows</span>快速鍵參考表，按 ? 叫出來。</figcaption>
+        <figcaption data-lang="en"><span class="os">Windows</span>The shortcut reference, filterable by command or by key.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">Windows</span>快速鍵參考表，可以用功能或按鍵篩選。</figcaption>
       </figure>
       <figure>
         <img src="site/lin-inspector.png" loading="lazy" alt="jt-filework on Linux">
@@ -370,18 +387,18 @@
       </figure>
       <figure>
         <img src="site/win-archive.png" loading="lazy" alt="jt-filework on Windows">
-        <figcaption data-lang="en"><span class="os">Windows</span>An archive listing on Windows.</figcaption>
-        <figcaption data-lang="zh-tw"><span class="os">Windows</span>Windows 上的壓縮檔列表。</figcaption>
-      </figure>
-      <figure>
-        <img src="site/mac-usage.png" loading="lazy" alt="jt-filework on macOS">
-        <figcaption data-lang="en"><span class="os">macOS</span>The same usage report on macOS, dark.</figcaption>
-        <figcaption data-lang="zh-tw"><span class="os">macOS</span>同一份用量報告在 macOS 上，深色。</figcaption>
+        <figcaption data-lang="en"><span class="os">Windows</span>Inside an archive: mark with Space, extract the marked ones with C.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">Windows</span>壓縮檔裡面：Space 標記，C 解出標記的。</figcaption>
       </figure>
       <figure>
         <img src="site/lin-archive.png" loading="lazy" alt="jt-filework on Linux">
-        <figcaption data-lang="en"><span class="os">Linux</span>Archives sitting in a folder like any other file.</figcaption>
+        <figcaption data-lang="en"><span class="os">Linux</span>Archives sit in a folder like any other file.</figcaption>
         <figcaption data-lang="zh-tw"><span class="os">Linux</span>壓縮檔就跟其他檔案一樣擺在資料夾裡。</figcaption>
+      </figure>
+      <figure>
+        <img src="site/mac-usage.png" loading="lazy" alt="jt-filework on macOS">
+        <figcaption data-lang="en"><span class="os">macOS</span>The usage report in the dark theme.</figcaption>
+        <figcaption data-lang="zh-tw"><span class="os">macOS</span>深色主題下的用量報告。</figcaption>
       </figure>
     </div>
   </section>
