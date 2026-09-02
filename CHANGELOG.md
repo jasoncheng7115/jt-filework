@@ -12,6 +12,18 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.5] - 2026-09-03
+
+### Documentation
+
+- Six more reported items written down with their diagnoses: the cursor falling
+  to the top of the list after a delete instead of landing on what took the
+  deleted item's place; the disc usage window re-walking a folder it has already
+  measured, both on the way down and on the way back up; its columns not being
+  resizable; its cancel button sitting flush against the window edge without an
+  icon; and the path bar's context menu offering everything except the one
+  measurement that is about a folder.
+
 ## [0.6.4] - 2026-09-03
 
 ### Added

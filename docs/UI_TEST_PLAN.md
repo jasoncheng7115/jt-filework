@@ -925,6 +925,12 @@ than *what the dialog says*, because the dialog is read after the decision.
 | PREV-030 | **The preview background honours the chosen colour.** A stylesheet background must not override the palette the choice sets | H2 |
 | PREV-031 | The colour button shows the colour it is set to, with its hex value beside it | H2 |
 | PREV-032 | The preview background defaults to white | H2 |
+| OPS-050 | **After a delete the cursor is on the item that took the deleted one's place**, not at the top of the list. Deleting several in a row never scrolls back to the top | H2 |
+| USAGE-030 | Descending into a subfolder already measured re-renders from the walk that was done; it does not walk again | H1/H2 |
+| USAGE-031 | Going back up a level does not walk again either | H1/H2 |
+| USAGE-032 | The usage window's columns can be resized by dragging the header, as the file list's can | H2 |
+| USAGE-033 | The 「取消操作」 button is not flush against the window edge and carries an icon | H3 |
+| CRUMB-010 | The path bar's context menu offers 計算磁碟用量 for the folder clicked | H2 |
 | LIVE-001 | **A file added, renamed or touched by another program appears without pressing anything** | H2/H5 |
 | LIVE-002 | A re-list keeps the cursor on the same *file*, not the same row number, when something is inserted above it | H2 |
 | LIVE-003 | A re-list keeps the marks, the scroll position and the sort order | H2 |

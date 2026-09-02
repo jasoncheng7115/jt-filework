@@ -185,6 +185,41 @@
 
 ## P0 — Reported, not yet built
 
+- [ ] **The cursor jumps to the top of the list after a delete.** It should land
+      on the item that took the deleted one's place, so the next thing is under
+      the hand and the list does not have to be scrolled back down. Deleting
+      several files in a row is the case that makes this hurt.
+
+      Adjacent to the folder poll shipped in 0.6.4, which keeps the cursor on
+      the same *file* across a re-list by remembering a location rather than a
+      row number. That is exactly why this falls to the top: the remembered
+      location no longer exists, so nothing matches and the cursor defaults to
+      row zero. The answer is to fall back to the row *index* the vacated entry
+      held, clamped to the new length, when the location itself has gone.
+
+- [ ] **The disc usage window re-walks a folder it has already measured.** The
+      walk produces a tree of everything beneath the root; descending into a
+      subfolder should re-render from that tree, and going back up likewise.
+      Today both restart the scan, so a root that took minutes to measure -
+      185,599 files in the reported case - is paid for again for a folder whose
+      numbers are already known. Walk again only on an explicit refresh, or when
+      asked for somewhere outside what was walked.
+
+- [ ] **The disc usage window's columns cannot be resized.** The header does not
+      offer the drag. The file list's columns do.
+
+- [ ] **The disc usage window's 「取消操作」 button sits flush against the right
+      edge** of the status line, and has no icon while every other button in the
+      program has one.
+
+- [ ] **The path bar's context menu has no 「計算磁碟用量」.** Right-clicking a
+      breadcrumb offers open, open in a tab, open in a window, bookmark, copy
+      path, reveal, terminal - but not the one measurement that is about a
+      folder. The command exists (`file.disk_usage`); it is the menu that is
+      missing it.
+
+
+
 - [ ] **A setting for whether each pane's filter bar is always there or only
       appears when asked for.** Today it is on-demand only: `F` opens it and
       Escape closes it. Some people want it permanently visible so the box is
