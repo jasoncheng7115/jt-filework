@@ -421,7 +421,6 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     });
 
     m_view->installEventFilter(this);
-    m_view->horizontalHeader()->installEventFilter(this);
     m_view->viewport()->installEventFilter(this);
     m_tabs->installEventFilter(this);
 
@@ -481,30 +480,25 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
 
     connect(m_view->horizontalHeader(), &QHeaderView::sectionResized, this,
             [this](int column, int, int width) {
-                // One column per drag: the one whose divider was grabbed.
+                // A width this widget did not ask for is the user's.
                 //
-                // `sectionResized` fires for every width that moves, and
-                // dragging one divider moves others - the name column stretches
-                // into the space, the rest are squeezed when there is no room.
-                // Guarding on "the mouse is down" still recorded three columns
-                // from one drag, and a column recorded by accident is pinned
-                // with no way for the user to unpin it.
+                // `sectionResized` fires for every width that moves, ours
+                // included - the auto-measure, the squeeze when there is no
+                // room, the redistribution when the view changes size - and one
+                // drag was recording three columns. Watching for a mouse press
+                // on the header was tried and cannot work: the header delivers
+                // no events to this filter at all, which the log settled.
                 //
-                // Qt emits for the dragged section first, so the first emission
-                // of a drag names it and the rest of that drag is side effects.
-                if (!m_userResizing || column == 0 || width <= 0) {
-                    qWarning("JTFCOL ignored col=%d w=%d dragging=%d", column, width,
-                             m_userResizing ? 1 : 0);
+                // So every width this widget applies is written down as it is
+                // applied, and anything that does not match is the only thing
+                // left it can be: somebody dragged it.
+                if (column == 0 || width <= 0) {
                     return;
                 }
-                qWarning("JTFCOL resized col=%d w=%d dragging=%d locked=%d", column, width,
-                         m_userResizing ? 1 : 0, m_resizingColumn);
-                if (m_resizingColumn < 0) {
-                    m_resizingColumn = column;
+                if (m_appliedWidths.value(column, -1) == width) {
+                    return; // ours
                 }
-                if (column != m_resizingColumn) {
-                    return;
-                }
+
                 jtf_set_column_width(m_app, column, width);
                 // Written now, not on exit: a width that survives only a clean
                 // quit has not been remembered. `stateChanged` is not used
@@ -1019,15 +1013,17 @@ void PaneWidget::fitNameColumn() {
             // has touched measures itself against what is in it.
             const int chosen = jtf_column_width(m_app, column);
             if (chosen > 0) {
+                m_appliedWidths[column] = chosen;
                 m_view->setColumnWidth(column, chosen);
                 continue;
             }
             // `resizeColumnToContents` is the public way to ask; the width it
             // leaves behind is then read back and clamped.
             m_view->resizeColumnToContents(column);
-            m_view->setColumnWidth(
-                column,
-                qBound(kUseful, m_view->columnWidth(column) + kColumnPadding, kColumnCeiling));
+            const int measured =
+                qBound(kUseful, m_view->columnWidth(column) + kColumnPadding, kColumnCeiling);
+            m_appliedWidths[column] = measured;
+            m_view->setColumnWidth(column, measured);
         }
     }
     int used = 0;
@@ -1060,7 +1056,9 @@ void PaneWidget::fitNameColumn() {
                 // which is the harmless direction to be wrong in.
                 const int take =
                     static_cast<int>(static_cast<qint64>(slack) * wanted / squeezable);
-                m_view->setColumnWidth(column, m_view->columnWidth(column) - take);
+                const int squeezed = m_view->columnWidth(column) - take;
+                m_appliedWidths[column] = squeezed;
+                m_view->setColumnWidth(column, squeezed);
                 reclaimed += take;
             }
             nameWidth += reclaimed;
@@ -1307,23 +1305,6 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     // no later resize arrives to correct it. That is why the columns came up
     // filling half the window and stayed there. The viewport's own resize
     // always carries the width the rows are actually drawn at.
-    // A drag of a column divider starts with a press on the header and ends
-    // with its release. Between those two, a width change is the user's.
-    if (watched == m_view->horizontalHeader()) {
-        if (event->type() == QEvent::Show || event->type() == QEvent::Resize) {
-            const QRect r(m_view->horizontalHeader()->mapToGlobal(QPoint(0, 0)),
-                          m_view->horizontalHeader()->size());
-            qWarning("JTFCOL header at %d,%d %dx%d", r.x(), r.y(), r.width(), r.height());
-        }
-        if (event->type() == QEvent::MouseButtonPress) {
-            qWarning("JTFCOL header press");
-            m_userResizing = true;
-            m_resizingColumn = -1; // learned from the first section that moves
-        } else if (event->type() == QEvent::MouseButtonRelease) {
-            m_userResizing = false;
-            m_resizingColumn = -1;
-        }
-    }
     if (watched == m_view->viewport() && event->type() == QEvent::Resize) {
         scheduleFitNameColumn();
     }
