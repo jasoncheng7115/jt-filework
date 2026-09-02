@@ -420,8 +420,20 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // pointing at" for Enter on an archive, `Z` on a folder, and the last
     // fallback of `operation_target`.
     connect(m_view->selectionModel(), &QItemSelectionModel::currentRowChanged, this,
-            [this](const QModelIndex &current, const QModelIndex &) {
+            [this](const QModelIndex &current, const QModelIndex &previous) {
                 jtf_set_current_row(m_app, m_pane, current.isValid() ? current.row() : -1);
+                // Repaint the whole of both rows, not the cell Qt thinks
+                // changed.
+                //
+                // The cursor outline is drawn a segment per cell: each cell
+                // draws the top and bottom edges of its own stretch, and the
+                // first and last add the sides. Qt repaints the current
+                // *index*, which is column zero - so moving the cursor left
+                // the other columns of the new row without their segments and
+                // the other columns of the old row still carrying theirs. The
+                // outline came apart, in both directions at once.
+                repaintRow(previous);
+                repaintRow(current);
             });
 
     connect(m_view, &QTableView::doubleClicked, this, [this](const QModelIndex &index) {
@@ -2121,6 +2133,23 @@ void PaneWidget::retranslate() {
             positionSearchOverlay();
         }
     }
+}
+
+// Repaint every column of one row.
+//
+// `update(index)` covers one cell, which is not enough for anything drawn
+// across a row - the cursor outline is assembled from a segment per cell, so a
+// repaint of one cell leaves the rest of the line as it was.
+void PaneWidget::repaintRow(const QModelIndex &index) {
+    if (!index.isValid() || m_view == nullptr) {
+        return;
+    }
+    const QRect cell = m_view->visualRect(index);
+    if (cell.isNull()) {
+        return; // scrolled out of sight; it will be drawn correctly when it returns
+    }
+    m_view->viewport()->update(
+        QRect(0, cell.y(), m_view->viewport()->width(), cell.height()));
 }
 
 void PaneWidget::applyTheme(const QColor &mark, const QColor &directory, const QColor &dim,

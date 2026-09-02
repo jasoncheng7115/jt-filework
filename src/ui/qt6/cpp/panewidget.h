@@ -27,6 +27,12 @@ public:
     /// two never disagree about units.
     static QString formatSize(quint64 bytes);
 
+private:
+    /// Repaint every column of one row, not just the cell Qt thinks changed.
+    void repaintRow(const QModelIndex &index);
+
+public:
+
     PaneWidget(JtfApp *app, int paneId, QWidget *parent = nullptr);
     ~PaneWidget() override;
 
