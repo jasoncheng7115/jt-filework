@@ -496,6 +496,8 @@ places. It cannot be hidden; only the folder tree below it folds away.
 | PLACES-016 | The pointer becomes a hand over the eject control and an arrow elsewhere | H2 |
 | PLACES-017 | **No row loses name width to a control it does not have.** A tree's column width is shared by every row; one eject button must not shorten every bookmark | H3 |
 | PLACES-018 | A volume that is unmounted while the window is open disappears within one poll | H4 |
+| PLACES-020 | **Only disks a person navigates to are listed.** A machine with a dozen snaps mounts a dozen read-only squashfs images; none of them is a place | H2/H5 |
+| PLACES-021 | The filter is by filesystem type, not by path — the paths differ per distribution and the answer does not | H1 |
 | PLACES-019 | Every row's menu offers「在新視窗開啟」 | H2 |
 
 ---

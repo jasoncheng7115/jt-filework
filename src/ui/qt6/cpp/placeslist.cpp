@@ -514,6 +514,33 @@ void PlacesList::refresh() {
             root.startsWith(QStringLiteral("/dev")) || root.startsWith(QStringLiteral("/private/var/vm"))) {
             continue;
         }
+        // Not everything the system has mounted is a place a person goes.
+        //
+        // Asked by filesystem type rather than by path, because the paths
+        // differ per distribution and the answer does not: a squashfs is a
+        // package image, a tmpfs is memory, an overlay is a container's view.
+        // An Ubuntu machine with the ordinary set of snaps mounts a dozen
+        // read-only squashfs images, and every one of them was appearing as a
+        // disk that is one hundred per cent full - fourteen red bars burying
+        // the two disks the person actually has.
+        static const QSet<QByteArray> kNotPlaces = {
+            "squashfs", "tmpfs", "devtmpfs", "devfs", "overlay", "overlayfs",
+            "proc",     "sysfs", "cgroup",   "cgroup2", "debugfs", "tracefs",
+            "securityfs", "pstore", "bpf",   "configfs", "fusectl", "autofs",
+            "efivarfs", "ramfs",   "mqueue", "hugetlbfs", "binfmt_misc",
+            "nsfs",     "selinuxfs",
+        };
+        if (kNotPlaces.contains(storage.fileSystemType().toLower())) {
+            continue;
+        }
+        // A snap or an AppImage mount is a package, not a disk, whatever it
+        // says its type is.
+        if (root.startsWith(QStringLiteral("/snap/")) ||
+            root.startsWith(QStringLiteral("/var/lib/snapd/")) ||
+            root.startsWith(QStringLiteral("/var/snap/")) ||
+            root.startsWith(QStringLiteral("/run/"))) {
+            continue;
+        }
         QString label = storage.displayName();
         if (label.isEmpty()) {
             label = root;
