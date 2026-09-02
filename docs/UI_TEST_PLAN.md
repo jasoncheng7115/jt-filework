@@ -914,6 +914,8 @@ than *what the dialog says*, because the dialog is read after the decision.
 | PANE-031 | Cycling the target never lands on the active pane, including after the pane it pointed at was closed | H1 |
 | PANE-032 | With two panes cycling the target is a no-op: there is only one other pane and it is already the target | H1 |
 
+| SESS-030 | **A session written before a newly added field still loads.** A new field without a serde default makes every existing session unreadable — every tab, mark and open folder gone on upgrade | H1 |
+| SESS-031 | The status bar's 「儲存的工作階段讀不出來」 appears only when the session really could not be read, and not on every launch | H2 |
 | QL-001 | **Space in native mode with the Quick Look panel already open does not crash.** The panel is the key window; forwarding its keys to the key window re-entered the handler until the stack ran out | H5 |
 | QL-002 | Space on the item already showing closes the panel; on a different item it swaps rather than stacking | H5 |
 | OPS-040 | **Rename acts on the row the cursor is on, not on a mark left behind.** Mark row 1, move to row 5, press R: row 5's name is in the box and row 5 is what gets renamed | H2 |

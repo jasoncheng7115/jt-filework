@@ -76,6 +76,10 @@ shift+delete         = file.delete
 # as delete-to-trash instead - the one place the two versions disagree - and
 # the later behaviour wins. Trash keeps the host platform's chord.
 primary+backspace    = file.trash
+# Quick Look, the system's own preview. Space is the native key for it and
+# is taken here by marking, which is the one key this mode cannot give up;
+# `q` is the feature's own initial and was free.
+q                    = preview.quicklook
 v                    = file.view                 # CV.HLP
 h                    = file.view_hex             # CV.HLP 以 HEX 16 進制方式觀看
 e                    = file.edit                 # wincv

@@ -80,6 +80,12 @@ pub struct Workspace {
     /// the target pointing at the pane you are standing in, which makes
     /// "copy to the target" a copy onto itself. An offset of at least one
     /// cannot express that.
+    ///
+    /// Defaulted on read. A session written before this field existed is every
+    /// session anyone already has, and a new field without a default makes all
+    /// of them unreadable - which is not "the layout is slightly wrong", it is
+    /// every tab, every mark and every open folder gone on upgrade.
+    #[serde(default = "target_offset_default")]
     target_offset: usize,
     locale: LocaleId,
     theme_mode: ThemeMode,
@@ -93,6 +99,11 @@ pub struct Workspace {
 /// Sessions written before windows existed have one window, numbered 1.
 const fn next_window_default() -> u64 {
     2
+}
+
+/// Sessions written before the target could be moved used the next pane along.
+const fn target_offset_default() -> usize {
+    1
 }
 
 impl Workspace {
@@ -1000,6 +1011,55 @@ mod tests {
         assert_eq!(w.active_pane_id(), order[0]);
         w.focus_previous_pane();
         assert_eq!(w.active_pane_id(), *order.last().unwrap());
+    }
+
+    #[test]
+    fn a_workspace_written_before_a_field_existed_still_reads() {
+        // The regression this exists for, and it is the expensive kind: a new
+        // field on `Workspace` without a serde default makes every session
+        // anyone already has unreadable, and "unreadable" means every tab,
+        // every mark and every open folder gone on upgrade. It showed up as
+        // 「儲存的工作階段讀不出來」 on the status bar at every launch.
+        //
+        // Written by serialising a real workspace and deleting the newest
+        // field, rather than by hand: a fixture typed out here would test
+        // whatever shape was guessed, and the shape is the thing under test.
+        let mut w = workspace();
+        w.split_active(Orientation::Vertical);
+        w.cycle_target();
+        let text = serde_json::to_string(&w).unwrap();
+        assert!(
+            text.contains("target_offset"),
+            "the field this test is about is not being written"
+        );
+
+        let mut stored: serde_json::Value = serde_json::from_str(&text).unwrap();
+        stored
+            .as_object_mut()
+            .unwrap()
+            .remove("target_offset")
+            .expect("the field was there a moment ago");
+
+        let older = serde_json::to_string(&stored).unwrap();
+        let restored: Result<Workspace, _> = serde_json::from_str(&older);
+        assert!(
+            restored.is_ok(),
+            "a session written before the field existed no longer loads: {:?}",
+            restored.err()
+        );
+        // And it comes back with the behaviour that session was written under:
+        // the next pane along from wherever the keyboard is, wrapping.
+        let restored = restored.unwrap();
+        let order = restored.pane_order();
+        let active = order
+            .iter()
+            .position(|id| *id == restored.active_pane_id())
+            .unwrap();
+        assert_eq!(
+            restored.target_pane_id(),
+            Some(order[(active + 1) % order.len()]),
+            "the default target is not the next pane along"
+        );
     }
 
     #[test]
