@@ -170,6 +170,8 @@ private:
     class RowDelegate *m_rows = nullptr;
     /// True only between a press on the column header and its release.
     bool m_userResizing = false;
+    /// The column whose divider is being dragged, or -1 before it is known.
+    int m_resizingColumn = -1;
     class QLabel *m_targetIcon = nullptr;
     class QLabel *m_targetWord = nullptr;
     QPixmap m_targetGlyph;

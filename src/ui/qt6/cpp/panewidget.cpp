@@ -481,20 +481,24 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
 
     connect(m_view->horizontalHeader(), &QHeaderView::sectionResized, this,
             [this](int column, int, int width) {
-                // Only while the pointer is actually holding the divider.
+                // One column per drag: the one whose divider was grabbed.
                 //
-                // `sectionResized` fires for every width this widget sets
-                // itself as well - the auto-measure, the squeeze when there is
-                // not room, the redistribution when the view changes size -
-                // and a guard against `fitNameColumn` alone was not enough: one
-                // drag recorded three columns, because the others had been set
-                // from elsewhere in the same breath. Recording those would
-                // freeze every column at whatever the first folder happened to
-                // need, and there is no way for the user to unfreeze one.
+                // `sectionResized` fires for every width that moves, and
+                // dragging one divider moves others - the name column stretches
+                // into the space, the rest are squeezed when there is no room.
+                // Guarding on "the mouse is down" still recorded three columns
+                // from one drag, and a column recorded by accident is pinned
+                // with no way for the user to unpin it.
                 //
-                // A press on the header and its release bracket a real drag,
-                // and nothing else.
+                // Qt emits for the dragged section first, so the first emission
+                // of a drag names it and the rest of that drag is side effects.
                 if (!m_userResizing || column == 0 || width <= 0) {
+                    return;
+                }
+                if (m_resizingColumn < 0) {
+                    m_resizingColumn = column;
+                }
+                if (column != m_resizingColumn) {
                     return;
                 }
                 jtf_set_column_width(m_app, column, width);
@@ -1304,8 +1308,10 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     if (watched == m_view->horizontalHeader()) {
         if (event->type() == QEvent::MouseButtonPress) {
             m_userResizing = true;
+            m_resizingColumn = -1; // learned from the first section that moves
         } else if (event->type() == QEvent::MouseButtonRelease) {
             m_userResizing = false;
+            m_resizingColumn = -1;
         }
     }
     if (watched == m_view->viewport() && event->type() == QEvent::Resize) {
