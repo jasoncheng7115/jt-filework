@@ -12,6 +12,7 @@
 #include <QStringList>
 #include <QFont>
 #include <QAbstractItemView>
+#include <QPixmap>
 #include <QWidget>
 
 class FileListModel;
@@ -165,8 +166,11 @@ private:
     /// Guards the selection/mark round trip against itself.
     bool m_syncingSelection = false;
     class RowDelegate *m_rows = nullptr;
+    class QLabel *m_targetIcon = nullptr;
+    class QLabel *m_targetWord = nullptr;
+    QPixmap m_targetGlyph;
     class SearchOverlay *m_searchOverlay = nullptr;
-    class QLabel *m_targetBadge = nullptr;
+    class QWidget *m_targetBadge = nullptr;
     void positionSearchOverlay();
     QColor m_border;
     QString m_typeAhead;

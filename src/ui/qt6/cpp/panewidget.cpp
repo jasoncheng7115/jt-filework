@@ -126,9 +126,34 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // open is a decision about a folder full of files, and "the one that is
     // not focused" is a rule the user has to remember and apply under a
     // highlight that is easy to misread. This says it instead.
-    m_targetBadge = new QLabel(tabRow);
+    // The badge that says a copy or a move lands here.
+    //
+    // Always in the layout, never hidden - only emptied. Hiding it took its
+    // width out of the tab row, which changed the pane's size hint, which made
+    // the splitter redistribute every pane in the window: dragging a file
+    // across three panes made all of them jump about as the target followed
+    // the pointer. Its width is reserved once, from the longest text it can
+    // hold, and switching the target after that moves nothing.
+    // The badge that says a copy or a move lands here: a small arrow and one
+    // word, rather than the sentence it used to be.
+    //
+    // Always in the layout, never hidden - only emptied. Hiding it took its
+    // width out of the tab row, which changed the pane's size hint, which made
+    // the splitter redistribute every pane in the window: dragging a file
+    // across three panes made all of them jump about as the target followed
+    // the pointer. Its width is reserved once and switching the target after
+    // that moves nothing.
+    m_targetBadge = new QWidget(tabRow);
     m_targetBadge->setObjectName(QStringLiteral("JtfTargetBadge"));
-    m_targetBadge->setVisible(false);
+    auto *badgeRow = new QHBoxLayout(m_targetBadge);
+    badgeRow->setContentsMargins(8, 0, 8, 0);
+    badgeRow->setSpacing(4);
+    m_targetIcon = new QLabel(m_targetBadge);
+    m_targetIcon->setObjectName(QStringLiteral("JtfTargetBadgeIcon"));
+    m_targetWord = new QLabel(m_targetBadge);
+    m_targetWord->setObjectName(QStringLiteral("JtfTargetBadgeWord"));
+    badgeRow->addWidget(m_targetIcon);
+    badgeRow->addWidget(m_targetWord);
     tabRowLayout->addWidget(m_targetBadge);
 
     // Closing a pane from the menu closes whichever one has focus, so getting
@@ -2167,6 +2192,13 @@ void PaneWidget::applyTheme(const QColor &mark, const QColor &directory, const Q
         m_matches->setCursorColour(indicator);
     }
 
+    // The badge's arrow follows the mark colour its dashed border uses, so
+    // the two say the same thing in the same colour.
+    m_targetGlyph = glyph::make(glyph::Shape::ArrowDown, mark).pixmap(12, 12);
+    if (m_targetIcon != nullptr && !m_targetIcon->pixmap().isNull()) {
+        m_targetIcon->setPixmap(m_targetGlyph);
+    }
+
     if (m_searchOverlay != nullptr) {
         m_searchOverlay->applyTheme(palette().color(QPalette::Text), indicator);
     }
@@ -2211,12 +2243,17 @@ void PaneWidget::applyTheme(const QColor &mark, const QColor &directory, const Q
 }
 
 void PaneWidget::setTarget(bool target) {
-    if (m_targetBadge != nullptr) {
-        m_targetBadge->setText(target ? jtfText([&](char *b, int l) {
-                                   return jtf_tr(m_app, "pane.target", b, l);
-                               })
-                                      : QString());
-        m_targetBadge->setVisible(target);
+    if (m_targetBadge != nullptr && m_targetWord != nullptr && m_targetIcon != nullptr) {
+        const QString word = jtfText(
+            [&](char *b, int l) { return jtf_tr(m_app, "pane.target", b, l); });
+        // Sized once, from the text it holds when it has something to say, so
+        // that having nothing to say costs exactly the same room.
+        m_targetWord->setText(word);
+        m_targetIcon->setPixmap(m_targetGlyph);
+        m_targetBadge->setFixedWidth(m_targetBadge->sizeHint().width());
+        // Emptied rather than hidden.
+        m_targetWord->setText(target ? word : QString());
+        m_targetIcon->setPixmap(target ? m_targetGlyph : QPixmap());
     }
     // The outline is on the pane itself, so the whole side of the window is
     // marked rather than a word in one corner of it.

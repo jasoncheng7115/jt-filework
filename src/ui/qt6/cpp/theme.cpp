@@ -265,12 +265,14 @@ QWidget#JtfPane[jtfActive="true"] { border: 2px solid %PANERING%; }
 QWidget#JtfPane[jtfTarget="true"] {
     border: 2px dashed %MARK%;
 }
-QLabel#JtfTargetBadge {
+QWidget#JtfTargetBadge { background: transparent; }
+QLabel#JtfTargetBadgeWord {
     color: %MARK%;
     background: transparent;
-    padding: 0 10px;
     font-size: 11px;
+    font-weight: 600;
 }
+QLabel#JtfTargetBadgeIcon { background: transparent; }
 QTabBar[jtfActive="false"]::tab:selected {
     background: %HEADER%;
 )")
