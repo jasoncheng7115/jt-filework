@@ -25,11 +25,13 @@ pub use macos::{is_supported, list, unmount_volumes};
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
+#[allow(unreachable_pub)]
 pub use linux::{is_supported, list, unmount_volumes};
 
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
+#[allow(unreachable_pub)]
 pub use windows::{is_supported, list, unmount_volumes};
 
 #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]

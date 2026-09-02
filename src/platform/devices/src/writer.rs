@@ -269,20 +269,26 @@ mod tests {
 
     #[test]
     fn a_device_node_that_is_not_text_is_refused_before_anything_is_opened() {
-        // Not reachable from the enumerators, which build the node themselves.
-        // Here so that a future one that reads a node from the system cannot
-        // turn a decoding failure into an open of something else.
-        let device = Device {
-            node: PathBuf::from("/dev/rdisk9"),
-            model: "test".into(),
-            size: 1,
-            bus: Bus::Usb,
-            volumes: Vec::new(),
-        };
-        // The node is valid UTF-8, so this gets as far as the platform call.
-        // On a machine with no /dev/rdisk9 that is an error, which is the
-        // point: it did not silently succeed.
-        assert!(open(&device).is_err() || cfg!(target_os = "macos"));
+        // The guard exists so that a decoding failure can never become an open
+        // of something else. Tested with a genuinely undecodable node rather
+        // than a merely absent one - an absent node on Linux falls through to
+        // pkexec, and a test must never put a password prompt on the screen.
+        #[cfg(unix)]
+        {
+            use std::os::unix::ffi::OsStrExt as _;
+            let node = std::ffi::OsStr::from_bytes(b"/dev/\xFF\xFEnot-utf8");
+            let device = Device {
+                node: PathBuf::from(node),
+                model: "test".into(),
+                size: 1,
+                bus: Bus::Usb,
+                volumes: Vec::new(),
+            };
+            match open(&device) {
+                Ok(_) => panic!("an undecodable device node was opened"),
+                Err(e) => assert_eq!(e.code(), ErrorCode::InvalidPath),
+            }
+        }
     }
 
     #[test]
