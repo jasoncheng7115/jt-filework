@@ -3,6 +3,7 @@
 #include <QAbstractItemView>
 #include <QApplication>
 #include <QPainter>
+#include <QTableView>
 #include <QPainterPath>
 #include <QStyle>
 #include <QStyleOptionViewItem>
@@ -54,6 +55,11 @@ void RowDelegate::paintCursor(QPainter *painter, const QStyleOptionViewItem &opt
     painter->setRenderHint(QPainter::Antialiasing, false);
     painter->setPen(QPen(m_cursor, 1));
     const QRect r = option.rect.adjusted(0, 0, -1, -1);
+    qWarning("JTFCUR col=%d of %d rect=%d,%d %dx%d hidden=%d", index.column(),
+             index.model()->columnCount(),
+             option.rect.x(), option.rect.y(), option.rect.width(), option.rect.height(),
+             qobject_cast<const QTableView *>(view) != nullptr
+                 && qobject_cast<const QTableView *>(view)->isColumnHidden(index.column()) ? 1 : 0);
     // Each cell draws its own segment; together they make one line round the
     // row. The ends are drawn only by the cells that own them.
     painter->drawLine(r.topLeft(), r.topRight());
