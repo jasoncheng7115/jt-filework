@@ -187,7 +187,16 @@
 
 - [x] Native QLPreviewPanel, toggled by the keymap's preview command
 - [x] Space is Quick Look on the platform preset, marking on the CView preset
-- [ ] Follow the selection with arrow keys while the panel is open
+- [ ] **Follow the cursor with the arrow keys while the panel is open**, the way
+      Finder does: with the preview up, Up and Down move to the previous and
+      next file *and* the panel shows that file, without closing and reopening
+      it. `Q` is the key in single-key mode; Space is the platform preset's.
+      Half of this already works - the panel's delegate forwards keys it does
+      not use to the main window, so the arrows already move the cursor
+      underneath. What is missing is re-pointing the panel at the new row when
+      the cursor moves. Windows and Linux fall back to the built-in viewer, so
+      they need the same behaviour there for the key to mean one thing
+      everywhere.
 - [ ] Embedded Quick Look in the tool area
 - [ ] Null implementation verified on Windows and Linux builds
 
