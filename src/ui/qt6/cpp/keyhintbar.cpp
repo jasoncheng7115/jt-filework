@@ -40,6 +40,7 @@ const char *const kNothing[] = {
     nullptr,
 };
 const char *const kFile[] = {
+    "preview.quicklook",
     "file.view",        "file.edit",           "file.copy_to",
     "file.move_to",     "file.rename",         "file.trash",
     "file.mark.toggle", "workspace.pane.next", "file.folder_size",

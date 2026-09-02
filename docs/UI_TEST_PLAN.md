@@ -936,6 +936,8 @@ than *what the dialog says*, because the dialog is read after the decision.
 | PANE-060 | **Marking more files does not resize the pane.** The status line's text grows with the selection; its width must not reach the splitter | H2/H3 |
 | PANE-061 | The pane status line counts the marked set once, not as both 「已選取」 and 「已標記」 — selecting a row and marking it are the same act | H2 |
 | PANE-062 | The pane status line does not carry free space: it is a property of the disk, not of the folder, and read the same in every pane on that volume | H2 |
+| QL-010 | **`Q` does something on every platform.** Where the system has no previewer it opens the built-in viewer; the command is never offered inert | H2/H5 |
+| QL-011 | `Q` appears in the key hint strip, and what it does there matches what the strip says | H2 |
 | QL-001 | **Space in native mode with the Quick Look panel already open does not crash.** The panel is the key window; forwarding its keys to the key window re-entered the handler until the stack ran out | H5 |
 | QL-002 | Space on the item already showing closes the panel; on a different item it swaps rather than stacking | H5 |
 | OPS-040 | **Rename acts on the row the cursor is on, not on a mark left behind.** Mark row 1, move to row 5, press R: row 5's name is in the box and row 5 is what gets renamed | H2 |

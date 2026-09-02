@@ -876,6 +876,24 @@ void MainWindow::quickLookSelection() {
     if (!pane || pane->currentRow() < 0) {
         return;
     }
+    // A peek at the file, using the best thing this platform has.
+    //
+    // macOS has Quick Look and that is what it gets. Windows and Linux have no
+    // equivalent this program talks to yet, and the command was offered there
+    // anyway - it sat in the File menu doing nothing at all, which is the one
+    // thing `docs/PLATFORM_INTEGRATION.md` says never to ship. `available()`
+    // was written to prevent exactly that and had no callers.
+    //
+    // Rather than hide the command on two platforms out of three, it falls back
+    // to the viewer this program brings with it. The key means the same thing
+    // everywhere then - show me this file without leaving the list - and only
+    // whose window opens differs. Wiring the real system previewers
+    // (`IPreviewHandler` on Windows, `org.gnome.NautilusPreviewer` on Linux)
+    // changes what this does, not what it means.
+    if (!quicklook::available()) {
+        openViewer();
+        return;
+    }
     const int row = pane->currentRow();
     quicklook::toggle(jtfText([&](char *buf, int len) {
         return jtf_row_path(m_app, pane->paneId(), row, buf, len);
