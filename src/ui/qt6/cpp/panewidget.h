@@ -57,6 +57,8 @@ public:
     void editPath();
     void clearSearch();
     void toggleFilter();
+    /// Show or hide the filter bar to match the setting.
+    void applyFilterBarSetting();
     void clearFilter();
     // Shows the filter box whenever a filter is actually in force, so a
     // restored one cannot hide rows without saying so.

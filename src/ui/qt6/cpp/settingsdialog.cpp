@@ -530,6 +530,16 @@ QWidget *SettingsDialog::buildAppearanceTab() {
         jtf_set_folders_first(m_app, on ? 1 : 0);
         emit changed();
     });
+
+    // Whether the filter box is always there or appears when asked for. Some
+    // people want it ready to type into and the pane's height never shifting
+    // under them; the default stays out of the way until `F`.
+    auto *filterAlways = new QCheckBox(tr_("settings.filter_bar_always"), page);
+    filterAlways->setChecked(jtf_filter_bar_always(m_app) != 0);
+    connect(filterAlways, &QCheckBox::toggled, this, [this](bool on) {
+        jtf_set_filter_bar_always(m_app, on ? 1 : 0);
+        emit changed();
+    });
     // How long the sidebar's 最近使用 list is. The useful number depends on how
     // the person works - long enough to hold this morning is clutter to
     // someone who only wants the last three - so it is a setting rather than
@@ -544,6 +554,7 @@ QWidget *SettingsDialog::buildAppearanceTab() {
     });
 
     form->addRow(QString(), foldersFirst);
+    form->addRow(QString(), filterAlways);
     form->addRow(QString(), parentRow);
     form->addRow(tr_("settings.recent_limit"), recent);
 

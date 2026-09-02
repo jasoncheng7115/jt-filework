@@ -654,3 +654,4 @@ archive.key_up = Up a level
 command.workspace.target.next = Next Copy/Move Target
 command.view.folders_first = Folders First
 hint.short.preview.quicklook = Peek
+settings.filter_bar_always = Always show the filter box

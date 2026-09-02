@@ -193,6 +193,14 @@ pub struct SessionSettings {
     /// Whether the folder tree sidebar is shown.
     #[serde(default)]
     pub tree_visible: bool,
+    /// Whether each pane's filter bar is always there rather than appearing
+    /// when asked for.
+    ///
+    /// Defaulted on read, and that is not optional: a field added here without
+    /// one made every session file in existence unreadable, and an unreadable
+    /// session is every tab, mark and open folder gone on upgrade.
+    #[serde(default)]
+    pub filter_bar_always: bool,
     /// Its width in logical pixels. 0 means the default.
     #[serde(default)]
     pub tree_width: u16,
@@ -301,6 +309,7 @@ impl Default for SessionSettings {
             // Off by default: a sidebar that appears uninvited on first launch
             // is a decision made for the user rather than by them.
             tree_visible: false,
+            filter_bar_always: false,
             tree_width: 0,
             collapsed_sections: Vec::new(),
             recent_limit: 0,
@@ -344,6 +353,7 @@ impl SessionSettings {
             // Off by default: a sidebar that appears uninvited on first launch
             // is a decision made for the user rather than by them.
             tree_visible: false,
+            filter_bar_always: false,
             tree_width: 0,
             collapsed_sections: Vec::new(),
             recent_limit: 0,

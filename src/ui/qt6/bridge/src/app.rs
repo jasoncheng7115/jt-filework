@@ -5559,3 +5559,15 @@ impl App {
         restarted
     }
 }
+
+impl App {
+    /// Whether each pane's filter bar stays on screen.
+    pub(crate) const fn filter_bar_always(&self) -> bool {
+        self.settings.filter_bar_always
+    }
+
+    /// Remember whether the filter bar stays on screen.
+    pub(crate) fn set_filter_bar_always(&mut self, always: bool) {
+        self.settings.filter_bar_always = always;
+    }
+}

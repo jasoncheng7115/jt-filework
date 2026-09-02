@@ -1310,6 +1310,9 @@ void MainWindow::openSettings() {
         // having done nothing.
         setInspectorPosition(jtf_inspector_position(m_app));
         setKeyHintDensity(jtf_key_hints_density(m_app));
+        for (auto *pane : std::as_const(m_panes)) {
+            pane->applyFilterBarSetting();
+        }
         applyTheme();
         applyFont();
         if (m_inspector) {

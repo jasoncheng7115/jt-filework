@@ -1014,6 +1014,37 @@ mod tests {
     }
 
     #[test]
+    fn a_session_without_the_filter_bar_setting_still_loads() {
+        // The same guarantee as the workspace test below, for the settings
+        // struct: a new field there without a serde default makes every
+        // session file in existence unreadable, and that is every tab, mark and
+        // open folder gone on upgrade. Written as "delete the newest field from
+        // real output" rather than as a hand-typed fixture, because a fixture
+        // tests whatever shape was guessed.
+        let settings = crate::SessionSettings::default();
+        let text = serde_json::to_string(&settings).unwrap();
+        assert!(text.contains("filter_bar_always"), "the field is not written");
+
+        let mut stored: serde_json::Value = serde_json::from_str(&text).unwrap();
+        stored
+            .as_object_mut()
+            .unwrap()
+            .remove("filter_bar_always")
+            .expect("it was there a moment ago");
+        let older = serde_json::to_string(&stored).unwrap();
+        let restored: Result<crate::SessionSettings, _> = serde_json::from_str(&older);
+        assert!(
+            restored.is_ok(),
+            "a session written before the setting existed no longer loads: {:?}",
+            restored.err()
+        );
+        assert!(
+            !restored.unwrap().filter_bar_always,
+            "the default should leave the filter box out of the way"
+        );
+    }
+
+    #[test]
     fn a_workspace_written_before_a_field_existed_still_reads() {
         // The regression this exists for, and it is the expensive kind: a new
         // field on `Workspace` without a serde default makes every session

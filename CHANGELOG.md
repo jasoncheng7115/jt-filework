@@ -12,6 +12,19 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.8] - 2026-09-03
+
+### Added
+
+- **The filter box can be set to stay.** A setting in Appearance: with it on,
+  every pane keeps its filter box on screen so it is always ready to type into
+  and the pane's height never shifts underneath; with it off — the default — the
+  box appears on `F` and goes away on Escape, as before. Escape still clears the
+  text either way; what it no longer does is hide a box the setting asked to
+  keep. Turning the setting off leaves alone any pane that is actually
+  filtering, because hiding the box while its text is still narrowing the list
+  is how a folder ends up looking empty for no visible reason.
+
 ## [0.6.7] - 2026-09-03
 
 ### Fixed

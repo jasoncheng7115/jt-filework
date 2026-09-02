@@ -654,3 +654,4 @@ archive.key_up = 上層
 command.workspace.target.next = 換複製／移動的目標面板
 command.view.folders_first = 資料夾排在前面
 hint.short.preview.quicklook = 預覽
+settings.filter_bar_always = 篩選列固定顯示

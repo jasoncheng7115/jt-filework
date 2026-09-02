@@ -207,7 +207,7 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // which matters, because a filter hides files.
     m_filterBar = new QWidget(this);
     m_filterBar->setObjectName(QStringLiteral("JtfFilterBar"));
-    m_filterBar->setVisible(false);
+    m_filterBar->setVisible(jtf_filter_bar_always(m_app) != 0);
     auto *filterRow = new QHBoxLayout(m_filterBar);
     filterRow->setContentsMargins(8, 4, 6, 4);
     filterRow->setSpacing(6);
@@ -776,9 +776,10 @@ void PaneWidget::syncFilterBar() {
 
 void PaneWidget::clearFilter() {
     // Escape clears and hides, rather than leaving an empty box that still
-    // looks like a mode the user is in.
+    // looks like a mode the user is in - unless the box has been asked to
+    // stay, in which case hiding it is the program overruling a setting.
     m_filter->clear();
-    m_filterBar->setVisible(false);
+    m_filterBar->setVisible(jtf_filter_bar_always(m_app) != 0);
     // And the highlight goes with it. The matched text was still picked out in
     // orange after the filter had been left, which says the list is still
     // narrowed by something when it is not - the one thing the highlight
@@ -2317,4 +2318,21 @@ void PaneWidget::setActive(bool active) {
         widget->style()->polish(widget);
     }
     update();
+}
+
+void PaneWidget::applyFilterBarSetting() {
+    // Turning the setting on shows the bar in every pane; turning it off hides
+    // the ones that are empty, and leaves alone any pane actually filtering -
+    // hiding the box while its text is still narrowing the list is how a
+    // folder ends up looking empty for no visible reason.
+    const bool always = jtf_filter_bar_always(m_app) != 0;
+    if (always) {
+        m_filter->setPlaceholderText(jtfText(
+            [&](char *buf, int len) { return jtf_tr(m_app, "filter.placeholder", buf, len); }));
+        m_filterBar->setVisible(true);
+        return;
+    }
+    if (m_filter->text().isEmpty()) {
+        m_filterBar->setVisible(false);
+    }
 }

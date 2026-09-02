@@ -4715,3 +4715,23 @@ pub unsafe extern "C" fn jtf_set_utc_offset(app: *mut App, seconds: c_int) {
 pub unsafe extern "C" fn jtf_poll_folders(app: *mut App) -> c_int {
     unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.poll_folders()))
 }
+
+/// Whether each pane's filter bar is always shown.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_filter_bar_always(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.filter_bar_always()))
+}
+
+/// Set whether each pane's filter bar is always shown.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_filter_bar_always(app: *mut App, always: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_filter_bar_always(always != 0);
+    }
+}

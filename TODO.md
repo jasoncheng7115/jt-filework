@@ -198,22 +198,6 @@
       change to `src/fs/src/usage.rs` and worth doing deliberately rather than
       at the end of a long night.
 
-- [ ] **A setting for whether each pane's filter bar is always there or only
-      appears when asked for.** Today it is on-demand only: `F` opens it and
-      Escape closes it. Some people want it permanently visible so the box is
-      always ready to type into and the pane's height never shifts under them.
-      One setting, applied to every pane.
-
-      The field goes in `SessionSettings` next to `tree_visible`, and it needs
-      `#[serde(default)]` - a field added without one made every existing
-      session unreadable today, which cost every user their tabs and marks.
-      Control in the Appearance page of the settings dialog beside the other
-      furniture switches; `PaneWidget` reads it where it currently decides the
-      filter bar's visibility, and Escape must not hide it when it is set to
-      stay.
-
-## P0 — Reported, not yet fixed
-
 - [ ] **Linux quick preview: a chain, not one desktop.** GNOME has a Quick Look
       equivalent and most other desktops do not, so this is a list of services
       to try in order, each detected on the bus at runtime:

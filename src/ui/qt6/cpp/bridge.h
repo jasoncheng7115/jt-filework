@@ -234,6 +234,10 @@ int jtf_batch_apply(JtfApp *app);
 void jtf_batch_clear(JtfApp *app);
 int jtf_child_directories(const JtfApp *app, const char *path, char *buf, int len);
 int jtf_folders_first(const JtfApp *app);
+// Whether each pane's filter bar is always on screen rather than appearing
+// only when asked for.
+int jtf_filter_bar_always(const JtfApp *app);
+void jtf_set_filter_bar_always(JtfApp *app, int always);
 void jtf_set_folders_first(JtfApp *app, int folders_first);
 int jtf_tree_visible(const JtfApp *app);
 int jtf_tree_width(const JtfApp *app);
