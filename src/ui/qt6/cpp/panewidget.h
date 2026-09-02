@@ -123,6 +123,8 @@ private:
     void scheduleFitNameColumn();
     bool m_fitScheduled = false;
     void fitNameColumn();
+    /// The only way this widget sets a width; see the definition.
+    void applyColumnWidth(int column, int width);
     bool m_fittingName = false;
     QList<int> m_wantedColumns;
     void applyViewMode();

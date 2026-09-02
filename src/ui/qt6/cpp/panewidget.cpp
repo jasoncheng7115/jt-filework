@@ -650,10 +650,10 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     syncPath();
     syncSortIndicator();
     applyColumnVisibility();
-    m_view->setColumnWidth(0, 330);
-    m_view->setColumnWidth(1, 92);
-    m_view->setColumnWidth(2, 200);
-    m_view->setColumnWidth(3, 160);
+    applyColumnWidth(0, 330);
+    applyColumnWidth(1, 92);
+    applyColumnWidth(2, 200);
+    applyColumnWidth(3, 160);
     // Not QHeaderView::Stretch. Stretch makes the name column absorb the
     // slack in both directions, so shrinking the window crushes the one
     // column that matters until the file names are gone while Permissions and
@@ -941,6 +941,17 @@ void PaneWidget::scheduleFitNameColumn() {
     });
 }
 
+// Set a column's width and remember having set it.
+//
+// The one way this widget is allowed to move a column, because the only thing
+// separating our width from a dragged one is whether we wrote it down first -
+// and the bug this replaces was four widths in the constructor that did not.
+// A plain `setColumnWidth` here reads as the user's drag and pins the column.
+void PaneWidget::applyColumnWidth(int column, int width) {
+    m_appliedWidths[column] = width;
+    m_view->setColumnWidth(column, width);
+}
+
 void PaneWidget::fitNameColumn() {
     // Whatever the other visible columns do not use, with a floor. The floor
     // matters more than any other column: a date you cannot fully read is an
@@ -1013,8 +1024,7 @@ void PaneWidget::fitNameColumn() {
             // has touched measures itself against what is in it.
             const int chosen = jtf_column_width(m_app, column);
             if (chosen > 0) {
-                m_appliedWidths[column] = chosen;
-                m_view->setColumnWidth(column, chosen);
+                applyColumnWidth(column, chosen);
                 continue;
             }
             // `resizeColumnToContents` is the public way to ask; the width it
@@ -1022,8 +1032,7 @@ void PaneWidget::fitNameColumn() {
             m_view->resizeColumnToContents(column);
             const int measured =
                 qBound(kUseful, m_view->columnWidth(column) + kColumnPadding, kColumnCeiling);
-            m_appliedWidths[column] = measured;
-            m_view->setColumnWidth(column, measured);
+            applyColumnWidth(column, measured);
         }
     }
     int used = 0;
@@ -1057,14 +1066,13 @@ void PaneWidget::fitNameColumn() {
                 const int take =
                     static_cast<int>(static_cast<qint64>(slack) * wanted / squeezable);
                 const int squeezed = m_view->columnWidth(column) - take;
-                m_appliedWidths[column] = squeezed;
-                m_view->setColumnWidth(column, squeezed);
+                applyColumnWidth(column, squeezed);
                 reclaimed += take;
             }
             nameWidth += reclaimed;
         }
     }
-    m_view->setColumnWidth(0, qMax(nameWidth, m_view->horizontalHeader()->minimumSectionSize()));
+    applyColumnWidth(0, qMax(nameWidth, m_view->horizontalHeader()->minimumSectionSize()));
     m_fittingName = false;
 }
 
