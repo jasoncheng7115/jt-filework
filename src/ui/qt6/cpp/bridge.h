@@ -147,6 +147,33 @@ int jtf_usage_kind_group(const JtfApp *app, int index, char *buf, int len);
 uint64_t jtf_usage_kind_value(const JtfApp *app, int index, int which);
 void jtf_usage_cancel(JtfApp *app);
 void jtf_usage_close(JtfApp *app);
+
+// Writing a disk image to a removable disk. The list is the safety mechanism:
+// only removable, external disks that are not carrying the running system are
+// ever counted, so an empty list means there is nothing safe to offer.
+int jtf_devices_refresh(JtfApp *app);
+int jtf_device_count(const JtfApp *app);
+int jtf_device_node(const JtfApp *app, int index, char *buf, int len);
+int jtf_device_name(const JtfApp *app, int index, char *buf, int len);
+uint64_t jtf_device_size(const JtfApp *app, int index);
+int jtf_device_bus_key(const JtfApp *app, int index, char *buf, int len);
+int jtf_device_volumes(const JtfApp *app, int index, char *buf, int len);
+int jtf_device_refusal_key(const JtfApp *app, int index, const char *image, char *buf, int len);
+int jtf_write_start(JtfApp *app, int index, const char *image, int verify);
+int jtf_pump_write(JtfApp *app);
+int jtf_write_is_running(const JtfApp *app);
+int jtf_write_is_done(const JtfApp *app);
+int jtf_write_stage_key(const JtfApp *app, char *buf, int len);
+uint64_t jtf_write_progress(const JtfApp *app, int which);
+int jtf_write_target(const JtfApp *app, char *buf, int len);
+int jtf_write_outcome_key(const JtfApp *app, char *buf, int len);
+int jtf_write_failure_detail(const JtfApp *app, char *buf, int len);
+uint64_t jtf_write_bytes(const JtfApp *app);
+uint32_t jtf_write_checksum(const JtfApp *app);
+int jtf_write_needs_elevation(void);
+int jtf_write_is_supported(void);
+void jtf_write_cancel(JtfApp *app);
+void jtf_write_close(JtfApp *app);
 int jtf_marked_count(const JtfApp *app, int pane);
 void jtf_sort_by(JtfApp *app, int pane, int column);
 int jtf_search_start(JtfApp *app, int pane, const char *query, char *error_buf, int error_len);

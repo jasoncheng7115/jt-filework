@@ -4375,3 +4375,285 @@ pub unsafe extern "C" fn jtf_column_key(column: c_int, buf: *mut c_char, len: c_
     let key = crate::app::column_at(column).map_or("column.name", |c| c.label_key());
     unsafe { write_str(key, buf, len) }
 }
+
+// ------------------------------------------------- writing an image to a disk
+
+/// Ask the system what removable disks it has. Returns how many.
+///
+/// Zero is a normal answer and means nothing removable is attached. Only
+/// removable, external disks that are not carrying the running system are ever
+/// counted.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_devices_refresh(app: *mut App) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| c_int::try_from(a.refresh_devices()).unwrap_or(0))
+}
+
+/// How many disks the last refresh found.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_device_count(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::try_from(a.device_count()).unwrap_or(0))
+}
+
+/// The node the write would go to.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_device_node(
+    app: *const App,
+    index: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let text = unsafe { app_ref(app) }
+        .map(|a| a.device_node(usize::try_from(index).unwrap_or(0)))
+        .unwrap_or_default();
+    unsafe { write_str(&text, buf, len) }
+}
+
+/// What to show for the disk.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_device_name(
+    app: *const App,
+    index: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let text = unsafe { app_ref(app) }
+        .map(|a| a.device_name(usize::try_from(index).unwrap_or(0)))
+        .unwrap_or_default();
+    unsafe { write_str(&text, buf, len) }
+}
+
+/// The disk's capacity in bytes.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_device_size(app: *const App, index: c_int) -> u64 {
+    unsafe { app_ref(app) }.map_or(0, |a| a.device_size(usize::try_from(index).unwrap_or(0)))
+}
+
+/// Localization key for how the disk is attached.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_device_bus_key(
+    app: *const App,
+    index: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let text = unsafe { app_ref(app) }.map_or("", |a| a.device_bus_key(usize::try_from(index).unwrap_or(0)));
+    unsafe { write_str(text, buf, len) }
+}
+
+/// The volumes mounted from the disk right now, comma separated.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_device_volumes(
+    app: *const App,
+    index: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let text = unsafe { app_ref(app) }
+        .map(|a| a.device_volumes(usize::try_from(index).unwrap_or(0)))
+        .unwrap_or_default();
+    unsafe { write_str(&text, buf, len) }
+}
+
+/// Why this disk cannot take this image, as a localization key. Empty if it
+/// can.
+///
+/// # Safety
+/// `image` must be a NUL-terminated UTF-8 string. See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_device_refusal_key(
+    app: *const App,
+    index: c_int,
+    image: *const c_char,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(path) = (unsafe { read_str(image) }) else {
+        return 0;
+    };
+    let text =
+        unsafe { app_ref(app) }.map_or("", |a| a.device_refusal_key(usize::try_from(index).unwrap_or(0), path));
+    unsafe { write_str(text, buf, len) }
+}
+
+/// Start writing `image` to the disk at `index`. Returns 1 if it started.
+///
+/// # Safety
+/// `image` must be a NUL-terminated UTF-8 string. See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_write_start(
+    app: *mut App,
+    index: c_int,
+    image: *const c_char,
+    verify: c_int,
+) -> c_int {
+    let Some(path) = (unsafe { read_str(image) }) else {
+        return 0;
+    };
+    unsafe { app_mut(app) }
+        .map_or(0, |a| c_int::from(a.start_write(usize::try_from(index).unwrap_or(0), path, verify != 0)))
+}
+
+/// Take whatever the writing thread has said. Returns 1 if anything changed.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_pump_write(app: *mut App) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.pump_write()))
+}
+
+/// Whether a write is running.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_write_is_running(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.write_is_running()))
+}
+
+/// Whether a write has finished, successfully or not.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_write_is_done(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.write_is_done()))
+}
+
+/// Localization key for the phase now running.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_write_stage_key(
+    app: *const App,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let text = unsafe { app_ref(app) }.map_or("", App::write_stage_key);
+    unsafe { write_str(text, buf, len) }
+}
+
+/// Progress in the current phase: `which` 0 for done, 1 for total.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_write_progress(app: *const App, which: c_int) -> u64 {
+    unsafe { app_ref(app) }.map_or(0, |a| a.write_progress(which))
+}
+
+/// The disk being written to.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_write_target(
+    app: *const App,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let text = unsafe { app_ref(app) }.map_or("", App::write_target);
+    unsafe { write_str(text, buf, len) }
+}
+
+/// Localization key for how it ended. Empty while it is still running.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_write_outcome_key(
+    app: *const App,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let text = unsafe { app_ref(app) }.map_or("", App::write_outcome_key);
+    unsafe { write_str(text, buf, len) }
+}
+
+/// Developer-facing detail of a failure, for the log.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_write_failure_detail(
+    app: *const App,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let text = unsafe { app_ref(app) }.map_or("", App::write_failure_detail);
+    unsafe { write_str(text, buf, len) }
+}
+
+/// Bytes written, on success.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_write_bytes(app: *const App) -> u64 {
+    unsafe { app_ref(app) }.map_or(0, App::write_bytes)
+}
+
+/// The image's CRC-32, on success.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_write_checksum(app: *const App) -> u32 {
+    unsafe { app_ref(app) }.map_or(0, App::write_checksum)
+}
+
+/// Whether this platform needs a separately elevated process to write a disk.
+#[no_mangle]
+pub extern "C" fn jtf_write_needs_elevation() -> c_int {
+    c_int::from(jtf_platform_devices::needs_elevation())
+}
+
+/// Whether this platform can write disks at all.
+#[no_mangle]
+pub extern "C" fn jtf_write_is_supported() -> c_int {
+    c_int::from(jtf_platform_devices::is_supported())
+}
+
+/// Stop the write. The disk is left partly written.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_write_cancel(app: *mut App) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.cancel_write();
+    }
+}
+
+/// Forget the finished write.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_write_close(app: *mut App) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.close_write();
+    }
+}

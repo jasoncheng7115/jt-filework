@@ -744,6 +744,23 @@ QDialog QPushButton {
 QDialog QPushButton:hover { background: %HOVER%; border-color: %DIM%; }
 QDialog QPushButton:default { background: %SEL%; color: %ONSEL%; border-color: %SEL%; }
 QDialog QPushButton:default:hover { background: %FOCUS%; }
+/* Disabled, and looking it. There was no rule here at all, so a disabled
+   button in any dialog was drawn exactly like an enabled one - and a disabled
+   *default* button was drawn as the filled, highlighted one the eye is meant
+   to go to. The image writer's Write button is disabled until a disk has been
+   chosen, and it was the most inviting control on the screen while it did
+   nothing. The `:default:disabled` rule has to come after `:default` to win,
+   since the two have the same specificity and Qt takes the last. */
+QDialog QPushButton:disabled {
+    color: %DIM%;
+    background: %WINDOW%;
+    border-color: %BORDER%;
+}
+QDialog QPushButton:default:disabled {
+    color: %DIM%;
+    background: %WINDOW%;
+    border-color: %BORDER%;
+}
 
 QMenu {
     background: %MENU%;

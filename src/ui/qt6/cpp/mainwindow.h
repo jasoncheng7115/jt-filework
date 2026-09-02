@@ -167,6 +167,7 @@ private:
     void openCompareWindow();
     // Where the space went, under `path` or under the focused pane's folder.
     void openUsageWindow(const QString &path);
+    void openImageWriter();
     void compressSelection();
     void watchArchiveJob();
     QString tr_(const char *key) const;

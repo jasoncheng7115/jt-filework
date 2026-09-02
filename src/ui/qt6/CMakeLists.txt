@@ -143,6 +143,7 @@ qt_add_executable(jt-filework
     cpp/commandpalette.cpp
     cpp/archivewindow.cpp
     cpp/comparewindow.cpp
+    cpp/imagewriterdialog.cpp
     cpp/listlook.cpp
     cpp/usagewindow.cpp
     cpp/archivewindow.h

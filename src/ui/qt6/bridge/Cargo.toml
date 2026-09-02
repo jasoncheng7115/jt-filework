@@ -19,6 +19,8 @@ crate-type = ["staticlib", "rlib"]
 [dependencies]
 jtf-core = { workspace = true }
 dirs = { workspace = true }
+jtf-imaging = { workspace = true }
+jtf-platform-devices = { workspace = true }
 jtf-jobs = { workspace = true }
 jtf-workspace = { workspace = true }
 jtf-commands = { workspace = true }

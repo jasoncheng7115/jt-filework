@@ -11,6 +11,7 @@
 #include "aboutdialog.h"
 #include "archivewindow.h"
 #include "comparewindow.h"
+#include "imagewriterdialog.h"
 #include "usagewindow.h"
 #include "commandpalette.h"
 #include "foldertree.h"
@@ -800,6 +801,7 @@ void MainWindow::buildMenus() {
     command(m_toolsMenu, "file.compress", [this] { compressSelection(); });
     command(m_toolsMenu, "file.compare_panes", [this] { openCompareWindow(); });
     command(m_toolsMenu, "file.disk_usage", [this] { openUsageWindow(QString()); });
+    command(m_toolsMenu, "file.write_image", [this] { openImageWriter(); });
     m_toolsMenu->addSeparator();
     command(m_toolsMenu, "file.reveal", [this] { revealSelection(); });
     command(m_toolsMenu, "file.terminal", [this] { openTerminalHere(); });
@@ -1976,6 +1978,32 @@ void MainWindow::extractInto(const QString &archive, const QStringList &members)
 ///
 /// Returns whether it did, so the caller can fall back to opening the file the
 /// ordinary way when it is not an archive this build can read.
+// Writing a disk image to a removable disk.
+//
+// Takes the file under the cursor as the image, because that is what the
+// person was looking at when they reached for the command. If the cursor is on
+// a folder, or on nothing, the dialog opens with no image and says so rather
+// than guessing at one - picking "the first .iso in this folder" would be a
+// guess about the most destructive operation the program has.
+void MainWindow::openImageWriter() {
+    PaneWidget *pane = activePane();
+    if (pane == nullptr) { return; }
+    const int paneId = pane->paneId();
+    const int row = pane->currentRow();
+    QString path;
+    if (row >= 0 && jtf_row_is_directory(m_app, paneId, row) == 0) {
+        path = jtfText([&](char *b, int l) { return jtf_row_path(m_app, paneId, row, b, l); });
+    }
+    if (path.isEmpty()) {
+        const QString here =
+            jtfText([&](char *b, int l) { return jtf_current_path(m_app, paneId, b, l); });
+        path = QFileDialog::getOpenFileName(this, tr_("imaging.title"), here);
+    }
+    if (path.isEmpty()) { return; }
+    ImageWriterDialog dialog(m_app, path, this);
+    dialog.exec();
+}
+
 void MainWindow::openUsageWindow(const QString &path) {
     QString root = path;
     if (root.isEmpty() || !QFileInfo(root).isDir()) {

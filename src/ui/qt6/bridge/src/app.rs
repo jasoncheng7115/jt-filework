@@ -12,7 +12,7 @@ use jtf_core::i18n::{Catalog, LocaleId, Localizer};
 use jtf_core::theme::{Palette, ResolvedTheme, SystemAppearance, ThemeMode, ThemeToken};
 use jtf_core::{Error, FileEntry, FileKind, Location};
 use jtf_fs::{Batch, EnumerationHandle, LocalProvider, Provider, SftpProvider, SizeCache};
-use jtf_jobs::CancellationToken;
+use jtf_jobs::{CancellationToken, Canceller, Progress};
 use jtf_ops::{ConflictPolicy, Plan, PlanError, RenamePattern, RenamePreview, UndoRecord};
 use jtf_search::{SearchHandle, SearchUpdate};
 use jtf_viewer::{detect, ContentKind, Encoding, HexView, TextView};
@@ -351,6 +351,10 @@ pub struct App {
     comparing: Option<Comparing>,
     /// The disc-usage analysis, if that window is open.
     analysing: Option<Analysing>,
+    /// The removable disks the last refresh found.
+    devices: Vec<jtf_platform_devices::Device>,
+    /// The image being written to a disk, if one is.
+    burning: Option<Burning>,
     /// The listing the archive window is showing, if one is open.
     archive_entries: Vec<jtf_viewer::ArchiveEntry>,
 }
@@ -425,6 +429,8 @@ impl App {
             archiving: None,
             comparing: None,
             analysing: None,
+            devices: Vec::new(),
+            burning: None,
             archive_entries: Vec::new(),
             repo_root,
             session_path,
@@ -4960,5 +4966,312 @@ mod archive_browsing_tests {
     fn a_directory_is_not_treated_as_an_archive() {
         let dir = std::env::temp_dir();
         assert!(archive_entries(&Location::local(&dir)).is_none());
+    }
+}
+
+// --------------------------------------------------- writing an image to disk
+
+/// What the writing thread has to say.
+enum BurnUpdate {
+    /// A new phase of the work has begun.
+    Stage(jtf_imaging::Stage),
+    /// Progress within the current phase.
+    Progress(Progress),
+    /// It finished, one way or the other.
+    Done(Box<Result<jtf_imaging::Report, jtf_core::Error>>),
+}
+
+/// How the write ended.
+pub(crate) enum BurnOutcome {
+    /// Still going.
+    Running,
+    /// Every byte written, and checked if checking was asked for.
+    Done(jtf_imaging::Report),
+    /// It stopped. The disk holds part of an image and is not usable.
+    Failed {
+        /// The localization key for what to tell the user.
+        key: &'static str,
+        /// Developer-facing detail, for the log.
+        detail: String,
+    },
+}
+
+/// A write in flight.
+pub(crate) struct Burning {
+    updates: std::sync::mpsc::Receiver<BurnUpdate>,
+    canceller: Canceller,
+    target: String,
+    stage: jtf_imaging::Stage,
+    progress: Progress,
+    outcome: BurnOutcome,
+}
+
+/// A watcher that forwards to the channel the UI thread is draining.
+struct ChannelWatcher(std::sync::mpsc::Sender<BurnUpdate>);
+
+impl jtf_imaging::Watcher for ChannelWatcher {
+    fn stage(&mut self, stage: jtf_imaging::Stage) {
+        let _ = self.0.send(BurnUpdate::Stage(stage));
+    }
+    fn progress(&mut self, progress: Progress) {
+        let _ = self.0.send(BurnUpdate::Progress(progress));
+    }
+}
+
+impl App {
+    /// Ask the system what removable disks it has, and remember the answer.
+    ///
+    /// Returns how many there are. Zero is the normal answer.
+    pub(crate) fn refresh_devices(&mut self) -> usize {
+        self.devices = jtf_platform_devices::list().unwrap_or_default();
+        self.devices.len()
+    }
+
+    /// How many disks the last refresh found.
+    pub(crate) fn device_count(&self) -> usize {
+        self.devices.len()
+    }
+
+    fn device(&self, index: usize) -> Option<&jtf_platform_devices::Device> {
+        self.devices.get(index)
+    }
+
+    /// The node to write to.
+    pub(crate) fn device_node(&self, index: usize) -> String {
+        self.device(index)
+            .map(|d| d.node.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    }
+
+    /// What to show in the list.
+    pub(crate) fn device_name(&self, index: usize) -> String {
+        self.device(index)
+            .map(|d| d.display_name().to_string())
+            .unwrap_or_default()
+    }
+
+    /// Capacity in bytes.
+    pub(crate) fn device_size(&self, index: usize) -> u64 {
+        self.device(index).map_or(0, |d| d.size)
+    }
+
+    /// Localization key for how the disk is attached.
+    pub(crate) fn device_bus_key(&self, index: usize) -> &'static str {
+        self.device(index).map_or("", |d| d.bus.label_key())
+    }
+
+    /// The volume labels currently mounted from the disk, comma separated.
+    ///
+    /// This is what tells two identical sticks apart, so it is worth showing
+    /// even though it is not part of the decision.
+    pub(crate) fn device_volumes(&self, index: usize) -> String {
+        self.device(index).map_or_else(String::new, |d| {
+            d.volumes
+                .iter()
+                .filter_map(|v| {
+                    v.label.clone().or_else(|| {
+                        v.mount_point
+                            .as_ref()
+                            .map(|m| m.to_string_lossy().into_owned())
+                    })
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+    }
+
+    /// Why this disk cannot take this image, as a localization key.
+    ///
+    /// Empty when it can. The UI shows the reason next to the disk rather than
+    /// hiding it, so that a disk someone expected to see is explained.
+    pub(crate) fn device_refusal_key(&self, index: usize, image: &str) -> &'static str {
+        let Some(device) = self.device(index) else {
+            return "device.refuse.unknown";
+        };
+        let path = std::path::Path::new(image);
+        let Ok(meta) = std::fs::metadata(path) else {
+            return "device.refuse.unknown";
+        };
+        match jtf_platform_devices::check(device, path, meta.len()) {
+            Ok(()) => "",
+            Err(refusal) => jtf_platform_devices::Refusal::message_key(&refusal),
+        }
+    }
+
+    /// Begin writing `image` to the disk at `index`.
+    ///
+    /// Returns false if the plan was refused, which the caller should already
+    /// have known from [`Self::device_refusal_key`] - this is the second check,
+    /// on the values as they are now rather than as they were when the dialog
+    /// was drawn.
+    pub(crate) fn start_write(&mut self, index: usize, image: &str, verify: bool) -> bool {
+        if matches!(
+            self.burning.as_ref().map(|b| &b.outcome),
+            Some(BurnOutcome::Running)
+        ) {
+            return false;
+        }
+        let Some(device) = self.device(index).cloned() else {
+            return false;
+        };
+        let target = device.display_name().to_string();
+        let Ok(mut plan) = jtf_imaging::Plan::new(std::path::Path::new(image), device) else {
+            return false;
+        };
+        plan.verify = verify;
+
+        let (token, canceller) = CancellationToken::new();
+        let (sender, updates) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut watcher = ChannelWatcher(sender.clone());
+            let outcome = jtf_imaging::run(&plan, &mut watcher, &token);
+            let _ = sender.send(BurnUpdate::Done(Box::new(outcome)));
+        });
+        self.burning = Some(Burning {
+            updates,
+            canceller,
+            target,
+            stage: jtf_imaging::Stage::Unmounting,
+            progress: Progress::indeterminate(),
+            outcome: BurnOutcome::Running,
+        });
+        true
+    }
+
+    /// Take whatever the writing thread has said. Returns whether anything
+    /// changed.
+    pub(crate) fn pump_write(&mut self) -> bool {
+        let Some(job) = self.burning.as_mut() else {
+            return false;
+        };
+        if !matches!(job.outcome, BurnOutcome::Running) {
+            return false;
+        }
+        let mut changed = false;
+        // Drained rather than read one at a time: only the latest position is
+        // worth drawing, and a slow poll must not crawl through a backlog.
+        while let Ok(update) = job.updates.try_recv() {
+            changed = true;
+            match update {
+                BurnUpdate::Stage(stage) => {
+                    job.stage = stage;
+                    // A new phase starts its own bar. Carrying the old
+                    // position over would show the verify pass starting at
+                    // 100 %.
+                    job.progress = Progress::indeterminate();
+                }
+                BurnUpdate::Progress(progress) => job.progress = progress,
+                BurnUpdate::Done(result) => {
+                    job.outcome = match *result {
+                        Ok(report) => BurnOutcome::Done(report),
+                        Err(error) => BurnOutcome::Failed {
+                            key: burn_failure_key(&error),
+                            detail: error.to_string(),
+                        },
+                    };
+                    break;
+                }
+            }
+        }
+        changed
+    }
+
+    /// Whether a write is running.
+    pub(crate) fn write_is_running(&self) -> bool {
+        matches!(
+            self.burning.as_ref().map(|b| &b.outcome),
+            Some(BurnOutcome::Running)
+        )
+    }
+
+    /// Whether a write has finished, successfully or not.
+    pub(crate) fn write_is_done(&self) -> bool {
+        matches!(
+            self.burning.as_ref().map(|b| &b.outcome),
+            Some(BurnOutcome::Done(_) | BurnOutcome::Failed { .. })
+        )
+    }
+
+    /// The name of the phase now running.
+    pub(crate) fn write_stage_key(&self) -> &'static str {
+        self.burning.as_ref().map_or("", |b| b.stage.label_key())
+    }
+
+    /// Progress within the current phase: 0 = done, 1 = total.
+    pub(crate) fn write_progress(&self, which: i32) -> u64 {
+        self.burning.as_ref().map_or(0, |b| match which {
+            0 => b.progress.completed(),
+            _ => b.progress.total().unwrap_or(0),
+        })
+    }
+
+    /// The disk being written to.
+    pub(crate) fn write_target(&self) -> &str {
+        self.burning.as_ref().map_or("", |b| b.target.as_str())
+    }
+
+    /// The message key for how it ended. Empty while it is still running.
+    pub(crate) fn write_outcome_key(&self) -> &'static str {
+        match self.burning.as_ref().map(|b| &b.outcome) {
+            Some(BurnOutcome::Done(report)) => {
+                if report.verified.is_some() {
+                    "imaging.done"
+                } else {
+                    "imaging.done_unchecked"
+                }
+            }
+            Some(BurnOutcome::Failed { key, .. }) => key,
+            _ => "",
+        }
+    }
+
+    /// Developer-facing detail of a failure, for the log.
+    pub(crate) fn write_failure_detail(&self) -> &str {
+        match self.burning.as_ref().map(|b| &b.outcome) {
+            Some(BurnOutcome::Failed { detail, .. }) => detail.as_str(),
+            _ => "",
+        }
+    }
+
+    /// Bytes written, on success.
+    pub(crate) fn write_bytes(&self) -> u64 {
+        match self.burning.as_ref().map(|b| &b.outcome) {
+            Some(BurnOutcome::Done(report)) => report.written,
+            _ => 0,
+        }
+    }
+
+    /// The image's CRC-32, on success.
+    pub(crate) fn write_checksum(&self) -> u32 {
+        match self.burning.as_ref().map(|b| &b.outcome) {
+            Some(BurnOutcome::Done(report)) => report.checksum,
+            _ => 0,
+        }
+    }
+
+    /// Stop the write.
+    ///
+    /// The disk is left holding part of an image, which cannot be undone; the
+    /// UI says so rather than implying the disk went back to how it was.
+    pub(crate) fn cancel_write(&mut self) {
+        if let Some(job) = self.burning.as_ref() {
+            job.canceller.cancel();
+        }
+    }
+
+    /// Forget the finished write.
+    pub(crate) fn close_write(&mut self) {
+        self.burning = None;
+    }
+}
+
+/// Turn an error from the write into something worth showing a person.
+fn burn_failure_key(error: &jtf_core::Error) -> &'static str {
+    match error.code() {
+        // Both mean the disk was partly written: the bytes that got there are
+        // there, and saying "cancelled" alone would imply otherwise.
+        jtf_core::ErrorCode::Cancelled | jtf_core::ErrorCode::Io => "imaging.failed_midway",
+        jtf_core::ErrorCode::PermissionDenied => "imaging.needs_elevation",
+        _ => "imaging.failed_midway",
     }
 }
