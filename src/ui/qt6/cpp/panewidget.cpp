@@ -421,6 +421,7 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     });
 
     m_view->installEventFilter(this);
+    m_view->horizontalHeader()->installEventFilter(this);
     m_view->viewport()->installEventFilter(this);
     m_tabs->installEventFilter(this);
 
@@ -480,12 +481,20 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
 
     connect(m_view->horizontalHeader(), &QHeaderView::sectionResized, this,
             [this](int column, int, int width) {
-                // Only the user's drags. Every width this widget sets itself is
-                // set inside `fitNameColumn`, which raises `m_fittingName` -
-                // without that guard the auto-measure would record its own
-                // measurements as though they had been chosen, and a column
-                // would freeze at whatever the first folder happened to need.
-                if (m_fittingName || column == 0 || width <= 0) {
+                // Only while the pointer is actually holding the divider.
+                //
+                // `sectionResized` fires for every width this widget sets
+                // itself as well - the auto-measure, the squeeze when there is
+                // not room, the redistribution when the view changes size -
+                // and a guard against `fitNameColumn` alone was not enough: one
+                // drag recorded three columns, because the others had been set
+                // from elsewhere in the same breath. Recording those would
+                // freeze every column at whatever the first folder happened to
+                // need, and there is no way for the user to unfreeze one.
+                //
+                // A press on the header and its release bracket a real drag,
+                // and nothing else.
+                if (!m_userResizing || column == 0 || width <= 0) {
                     return;
                 }
                 jtf_set_column_width(m_app, column, width);
@@ -1290,6 +1299,15 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     // no later resize arrives to correct it. That is why the columns came up
     // filling half the window and stayed there. The viewport's own resize
     // always carries the width the rows are actually drawn at.
+    // A drag of a column divider starts with a press on the header and ends
+    // with its release. Between those two, a width change is the user's.
+    if (watched == m_view->horizontalHeader()) {
+        if (event->type() == QEvent::MouseButtonPress) {
+            m_userResizing = true;
+        } else if (event->type() == QEvent::MouseButtonRelease) {
+            m_userResizing = false;
+        }
+    }
     if (watched == m_view->viewport() && event->type() == QEvent::Resize) {
         scheduleFitNameColumn();
     }

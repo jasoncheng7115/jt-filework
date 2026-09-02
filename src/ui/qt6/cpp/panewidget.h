@@ -168,6 +168,8 @@ private:
     /// Guards the selection/mark round trip against itself.
     bool m_syncingSelection = false;
     class RowDelegate *m_rows = nullptr;
+    /// True only between a press on the column header and its release.
+    bool m_userResizing = false;
     class QLabel *m_targetIcon = nullptr;
     class QLabel *m_targetWord = nullptr;
     QPixmap m_targetGlyph;
