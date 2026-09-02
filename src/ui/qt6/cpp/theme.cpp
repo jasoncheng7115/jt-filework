@@ -484,7 +484,11 @@ QToolButton[jtfModeSegment="true"]:checked { color: %ONSEL%; background: %SEL%; 
 QWidget#JtfInspector { background: %PANE%; border-left: 1px solid %BORDER%; }
 QWidget#JtfInspectorHeader { background: %HEADER%; border-bottom: 1px solid %BORDER%; }
 QLabel#JtfInspectorName { color: %TEXT%; }
-QLabel#JtfInspectorPreview { background: %HEADER%; border-radius: 6px; padding: 10px; }
+/* No background here on purpose. The preview's background is the user's
+   choice - theme, chequer, or a colour they picked - and it is set as a
+   palette brush, which a stylesheet background would silently win against.
+   Choosing white did nothing at all for exactly that reason. */
+QLabel#JtfInspectorPreview { border-radius: 6px; padding: 10px; }
 QLabel[jtfFactLabel="true"] { color: %DIM%; }
 QPlainTextEdit#JtfInspectorText {
     background: %HEADER%;

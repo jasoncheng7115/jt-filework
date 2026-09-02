@@ -2788,6 +2788,7 @@ void MainWindow::applySidebarWidth() {
         const int wanted = stored >= kUsable ? stored : kDefault;
         // And a sidebar wider than a quarter of the window is not a sidebar.
         const int sidebar = qBound(kUsable, wanted, qMax(kUsable, total / 4));
+        qWarning("JTFDIAG applySidebarWidth %d of %d", sidebar, total);
         m_outer->setSizes({sidebar, total - sidebar});
     });
 }
@@ -3152,6 +3153,7 @@ void MainWindow::rebuildLayout() {
         return; // structure unchanged: never rebuild widgets for nothing
     }
     m_layoutSignature = json;
+    qWarning("JTFDIAG rebuildLayout actually rebuilt");
 
     const QJsonObject root = QJsonDocument::fromJson(json.toUtf8()).object();
     m_panes.clear();

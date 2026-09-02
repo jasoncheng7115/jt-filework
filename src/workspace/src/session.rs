@@ -307,8 +307,12 @@ impl Default for SessionSettings {
             locale: String::new(),
             parent_row: false,
             inspector_position: 0,
-            preview_background: 0,
-            preview_background_colour: String::new(),
+            // White, and a chosen colour rather than the theme's. Most of what
+            // gets previewed is a document or a scan, and both were made on
+            // white paper: a dark panel behind a scanned page turns the page
+            // itself into the bright thing on screen.
+            preview_background: 2,
+            preview_background_colour: String::from("#ffffff"),
             key_hints_density: 0,
             key_hints_visible: true,
             thumbnails: true,
@@ -346,8 +350,12 @@ impl SessionSettings {
             locale: String::new(),
             parent_row: false,
             inspector_position: 0,
-            preview_background: 0,
-            preview_background_colour: String::new(),
+            // White, and a chosen colour rather than the theme's. Most of what
+            // gets previewed is a document or a scan, and both were made on
+            // white paper: a dark panel behind a scanned page turns the page
+            // itself into the bright thing on screen.
+            preview_background: 2,
+            preview_background_colour: String::from("#ffffff"),
             key_hints_density: 0,
             key_hints_visible: true,
             thumbnails: true,

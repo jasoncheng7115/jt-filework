@@ -17,6 +17,9 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QIcon>
+#include <QPainter>
+#include <QPixmap>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QTabWidget>
@@ -333,16 +336,40 @@ QWidget *SettingsDialog::buildAppearanceTab() {
     previewMode->addItem(tr_("preview.background.custom"));
     previewMode->setCurrentIndex(jtf_preview_background(m_app));
     auto *previewColour = new QPushButton(previewRow);
-    previewColour->setText(tr_("preview.background.choose"));
     const auto storedColour = [this] {
         return jtfText(
             [&](char *buf, int len) { return jtf_preview_background_colour(m_app, buf, len); });
     };
-    const auto applyPreview = [this, previewMode, previewColour, storedColour] {
-        const int mode = previewMode->currentIndex();
-        previewColour->setEnabled(mode == 2);
-        const QByteArray colour = storedColour().toUtf8();
-        jtf_set_preview_background(m_app, mode, colour.constData());
+    // A square of the colour itself, drawn as the button's icon. The button
+    // used to say only "Choose…", so after choosing there was nowhere on the
+    // screen that said what had been chosen - and white on a white swatch is
+    // the case that needs the outline.
+    const auto swatch = [](const QColor &colour) {
+        QPixmap square(16, 16);
+        square.fill(Qt::transparent);
+        QPainter painter(&square);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        painter.setBrush(colour.isValid() ? colour : QColor(Qt::transparent));
+        painter.setPen(QPen(QColor(0, 0, 0, 90), 1));
+        painter.drawRoundedRect(QRectF(0.5, 0.5, 15.0, 15.0), 3, 3);
+        painter.end();
+        return QIcon(square);
+    };
+    // Drawing what is currently set, without setting anything. Opening a
+    // settings dialog must not itself count as a change.
+    const auto showPreview = [this, previewMode, previewColour, storedColour, swatch] {
+        previewColour->setEnabled(previewMode->currentIndex() == 2);
+        const QColor colour(storedColour());
+        previewColour->setIcon(swatch(colour));
+        // The value beside the swatch, because two near-identical greys are
+        // told apart by their number and not by looking at them.
+        previewColour->setText(colour.isValid() ? colour.name(QColor::HexRgb).toUpper()
+                                                : tr_("preview.background.choose"));
+    };
+    const auto applyPreview = [this, previewMode, storedColour, showPreview] {
+        const QByteArray utf8 = storedColour().toUtf8();
+        jtf_set_preview_background(m_app, previewMode->currentIndex(), utf8.constData());
+        showPreview();
         emit changed();
     };
     connect(previewMode, &QComboBox::currentIndexChanged, this,
@@ -358,7 +385,7 @@ QWidget *SettingsDialog::buildAppearanceTab() {
                 jtf_set_preview_background(m_app, previewMode->currentIndex(), name.constData());
                 applyPreview();
             });
-    previewColour->setEnabled(previewMode->currentIndex() == 2);
+    showPreview();
     previewLayout->addWidget(previewMode, 1);
     previewLayout->addWidget(previewColour);
     form->addRow(tr_("preview.background"), previewRow);

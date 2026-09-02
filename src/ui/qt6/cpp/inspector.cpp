@@ -104,7 +104,12 @@ Inspector::Inspector(JtfApp *app, QWidget *parent) : QWidget(parent), m_app(app)
     m_textStatus->setVisible(false);
     bodyLayout->addWidget(m_textStatus);
     m_facts = new QFormLayout();
-    m_facts->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    // Labels left, not right. Right alignment keeps the gap between a label
+    // and its value constant, which is the usual argument for it - but these
+    // labels are two to four Han characters, so right-aligning them left a
+    // ragged edge down the side of the panel and nothing to read down. Both
+    // columns get a straight left edge instead.
+    m_facts->setLabelAlignment(Qt::AlignLeft | Qt::AlignTop);
     m_facts->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
     // A narrow panel and a long value - "Portable Document Format", a size
     // with its exact byte count - do not fit on one line. Wrapping the row
@@ -112,8 +117,8 @@ Inspector::Inspector(JtfApp *app, QWidget *parent) : QWidget(parent), m_app(app)
     // without this the label kept its width and the value was simply cut.
     m_facts->setRowWrapPolicy(QFormLayout::WrapLongRows);
     m_facts->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
-    m_facts->setHorizontalSpacing(12);
-    m_facts->setVerticalSpacing(6);
+    m_facts->setHorizontalSpacing(14);
+    m_facts->setVerticalSpacing(8);
     bodyLayout->addLayout(m_facts);
     bodyLayout->addStretch(1);
 
@@ -214,7 +219,9 @@ void Inspector::applyPreviewBackground() {
 void Inspector::addRow(const QString &labelKey, const QString &value) {
     auto *label = new QLabel(tr_(labelKey.toUtf8().constData()), this);
     label->setProperty("jtfFactLabel", true);
+    label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     auto *field = new QLabel(value, this);
+    field->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     field->setTextInteractionFlags(Qt::TextSelectableByMouse);
     field->setWordWrap(true);
     field->setFont(m_listFont);
