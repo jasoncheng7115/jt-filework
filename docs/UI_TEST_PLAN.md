@@ -929,6 +929,10 @@ than *what the dialog says*, because the dialog is read after the decision.
 | PATH-021 | Tab in the path field never moves the focus out of it, whether or not there was anything to complete | H2 |
 | PATH-022 | **A long path does not widen the pane.** The bar elides its leading segments instead; the pane beside it keeps its width | H2/H3 |
 | SETT-010 | A setting is written when it is changed, not at exit — killing the process does not lose it | H1/H2 |
+| HDR-020 | **The header draws its text.** A stylesheet style can leave the painter clipped to nothing after drawing a section; every column name, the sort caret and the mark-all box then vanish while the code runs correctly | H2/H3 |
+| HDR-021 | A faint divider between each pair of column headers, clearer beside the pointer and solid under it — the resize handle has to be visible to be used | H3 |
+| LIST-040 | A folder whose size has not been measured shows a dash, not an empty cell | H2 |
+| PANE-050 | The pane's rounded corners are not painted over by the tab strip above or the status line below | H3 |
 | QL-001 | **Space in native mode with the Quick Look panel already open does not crash.** The panel is the key window; forwarding its keys to the key window re-entered the handler until the stack ran out | H5 |
 | QL-002 | Space on the item already showing closes the panel; on a different item it swaps rather than stacking | H5 |
 | OPS-040 | **Rename acts on the row the cursor is on, not on a mark left behind.** Mark row 1, move to row 5, press R: row 5's name is in the box and row 5 is what gets renamed | H2 |
