@@ -66,6 +66,9 @@ const QHash<glyph::Shape, QString> &glyphFiles() {
         {glyph::Shape::Volume, QStringLiteral("hard-drive")},
         {glyph::Shape::Grid, QStringLiteral("view-grid")},
         {glyph::Shape::List, QStringLiteral("list")},
+        // Folders gathered at the top, against one run of everything.
+        {glyph::Shape::FoldersFirst, QStringLiteral("folder-plus")},
+        {glyph::Shape::SortMixed, QStringLiteral("sort")},
         {glyph::Shape::Edit, QStringLiteral("page-edit")},
     };
     return files;
@@ -181,6 +184,7 @@ const QHash<QString, QString> &commandFiles() {
         {QStringLiteral("file.compress"), QStringLiteral("multiple-pages")},
         {QStringLiteral("file.compare_panes"), QStringLiteral("compare-folders")},
         {QStringLiteral("file.disk_usage"), QStringLiteral("disk-usage")},
+        {QStringLiteral("view.folders_first"), QStringLiteral("sort")},
         // The picture is of the port, because that is what the person is
         // looking at while they decide which disk this is.
         {QStringLiteral("file.write_image"), QStringLiteral("usb")},

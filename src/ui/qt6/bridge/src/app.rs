@@ -2213,6 +2213,35 @@ impl App {
             .collect()
     }
 
+    /// The one entry the cursor is on, ignoring marks.
+    ///
+    /// For commands that rename exactly one thing. `operation_sources` answers
+    /// "what is this operation for" with the marked set when there is one,
+    /// which is right for copy, move and trash - they take any number. Rename
+    /// takes one, and taking it from the marks meant that a row marked and
+    /// then left behind won over the row the cursor was visibly sitting on:
+    /// press R on the fifth file and the first one's name came up in the box.
+    ///
+    /// Renaming several things at once is a different command with its own
+    /// dialog (`file.batch_rename`), so nothing is lost by this being one.
+    fn cursor_source(&self, pane: PaneId) -> Option<PathBuf> {
+        self.workspace
+            .pane(pane)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .and_then(jtf_workspace::Tab::active_entry)
+            .and_then(|location| location.as_path().map(std::path::Path::to_path_buf))
+    }
+
+    /// The name shown in the rename box: the entry the cursor is on.
+    pub(crate) fn cursor_name(&self, pane: PaneId) -> String {
+        self.cursor_source(pane)
+            .and_then(|path| {
+                path.file_name()
+                    .map(|name| name.to_string_lossy().into_owned())
+            })
+            .unwrap_or_default()
+    }
+
     // ----------------------------------------------------------- operations
 
     /// Build a plan for a copy, move, trash or delete started in `pane`.
@@ -2872,7 +2901,8 @@ impl App {
     pub(crate) fn prepare_rename(&mut self, pane: PaneId, new_name: &str) -> bool {
         self.plan_error = None;
         self.pending_plan = None;
-        let Some(source) = self.operation_sources(pane).first().cloned() else {
+        // The cursor's row, not the marked set: see `cursor_source`.
+        let Some(source) = self.cursor_source(pane) else {
             self.plan_error = Some(PlanError::NothingToDo);
             return false;
         };

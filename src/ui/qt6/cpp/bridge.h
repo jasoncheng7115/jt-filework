@@ -378,6 +378,10 @@ int jtf_mark_pattern(JtfApp *app, int pane, const char *pattern, int mark);
 uint64_t jtf_target_size(const JtfApp *app, int pane);
 int jtf_target_paths(const JtfApp *app, int pane, char *buf, int len);
 int jtf_target_names(const JtfApp *app, int pane, char *buf, int len);
+// The entry the cursor is on, ignoring marks. What rename opens with, because
+// rename takes exactly one thing and a stale mark must not win over the row the
+// cursor is visibly on.
+int jtf_cursor_name(const JtfApp *app, int pane, char *buf, int len);
 int jtf_op_prepare_duplicate(JtfApp *app, int pane);
 int jtf_op_prepare_drop(JtfApp *app, int pane, int kind, const char *newline_separated);
 // Sources named by the caller, for windows that are not panes (disc usage).

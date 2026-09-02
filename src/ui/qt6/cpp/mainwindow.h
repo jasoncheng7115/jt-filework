@@ -195,6 +195,7 @@ private:
     class PlacesList *m_places = nullptr;
     class QSplitter *m_sidebar = nullptr;
     class QAction *m_hiddenAction = nullptr;
+    class QAction *m_foldersFirstAction = nullptr;
     // Which glyph each toolbar action draws, so they can be redrawn when the
     // theme changes.
     QHash<class QAction *, glyph::Shape> m_toolbarShapes;

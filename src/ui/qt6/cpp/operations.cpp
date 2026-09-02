@@ -321,9 +321,12 @@ bool ops::renameSelection(JtfApp *app, QWidget *parent, int pane, QString *messa
     // operation's* current entry and is therefore empty whenever nothing is
     // running - so the field was always blank while a comment claimed
     // otherwise.
-    const QString names =
-        jtfText([&](char *buf, int len) { return jtf_target_names(app, pane, buf, len); });
-    const QString current = names.section(QLatin1Char('\n'), 0, 0);
+    // The row the cursor is on, not the marked set. A mark made earlier and
+    // left behind used to win over the row the cursor was visibly sitting on,
+    // so pressing R on the fifth file brought up the first file's name - and
+    // renamed that one.
+    const QString current =
+        jtfText([&](char *buf, int len) { return jtf_cursor_name(app, pane, buf, len); });
 
     return nameThenStart(app, parent, pane, "prompt.rename_title", "prompt.rename_label",
                          current, jtf_op_prepare_rename, message);

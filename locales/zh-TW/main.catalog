@@ -652,3 +652,4 @@ key.backspace = Backspace
 archive.key_enter = 進入
 archive.key_up = 上層
 command.workspace.target.next = 換複製／移動的目標面板
+command.view.folders_first = 資料夾排在前面

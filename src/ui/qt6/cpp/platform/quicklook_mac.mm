@@ -29,13 +29,25 @@
 
 // Let the panel forward keys it does not use back to the application, so the
 // arrow keys still move the selection underneath it, as they do in Finder.
+//
+// Never back to the panel, which is what this used to do. While the panel is
+// open it *is* `[NSApp keyWindow]`, so sending the event there re-entered this
+// method with the same event, which sent it there again: pressing Space in
+// front of an open Quick Look panel recursed until the stack ran out and the
+// program died. The file list is the main window, and it is the one that
+// wanted the key.
 - (BOOL)previewPanel:(QLPreviewPanel *)panel handleEvent:(NSEvent *)event {
-    (void)panel;
-    if (event.type == NSEventTypeKeyDown) {
-        [[NSApp keyWindow] sendEvent:event];
-        return YES;
+    if (event.type != NSEventTypeKeyDown) {
+        return NO;
     }
-    return NO;
+    NSWindow *target = [NSApp mainWindow];
+    if (target == nil || target == (NSWindow *)panel) {
+        // Nowhere safe to send it. Letting the panel have it is worse than
+        // dropping it, and both are better than recursing.
+        return NO;
+    }
+    [target sendEvent:event];
+    return YES;
 }
 
 @end

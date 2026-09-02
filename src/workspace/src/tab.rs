@@ -264,6 +264,35 @@ mod tests {
     use super::*;
     use crate::view::FilterMode;
 
+    /// The property a rename depends on, stated where it can be checked.
+    ///
+    /// The bug: pressing R on the fifth file brought up the first file's name
+    /// and renamed that one, because the first was marked and the rename took
+    /// its target from the marked set. Rename takes exactly one thing, so it
+    /// takes the one the cursor is on - and that has to be a different
+    /// question from "what is marked", asked of a value marks do not touch.
+    #[test]
+    fn marking_a_row_does_not_move_the_cursor_off_the_row_it_is_on() {
+        let mut t = Tab::new(TabId::new(1), Location::local("/start"));
+        t.set_active_entry(Some(Location::local("/start/fifth.pdf")));
+        t.marks_mut().mark(Location::local("/start/first.pdf"));
+        t.marks_mut().mark(Location::local("/start/second.pdf"));
+        assert_eq!(
+            t.active_entry(),
+            Some(&Location::local("/start/fifth.pdf")),
+            "marks moved the cursor"
+        );
+    }
+
+    #[test]
+    fn the_cursor_moves_without_disturbing_the_marks() {
+        let mut t = Tab::new(TabId::new(1), Location::local("/start"));
+        t.marks_mut().mark(Location::local("/start/first.pdf"));
+        t.set_active_entry(Some(Location::local("/start/fifth.pdf")));
+        assert_eq!(t.marks().len(), 1, "moving the cursor cleared a mark");
+        assert_eq!(t.active_entry(), Some(&Location::local("/start/fifth.pdf")));
+    }
+
     fn tab() -> Tab {
         Tab::new(TabId::new(1), Location::local("/start"))
     }

@@ -380,6 +380,7 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("file.disk_usage", C::File, "command.file.disk_usage"),
     ("view.font.smaller", C::View, "command.view.font.smaller"),
     ("view.font.larger", C::View, "command.view.font.larger"),
+    ("view.folders_first", C::View, "command.view.folders_first"),
     ("preview.toggle", C::View, "command.preview.toggle"),
     ("preview.quicklook", C::View, "command.preview.quicklook"),
     ("search.open", C::Search, "command.search.open"),

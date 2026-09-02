@@ -293,7 +293,11 @@ impl Default for SessionSettings {
             remember_marks: true,
             font: FontSettings::default(),
             keymap: String::new(),
-            folders_first: true,
+            // Off by default. Sorting by name means sorting by name; folders
+            // pulled to the top is a second rule on top of the one the column
+            // header says is in force, and it is easy to turn on from the
+            // toolbar for anyone who wants it.
+            folders_first: false,
             // Off by default: a sidebar that appears uninvited on first launch
             // is a decision made for the user rather than by them.
             tree_visible: false,
@@ -328,7 +332,11 @@ impl SessionSettings {
             remember_marks: false,
             font: FontSettings::default(),
             keymap: String::new(),
-            folders_first: true,
+            // Off by default. Sorting by name means sorting by name; folders
+            // pulled to the top is a second rule on top of the one the column
+            // header says is in force, and it is easy to turn on from the
+            // toolbar for anyone who wants it.
+            folders_first: false,
             // Off by default: a sidebar that appears uninvited on first launch
             // is a decision made for the user rather than by them.
             tree_visible: false,

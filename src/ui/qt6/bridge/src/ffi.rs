@@ -4666,3 +4666,24 @@ pub unsafe extern "C" fn jtf_write_close(app: *mut App) {
 pub unsafe extern "C" fn jtf_cycle_target_pane(app: *mut App) -> c_int {
     unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.cycle_target_pane()))
 }
+
+/// The name of the entry the cursor is on, ignoring marks.
+///
+/// What the rename box opens with. `jtf_target_names` answers with the marked
+/// set, which is right for the operations that take any number and wrong for
+/// the one that takes exactly one.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_cursor_name(
+    app: *const App,
+    pane_id: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let Some(app) = (unsafe { app_ref(app) }) else {
+        return 0;
+    };
+    unsafe { write_str(&app.cursor_name(pane(pane_id)), buf, len) }
+}

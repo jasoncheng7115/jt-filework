@@ -55,6 +55,8 @@ enum class Shape {
     Theme,
     Font,
     Language,
+    FoldersFirst,
+    SortMixed,
 };
 
 // Rendered at several sizes so the icon stays crisp on any display scale.

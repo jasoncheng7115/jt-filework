@@ -2400,6 +2400,16 @@ void MainWindow::buildToolbar() {
     m_hiddenAction = button(
         "view.hidden", glyph::Shape::Hidden,
         [this] { jtf_set_show_hidden(m_app, jtf_show_hidden(m_app) ? 0 : 1); }, true);
+    // Folders gathered at the top, or one run of everything. A setting until
+    // now, which is the wrong place for something people change while looking
+    // at a list rather than while thinking about preferences.
+    m_foldersFirstAction = button(
+        "view.folders_first", glyph::Shape::FoldersFirst,
+        [this] {
+            jtf_set_folders_first(m_app, jtf_folders_first(m_app) ? 0 : 1);
+            refreshAll();
+        },
+        true);
     button("help.shortcuts", glyph::Shape::Keyboard, [this] { openShortcuts(); });
     button("settings.open", glyph::Shape::Settings, [this] { openSettings(); });
     endGroup();
@@ -2521,6 +2531,17 @@ void MainWindow::syncToolbar() {
     if (m_treeAction) {
         QSignalBlocker blocker(m_treeAction);
         m_treeAction->setChecked(m_tree && m_tree->isVisible());
+    }
+    if (m_foldersFirstAction) {
+        QSignalBlocker blocker(m_foldersFirstAction);
+        const bool first = jtf_folders_first(m_app) != 0;
+        m_foldersFirstAction->setChecked(first);
+        // The icon changes shape as well as state, for the reason the eye
+        // beside it does: a checked background alone is easy to miss.
+        m_toolbarShapes.insert(m_foldersFirstAction,
+                               first ? glyph::Shape::FoldersFirst : glyph::Shape::SortMixed);
+        m_foldersFirstAction->setIcon(
+            glyph::make(m_toolbarShapes.value(m_foldersFirstAction), m_theme.textPrimary));
     }
     if (m_hiddenAction) {
         QSignalBlocker blocker(m_hiddenAction);

@@ -652,3 +652,4 @@ key.backspace = Backspace
 archive.key_enter = Open folder
 archive.key_up = Up a level
 command.workspace.target.next = Next Copy/Move Target
+command.view.folders_first = Folders First

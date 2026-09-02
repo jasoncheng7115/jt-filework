@@ -914,6 +914,12 @@ than *what the dialog says*, because the dialog is read after the decision.
 | PANE-031 | Cycling the target never lands on the active pane, including after the pane it pointed at was closed | H1 |
 | PANE-032 | With two panes cycling the target is a no-op: there is only one other pane and it is already the target | H1 |
 
+| QL-001 | **Space in native mode with the Quick Look panel already open does not crash.** The panel is the key window; forwarding its keys to the key window re-entered the handler until the stack ran out | H5 |
+| QL-002 | Space on the item already showing closes the panel; on a different item it swaps rather than stacking | H5 |
+| OPS-040 | **Rename acts on the row the cursor is on, not on a mark left behind.** Mark row 1, move to row 5, press R: row 5's name is in the box and row 5 is what gets renamed | H2 |
+| SORT-010 | Folders-first is off by default, and is a toolbar toggle rather than only a setting | H2 |
+| SORT-011 | The folders-first icon changes shape with its state, not only its background | H3 |
+
 | IMG-001 | **The disk carrying the running system is never listed.** Checked on a real machine, on each platform | H1/H5 |
 | IMG-002 | An internal disk is never listed, even when it is not the boot disk — a second SSD is not a write target | H1 |
 | IMG-003 | A disk whose properties could not be read is not listed. "I could not tell" never produces a row | H1 |
