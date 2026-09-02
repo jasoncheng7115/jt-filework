@@ -183,6 +183,22 @@
 - [ ] context menu research
 - [ ] system appearance integration
 
+## P0 — Reported, not yet built
+
+- [ ] **A setting for whether each pane's filter bar is always there or only
+      appears when asked for.** Today it is on-demand only: `F` opens it and
+      Escape closes it. Some people want it permanently visible so the box is
+      always ready to type into and the pane's height never shifts under them.
+      One setting, applied to every pane.
+
+      The field goes in `SessionSettings` next to `tree_visible`, and it needs
+      `#[serde(default)]` - a field added without one made every existing
+      session unreadable today, which cost every user their tabs and marks.
+      Control in the Appearance page of the settings dialog beside the other
+      furniture switches; `PaneWidget` reads it where it currently decides the
+      filter bar's visibility, and Escape must not hide it when it is set to
+      stay.
+
 ## P0 — Reported, not yet fixed
 
 - [ ] **Shortcuts are displayed as `Ctrl+…` on macOS where the key is actually

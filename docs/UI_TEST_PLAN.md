@@ -925,6 +925,9 @@ than *what the dialog says*, because the dialog is read after the decision.
 | PREV-030 | **The preview background honours the chosen colour.** A stylesheet background must not override the palette the choice sets | H2 |
 | PREV-031 | The colour button shows the colour it is set to, with its hex value beside it | H2 |
 | PREV-032 | The preview background defaults to white | H2 |
+| FILT-020 | **The filter bar can be set to stay.** With the setting on it is there in every pane from launch, and Escape clears the text without hiding the bar | H2 |
+| FILT-021 | With the setting off the bar behaves as it does today: `F` opens it, Escape closes it | H2 |
+| FILT-022 | The setting survives a restart, and a session written before the setting existed still loads | H1 |
 | PATH-023 | Tab completes **while the completion popup is open**, which is the only time there is anything to complete — the popup must not eat the key | H2 |
 | PATH-020 | **Tab fills the path in.** One match completes it and adds the separator so the next Tab carries on; several fill in as far as they agree and then show the list | H2 |
 | PATH-021 | Tab in the path field never moves the focus out of it, whether or not there was anything to complete | H2 |
