@@ -285,20 +285,12 @@ QWidget#JtfPane[jtfActive="true"] { border: 2px solid %PANERING%; }
 QWidget#JtfPane[jtfTarget="true"] {
     border: 2px dashed %MARK%;
 }
-/* A chip, the way the drawings have it: the word on a tinted ground rather
-   than loose text floating in the tab row. */
-QWidget#JtfTargetBadge {
-    background: %SELDIM%;
-    border: 1px solid %MARK%;
-    border-radius: 9px;
-}
-/* The chip keeps its room on every pane so that gaining or losing it moves
-   nothing, and shows itself only on the one it belongs to - an empty tinted
-   pill on every other pane would be worse than the sentence it replaced. */
-QWidget#JtfTargetBadge[jtfShowing="false"] {
-    background: transparent;
-    border-color: transparent;
-}
+/* The target badge is a label, not a button.
+   Its background is a wash of the mark colour, mixed in C++ where the colour
+   is known - see `PaneWidget::applyTheme`. An outlined pill was tried and read
+   as something to press, which it is not: the dashed edge around the whole
+   pane is what says "the files land here", and this only names it. */
+QWidget#JtfTargetBadge { border: none; border-radius: 9px; }
 QLabel#JtfTargetBadgeWord {
     color: %MARK%;
     background: transparent;

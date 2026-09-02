@@ -2195,6 +2195,23 @@ void PaneWidget::applyTheme(const QColor &mark, const QColor &directory, const Q
     // The badge's arrow follows the mark colour its dashed border uses, so
     // the two say the same thing in the same colour.
     m_targetGlyph = glyph::make(glyph::Shape::ArrowDown, mark).pixmap(12, 12);
+    if (m_targetBadge != nullptr) {
+        // A wash of the mark colour rather than a line around it: at a tenth
+        // of its strength the badge sits behind the word instead of boxing it
+        // in, and stops looking like a control.
+        // Both states in the one sheet, so the wash cannot outlive the word:
+        // an empty tinted pill on every pane that is not the target would be
+        // worse than no badge at all.
+        m_targetBadge->setStyleSheet(
+            QStringLiteral("QWidget#JtfTargetBadge {"
+                           "  background: rgba(%1,%2,%3,0.14);"
+                           "  border: none; border-radius: 9px; }"
+                           "QWidget#JtfTargetBadge[jtfShowing=\"false\"] {"
+                           "  background: transparent; }")
+                .arg(mark.red())
+                .arg(mark.green())
+                .arg(mark.blue()));
+    }
     if (m_targetIcon != nullptr && !m_targetIcon->pixmap().isNull()) {
         m_targetIcon->setPixmap(m_targetGlyph);
     }
@@ -2255,6 +2272,7 @@ void PaneWidget::setTarget(bool target) {
         m_targetWord->setText(target ? word : QString());
         m_targetIcon->setPixmap(target ? m_targetGlyph : QPixmap());
         m_targetBadge->setProperty("jtfShowing", target);
+        m_targetBadge->setVisible(true); // always in the layout; see the constructor
         m_targetBadge->style()->unpolish(m_targetBadge);
         m_targetBadge->style()->polish(m_targetBadge);
     }
