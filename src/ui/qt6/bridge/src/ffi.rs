@@ -4735,3 +4735,26 @@ pub unsafe extern "C" fn jtf_set_filter_bar_always(app: *mut App, always: c_int)
         a.set_filter_bar_always(always != 0);
     }
 }
+
+/// The width the user set for a column, or 0 if they never set one.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_column_width(app: *const App, column: c_int) -> c_int {
+    let column = u32::try_from(column).unwrap_or(0);
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::try_from(a.column_width(column)).unwrap_or(0))
+}
+
+/// Remember a width the user dragged a column to. Zero forgets it.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_column_width(app: *mut App, column: c_int, width: c_int) {
+    let column = u32::try_from(column).unwrap_or(0);
+    let width = u32::try_from(width).unwrap_or(0);
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_column_width(column, width);
+    }
+}

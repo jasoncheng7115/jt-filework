@@ -1014,6 +1014,33 @@ mod tests {
     }
 
     #[test]
+    fn a_width_the_user_set_is_kept_and_one_they_cleared_is_forgotten() {
+        // The settings struct round-trips the list, and a session written
+        // before the field existed still loads - the guarantee every new field
+        // here needs, because without it the whole session file is unreadable.
+        let mut settings = crate::SessionSettings::default();
+        assert!(settings.column_widths.is_empty(), "nothing is set to start");
+        settings.column_widths.push((2, 180));
+
+        let text = serde_json::to_string(&settings).unwrap();
+        let back: crate::SessionSettings = serde_json::from_str(&text).unwrap();
+        assert_eq!(back.column_widths, vec![(2, 180)]);
+
+        let mut stored: serde_json::Value = serde_json::from_str(&text).unwrap();
+        stored
+            .as_object_mut()
+            .unwrap()
+            .remove("column_widths")
+            .expect("it was there a moment ago");
+        let older = serde_json::to_string(&stored).unwrap();
+        let restored: crate::SessionSettings = serde_json::from_str(&older).unwrap();
+        assert!(
+            restored.column_widths.is_empty(),
+            "a session from before the field should simply have no widths set"
+        );
+    }
+
+    #[test]
     fn a_session_without_the_filter_bar_setting_still_loads() {
         // The same guarantee as the workspace test below, for the settings
         // struct: a new field there without a serde default makes every

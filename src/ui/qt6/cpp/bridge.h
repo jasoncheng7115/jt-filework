@@ -236,6 +236,10 @@ int jtf_child_directories(const JtfApp *app, const char *path, char *buf, int le
 int jtf_folders_first(const JtfApp *app);
 // Whether each pane's filter bar is always on screen rather than appearing
 // only when asked for.
+// A width the user dragged a column to, or 0 if they never set one. A column
+// nobody has touched keeps measuring itself against its contents.
+int jtf_column_width(const JtfApp *app, int column);
+void jtf_set_column_width(JtfApp *app, int column, int width);
 int jtf_filter_bar_always(const JtfApp *app);
 void jtf_set_filter_bar_always(JtfApp *app, int always);
 void jtf_set_folders_first(JtfApp *app, int folders_first);

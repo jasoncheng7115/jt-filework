@@ -201,6 +201,15 @@ pub struct SessionSettings {
     /// session is every tab, mark and open folder gone on upgrade.
     #[serde(default)]
     pub filter_bar_always: bool,
+    /// Column widths the user set by dragging, as `(column, pixels)`.
+    ///
+    /// Only the columns actually dragged. A column nobody has touched keeps
+    /// measuring itself against what is in it, which is what makes a folder of
+    /// long names readable without being asked; a column somebody *has* set is
+    /// an instruction, and an instruction that is forgotten the moment you walk
+    /// into another folder was not obeyed.
+    #[serde(default)]
+    pub column_widths: Vec<(u32, u32)>,
     /// Its width in logical pixels. 0 means the default.
     #[serde(default)]
     pub tree_width: u16,
@@ -310,6 +319,7 @@ impl Default for SessionSettings {
             // is a decision made for the user rather than by them.
             tree_visible: false,
             filter_bar_always: false,
+            column_widths: Vec::new(),
             tree_width: 0,
             collapsed_sections: Vec::new(),
             recent_limit: 0,
@@ -354,6 +364,7 @@ impl SessionSettings {
             // is a decision made for the user rather than by them.
             tree_visible: false,
             filter_bar_always: false,
+            column_widths: Vec::new(),
             tree_width: 0,
             collapsed_sections: Vec::new(),
             recent_limit: 0,

@@ -478,6 +478,24 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
         emit commandRequested(QStringLiteral("file.open"));
     });
 
+    connect(m_view->horizontalHeader(), &QHeaderView::sectionResized, this,
+            [this](int column, int, int width) {
+                // Only the user's drags. Every width this widget sets itself is
+                // set inside `fitNameColumn`, which raises `m_fittingName` -
+                // without that guard the auto-measure would record its own
+                // measurements as though they had been chosen, and a column
+                // would freeze at whatever the first folder happened to need.
+                if (m_fittingName || column == 0 || width <= 0) {
+                    return;
+                }
+                jtf_set_column_width(m_app, column, width);
+                // Written now, not on exit: a width that survives only a clean
+                // quit has not been remembered. `stateChanged` is not used
+                // here - it re-lists every pane, which is a great deal of work
+                // for dragging an edge, and it does not save.
+                jtf_app_save_session(m_app);
+            });
+
     connect(m_view->horizontalHeader(), &QHeaderView::sectionClicked, this,
             [this](int section) {
                 jtf_sort_by(m_app, m_pane, section);
@@ -977,6 +995,14 @@ void PaneWidget::fitNameColumn() {
         m_view->horizontalHeader()->setResizeContentsPrecision(64);
         for (int column : shown) {
             if (column == 0) {
+                continue;
+            }
+            // A width the user dragged this column to is an instruction, and
+            // it outlives walking into another folder. Only a column nobody
+            // has touched measures itself against what is in it.
+            const int chosen = jtf_column_width(m_app, column);
+            if (chosen > 0) {
+                m_view->setColumnWidth(column, chosen);
                 continue;
             }
             // `resizeColumnToContents` is the public way to ask; the width it

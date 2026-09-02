@@ -12,6 +12,19 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.9] - 2026-09-03
+
+### Fixed
+
+- **A column width set by dragging was forgotten on the way into the next
+  folder.** Every column was re-measured against its contents whenever the
+  folder changed, which is what makes a folder of long names readable without
+  being asked — but it also threw away a width somebody had just set by hand,
+  and nothing was written down, so it did not survive a restart either. A
+  column that has been dragged keeps what it was given, from folder to folder
+  and across launches; a column nobody has touched goes on measuring itself.
+  The widths the auto-measure sets are not mistaken for choices.
+
 ## [0.6.8] - 2026-09-03
 
 ### Added

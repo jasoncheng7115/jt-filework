@@ -5571,3 +5571,25 @@ impl App {
         self.settings.filter_bar_always = always;
     }
 }
+
+impl App {
+    /// The width the user set for `column`, or 0 if they never set one.
+    pub(crate) fn column_width(&self, column: u32) -> u32 {
+        self.settings
+            .column_widths
+            .iter()
+            .find(|(at, _)| *at == column)
+            .map_or(0, |(_, width)| *width)
+    }
+
+    /// Remember a width the user dragged a column to.
+    ///
+    /// Zero forgets it, so a column can go back to measuring itself against
+    /// its contents.
+    pub(crate) fn set_column_width(&mut self, column: u32, width: u32) {
+        self.settings.column_widths.retain(|(at, _)| *at != column);
+        if width > 0 {
+            self.settings.column_widths.push((column, width));
+        }
+    }
+}

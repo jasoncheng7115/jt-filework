@@ -931,6 +931,9 @@ than *what the dialog says*, because the dialog is read after the decision.
 | USAGE-032 | The usage window's columns can be resized by dragging the header, as the file list's can | H2 |
 | USAGE-033 | The 「取消操作」 button is not flush against the window edge and carries an icon | H3 |
 | CRUMB-010 | The path bar's context menu offers 計算磁碟用量 for the folder clicked | H2 |
+| COL-010 | **A column width set by dragging survives walking into another folder and back**, and a restart | H2 |
+| COL-011 | A column nobody has dragged still measures itself against its contents, so a folder of long dates stays readable | H2 |
+| COL-012 | The auto-measure does not record its own measurements as though they had been chosen | H1/H2 |
 | LIVE-001 | **A file added, renamed or touched by another program appears without pressing anything** | H2/H5 |
 | LIVE-002 | A re-list keeps the cursor on the same *file*, not the same row number, when something is inserted above it | H2 |
 | LIVE-003 | A re-list keeps the marks, the scroll position and the sort order | H2 |
