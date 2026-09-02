@@ -916,6 +916,15 @@ than *what the dialog says*, because the dialog is read after the decision.
 
 | SESS-030 | **A session written before a newly added field still loads.** A new field without a serde default makes every existing session unreadable — every tab, mark and open folder gone on upgrade | H1 |
 | SESS-031 | The status bar's 「儲存的工作階段讀不出來」 appears only when the session really could not be read, and not on every launch | H2 |
+| PANE-040 | **Changing the copy/move target moves nothing.** Drag a file across three panes: the target badge follows the pointer and no pane changes width | H2/H3 |
+| PANE-041 | The target badge is an arrow and one word, not a sentence in a tab bar | H3 |
+| TIME-001 | **A timestamp is shown in the machine's own zone**, not UTC. The list and the inspector agree to the minute | H1/H2 |
+| TIME-002 | The list and the inspector use the same date format | H2 |
+| MENU-010 | Every top-level menu has an access key, and no two claim the same letter | H2 |
+| INSP-010 | The inspector's labels are left-aligned; both columns have a straight left edge | H3 |
+| PREV-010 | **The preview background honours the chosen colour.** A stylesheet background must not override the palette the choice sets | H2 |
+| PREV-011 | The colour button shows the colour it is set to, with its hex value beside it | H2 |
+| PREV-012 | The preview background defaults to white | H2 |
 | QL-001 | **Space in native mode with the Quick Look panel already open does not crash.** The panel is the key window; forwarding its keys to the key window re-entered the handler until the stack ran out | H5 |
 | QL-002 | Space on the item already showing closes the panel; on a different item it swaps rather than stacking | H5 |
 | OPS-040 | **Rename acts on the row the cursor is on, not on a mark left behind.** Mark row 1, move to row 5, press R: row 5's name is in the box and row 5 is what gets renamed | H2 |

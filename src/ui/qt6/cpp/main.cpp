@@ -4,6 +4,7 @@
 #include "watchdog.h"
 
 #include <QApplication>
+#include <QDateTime>
 #include <QIcon>
 #include <QFileInfo>
 #include <QDir>
@@ -118,6 +119,10 @@ int main(int argc, char **argv) {
     });
 
     JtfApp *app = jtf_app_new(systemLocale.constData());
+    // The core formats timestamps and has no timezone database; the platform
+    // does. Without this every date in the list is UTC, which in Taipei is
+    // eight hours out and disagreed with the inspector beside it.
+    jtf_set_utc_offset(app, QDateTime::currentDateTime().offsetFromUtc());
     application.startPeriodicReports();
 
     MainWindow window(app);

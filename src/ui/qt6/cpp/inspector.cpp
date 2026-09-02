@@ -379,10 +379,11 @@ void Inspector::rebuild() {
     }
     const QLocale locale;
     addRow(QStringLiteral("inspector.modified"),
-           locale.toString(info.lastModified(), QLocale::ShortFormat));
+           info.lastModified().toString(QStringLiteral("yyyy-MM-dd HH:mm")));
     const QDateTime born = info.birthTime();
     if (born.isValid()) {
-        addRow(QStringLiteral("inspector.created"), locale.toString(born, QLocale::ShortFormat));
+        addRow(QStringLiteral("inspector.created"),
+               born.toString(QStringLiteral("yyyy-MM-dd HH:mm")));
     }
     const QStringList tags = filetype::tagsFor(m_path);
     if (!tags.isEmpty()) {

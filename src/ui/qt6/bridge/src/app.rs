@@ -351,6 +351,11 @@ pub struct App {
     comparing: Option<Comparing>,
     /// The disc-usage analysis, if that window is open.
     analysing: Option<Analysing>,
+    /// Seconds east of UTC, as the platform reports it.
+    ///
+    /// Set by the UI at startup. Zero until then, which is UTC - wrong, but
+    /// wrong in a way that is the same everywhere rather than a guess.
+    utc_offset: i32,
     /// The removable disks the last refresh found.
     devices: Vec<jtf_platform_devices::Device>,
     /// The image being written to a disk, if one is.
@@ -429,6 +434,7 @@ impl App {
             archiving: None,
             comparing: None,
             analysing: None,
+            utc_offset: 0,
             devices: Vec::new(),
             burning: None,
             archive_entries: Vec::new(),
@@ -1894,7 +1900,7 @@ impl App {
             COLUMN_MODIFIED => entry
                 .timestamps()
                 .modified
-                .map_or_else(String::new, format_time),
+                .map_or_else(String::new, |t| format_time(t, self.utc_offset)),
             other => {
                 // The columns past the default four, answered from the model's
                 // own list so adding one there is enough.
@@ -1903,11 +1909,11 @@ impl App {
                     Some(Column::Created) => entry
                         .timestamps()
                         .created
-                        .map_or_else(String::new, format_time),
+                        .map_or_else(String::new, |t| format_time(t, self.utc_offset)),
                     Some(Column::Accessed) => entry
                         .timestamps()
                         .accessed
-                        .map_or_else(String::new, format_time),
+                        .map_or_else(String::new, |t| format_time(t, self.utc_offset)),
                     Some(Column::Permissions) => {
                         // rwx, the shape everyone already reads, from the
                         // cross-platform summary rather than from a mode bit
@@ -4509,16 +4515,28 @@ fn format_size(bytes: u64) -> String {
     format!("{value:.1} {}", UNITS[unit])
 }
 
-/// `YYYY-MM-DD HH:MM`, computed without a date library.
+/// `YYYY-MM-DD HH:MM` in the machine's own time, computed without a date
+/// library.
 ///
-/// A real implementation formats with the platform's locale-aware API
-/// (`docs/PRODUCT_SPEC.md` §14); this is a PoC placeholder and is marked as
-/// one in `TODO.md`.
-fn format_time(time: std::time::SystemTime) -> String {
+/// `offset` is the seconds east of UTC, which the UI asks the platform for and
+/// hands down: working it out here would mean either a dependency or reading
+/// the timezone database, and the platform already knows.
+///
+/// Without it every time in the list was UTC. In Taipei that is eight hours
+/// out, and the inspector - which formatted the same timestamp through Qt, in
+/// local time - disagreed with the row right next to it by exactly that much.
+fn format_time(time: std::time::SystemTime, offset: i32) -> String {
     let Ok(since) = time.duration_since(std::time::UNIX_EPOCH) else {
         return String::new();
     };
-    let secs = since.as_secs();
+    let Ok(secs) = i64::try_from(since.as_secs()) else {
+        return String::new();
+    };
+    let secs = secs + i64::from(offset);
+    let Ok(secs) = u64::try_from(secs) else {
+        // Before 1970 once the offset is applied. Nothing sensible to show.
+        return String::new();
+    };
     let days = i64::try_from(secs / 86_400).unwrap_or(0);
     let time_of_day = secs % 86_400;
     let (year, month, day) = civil_from_days(days);
@@ -4790,10 +4808,31 @@ const fn listed_row(has_parent_row: bool, row: usize) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::{listed_row, session_write_target, stored_format_version};
+    use super::{format_time, listed_row, session_write_target, stored_format_version};
     use jtf_core::ErrorCode;
     use jtf_workspace::RestoreOutcome;
     use std::path::Path;
+
+    /// A timestamp is shown in the machine's own time, not UTC.
+    ///
+    /// Every date in the list was UTC. In Taipei that is eight hours out, and
+    /// the inspector - which formatted the same instant through Qt, in local
+    /// time - disagreed with the row next to it by exactly that much.
+    #[test]
+    fn a_time_is_shown_in_the_machines_own_zone() {
+        // 2026-09-01 22:50 UTC.
+        let instant = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_788_302_200);
+        let utc = format_time(instant, 0);
+        let taipei = format_time(instant, 8 * 3600);
+        assert_ne!(utc, taipei, "the offset was not applied");
+        assert!(!utc.is_empty() && !taipei.is_empty());
+    }
+
+    #[test]
+    fn an_offset_that_would_land_before_the_epoch_says_nothing_rather_than_wrapping() {
+        let instant = std::time::UNIX_EPOCH + std::time::Duration::from_secs(60);
+        assert_eq!(format_time(instant, -12 * 3600), "");
+    }
 
     /// The case this exists for: an older build must not throw away what a
     /// newer one wrote. Running an older build is ordinary - a downgrade after
@@ -5316,5 +5355,15 @@ impl App {
         let before = self.workspace.target_pane_id();
         let after = self.workspace.cycle_target();
         after.is_some() && after != before
+    }
+}
+
+impl App {
+    /// Tell the core what the machine's UTC offset is, in seconds east.
+    ///
+    /// Asked of the platform rather than worked out here: the timezone
+    /// database is the platform's job and it already has it.
+    pub(crate) fn set_utc_offset(&mut self, seconds: i32) {
+        self.utc_offset = seconds;
     }
 }

@@ -918,7 +918,6 @@ void PaneWidget::fitNameColumn() {
     m_fittingName = true;
 
     const int viewport = m_view->viewport()->width();
-    qWarning("JTFDIAG fitNameColumn pane=%d viewport=%d", m_pane, viewport);
     if (viewport <= 0) {
         m_fittingName = false;
         return;

@@ -215,6 +215,8 @@ void jtf_set_locale(JtfApp *app, const char *locale);
 int jtf_locale_preference(const JtfApp *app, char *buf, int len);
 int jtf_locale(const JtfApp *app, char *buf, int len);
 int jtf_tr(const JtfApp *app, const char *key, char *buf, int len);
+// The machine's UTC offset in seconds east. Without it the list shows UTC.
+void jtf_set_utc_offset(JtfApp *app, int seconds);
 // operations
 void jtf_set_selection(JtfApp *app, int pane, const int *rows, int count);
 int jtf_op_prepare(JtfApp *app, int pane, int kind); // 0 copy 1 move 2 trash 3 delete

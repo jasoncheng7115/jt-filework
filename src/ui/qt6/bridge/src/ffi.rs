@@ -4687,3 +4687,17 @@ pub unsafe extern "C" fn jtf_cursor_name(
     };
     unsafe { write_str(&app.cursor_name(pane(pane_id)), buf, len) }
 }
+
+/// Tell the core the machine's UTC offset in seconds east.
+///
+/// Called at startup and whenever the platform says the zone changed. Without
+/// it every timestamp in the list is UTC.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_utc_offset(app: *mut App, seconds: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_utc_offset(seconds);
+    }
+}
