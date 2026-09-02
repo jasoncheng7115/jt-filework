@@ -235,8 +235,14 @@ QWidget#JtfTabRow { background: %HEADER%; border-bottom: 1px solid %BORDER%; }
 /* The active pane. The edge marks it, the tab strip brightens with it, and
    the inactive panes' tabs go quiet so only one strip looks lit at a time. */
 /* Every pane keeps the same border thickness whether it is active or not, so
-   that becoming active does not move its contents by a pixel. */
-QWidget#JtfPane { border: 2px solid %BORDER%; }
+   that becoming active does not move its contents by a pixel.
+
+   Transparent when it is neither active nor the target. A pane is a white
+   surface on a grey window, so its edge is already where the colour changes -
+   drawing a grey line round it as well boxed every pane in, and with a single
+   pane open it was a frame around the whole window for no reason at all. The
+   2px stays reserved; only its colour changes. */
+QWidget#JtfPane { border: 2px solid transparent; border-radius: 8px; }
 /* Where the keyboard is. A line along the top edge alone was easy to miss with
    two panes side by side - the eye has to find a 2px strip at the top of one
    column and compare it with the other. A ring around the whole pane is the
@@ -564,18 +570,16 @@ QTreeView::item:selected:!active { background: %SELDIM%; color: %TEXT%; }
    the panes could not be resized at all. The handle is 7px and the padding
    either side is painted in the pane colour, so what shows is still a single
    line and what responds is seven. */
-QSplitter::handle { background: %BORDER%; }
-QSplitter::handle:horizontal {
-    width: 7px;
-    border-left: 3px solid %PANE%;
-    border-right: 3px solid %PANE%;
-}
-QSplitter::handle:vertical {
-    height: 7px;
-    border-top: 3px solid %PANE%;
-    border-bottom: 3px solid %PANE%;
-}
-QSplitter::handle:hover { background: %FOCUS%; }
+/* The divider between panes. The window's own colour, so it reads as the gap
+   between two surfaces rather than as a bar laid over them - it used to be a
+   grey stripe with white edges, which in the light theme looked like a seam
+   where two pictures had been joined. It appears only when the pointer is on
+   it, which is the only time it is a control. */
+QSplitter::handle { background: %WINDOW%; }
+QSplitter::handle:horizontal { width: 8px; }
+QSplitter::handle:vertical { height: 8px; }
+QSplitter::handle:hover { background: %SELDIM%; }
+QSplitter::handle:pressed { background: %FOCUS%; }
 
 /* The sidebar's own divider, between the places above and the folder tree
    below. A one-pixel border line is right between a pane and its neighbour,
