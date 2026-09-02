@@ -172,6 +172,15 @@
      index its single set of cards a second time. This form never sets display
      on a visible element at all, so there is nothing left to get wrong; and it
      outranks a plain class rule, so a new component cannot revive the bug. */
+  /* Emphasis, in Chinese. There is no italic in Chinese type: the browser
+     makes one by shearing the glyphs, and sheared Han characters look like a
+     rendering fault rather than emphasis. Chinese typography emphasises with
+     weight or with side dots, so this uses weight. */
+  [data-lang="zh-tw"] em,
+  [data-lang="zh-tw"] i {
+    font-style: normal;
+    font-weight: 700;
+  }
   html[data-show="en"] [data-lang]:not([data-lang="en"]),
   html[data-show="zh-tw"] [data-lang]:not([data-lang="zh-tw"]) { display: none; }
 </style>

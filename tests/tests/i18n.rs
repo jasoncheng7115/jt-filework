@@ -240,6 +240,8 @@ const UNTRANSLATABLE: &[&str] = &[
     // keyboard says `Space` would be naming a different key.
     "key.space",
     "key.escape",
+    "key.enter",
+    "key.backspace",
     // The name of the bus, as printed on the cable and the port. A dialog that
     // said 「通用序列匯流排」 would be describing the same thing and naming
     // nothing the user can look for on the side of their machine.

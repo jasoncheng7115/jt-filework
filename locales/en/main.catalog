@@ -647,3 +647,7 @@ imaging.done = Written and checked: {bytes}, CRC-32 {checksum}.
 imaging.done_unchecked = Written: {bytes}, CRC-32 {checksum}. Not checked.
 imaging.failed_midway = The disk was partly written and is not usable. Write it again or reformat it.
 imaging.needs_elevation = Writing a disk needs administrator rights. Confirm the prompt.
+key.enter = Enter
+key.backspace = Backspace
+archive.key_enter = Open folder
+archive.key_up = Up a level

@@ -647,3 +647,7 @@ imaging.done = 寫完也核對過了：{bytes}，CRC-32 {checksum}。
 imaging.done_unchecked = 寫完了：{bytes}，CRC-32 {checksum}。沒有核對。
 imaging.failed_midway = 磁碟只寫了一部分，現在不能用。重寫一次或重新格式化。
 imaging.needs_elevation = 寫磁碟需要系統管理員權限，請在跳出來的視窗按確認。
+key.enter = Enter
+key.backspace = Backspace
+archive.key_enter = 進入
+archive.key_up = 上層
