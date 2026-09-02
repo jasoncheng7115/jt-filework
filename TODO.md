@@ -196,6 +196,17 @@
       gives ⌘2 on macOS and leaves Ctrl+2 everywhere else. Menu items are
       already correct because Qt renders those itself from the QKeySequence.
 
+- [ ] **Tab in the path bar still does not complete.** The code is in
+      (`Breadcrumb::completeTyped`, d0f0789, shipped in 0.6.2) and the user
+      reports it doing nothing. Most likely cause: the filter that catches Tab
+      is installed on the line edit, but the completer's popup takes the
+      keyboard the moment it appears - and it is exactly when there is
+      something to complete that the popup is open, so the key never reaches
+      the field. Try installing the same filter on `m_completer->popup()`, or
+      stop the popup taking focus. Confirm on the Linux box by typing a partial
+      path and pressing Tab, rather than by reading the code: the code looks
+      correct, which is the whole problem.
+
 - [ ] **The cursor outline still breaks up when moving with the arrow keys.**
       Reported again after the repaint fix (76e1814), which repaints the whole
       of the previous and current rows on `currentRowChanged`. Seen as the

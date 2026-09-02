@@ -925,6 +925,7 @@ than *what the dialog says*, because the dialog is read after the decision.
 | PREV-030 | **The preview background honours the chosen colour.** A stylesheet background must not override the palette the choice sets | H2 |
 | PREV-031 | The colour button shows the colour it is set to, with its hex value beside it | H2 |
 | PREV-032 | The preview background defaults to white | H2 |
+| PATH-023 | Tab completes **while the completion popup is open**, which is the only time there is anything to complete — the popup must not eat the key | H2 |
 | PATH-020 | **Tab fills the path in.** One match completes it and adds the separator so the next Tab carries on; several fill in as far as they agree and then show the list | H2 |
 | PATH-021 | Tab in the path field never moves the focus out of it, whether or not there was anything to complete | H2 |
 | PATH-022 | **A long path does not widen the pane.** The bar elides its leading segments instead; the pane beside it keeps its width | H2/H3 |
