@@ -26,7 +26,6 @@
 #include <QItemSelectionModel>
 #include <QMenu>
 #include <QFontMetrics>
-#include <QStorageInfo>
 #include <QEvent>
 #include <QHeaderView>
 #include <QKeyEvent>
@@ -352,6 +351,16 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     statusLayout->setSpacing(0);
     m_status = new QLabel(statusRow);
     m_status->setObjectName(QStringLiteral("JtfStatus"));
+    // The line says how much is marked, and that text gets longer as more is
+    // marked - so its width was reaching the splitter and the pane changed
+    // size as the selection changed. Marking one more file is not a request to
+    // rearrange the window.
+    //
+    // `Ignored` says the size hint is not a request; the text is elided in the
+    // middle so what is lost is the middle of a figure rather than the start
+    // of the sentence.
+    m_status->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+    m_status->setMinimumWidth(0);
     statusLayout->addWidget(m_status, 1);
     m_reconnect = new QToolButton(statusRow);
     m_reconnect->setObjectName(QStringLiteral("JtfReconnect"));
@@ -2081,7 +2090,6 @@ void PaneWidget::retranslate() {
     } else {
         // Items, not rows: a `..` row is a way out of the folder, not a file in it.
     const int rows = jtf_listed_count(m_app, m_pane);
-        const int selected = jtf_selection_count(m_app, m_pane);
         const int marked = jtf_marked_count(m_app, m_pane);
         const int total = jtf_unfiltered_count(m_app, m_pane);
         // With a filter on, say how many of how many. Showing only the
@@ -2108,13 +2116,11 @@ void PaneWidget::retranslate() {
                 status += QStringLiteral("   ") + formatSize(listed);
             }
         }
-        // Selection and marks are different things and are counted
-        // separately, because conflating them is exactly what AGENTS.md 10
-        // forbids in the model.
-        if (selected > 0) {
-            status += QStringLiteral("   ") +
-                      jtfFill(tr_("status.selected"), "count", QString::number(selected));
-        }
+        // One count, not two. Selection and marks are kept in separate stores
+        // inside the model, and the line reported both - 「已選取 10 個
+        // 已標記 10 個」, the same fact twice under two names, because
+        // AGENTS.md 10 makes selecting a row and marking it the same act. The
+        // marks are the set an operation acts on, so that is the one counted.
         if (marked > 0) {
             status += QStringLiteral("   ") +
                       jtfFill(tr_("status.marked"), "count", QString::number(marked));
@@ -2126,20 +2132,17 @@ void PaneWidget::retranslate() {
             status += QStringLiteral("   ") +
                       jtfFill(tr_("status.size"), "size", formatSize(bytes));
         }
-        // Free space comes from Qt, which asks the platform, exactly as the
-        // file icons do. It moves to the platform adapter with the rest of
-        // the native services (docs/PLATFORM_INTEGRATION.md 1).
-        const QString here =
-            jtfText([&](char *b, int l) { return jtf_current_path(m_app, m_pane, b, l); });
-        const QStorageInfo storage(here);
-        if (storage.isValid() && storage.bytesAvailable() > 0) {
-            status += QStringLiteral("   ") +
-                      jtfFill(tr_("status.free"),
-                              "size",
-                              formatSize(static_cast<quint64>(storage.bytesAvailable())));
-        }
+        // No free-space figure here. It is a property of the disk, not of the
+        // folder being looked at, so it said the same thing in every pane on
+        // the same volume - and it was the longest thing on the line, for the
+        // fact least likely to be wanted.
     }
-    m_status->setText(status);
+    // Elided against the room there is, because the label no longer asks for
+    // room to fit it.
+    const QFontMetrics statusMetrics(m_status->font());
+    m_status->setText(
+        statusMetrics.elidedText(status, Qt::ElideRight, qMax(0, m_status->width() - 4)));
+    m_status->setToolTip(status);
 
     // The overlay says the same thing the status line does, in the place the
     // eye is actually looking, and adds the way out. Shown while a search is

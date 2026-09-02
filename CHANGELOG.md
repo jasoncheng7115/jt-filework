@@ -12,6 +12,69 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.2] - 2026-09-02
+
+### Added
+
+- **Writing a disk image to a removable disk.** Only removable, external disks
+  that are not carrying the running system are ever offered; a disk whose
+  properties could not be read does not appear at all. Unmount, write, flush,
+  read back, compare — and the comparison is on by default, because a failing
+  stick and a counterfeit one both accept every write and hand back something
+  else. `authopen` on macOS, so nothing here ever runs as root; `pkexec` on
+  Linux, skipped when the caller already has access.
+- **Folders inside an archive are folders.** Enter or Right descends,
+  Backspace or Left goes up, and a row shows its own name instead of its whole
+  stored path. Folders are derived from the members, because plenty of archives
+  store no directory entries at all.
+- **The copy/move target can be moved from the keyboard** (`Ctrl+Alt+T`), which
+  matters from three panes up, where "the next one" is a choice rather than a
+  fact. It is an offset from the active pane, so it can never name the pane the
+  keyboard is in.
+- **`Q` opens Quick Look** in single-key mode. Space is the system's key for it
+  and is taken here by marking.
+- **Tab fills in a path**, the way a shell does: one match completes it and adds
+  the separator, several fill in as far as they agree and then show the list.
+- **Folders-first is a toolbar toggle**, and off by default.
+- A screenshot gallery on the site, and the pages open a screenshot full size.
+
+### Fixed
+
+- **Space in native mode killed the program.** Quick Look's panel forwarded keys
+  to the key window, which while the panel is open is the panel: the event came
+  straight back into the same handler until the stack ran out.
+- **A new field made every existing session unreadable** — every tab, mark and
+  open folder gone on upgrade, and the status bar said so at every launch.
+- **Rename acted on a stale mark** rather than on the row the cursor was
+  visibly sitting on.
+- **The list showed UTC**, eight hours out here, and disagreed with the
+  inspector beside it by exactly that much.
+- **The header lost all its text** once the pane gained a border radius: the
+  stylesheet style left the painter clipped to nothing.
+- **The cursor outline came apart** when the cursor moved, because only one
+  column of each row was repainted.
+- **Dragging a file across panes resized them all**, and so did marking one more
+  file: a badge and a status line were reaching the splitter with their widths.
+  A long path did the same.
+- **The preview background ignored the colour chosen** — a stylesheet painted
+  over it. It defaults to white now, and the button shows the colour it is set
+  to.
+- The sidebar listed every mounted snap as a full disk.
+- A disabled button in any dialog was drawn as an enabled one.
+- Both languages showed at once on the specification page, and two links in the
+  site's top bar did nothing.
+
+### Changed
+
+- The light theme stopped boxing every pane in a grey border; only the active
+  ring and the target's dashed edge remain.
+- The pane status line counts the marked set once instead of reporting it as
+  both 「已選取」 and 「已標記」, and no longer carries free space — a property of
+  the disk rather than of the folder.
+- An unmeasured folder shows a dash rather than an empty cell.
+- The Chinese on the site and in the Chinese README was rewritten in the
+  author's own register.
+
 ## [0.6.1] - 2026-09-02
 
 ### Added
