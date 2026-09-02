@@ -576,8 +576,12 @@ QTreeView::item:selected:!active { background: %SELDIM%; color: %TEXT%; }
    where two pictures had been joined. It appears only when the pointer is on
    it, which is the only time it is a control. */
 QSplitter::handle { background: %WINDOW%; }
-QSplitter::handle:horizontal { width: 8px; }
-QSplitter::handle:vertical { height: 8px; }
+/* A hairline in the gap, not a bar filling it. Without any line at all the
+   sidebar and the list ran into each other with nothing to say where one
+   ended; with the gap filled it was a seam. One pixel gives the structure and
+   nothing else. */
+QSplitter::handle:horizontal { width: 8px; border-left: 1px solid %BORDER%; }
+QSplitter::handle:vertical { height: 8px; border-top: 1px solid %BORDER%; }
 QSplitter::handle:hover { background: %SELDIM%; }
 QSplitter::handle:pressed { background: %FOCUS%; }
 
