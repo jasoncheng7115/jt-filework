@@ -183,6 +183,27 @@
 - [ ] context menu research
 - [ ] system appearance integration
 
+## P0 — Reported, not yet fixed
+
+- [ ] **Shortcuts are displayed as `Ctrl+…` on macOS where the key is actually
+      Command.** The behaviour is right - Qt maps the portable `Ctrl` to ⌘ - but
+      every place that *prints* the shortcut prints the portable string, so a
+      tooltip says "清單檢視 (Ctrl+2)" for a key that only answers to ⌘2. Six
+      call sites take `jtf_shortcut_for` and show it raw: commandpalette.cpp:92,
+      keyhintbar.cpp:213, mainwindow.cpp:1572 and 2234, shortcutsdialog.cpp:110,
+      settingsdialog.cpp:638. The fix is to render through
+      `QKeySequence(portable).toString(QKeySequence::NativeText)` at each, which
+      gives ⌘2 on macOS and leaves Ctrl+2 everywhere else. Menu items are
+      already correct because Qt renders those itself from the QKeySequence.
+
+- [ ] **The cursor outline still breaks up when moving with the arrow keys.**
+      Reported again after the repaint fix (76e1814), which repaints the whole
+      of the previous and current rows on `currentRowChanged`. Seen as the
+      outline closing at the right edge of the name column instead of the last
+      column, so only column 0 appears to have been repainted. Reproduce on the
+      Linux box with the arrow keys and capture frames - the earlier diagnosis
+      was done that way and guessing at it wasted a build.
+
 ## P0 — Quick Look / Preview
 
 - [x] Native QLPreviewPanel, toggled by the keymap's preview command
