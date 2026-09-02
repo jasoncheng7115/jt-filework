@@ -1050,14 +1050,14 @@ mod tests {
         // And it comes back with the behaviour that session was written under:
         // the next pane along from wherever the keyboard is, wrapping.
         let restored = restored.unwrap();
-        let order = restored.pane_order();
-        let active = order
+        let panes = restored.pane_order();
+        let at = panes
             .iter()
             .position(|id| *id == restored.active_pane_id())
             .unwrap();
         assert_eq!(
             restored.target_pane_id(),
-            Some(order[(active + 1) % order.len()]),
+            Some(panes[(at + 1) % panes.len()]),
             "the default target is not the next pane along"
         );
     }
