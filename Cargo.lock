@@ -1075,6 +1075,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "jtf-imaging"
+version = "0.6.0"
+dependencies = [
+ "jtf-core",
+ "jtf-jobs",
+ "jtf-platform-devices",
+ "serde",
+]
+
+[[package]]
 name = "jtf-jobs"
 version = "0.6.0"
 dependencies = [
@@ -1092,6 +1102,14 @@ dependencies = [
  "jtf-platform-links",
  "jtf-platform-removal",
  "regex",
+ "serde",
+]
+
+[[package]]
+name = "jtf-platform-devices"
+version = "0.6.0"
+dependencies = [
+ "jtf-core",
  "serde",
 ]
 

@@ -22,6 +22,8 @@ members = [
     "src/fs",
     "src/ops",
     "src/platform/links",
+    "src/imaging",
+    "src/platform/devices",
     "src/platform/removal",
     "src/viewer",
     "src/search",
@@ -50,6 +52,8 @@ jtf-workspace = { path = "src/workspace" }
 jtf-fs = { path = "src/fs" }
 jtf-ops = { path = "src/ops" }
 jtf-platform-links = { path = "src/platform/links" }
+jtf-platform-devices = { path = "src/platform/devices" }
+jtf-imaging = { path = "src/imaging" }
 jtf-platform-removal = { path = "src/platform/removal" }
 jtf-viewer = { path = "src/viewer" }
 jtf-commands = { path = "src/commands" }

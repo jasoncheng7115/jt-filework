@@ -181,6 +181,9 @@ const QHash<QString, QString> &commandFiles() {
         {QStringLiteral("file.compress"), QStringLiteral("multiple-pages")},
         {QStringLiteral("file.compare_panes"), QStringLiteral("compare-folders")},
         {QStringLiteral("file.disk_usage"), QStringLiteral("disk-usage")},
+        // The picture is of the port, because that is what the person is
+        // looking at while they decide which disk this is.
+        {QStringLiteral("file.write_image"), QStringLiteral("usb")},
         {QStringLiteral("file.copy_to_target_pane"), QStringLiteral("copy")},
         {QStringLiteral("file.move_to_target_pane"), QStringLiteral("arrow-separate-vertical")},
         // The chooser forms of the same two commands - the single keys C and

@@ -1,0 +1,19 @@
+[package]
+name = "jtf-imaging"
+description = "Writing a disk image to a removable disk, and reading it back to check."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+jtf-core = { workspace = true }
+jtf-jobs = { workspace = true }
+jtf-platform-devices = { workspace = true }
+serde = { workspace = true }
+
+[lints]
+workspace = true

@@ -75,6 +75,8 @@ pub enum JobKind {
     AiRequest,
     /// Running an external agent such as Claude Code or Codex CLI.
     ExternalAgent,
+    /// Writing a disk image to a removable disk.
+    WriteImage,
 }
 
 impl JobKind {
@@ -93,6 +95,12 @@ impl JobKind {
                 | Self::Compress
                 | Self::Extract
                 | Self::ExternalAgent
+                // Not the filesystem, strictly: it destroys the filesystem
+                // that was there. Included because the reason destructive
+                // kinds are logged before they act is so there is a record of
+                // what was destroyed, and nothing this program does destroys
+                // more.
+                | Self::WriteImage
         )
     }
 
@@ -130,6 +138,7 @@ impl JobKind {
             Self::Preview => "jobs.kind.preview",
             Self::AiRequest => "jobs.kind.ai_request",
             Self::ExternalAgent => "jobs.kind.external_agent",
+            Self::WriteImage => "jobs.kind.write_image",
         }
     }
 

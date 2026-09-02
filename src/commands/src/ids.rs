@@ -398,6 +398,9 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
 const DESTRUCTIVE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("file.trash", C::File, "command.file.trash"),
     ("file.delete", C::File, "command.file.delete"),
+    // The most destructive thing in the program: it does not delete a file, it
+    // overwrites a whole disk, and there is no undo and no trash.
+    ("file.write_image", C::File, "command.file.write_image"),
 ];
 
 #[cfg(test)]
