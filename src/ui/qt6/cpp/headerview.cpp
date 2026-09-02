@@ -74,7 +74,17 @@ void JtfHeaderView::paintSection(QPainter *painter, const QRect &rect, int index
     option.section = index;
     option.text = QString();
     option.sortIndicator = QStyleOptionHeader::None;
+    // In a save/restore of its own, because the stylesheet style leaves the
+    // painter clipped and does not always put it back.
+    //
+    // Once the pane gained a border radius, drawing the section left an *empty*
+    // clip region behind - so every stroke after this line was discarded and
+    // the header came up blank: no column names, no sort caret, nothing. The
+    // painter was doing exactly what it was told and none of it reached the
+    // screen. Anything this style does to the painter now ends here.
+    painter->save();
     style()->drawControl(QStyle::CE_Header, &option, painter, this);
+    painter->restore();
 
     const bool sorted = m_caretVisible && index == sortIndicatorSection();
     const QString label = model()->headerData(index, Qt::Horizontal, Qt::DisplayRole).toString();
@@ -142,12 +152,6 @@ void JtfHeaderView::paintSection(QPainter *painter, const QRect &rect, int index
     // so a rect that runs to the edge of the section cannot overflow it.
     const QRect textRect(textLeft, rect.top(), qMax(textWidth, content.right() - textLeft + 1),
                          rect.height());
-    qWarning("JTFHDR idx=%d shown='%s' textRect=%d,%d %dx%d pen=%s clip=%d,%d %dx%d font=%d",
-             index, qPrintable(shown), textRect.x(), textRect.y(), textRect.width(),
-             textRect.height(), qPrintable(painter->pen().color().name(QColor::HexArgb)),
-             painter->clipBoundingRect().toRect().x(), painter->clipBoundingRect().toRect().y(),
-             painter->clipBoundingRect().toRect().width(),
-             painter->clipBoundingRect().toRect().height(), painter->font().pointSize());
     painter->drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, shown);
 
     paintDivider(painter, rect, index);
