@@ -288,6 +288,11 @@ if(APPLE)
             -D "SRC=${JTF_DATA_ROOT}/assets/icon/generated/png"
             -D "DST=$<TARGET_BUNDLE_CONTENT_DIR:jt-filework>/Resources/appicon"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/copy-if-present.cmake"
+        # The master SVG too, which unlike the PNGs is committed, so a
+        # clone always has an icon to show.
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${JTF_DATA_ROOT}/assets/icon/jt-filework.svg"
+            "$<TARGET_BUNDLE_CONTENT_DIR:jt-filework>/Resources/appicon/jt-filework.svg"
         # Empty .lproj directories alongside the declaration above: some of
         # the system's lookups check for a real directory rather than reading
         # Info.plist, and an absent one silently means "not localized".
@@ -324,6 +329,11 @@ else()
             -D "SRC=${JTF_DATA_ROOT}/assets/icon/generated/png"
             -D "DST=$<TARGET_FILE_DIR:jt-filework>/appicon"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/copy-if-present.cmake"
+        # The master SVG too, which unlike the PNGs is committed, so a
+        # clone always has an icon to show.
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${JTF_DATA_ROOT}/assets/icon/jt-filework.svg"
+            "$<TARGET_FILE_DIR:jt-filework>/appicon/jt-filework.svg"
         COMMENT "Copying locales, keymaps and icons beside the executable")
     add_dependencies(jtf_bundle_data jt-filework)
 endif()

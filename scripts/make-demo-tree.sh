@@ -85,9 +85,13 @@ for i in $(seq 1 12); do
   echo "page $i" > "$ROOT/.staging/site/page-$i.html"
 done
 head -c 400000 /dev/urandom > "$ROOT/.staging/site/assets.bin"
-( cd "$ROOT/.staging" && zip -qr "$ROOT/Archives/site-backup-2026-08.zip" site )
-( cd "$ROOT/.staging" && tar czf "$ROOT/Archives/site-backup-2026-08.tar.gz" site )
-( cd "$ROOT/.staging" && tar cJf "$ROOT/Archives/configs.tar.xz" site 2>/dev/null || true )
+# `COPYFILE_DISABLE` and `--no-xattrs`: macOS's tar writes an AppleDouble
+# `._name` beside every entry, and zip writes a `__MACOSX` folder. Both are
+# real, both are noise, and an archive listing full of them says more about
+# the machine that made it than about the program showing it.
+( cd "$ROOT/.staging" && zip -qr -X "$ROOT/Archives/site-backup-2026-08.zip" site )
+( cd "$ROOT/.staging" && COPYFILE_DISABLE=1 tar czf "$ROOT/Archives/site-backup-2026-08.tar.gz" site )
+( cd "$ROOT/.staging" && COPYFILE_DISABLE=1 tar cJf "$ROOT/Archives/configs.tar.xz" site 2>/dev/null || true )
 rm -rf "$ROOT/.staging"
 
 # ---------------------------------------------------------------------- code

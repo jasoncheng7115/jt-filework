@@ -591,32 +591,6 @@ void MainWindow::buildMenus() {
     // ---------------------------------------------------------------- File
     m_fileMenu = menuBar()->addMenu(QString());
     m_translatableMenus.append({m_fileMenu, "menu.file"});
-    command(m_fileMenu, "tab.new", [this] { jtf_new_tab(m_app); });
-    command(m_fileMenu, "tab.close", [this] {
-        const int pane = jtf_active_pane(m_app);
-        jtf_close_tab(m_app, pane, jtf_active_tab(m_app, pane));
-    });
-    command(m_fileMenu, "tab.reopen", [this] {
-        // Reopening is a pane operation with no arguments; the model knows
-        // which tab was closed last.
-        jtf_activate_tab(m_app, jtf_active_pane(m_app), 0);
-    });
-    // `tab.duplicate` was registered, bound to a chord and listed in the
-    // shortcuts window, with nothing behind it - the duplicate itself was
-    // built and reachable only from the tab strip's context menu, so the key
-    // did nothing at all.
-    command(m_fileMenu, "tab.duplicate", [this] {
-        const int pane = jtf_active_pane(m_app);
-        jtf_duplicate_tab(m_app, pane, jtf_active_tab(m_app, pane));
-        refreshAll();
-    });
-    // Pinning was modelled from the beginning and reachable from nowhere.
-    command(m_fileMenu, "tab.pin", [this] {
-        const int pane = jtf_active_pane(m_app);
-        jtf_toggle_tab_pinned(m_app, pane, jtf_active_tab(m_app, pane));
-        refreshAll();
-    });
-    m_fileMenu->addSeparator();
     // Enter on an archive shows what is inside it rather than handing the
     // file to the platform, which is what CV.HLP §四 describes and what the
     // project owner asked for. Anything else opens the ordinary way.
@@ -646,9 +620,9 @@ void MainWindow::buildMenus() {
     m_fileMenu->addSeparator();
     command(m_fileMenu, "file.copy_to_target_pane", [this] { runOperation(OpCopy); });
     command(m_fileMenu, "file.move_to_target_pane", [this] { runOperation(OpMove); });
+    command(m_fileMenu, "file.copy_to", [this] { runOperationTo(ops::Copy); });
+    command(m_fileMenu, "file.move_to", [this] { runOperationTo(ops::Move); });
     m_fileMenu->addSeparator();
-    command(m_fileMenu, "file.reveal", [this] { revealSelection(); });
-    command(m_fileMenu, "file.terminal", [this] { openTerminalHere(); });
     m_fileMenu->addSeparator();
     command(m_fileMenu, "file.trash", [this] { runOperation(OpTrash); });
     command(m_fileMenu, "file.delete", [this] { runOperation(OpDelete); });
@@ -665,13 +639,6 @@ void MainWindow::buildMenus() {
     command(m_editMenu, "file.clipboard.copy", [this] { clipboardPut(false); });
     command(m_editMenu, "file.clipboard.paste", [this] { clipboardPaste(); });
     m_editMenu->addSeparator();
-    command(m_fileMenu, "file.copy_to", [this] { runOperationTo(ops::Copy); });
-    command(m_fileMenu, "file.move_to", [this] { runOperationTo(ops::Move); });
-    command(m_fileMenu, "file.folder_size", [this] { measureFolderSizes(); });
-    command(m_fileMenu, "file.extract", [this] { extractArchive(); });
-    command(m_fileMenu, "file.compress", [this] { compressSelection(); });
-    command(m_fileMenu, "file.compare_panes", [this] { openCompareWindow(); });
-    command(m_fileMenu, "file.disk_usage", [this] { openUsageWindow(QString()); });
     command(m_editMenu, "file.copy_path", [this] { copyText(true); });
     command(m_editMenu, "file.copy_name", [this] { copyText(false); });
     m_editMenu->addSeparator();
@@ -699,14 +666,6 @@ void MainWindow::buildMenus() {
     m_translatableMenus.append({m_viewMenu, "menu.view"});
     command(m_viewMenu, "view.tree", [this] { toggleTree(); });
     command(m_viewMenu, "keymap.toggle", [this] { toggleKeymap(); });
-    command(m_viewMenu, "help.shortcuts", [this] { openShortcuts(); });
-    // On macOS Qt moves an action whose text matches "About..." into the
-    // application menu, which is where a Mac user looks for it; everywhere
-    // else it stays here.
-    command(m_viewMenu, "help.about", [this] {
-        AboutDialog dialog(m_app, this);
-        dialog.exec();
-    })->setMenuRole(QAction::AboutRole);
     command(m_viewMenu, "view.key_hints",
             [this] { setKeyHintsVisible(!m_keyHints->isVisible()); });
     command(m_viewMenu, "view.sort", [this] { showSortMenu(); });
@@ -797,6 +756,54 @@ void MainWindow::buildMenus() {
     command(m_viewMenu, "settings.open", [this] { openSettings(); });
 
     // ------------------------------------------------------------------ Go
+    // ---------------------------------------------------------------- Tabs
+    // Their own menu rather than the head of the File menu: they are about the
+    // window, not about a file, and File had grown to twenty-nine items -
+    // which on a platform that draws its menus in the window came out as a
+    // two-column wall.
+    m_tabMenu = menuBar()->addMenu(QString());
+    m_translatableMenus.append({m_tabMenu, "menu.tabs"});
+    command(m_tabMenu, "tab.new", [this] { jtf_new_tab(m_app); });
+    command(m_tabMenu, "tab.close", [this] {
+        const int pane = jtf_active_pane(m_app);
+        jtf_close_tab(m_app, pane, jtf_active_tab(m_app, pane));
+    });
+    command(m_tabMenu, "tab.reopen", [this] {
+        // Reopening is a pane operation with no arguments; the model knows
+        // which tab was closed last.
+        jtf_activate_tab(m_app, jtf_active_pane(m_app), 0);
+    });
+    // `tab.duplicate` was registered, bound to a chord and listed in the
+    // shortcuts window, with nothing behind it - the duplicate itself was
+    // built and reachable only from the tab strip's context menu, so the key
+    // did nothing at all.
+    command(m_tabMenu, "tab.duplicate", [this] {
+        const int pane = jtf_active_pane(m_app);
+        jtf_duplicate_tab(m_app, pane, jtf_active_tab(m_app, pane));
+        refreshAll();
+    });
+    // Pinning was modelled from the beginning and reachable from nowhere.
+    command(m_tabMenu, "tab.pin", [this] {
+        const int pane = jtf_active_pane(m_app);
+        jtf_toggle_tab_pinned(m_app, pane, jtf_active_tab(m_app, pane));
+        refreshAll();
+    });
+
+    // --------------------------------------------------------------- Tools
+    // The heavier things, each of which opens a window or starts a walk. All
+    // five were being added to the File menu from inside the Edit menu's
+    // block, which is why they arrived at the end of File in no order at all.
+    m_toolsMenu = menuBar()->addMenu(QString());
+    m_translatableMenus.append({m_toolsMenu, "menu.tools"});
+    command(m_toolsMenu, "file.folder_size", [this] { measureFolderSizes(); });
+    command(m_toolsMenu, "file.extract", [this] { extractArchive(); });
+    command(m_toolsMenu, "file.compress", [this] { compressSelection(); });
+    command(m_toolsMenu, "file.compare_panes", [this] { openCompareWindow(); });
+    command(m_toolsMenu, "file.disk_usage", [this] { openUsageWindow(QString()); });
+    m_toolsMenu->addSeparator();
+    command(m_toolsMenu, "file.reveal", [this] { revealSelection(); });
+    command(m_toolsMenu, "file.terminal", [this] { openTerminalHere(); });
+
     m_goMenu = menuBar()->addMenu(QString());
     m_translatableMenus.append({m_goMenu, "menu.go"});
     command(m_goMenu, "nav.back", [this] { jtf_go_back(m_app, jtf_active_pane(m_app)); });
@@ -838,6 +845,20 @@ void MainWindow::buildMenus() {
             jtf_activate_tab(m_app, pane, (jtf_active_tab(m_app, pane) + count - 1) % count);
         }
     });
+
+    // ---------------------------------------------------------------- Help
+    // Its own menu, because that is where every platform's user looks for it.
+    // `About` lived in the View menu with an `AboutRole`, which macOS honours
+    // by moving it into the application menu - and which does nothing at all
+    // anywhere else, so on Linux and Windows it sat among the view settings
+    // and nobody found it.
+    m_helpMenu = menuBar()->addMenu(QString());
+    m_translatableMenus.append({m_helpMenu, "menu.help"});
+    command(m_helpMenu, "help.shortcuts", [this] { openShortcuts(); });
+    command(m_helpMenu, "help.about", [this] {
+        AboutDialog dialog(m_app, this);
+        dialog.exec();
+    })->setMenuRole(QAction::AboutRole);
 }
 
 void MainWindow::quickLookSelection() {

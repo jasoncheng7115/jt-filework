@@ -225,6 +225,9 @@ private:
     QMenu *m_editMenu = nullptr;
     QMenu *m_viewMenu = nullptr;
     QMenu *m_goMenu = nullptr;
+    class QMenu *m_tabMenu = nullptr;
+    class QMenu *m_toolsMenu = nullptr;
+    class QMenu *m_helpMenu = nullptr;
     QList<QPair<QAction *, const char *>> m_translatable;
     // Actions bound to a command id: label from the catalogue, shortcut from
     // the keymap.
