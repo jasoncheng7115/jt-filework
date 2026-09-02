@@ -12,6 +12,75 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.1] - 2026-09-02
+
+### Added
+
+- **Writing a disk image to a removable disk.** The most destructive thing this
+  program does, so the safety is in *which disks are offered* rather than in the
+  confirmation: by the time anyone is reading a dialog they have decided.
+  Enumeration is a whitelist — a disk appears only when the program positively
+  established that it is removable, external and not carrying the running
+  system, and a disk whose properties could not be read does not appear at all.
+  There is no path where "I could not tell" produces a row.
+
+  Each platform is asked in its own terms. macOS via `diskutil`; Linux from
+  `/sys/block` directly, with the disk holding `/` excluded by name because a
+  machine booted from a USB stick has a root filesystem on a genuinely
+  removable disk; Windows via `Get-Disk`, whose `IsBoot` and `IsSystem` answer
+  the question outright — and a missing safety flag reads as "yes, it is the
+  boot disk".
+
+  The privilege is borrowed for the one operation and handed back: `authopen`
+  on macOS, so nothing of ours ever runs as root, and `pkexec` on Linux, which
+  is skipped entirely when the caller already has access.
+
+  It reads the disk back afterwards and compares byte for byte, on by default.
+  A failing stick and a counterfeit one both accept every write and hand back
+  something else, and nothing before that step can tell. A mismatch reports the
+  byte offset. The CRC-32 shown is the one `gzip` and `cksum -a crc32` print,
+  so it can be compared with a published checksum by eye.
+
+- **A screenshot gallery**, fifteen shots taken on the three machines this is
+  built on, each labelled with its platform. "It runs on three platforms" is a
+  claim a reader is entitled to see rather than take.
+
+### Fixed
+
+- **The sidebar listed every mounted snap as a full disk.** An Ubuntu machine
+  with the ordinary set of snaps mounts a dozen read-only squashfs images, and
+  every one of them appeared as a disk that was one hundred per cent full —
+  fourteen red bars burying the two disks the person actually had. The filter
+  had only ever seen macOS: three path prefixes, all of them Apple's. It asks
+  the filesystem type now, because the paths differ per distribution and the
+  answer does not.
+
+- **A disabled button in any dialog was drawn as an enabled one**, and a
+  disabled *default* button as the filled, highlighted one the eye goes to.
+  There was no `:disabled` rule for dialog buttons in the stylesheet at all.
+  Found because the image writer's Write button, which is disabled until a disk
+  has been chosen, was the most inviting control on the screen while it did
+  nothing.
+
+- **The specification page showed both languages at once.** All fourteen index
+  entries rendered twice, English beside Chinese. The language switch hid a
+  language with a single attribute selector, which any class rule outranks, so
+  a component that set its own `display` appeared in both. The rule is inverted
+  now: it hides what is not the current language and never sets a display on a
+  visible element, so no new component can revive it.
+
+- **Two links in the site's top bar did nothing.** Both language versions of a
+  heading carried the same section id, so the browser took the first — the
+  hidden English one — and had no box to scroll to.
+
+- **The shortcut window's title disagreed with the button that opens it.** One
+  said "keyboard shortcuts" and the other "shortcut reference".
+
+### Changed
+
+- The Chinese on both pages and in the Chinese README was rewritten. It read
+  like it had been translated from the English, because it had been.
+
 ## [0.6.0] - 2026-09-01
 
 ### Added

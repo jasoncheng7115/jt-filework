@@ -15,8 +15,8 @@ browse, remote folders over SFTP, and a disc usage report that says which
 
 By Jason Cheng (Jason Tools).
 
-**Status: 0.6.0.** Built and running on macOS (Apple Silicon) and Windows
-(x64). Linux builds from source. 587 tests pass.
+**Status: 0.6.1.** Built and running on macOS (Apple Silicon) and Windows
+(x64). Linux builds from source. 636 tests pass.
 
 ---
 
@@ -86,6 +86,15 @@ way in.
 
 `.7z` and `.rar` are **not** supported, and are not labelled as archives this
 build can open.
+
+### An image onto a USB stick
+
+Only removable, external disks that are not carrying the running system are ever
+offered; a disk whose properties could not be read does not appear at all. The
+order is unmount, write, flush, read back, compare — and the comparison is on by
+default, because a failing stick and a counterfeit one both accept every write
+and hand back something else. The privilege is borrowed for the one operation:
+`authopen` on macOS, so nothing here ever runs as root, and `pkexec` on Linux.
 
 ### Remote folders
 

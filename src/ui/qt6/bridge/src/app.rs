@@ -5268,10 +5268,10 @@ impl App {
 /// Turn an error from the write into something worth showing a person.
 fn burn_failure_key(error: &jtf_core::Error) -> &'static str {
     match error.code() {
-        // Both mean the disk was partly written: the bytes that got there are
-        // there, and saying "cancelled" alone would imply otherwise.
-        jtf_core::ErrorCode::Cancelled | jtf_core::ErrorCode::Io => "imaging.failed_midway",
         jtf_core::ErrorCode::PermissionDenied => "imaging.needs_elevation",
+        // Everything else means the disk was partly written: cancellation, an
+        // I/O failure, a read-back that did not match. The bytes that got there
+        // are there, and saying "cancelled" alone would imply otherwise.
         _ => "imaging.failed_midway",
     }
 }

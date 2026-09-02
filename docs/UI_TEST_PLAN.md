@@ -896,6 +896,43 @@ unbounded growth.
 
 ---
 
+## 19a. Writing a Disk Image — `UI-IMG`
+
+The most destructive thing the program does: no undo, no trash, and the disk
+is gone. The cases below are weighted towards *what is never offered* rather
+than *what the dialog says*, because the dialog is read after the decision.
+
+| ID | Case | Layer |
+|---|---|---|
+| IMG-001 | **The disk carrying the running system is never listed.** Checked on a real machine, on each platform | H1/H5 |
+| IMG-002 | An internal disk is never listed, even when it is not the boot disk — a second SSD is not a write target | H1 |
+| IMG-003 | A disk whose properties could not be read is not listed. "I could not tell" never produces a row | H1 |
+| IMG-004 | A card reader with no card (size zero) is not listed | H1 |
+| IMG-005 | A machine booted from a USB stick does not have that stick offered, though it is genuinely removable | H1 |
+| IMG-006 | Opening the dialog selects nothing, and Write is disabled until a disk is deliberately chosen | H2 |
+| IMG-007 | **A disabled Write button looks disabled** — not painted as the filled default button | H3 |
+| IMG-008 | A disk too small for the image is listed, greyed, with both numbers in the reason | H2 |
+| IMG-009 | The disk holding the image itself is listed, greyed, and says why | H2 |
+| IMG-010 | The warning names the disk by model, not "the selected disk" | H2 |
+| IMG-011 | Each row shows the volumes mounted from it, so two identical sticks are distinguishable | H2 |
+| IMG-012 | Verification is on by default and has to be turned off deliberately | H2 |
+| IMG-013 | The stages are named as they run: unmounting, writing, flushing, verifying | H2 |
+| IMG-014 | Progress is monotonic within a stage and resets to indeterminate when the stage changes | H1/H2 |
+| IMG-015 | A disk that reads back differently fails verification, and the byte offset is reported | H1 |
+| IMG-016 | A disk that wraps around (a counterfeit) fails verification rather than the write | H1 |
+| IMG-017 | An image shorter than its stated length is refused, not half written | H1 |
+| IMG-018 | Cancelling stops the write and says the disk is partly written and unusable — never "cancelled" alone | H2 |
+| IMG-019 | Cancelling before the write begins leaves the disk byte-for-byte unchanged | H1 |
+| IMG-020 | The final write is padded to a whole sector; the reported length is the image's own | H1 |
+| IMG-021 | The CRC-32 shown is the one every other tool prints for the same bytes (check value `0xCBF43926`) | H1 |
+| IMG-022 | The dialog does not close itself on completion — the checksum is why it was opened | H2 |
+| IMG-023 | Declining the authorization prompt is reported as a refusal, not as a disk failure | H2 |
+| IMG-024 | The disk is unmounted before it is opened, not after | H1 |
+| IMG-025 | Asking for the device list twice gives the same disks in the same order | H1 |
+| IMG-026 | On a platform with no implementation the dialog says so, rather than showing an empty list | H2 |
+
+---
+
 ## 20. Session and Recovery — `UI-SESS`
 
 | ID | Case | Layer |

@@ -257,9 +257,9 @@
       <p class="lede">這一版有的功能、讀得懂的格式、每一道上限，數字都在這。
       這一頁是拿來查的，不是拿來讀完的。</p>
     </div>
-    <p class="status" data-lang="en"><strong>0.6.0</strong> — 587 tests pass. Anything not listed
+    <p class="status" data-lang="en"><strong>0.6.1</strong> — 636 tests pass. Anything not listed
       here is not built; the last section says so explicitly.</p>
-    <p class="status" data-lang="zh-tw"><strong>0.6.0</strong> — 587 個測試通過。這一頁沒列到的就是
+    <p class="status" data-lang="zh-tw"><strong>0.6.1</strong> — 636 個測試通過。這一頁沒列到的就是
       沒做，最後一節有清單。</p>
   </div>
 
@@ -271,6 +271,7 @@
     <a href="#operations" data-lang="en"><span class="n">05</span><span>File operations</span></a><a href="#operations" data-lang="zh-tw"><span class="n">05</span><span>檔案操作</span></a>
     <a href="#viewing" data-lang="en"><span class="n">06</span><span>Viewing files</span></a><a href="#viewing" data-lang="zh-tw"><span class="n">06</span><span>檢視檔案</span></a>
     <a href="#formats" data-lang="en"><span class="n">07</span><span>Formats</span></a><a href="#formats" data-lang="zh-tw"><span class="n">07</span><span>支援格式</span></a>
+    <a href="#imaging" data-lang="en"><span class="n">7a</span><span>Writing a disk image</span></a><a href="#imaging" data-lang="zh-tw"><span class="n">7a</span><span>寫入磁碟映像</span></a>
     <a href="#remote" data-lang="en"><span class="n">08</span><span>Remote folders</span></a><a href="#remote" data-lang="zh-tw"><span class="n">08</span><span>遠端資料夾</span></a>
     <a href="#finding" data-lang="en"><span class="n">09</span><span>Finding things</span></a><a href="#finding" data-lang="zh-tw"><span class="n">09</span><span>尋找</span></a>
     <a href="#appearance" data-lang="en"><span class="n">10</span><span>Appearance</span></a><a href="#appearance" data-lang="zh-tw"><span class="n">10</span><span>外觀與語言</span></a>
@@ -285,7 +286,7 @@
   <h2 data-lang="zh-tw">1. 一覽</h2>
   <div class="scroller"><table class="spec">
     <tbody>
-      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.0</td></tr>
+      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.1</td></tr>
       <tr><th data-lang="en">Platforms</th><th data-lang="zh-tw">平台</th>
         <td data-lang="en">macOS 12+ (Apple Silicon and Intel), Windows 10/11 x64, Linux (Qt 6.2+)</td>
         <td data-lang="zh-tw">macOS 12 以上（Apple Silicon 與 Intel）、Windows 10/11 x64、Linux（Qt 6.2 以上）</td></tr>
@@ -297,8 +298,8 @@
         <td data-lang="zh-tw">只有兩者中間的 C ABI 橋接層，每一塊都寫了為什麼安全</td></tr>
       <tr><th data-lang="en">Licence</th><th data-lang="zh-tw">授權</th><td>GPL-3.0-or-later</td></tr>
       <tr><th data-lang="en">Tests</th><th data-lang="zh-tw">測試</th>
-        <td data-lang="en">587 automated, including architecture, migration and hostile-input levels</td>
-        <td data-lang="zh-tw">587 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
+        <td data-lang="en">636 automated, including architecture, migration and hostile-input levels</td>
+        <td data-lang="zh-tw">636 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
       <tr><th data-lang="en">Telemetry</th><th data-lang="zh-tw">遙測</th>
         <td data-lang="en"><span class="no">None.</span> The program makes no network connection you did not ask for</td>
         <td data-lang="zh-tw"><span class="no">沒有。</span>除了你自己要連的，程式不會連去別的地方</td></tr>
@@ -670,6 +671,73 @@
       <tr><th data-lang="en">Anything else</th><th data-lang="zh-tw">其他一切</th>
         <td data-lang="en">Hex, which is always available and never wrong about what a file holds</td>
         <td data-lang="zh-tw">十六進位。什麼檔案都能開，而且顯示的一定是檔案真正的內容</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="anchor" id="imaging"></div>
+  <h2 data-lang="en">7a. Writing a disk image</h2>
+  <h2 data-lang="zh-tw">7a. 把映像檔寫入磁碟</h2>
+  <p data-lang="en">The most destructive thing this program does. Everything on the chosen disk is
+    gone, with no undo and no trash — so the safety is in <em>which disks are offered</em>, not in
+    the dialog. Enumeration is a whitelist: a disk appears only when the program positively
+    established that it is removable, external and not carrying the running system. A disk whose
+    properties could not be read does not appear.</p>
+  <p data-lang="zh-tw">這是這個程式做的最不可逆的事。選到的那顆磁碟上的東西會全部沒有，
+    沒得復原也沒有回收筒。所以安全性放在<em>哪些磁碟會被列出來</em>，不是放在對話框。
+    列表是白名單：程式要能確定那顆是可移除、外接、而且沒裝著現在在跑的系統，才會出現。
+    資料讀不齊的那顆不會出現。</p>
+  <div class="scroller"><table class="spec">
+    <tbody>
+      <tr><th data-lang="en">Sources</th><th data-lang="zh-tw">來源</th>
+        <td data-lang="en">Any file, byte for byte — <code>.iso</code>, <code>.img</code>,
+          <code>.dmg</code>, a raw dump. Nothing is interpreted, so nothing can be misinterpreted</td>
+        <td data-lang="zh-tw">任何檔案，一個位元組都不改：<code>.iso</code>、<code>.img</code>、
+          <code>.dmg</code>、原始 dump。內容完全不解讀，所以也不會解讀錯</td></tr>
+      <tr><th data-lang="en">Offered</th><th data-lang="zh-tw">會列出來的</th>
+        <td data-lang="en">Removable and external only. Never the boot or system disk. Never an
+          internal disk, even one that is neither. Never a disk of size zero</td>
+        <td data-lang="zh-tw">只有可移除的外接磁碟。開機碟跟系統碟一定不列。內建磁碟一定不列，
+          就算它兩個都不是也一樣。容量 0 的不列</td></tr>
+      <tr><th data-lang="en">Refused, and said so</th><th data-lang="zh-tw">擋下來並說原因</th>
+        <td data-lang="en">A disk too small for the image, and the disk the image itself is sitting
+          on. Both are listed with the reason rather than hidden — a disk you expected to see and
+          cannot is worse than one you can see and are told about</td>
+        <td data-lang="zh-tw">裝不下映像檔的，還有映像檔本身就放在上面的那顆。這兩種會列出來並
+          寫原因，不會直接藏起來。你以為會看到卻找不到，比看得到但被告知原因更糟</td></tr>
+      <tr><th data-lang="en">Order</th><th data-lang="zh-tw">順序</th>
+        <td data-lang="en">Unmount, write, flush, reopen, read back and compare. Unmounting first
+          because a mounted filesystem's driver writes to the same sectors</td>
+        <td data-lang="zh-tw">卸下、寫入、等磁碟寫完、重新開啟、讀回來比對。先卸下是因為掛載中的
+          檔案系統驅動程式會寫到同一批磁區</td></tr>
+      <tr><th data-lang="en">Verification</th><th data-lang="zh-tw">核對</th>
+        <td data-lang="en">On by default, byte for byte, and it is the only thing that catches a
+          failing stick or a counterfeit one — both accept every write and hand back something
+          else. A mismatch reports the byte offset</td>
+        <td data-lang="zh-tw">預設開啟，逐位元組比對。快壞掉的隨身碟跟假的隨身碟都是照單全收、
+          讀出來卻是別的東西，只有這一步抓得到。對不上會報出是第幾個位元組</td></tr>
+      <tr><th data-lang="en">Checksum</th><th data-lang="zh-tw">檢查碼</th>
+        <td data-lang="en">CRC-32 (ISO-HDLC), the same number <code>gzip</code> and
+          <code>cksum -a crc32</code> print, so it can be compared with a published one by eye</td>
+        <td data-lang="zh-tw">CRC-32（ISO-HDLC），跟 <code>gzip</code>、
+          <code>cksum -a crc32</code> 印出來的是同一個數字，可以直接跟官方公布的用眼睛比</td></tr>
+      <tr><th data-lang="en">Privilege</th><th data-lang="zh-tw">權限</th>
+        <td data-lang="en">Borrowed for the one operation. macOS uses <code>authopen</code>, so
+          nothing of ours ever runs as root; Linux uses <code>pkexec</code>, and skips the prompt
+          when the caller already has access; Windows needs an elevated process and says so before
+          it starts</td>
+        <td data-lang="zh-tw">只為了這一次操作跟系統借。macOS 用 <code>authopen</code>，
+          我們的程式碼完全不會用 root 跑；Linux 用 <code>pkexec</code>，本來就有權限的話不會問；
+          Windows 需要提權的行程，會在開始前先講</td></tr>
+      <tr><th data-lang="en">Cancelling</th><th data-lang="zh-tw">取消</th>
+        <td data-lang="en">Stops. The disk then holds part of an image and is not usable, which is
+          what it says — there is nothing to put back</td>
+        <td data-lang="zh-tw">會停。磁碟上就只有映像檔的一部分，不能用，程式會直接這樣講。
+          沒有東西可以還原</td></tr>
+      <tr><th data-lang="en">Alignment</th><th data-lang="zh-tw">對齊</th>
+        <td data-lang="en">The final write is padded with zeros to a whole 512-byte sector, which
+          the raw device requires. The reported length is the image's own</td>
+        <td data-lang="zh-tw">最後一次寫入會補 0 補滿 512 位元組的磁區，raw device 要求這樣。
+          回報的長度還是映像檔自己的長度</td></tr>
     </tbody>
   </table></div>
 

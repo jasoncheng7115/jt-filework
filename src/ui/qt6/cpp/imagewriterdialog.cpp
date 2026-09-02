@@ -1,9 +1,11 @@
 #include "imagewriterdialog.h"
 
+#include "devicedelegate.h"
 #include "dialogbuttons.h"
 #include "icons.h"
 #include "jtfstring.h"
 #include "panewidget.h"
+#include "theme.h"
 
 #include <QCheckBox>
 #include <QDialogButtonBox>
@@ -39,23 +41,44 @@ ImageWriterDialog::ImageWriterDialog(JtfApp *app, const QString &image, QWidget 
 
     m_imageSize = static_cast<quint64>(QFileInfo(m_image).size());
 
+    // Asked of the palette the dialog has already inherited rather than of the
+    // system, so this cannot disagree with the window it opened from - which is
+    // what would happen while the theme is set to light on a dark desktop.
+    const bool dark = palette().color(QPalette::Window).lightness() < 128;
+    const Theme theme = Theme::fromApp(m_app, dark);
+
     auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(18, 16, 18, 14);
+    layout->setSpacing(10);
 
     // What is being written. Named in full: an image chosen from a file list
     // an hour ago is not necessarily the one the person now has in mind.
     m_source = new QLabel(this);
     m_source->setTextFormat(Qt::PlainText);
     m_source->setWordWrap(true);
-    m_source->setText(QStringLiteral("%1: %2 (%3)")
-                          .arg(tr_("imaging.source"), QFileInfo(m_image).fileName(),
-                               sizeText(m_imageSize)));
+    m_source->setText(QStringLiteral("%1  ·  %2")
+                          .arg(QFileInfo(m_image).fileName(), sizeText(m_imageSize)));
+    auto *sourceCaption = new QLabel(tr_("imaging.source"), this);
+    sourceCaption->setStyleSheet(
+        QStringLiteral("color: %1; font-size: 12px;").arg(theme.textSecondary.name()));
+    layout->addWidget(sourceCaption);
     layout->addWidget(m_source);
 
-    layout->addWidget(new QLabel(tr_("imaging.target"), this));
+    auto *targetCaption = new QLabel(tr_("imaging.target"), this);
+    targetCaption->setStyleSheet(
+        QStringLiteral("color: %1; font-size: 12px;").arg(theme.textSecondary.name()));
+    layout->addSpacing(4);
+    layout->addWidget(targetCaption);
+
     m_devices = new QListWidget(this);
     // No current row, so there is nothing to confirm by reflex. The Write
     // button is disabled until a disk is deliberately chosen.
     m_devices->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_devices->setUniformItemSizes(false);
+    m_devices->setSpacing(2);
+    auto *rows = new DeviceDelegate(m_devices);
+    rows->setColours(theme.textSecondary, theme.border, theme.error);
+    m_devices->setItemDelegate(rows);
     layout->addWidget(m_devices, 1);
 
     m_verify = new QCheckBox(tr_("imaging.verify"), this);
@@ -65,19 +88,30 @@ ImageWriterDialog::ImageWriterDialog(JtfApp *app, const QString &image, QWidget 
     m_verify->setChecked(true);
     layout->addWidget(m_verify);
 
+    // The sentence someone has to disagree with, and the only one in the
+    // dialog that is styled to be hard to skip. It sits in its own tinted band
+    // rather than being another grey line under the checkbox, where it read as
+    // a caption.
     m_warning = new QLabel(this);
     m_warning->setWordWrap(true);
     m_warning->setTextFormat(Qt::PlainText);
+    m_warning->setStyleSheet(QStringLiteral("color: %1; background: %2; border-left: 3px solid %1;"
+                                            "border-radius: 4px; padding: 8px 10px;")
+                                 .arg(theme.error.name(), theme.rowHover.name()));
+    m_warning->setVisible(false);
     layout->addWidget(m_warning);
 
     m_stage = new QLabel(this);
     m_stage->setTextFormat(Qt::PlainText);
     m_stage->setWordWrap(true);
+    m_stage->setStyleSheet(QStringLiteral("color: %1;").arg(theme.textSecondary.name()));
     layout->addWidget(m_stage);
 
     m_progress = new QProgressBar(this);
     m_progress->setVisible(false);
+    m_progress->setTextVisible(true);
     layout->addWidget(m_progress);
+    layout->addSpacing(2);
 
     auto *buttons = new QDialogButtonBox(this);
     m_refresh = buttons->addButton(tr_("command.view.refresh"), QDialogButtonBox::ResetRole);
@@ -85,6 +119,12 @@ ImageWriterDialog::ImageWriterDialog(JtfApp *app, const QString &image, QWidget 
     m_close = buttons->addButton(QDialogButtonBox::Close);
     dialogs::localizeButtons(buttons, [this](const char *key) { return tr_(key); },
                              palette().color(QPalette::WindowText));
+    // localizeButtons only knows Qt's standard buttons. These two were added
+    // by name, so they are the only ones in the row that would have come up
+    // without a picture while every other button in the program has one.
+    const QColor iconColour = palette().color(QPalette::WindowText);
+    m_refresh->setIcon(glyph::make(glyph::Shape::Reload, iconColour));
+    m_write->setIcon(glyph::forCommand(QStringLiteral("file.write_image"), iconColour));
     layout->addWidget(buttons);
 
     connect(m_refresh, &QPushButton::clicked, this, &ImageWriterDialog::reloadDevices);
@@ -154,25 +194,30 @@ void ImageWriterDialog::reloadDevices() {
         });
         const quint64 size = jtf_device_size(m_app, i);
 
-        QString text = QStringLiteral("%1 — %2").arg(name, sizeText(size));
+        // The second line: how big, how attached, and what is on it right now -
+        // the last of which is how two sticks of the same model are told apart.
+        QStringList detail;
+        detail << sizeText(size);
         if (!busKey.isEmpty()) {
-            text += QStringLiteral(" (%1)").arg(tr_(busKey.toUtf8().constData()));
+            detail << tr_(busKey.toUtf8().constData());
         }
-        // What is on it right now, which is how two identical sticks are told
-        // apart.
         if (!volumes.isEmpty()) {
-            text += QStringLiteral("\n%1").arg(volumes);
+            detail << volumes;
         }
+
+        QString why;
         const bool writable = refusal.isEmpty();
         if (!writable) {
-            QString why = tr_(refusal.toUtf8().constData());
+            why = tr_(refusal.toUtf8().constData());
             why = jtfFill(why, "needed", sizeText(m_imageSize));
             why = jtfFill(why, "available", sizeText(size));
-            text += QStringLiteral("\n%1").arg(why);
         }
-        text += QStringLiteral("\n%1").arg(node);
 
-        auto *row = new QListWidgetItem(text, m_devices);
+        auto *row = new QListWidgetItem(m_devices);
+        row->setData(DeviceDelegate::ModelRole, name);
+        row->setData(DeviceDelegate::DetailRole, detail.join(QStringLiteral(" · ")));
+        row->setData(DeviceDelegate::NodeRole, node);
+        row->setData(DeviceDelegate::RefusalRole, why);
         row->setData(kDeviceIndexRole, i);
         row->setData(kWritableRole, writable);
         row->setIcon(glyph::forCommand(QStringLiteral("file.write_image"),
@@ -204,8 +249,10 @@ void ImageWriterDialog::updateAffordances() {
 
     if (!chosen) {
         m_warning->clear();
+        m_warning->setVisible(false);
         return;
     }
+    m_warning->setVisible(true);
     const int index = row->data(kDeviceIndexRole).toInt();
     const QString name =
         jtfText([&](char *b, int l) { return jtf_device_name(m_app, index, b, l); });
