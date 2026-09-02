@@ -77,7 +77,7 @@ mod tests {
     fn feeding_it_in_pieces_gives_the_same_answer_as_all_at_once() {
         // The image is checksummed a chunk at a time, so this is the property
         // the whole thing rests on.
-        let data: Vec<u8> = (0..10_000).map(|i| (i % 251) as u8).collect();
+        let data: Vec<u8> = (0..10_000_u32).map(|i| u8::try_from(i % 251).unwrap_or(0)).collect();
         let whole = Crc32::of(&data);
         let mut piecewise = Crc32::new();
         for chunk in data.chunks(97) {

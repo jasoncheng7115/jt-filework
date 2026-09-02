@@ -23,7 +23,9 @@ fn scratch(name: &str) -> PathBuf {
 }
 
 fn image_bytes(len: usize) -> Vec<u8> {
-    (0..len).map(|i| (i.wrapping_mul(31) % 251) as u8).collect()
+    (0..len)
+        .map(|i| u8::try_from(i.wrapping_mul(31) % 251).unwrap_or(0))
+        .collect()
 }
 
 fn nothing(_: Progress) {}
