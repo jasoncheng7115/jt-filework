@@ -493,8 +493,12 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
                 // Qt emits for the dragged section first, so the first emission
                 // of a drag names it and the rest of that drag is side effects.
                 if (!m_userResizing || column == 0 || width <= 0) {
+                    qWarning("JTFCOL ignored col=%d w=%d dragging=%d", column, width,
+                             m_userResizing ? 1 : 0);
                     return;
                 }
+                qWarning("JTFCOL resized col=%d w=%d dragging=%d locked=%d", column, width,
+                         m_userResizing ? 1 : 0, m_resizingColumn);
                 if (m_resizingColumn < 0) {
                     m_resizingColumn = column;
                 }
@@ -1307,6 +1311,7 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     // with its release. Between those two, a width change is the user's.
     if (watched == m_view->horizontalHeader()) {
         if (event->type() == QEvent::MouseButtonPress) {
+            qWarning("JTFCOL header press");
             m_userResizing = true;
             m_resizingColumn = -1; // learned from the first section that moves
         } else if (event->type() == QEvent::MouseButtonRelease) {
