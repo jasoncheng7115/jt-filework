@@ -185,28 +185,18 @@
 
 ## P0 — Reported, not yet built
 
-- [ ] **The disc usage window re-walks a folder it has already measured.** The
-      walk produces a tree of everything beneath the root; descending into a
-      subfolder should re-render from that tree, and going back up likewise.
-      Today both restart the scan, so a root that took minutes to measure -
-      185,599 files in the reported case - is paid for again for a folder whose
-      numbers are already known. Walk again only on an explicit refresh, or when
-      asked for somewhere outside what was walked.
-
-- [ ] **The disc usage window's columns cannot be resized.** The header does not
-      offer the drag. The file list's columns do.
-
-- [ ] **The disc usage window's 「取消操作」 button sits flush against the right
-      edge** of the status line, and has no icon while every other button in the
-      program has one.
-
-- [ ] **The path bar's context menu has no 「計算磁碟用量」.** Right-clicking a
-      breadcrumb offers open, open in a tab, open in a window, bookmark, copy
-      path, reveal, terminal - but not the one measurement that is about a
-      folder. The command exists (`file.disk_usage`); it is the menu that is
-      missing it.
-
-
+- [ ] **The disc usage window still walks the first time it descends.** Half
+      done in 0.6.7: a finished walk is now kept, so going back up a level, or
+      returning to any folder already measured, is instant. What still costs a
+      walk is the *first* descent into a subfolder, because `Usage` holds only
+      one level - the children's totals and the kinds beneath the root - and
+      aggregates the rest away as it goes.
+      The complete fix is for the walk to retain a tree: a node per directory
+      with its own total and kind counts, built as the recursion already
+      computes them and currently discards them. Directories are far fewer than
+      files, so the memory is a node per folder rather than per file. That is a
+      change to `src/fs/src/usage.rs` and worth doing deliberately rather than
+      at the end of a long night.
 
 - [ ] **A setting for whether each pane's filter bar is always there or only
       appears when asked for.** Today it is on-demand only: `F` opens it and
@@ -224,18 +214,6 @@
 
 ## P0 — Reported, not yet fixed
 
-- [ ] **The cursor outline still breaks up when moving with the arrow keys.**
-      Reported again after the repaint fix (76e1814), which repaints the whole
-      of the previous and current rows on `currentRowChanged`. Seen as the
-      outline closing at the right edge of the name column instead of the last
-      column, so only column 0 appears to have been repainted. Reproduce on the
-      Linux box with the arrow keys and capture frames - the earlier diagnosis
-      was done that way and guessing at it wasted a build.
-
-## P0 — Quick Look / Preview
-
-- [x] Native QLPreviewPanel, toggled by the keymap's preview command
-- [x] Space is Quick Look on the platform preset, marking on the CView preset
 - [ ] **Linux quick preview: a chain, not one desktop.** GNOME has a Quick Look
       equivalent and most other desktops do not, so this is a list of services
       to try in order, each detected on the bus at runtime:

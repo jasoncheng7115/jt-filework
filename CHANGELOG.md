@@ -12,6 +12,29 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.7] - 2026-09-03
+
+### Fixed
+
+- **The cursor outline had no right-hand side.** The sides of the rectangle are
+  drawn by the cells at the ends of the row, and the end was taken to be the
+  model's last column — but the model carries eleven columns while the list
+  shows four, so the right side was asked of a hidden column and never drawn at
+  all. Every repaint fix aimed at this missed, because the line was not being
+  drawn in the first place. The sides now belong to the first and last *visible*
+  columns.
+- **The disc usage window re-measured a folder it had already walked.** A
+  finished walk is kept now, so stepping back up a level — or returning to any
+  folder already measured — is instant instead of costing the whole walk again.
+  A cancelled walk is not kept: its numbers are partial, and handing those back
+  later as though they were the answer would be worse than walking again.
+- **The disc usage window's columns could not be resized.** They were `Fixed`,
+  which sets the width and also refuses the drag.
+- **Its 「取消操作」 button sat flush against the window frame** and had no icon.
+- **The path bar's context menu had no 計算磁碟用量.** It is the menu you get by
+  right-clicking a folder, and it offered everything except the one measurement
+  that is about a folder.
+
 ## [0.6.6] - 2026-09-03
 
 ### Fixed

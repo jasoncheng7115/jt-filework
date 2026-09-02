@@ -375,6 +375,17 @@ pub struct App {
     comparing: Option<Comparing>,
     /// The disc-usage analysis, if that window is open.
     analysing: Option<Analysing>,
+    /// Folders already measured, and what the walk found.
+    ///
+    /// Walking a large tree costs minutes - 185,599 files in the case that
+    /// prompted this - and stepping back up a level threw the answer away and
+    /// paid for it again. A finished walk is kept so that returning to a folder
+    /// already measured is instant.
+    ///
+    /// Bounded, because each entry holds a level's worth of rows and a session
+    /// that wanders through a disc would otherwise keep every one. Oldest use
+    /// is dropped first.
+    usage_cache: Vec<(PathBuf, Box<jtf_fs::Usage>)>,
     /// Seconds east of UTC, as the platform reports it.
     ///
     /// Set by the UI at startup. Zero until then, which is UTC - wrong, but
@@ -458,6 +469,7 @@ impl App {
             archiving: None,
             comparing: None,
             analysing: None,
+            usage_cache: Vec::new(),
             utc_offset: 0,
             devices: Vec::new(),
             burning: None,
@@ -1252,6 +1264,23 @@ impl App {
         if !root.is_dir() {
             return false;
         }
+        // Already measured: hand back what the walk found rather than walking
+        // again. Stepping back up a level is the case this exists for.
+        if let Some(index) = self.usage_cache.iter().position(|(at, _)| *at == root) {
+            let (at, usage) = self.usage_cache.remove(index);
+            let display = path.to_string();
+            self.usage_cache.push((at, usage.clone()));
+            let (_, canceller) = CancellationToken::new();
+            let (_, updates) = std::sync::mpsc::channel();
+            self.analysing = Some(Analysing {
+                updates,
+                canceller,
+                root: display,
+                outcome: UsageOutcome::Done(usage),
+                progress: jtf_fs::UsageProgress::default(),
+            });
+            return true;
+        }
         let (token, canceller) = CancellationToken::new();
         let (sender, updates) = std::sync::mpsc::channel();
         let display = path.to_string();
@@ -1291,6 +1320,21 @@ impl App {
                     changed = true;
                 }
                 Ok(UsageUpdate::Done(usage)) => {
+                    // Kept, so coming back to this folder is instant. Only a
+                    // complete walk: a cancelled one has partial numbers and
+                    // handing those back later as though they were the answer
+                    // would be worse than walking again.
+                    // A level's worth of rows each; a session that wanders
+                    // must not keep every folder it passed through.
+                    const MAX_REMEMBERED: usize = 24;
+                    if !usage.partial {
+                        let at = PathBuf::from(&job.root);
+                        self.usage_cache.retain(|(other, _)| *other != at);
+                        self.usage_cache.push((at, usage.clone()));
+                        while self.usage_cache.len() > MAX_REMEMBERED {
+                            self.usage_cache.remove(0);
+                        }
+                    }
                     job.outcome = UsageOutcome::Done(usage);
                     return true;
                 }

@@ -209,14 +209,18 @@ UsageWindow::UsageWindow(JtfApp *app, const QString &path, QWidget *parent)
                              palette().color(QPalette::HighlightedText));
         table->setSelectionMode(QAbstractItemView::SingleSelection);
         table->horizontalHeader()->setSectionResizeMode(ColumnName, QHeaderView::Stretch);
-        table->horizontalHeader()->setSectionResizeMode(ColumnShare, QHeaderView::Fixed);
+        // Interactive, not Fixed. `Fixed` sets the width *and* refuses the
+        // drag, so the columns could not be resized at all - the starting
+        // widths below are a starting point, not a decision the window gets to
+        // keep making for the person looking at it.
+        table->horizontalHeader()->setSectionResizeMode(ColumnShare, QHeaderView::Interactive);
         // Narrow: the bar is read as a length against its neighbours, and it
         // does that just as well in 70 pixels. The names are what actually
         // need the room - they are the answer people came for.
         table->horizontalHeader()->resizeSection(ColumnShare, 70);
-        table->horizontalHeader()->setSectionResizeMode(ColumnSize, QHeaderView::Fixed);
+        table->horizontalHeader()->setSectionResizeMode(ColumnSize, QHeaderView::Interactive);
         table->horizontalHeader()->resizeSection(ColumnSize, 100);
-        table->horizontalHeader()->setSectionResizeMode(ColumnFiles, QHeaderView::Fixed);
+        table->horizontalHeader()->setSectionResizeMode(ColumnFiles, QHeaderView::Interactive);
         table->horizontalHeader()->resizeSection(ColumnFiles, 80);
         table->verticalHeader()->setDefaultSectionSize(26);
 
@@ -336,8 +340,14 @@ UsageWindow::UsageWindow(JtfApp *app, const QString &path, QWidget *parent)
     statusLayout->addWidget(m_where, 2);
     m_cancel = new QPushButton(tr_("operation.cancel"), statusRow);
     m_cancel->setVisible(false);
+    // An icon, because every other button in the program has one, and a cross
+    // is what this does: it stops the thing that is running.
+    m_cancel->setIcon(glyph::make(glyph::Shape::Close, palette().color(QPalette::WindowText)));
     connect(m_cancel, &QPushButton::clicked, this, [this] { jtf_usage_cancel(m_app); });
     statusLayout->addWidget(m_cancel);
+    // Off the edge. The status row has no right margin of its own, so the
+    // button sat flush against the window frame with nothing between them.
+    statusLayout->addSpacing(4);
     layout->addWidget(statusRow);
 
     // Up and Down belong to the table; Left, Right, Enter, Backspace and Tab

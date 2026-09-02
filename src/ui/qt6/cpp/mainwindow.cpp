@@ -1587,6 +1587,13 @@ void MainWindow::showCrumbMenu(int paneId, const QString &path, const QPoint &gl
     }
 
     menu.addSeparator();
+    // The one measurement that is about a folder, on the menu that is about a
+    // folder. It was on the Tools menu and the folder tree's menu but not
+    // here, which is the menu you get by right-clicking the folder itself.
+    entry("command.file.disk_usage", QStringLiteral("file.disk_usage"),
+          [this, path] { openUsageWindow(path); });
+
+    menu.addSeparator();
     entry("crumb.copy_path", QStringLiteral("file.copy_path"), [this, path] {
         QGuiApplication::clipboard()->setText(path);
         m_statusIsIdle = false;
