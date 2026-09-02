@@ -1882,14 +1882,18 @@ impl App {
             COLUMN_SIZE => entry.size().map_or_else(
                 || {
                     if entry.kind().is_directory_on_disk() {
-                        // Blank until measured. A folder's size costs a walk
-                        // of everything beneath it, so it is asked for rather
-                        // than assumed (`docs/BASELINE_FEATURES.md`).
+                        // `--` until measured, not blank. A folder's size costs
+                        // a walk of everything beneath it, so it is asked for
+                        // rather than assumed (`docs/BASELINE_FEATURES.md`) -
+                        // but an empty cell reads as "this folder has no size",
+                        // and a column of them reads as the column having
+                        // failed. A dash says there is an answer and it has not
+                        // been asked for, which is what `Z` is for.
                         entry
                             .location()
                             .as_path()
                             .and_then(|path| self.folder_size(path))
-                            .map_or_else(String::new, format_size)
+                            .map_or_else(|| "--".to_string(), format_size)
                     } else {
                         "--".to_string()
                     }

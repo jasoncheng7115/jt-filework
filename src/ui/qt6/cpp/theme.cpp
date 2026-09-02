@@ -175,12 +175,18 @@ QHeaderView::section {
     color: %DIM%;
     padding: 6px 8px;
     border: none;
-    /* One rule under the whole header, not a grid of dividers. A vertical
-       line between every column draws the table's structure instead of its
-       contents, and the columns are already legible from their alignment. */
     border-bottom: 1px solid %BORDER%;
+    /* A divider between the headers, and only between the headers. The rows
+       below keep none: a line between every cell all the way down draws the
+       table's structure instead of its contents. In the header the line is
+       doing something the alignment cannot - saying where one column's
+       clickable strip ends and the next begins, which matters because clicking
+       a header sorts by it. */
+    border-right: 1px solid %BORDER%;
     font-weight: 500;
 }
+/* Nothing to divide it from. */
+QHeaderView::section:last, QHeaderView::section:only-one { border-right: none; }
 QHeaderView::section:hover { color: %TEXT%; background: %HOVER%; }
 /* The sort caret is painted by JtfHeaderView, beside the header text rather
    than at the section's right edge, so it stays next to the word it refers
@@ -230,7 +236,19 @@ QToolButton#JtfTabClose {
 }
 QToolButton#JtfTabClose:hover { background: %SELDIM%; }
 QToolButton#JtfTabClose:pressed { background: %SEL%; }
-QWidget#JtfTabRow { background: %HEADER%; border-bottom: 1px solid %BORDER%; }
+/* The pane is a rounded card, and a stylesheet cannot clip a widget's children
+   to its own border radius - so the two children that sit in the corners are
+   rounded to match. Without this the tab strip and the status line painted
+   square straight over the curve, and the corners looked bitten off.
+
+   6px, not 8: the pane's radius is measured on the outside of a 2px border and
+   these sit inside it. */
+QWidget#JtfTabRow {
+    background: %HEADER%;
+    border-bottom: 1px solid %BORDER%;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+}
 
 /* The active pane. The edge marks it, the tab strip brightens with it, and
    the inactive panes' tabs go quiet so only one strip looks lit at a time. */
@@ -532,7 +550,11 @@ QTreeWidget#JtfPlacesTree::item { padding: 5px 4px; background: transparent; }
 QTreeWidget#JtfPlacesTree::item:selected { background: transparent; color: %ONSEL%; }
 QSplitter#JtfSidebar { background: %PREVIEW%; }
 QLabel#JtfStatus { color: %DIM%; padding: 3px 8px; }
-QWidget#JtfStatusRow { background: transparent; }
+QWidget#JtfStatusRow {
+    background: transparent;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
 /* The heading over each half of the sidebar. Quiet and small: it is a label
    for a column, not a row you can click, and it must not compete with the
    entries under it. */
