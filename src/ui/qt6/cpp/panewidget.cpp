@@ -1310,6 +1310,11 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     // A drag of a column divider starts with a press on the header and ends
     // with its release. Between those two, a width change is the user's.
     if (watched == m_view->horizontalHeader()) {
+        if (event->type() == QEvent::Show || event->type() == QEvent::Resize) {
+            const QRect r(m_view->horizontalHeader()->mapToGlobal(QPoint(0, 0)),
+                          m_view->horizontalHeader()->size());
+            qWarning("JTFCOL header at %d,%d %dx%d", r.x(), r.y(), r.width(), r.height());
+        }
         if (event->type() == QEvent::MouseButtonPress) {
             qWarning("JTFCOL header press");
             m_userResizing = true;
