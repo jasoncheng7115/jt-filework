@@ -1102,6 +1102,9 @@ void PaneWidget::toggleCurrentInSelection() {
     const QItemSelection range(m_model->index(row, 0), m_model->index(row, columns - 1));
     currentView()->selectionModel()->select(range, QItemSelectionModel::Toggle |
                                                        QItemSelectionModel::Rows);
+    // Space is the gesture that means "build a set", so from here the arrow
+    // keys stop dragging the highlight along with them.
+    m_marksAreDeliberate = true;
     advanceCurrentRow();
 }
 
@@ -1132,6 +1135,13 @@ void PaneWidget::syncSelectionFromMarks() {
 
     QVector<int> rows(m_model->rowCount());
     const int count = jtf_marked_rows(m_app, m_pane, rows.data(), rows.size());
+    // This runs for the model's own mark changes - a tick box, "mark all",
+    // "invert", a pattern - and every one of those is somebody building a set
+    // on purpose, so the arrow keys should leave it alone from here. Clearing
+    // the set puts the arrows back to ordinary. A plain click does not come
+    // through here: it changes the selection, which is written out to the
+    // bridge without the model's marks moving.
+    m_marksAreDeliberate = count > 0;
     QItemSelection wanted;
     const int columns = m_model->columnCount();
     for (int i = 0; i < count; ++i) {
@@ -1259,10 +1269,21 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     // sets the mark, because selection is the mark (`AGENTS.md` §10).
     if (watched == m_view && event->type() == QEvent::MouseButtonPress) {
         auto *mouse = static_cast<QMouseEvent *>(event);
-        if (mouse->button() == Qt::LeftButton
-            && (mouse->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier | Qt::MetaModifier))
-                   == Qt::NoModifier) {
+        const bool modified =
+            (mouse->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier | Qt::MetaModifier))
+            != Qt::NoModifier;
+        if (mouse->button() == Qt::LeftButton) {
             const QModelIndex under = m_view->indexAt(mouse->pos());
+            const bool tick = under.isValid() && onCheckBox(under, mouse->pos());
+            // Ctrl-click, Shift-click and the tick box are all ways of saying
+            // "and this one too". A bare click on the row is not: it means
+            // "this one", and it is the gesture that has to leave the arrow
+            // keys behaving like arrow keys.
+            if (modified || tick) {
+                m_marksAreDeliberate = true;
+            } else if (under.isValid()) {
+                m_marksAreDeliberate = false;
+            }
             // Not when the press lands on the tick box. Selection *is* the
             // mark here, so replacing the selection with the pressed row
             // clears every other mark - which is what ticking a second box
@@ -1270,7 +1291,7 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
             //
             // A box is for adding one thing to a set. The row beside it is for
             // choosing one thing. They must not be the same gesture.
-            if (under.isValid() && !onCheckBox(under, mouse->pos())
+            if (!modified && under.isValid() && !tick
                 && !m_view->selectionModel()->isSelected(under)) {
                 m_view->selectionModel()->select(
                     under, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
@@ -1482,7 +1503,14 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     // way every list behaves, moving the highlight with the cursor, because
     // that is what browsing a folder should feel like. Once a set is being
     // built, moving through the list stops destroying it.
-    if (event->type() == QEvent::KeyPress && watched == m_view
+    //
+    // And only when the set was built on purpose. A single click marks the row
+    // it lands on, because selection is the mark - so clicking one file to look
+    // at it used to put the list straight into this mode, and from then on the
+    // arrows moved the thin cursor outline while the highlight stayed behind on
+    // the clicked row. The outline is easy to miss, so it read as the arrow keys
+    // having stopped working at all.
+    if (event->type() == QEvent::KeyPress && watched == m_view && m_marksAreDeliberate
         && jtf_marked_count(m_app, m_pane) > 0) {
         auto *key = static_cast<QKeyEvent *>(event);
         const bool plain =

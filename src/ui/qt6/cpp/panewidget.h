@@ -170,6 +170,9 @@ private:
     class MatchDelegate *m_matches = nullptr;
     /// Guards the selection/mark round trip against itself.
     bool m_syncingSelection = false;
+    // Whether the marked set was built on purpose, or is just the row that
+    // was last clicked. See the arrow-key branch in `eventFilter`.
+    bool m_marksAreDeliberate = false;
     class RowDelegate *m_rows = nullptr;
     /// True only between a press on the column header and its release.
     /// Every column width this widget has applied itself, so a width it did
