@@ -143,7 +143,7 @@ impl Fixture {
         .expect("the transfer could not start")
     }
 
-    fn item(&self, source: Side, bytes: u64, is_directory: bool) -> Item {
+    fn item(source: Side, bytes: u64, is_directory: bool) -> Item {
         Item {
             source,
             destination: None,
@@ -211,7 +211,7 @@ fn a_file_comes_down_with_its_bytes_intact() {
 
     let plan = Plan::build(
         Kind::Copy,
-        vec![f.item(f.remote("payload.bin"), body.len() as u64, false)],
+        vec![Fixture::item(f.remote("payload.bin"), body.len() as u64, false)],
         Some(f.local("")),
     )
     .unwrap();
@@ -232,7 +232,7 @@ fn nothing_is_left_under_the_temporary_name() {
     f.put("thing.bin", b"content");
     let plan = Plan::build(
         Kind::Copy,
-        vec![f.item(f.remote("thing.bin"), 7, false)],
+        vec![Fixture::item(f.remote("thing.bin"), 7, false)],
         Some(f.local("")),
     )
     .unwrap();
@@ -257,7 +257,7 @@ fn a_folder_comes_down_whole() {
 
     let plan = Plan::build(
         Kind::Copy,
-        vec![f.item(f.remote("tree"), 0, true)],
+        vec![Fixture::item(f.remote("tree"), 0, true)],
         Some(f.local("")),
     )
     .unwrap();
@@ -280,7 +280,7 @@ fn a_name_already_taken_is_skipped_or_kept_beside_it() {
 
     let plan = Plan::build(
         Kind::Copy,
-        vec![f.item(f.remote("same.txt"), 15, false)],
+        vec![Fixture::item(f.remote("same.txt"), 15, false)],
         Some(f.local("")),
     )
     .unwrap();
@@ -318,7 +318,7 @@ fn a_move_off_the_server_takes_the_source_away_but_only_after_it_arrives() {
 
     let plan = Plan::build(
         Kind::Move,
-        vec![f.item(f.remote("going.txt"), 10, false)],
+        vec![Fixture::item(f.remote("going.txt"), 10, false)],
         Some(f.local("")),
     )
     .unwrap();
@@ -340,7 +340,7 @@ fn a_file_goes_up_and_can_be_moved_up() {
 
     let copy = Plan::build(
         Kind::Copy,
-        vec![f.item(f.local("rising.txt"), 7, false)],
+        vec![Fixture::item(f.local("rising.txt"), 7, false)],
         Some(f.remote("")),
     )
     .unwrap();
@@ -354,7 +354,7 @@ fn a_file_goes_up_and_can_be_moved_up() {
 
     let moved = Plan::build(
         Kind::Move,
-        vec![f.item(f.local("leaving.txt"), 14, false)],
+        vec![Fixture::item(f.local("leaving.txt"), 14, false)],
         Some(f.remote("")),
     )
     .unwrap();
@@ -375,7 +375,7 @@ fn a_move_within_one_server_is_a_rename_and_moves_no_bytes() {
 
     let plan = Plan::build(
         Kind::Move,
-        vec![f.item(f.remote("staying.txt"), 11, false)],
+        vec![Fixture::item(f.remote("staying.txt"), 11, false)],
         Some(f.remote("over-there")),
     )
     .unwrap();
@@ -402,7 +402,7 @@ fn deleting_on_the_server_removes_a_whole_tree() {
 
     let plan = Plan::build(
         Kind::Delete,
-        vec![f.item(f.remote("doomed"), 0, true)],
+        vec![Fixture::item(f.remote("doomed"), 0, true)],
         None,
     )
     .unwrap();
@@ -422,7 +422,7 @@ fn deleting_on_the_server_removes_a_whole_tree() {
 #[test]
 fn a_symbolic_link_is_refused_rather_than_followed() {
     let f = fixture!("symlink");
-    let mut item = f.item(f.remote("a-link"), 0, false);
+    let mut item = Fixture::item(f.remote("a-link"), 0, false);
     item.is_symlink = true;
 
     let plan = Plan::build(Kind::Copy, vec![item], Some(f.local(""))).unwrap();
@@ -444,7 +444,7 @@ fn a_cancelled_transfer_stops_and_leaves_no_half_file() {
 
     let plan = Plan::build(
         Kind::Copy,
-        vec![f.item(f.remote("large.bin"), big.len() as u64, false)],
+        vec![Fixture::item(f.remote("large.bin"), big.len() as u64, false)],
         Some(f.local("")),
     )
     .unwrap();
