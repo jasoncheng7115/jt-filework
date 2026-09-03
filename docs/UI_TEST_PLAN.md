@@ -1022,6 +1022,28 @@ beside Explorer's, and asked why ours was the odd one out.
 
 ---
 
+## 19c. Transfers to and from a server — `UI-SFTP`
+
+The transfer crate's own tests move real bytes over a real connection
+(`src/transfer/tests/against_a_real_server.rs`, run with `JTF_SFTP_TEST` set).
+These are the cases that live above it, in the window — which is where the
+first two faults actually were, and where a passing library test saw nothing.
+
+| ID | Case | Layer |
+|---|---|---|
+| SFTP-001 | Typing `sftp://user@host/path` into the path bar reaches the server, and does not become a local folder called `sftp:` | H2 |
+| SFTP-002 | `C` on a server file, destination a local folder: the file arrives with its bytes, and the server keeps its copy | H2 |
+| SFTP-003 | `C` on a server folder brings the whole tree, both levels | H2 |
+| SFTP-004 | A name already taken offers 略過 / 兩者都保留 / 取代 / 取消, naming the destination path | H2 |
+| SFTP-005 | Cancelling that dialog leaves the existing file exactly as it was | H2 |
+| SFTP-006 | `M` off a server says first that it is a copy and then a delete, and that an interruption leaves both | H2 |
+| SFTP-007 | A move within one server is a rename: no warning, no bytes moved | H2 |
+| SFTP-008 | Deleting on a server asks the permanent question, never the trash one | H2 |
+| SFTP-009 | A failed or cancelled transfer leaves no `.jtf-part` behind | H2 |
+| SFTP-010 | A move whose source will not delete reports that the file is now in both places | H2 |
+
+---
+
 ## 20. Session and Recovery — `UI-SESS`
 
 | ID | Case | Layer |
