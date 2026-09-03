@@ -286,23 +286,30 @@ mod tests {
         assert!(cache.get(&root).is_some());
 
         // Creating an entry changes the folder's own modification time - but
-        // not necessarily within the same timestamp tick. Unix filesystems
-        // move it immediately; NTFS records directory times coarsely enough
-        // that a write a few microseconds after the measurement can land on
-        // the same value, and FAT is coarser still. So this waits for the
-        // change the cache is supposed to notice, and then checks that it
-        // noticed. Asserting immediately tested the filesystem's clock
-        // resolution rather than the cache.
+        // not necessarily to a *different* value. Linux stamps an inode from
+        // a clock that only advances once per timer tick, so creating `a` and
+        // creating `b` a few microseconds apart are both stamped with the
+        // same instant; NTFS is coarser still and FAT coarser again. So this
+        // waits for the value to move and then checks the cache noticed.
+        // Asserting immediately tested the kernel's clock resolution.
+        //
+        // Each retry creates a *new* entry. Rewriting the same file was the
+        // first attempt and could never work: a directory's mtime moves when
+        // its list of entries changes, and truncating a file already in it
+        // does not change that list. Once two creations landed in one tick
+        // the loop was stuck for its full three seconds and then failed - a
+        // few times in ten on Linux, and almost never on APFS, which is why
+        // it looked fine here and broke there.
         let before = current_mtime(&root);
         write(&root.join("b"), 10);
         let mut waited = std::time::Duration::ZERO;
         let step = std::time::Duration::from_millis(20);
+        let mut nudge = 0;
         while current_mtime(&root) == before && waited < std::time::Duration::from_secs(3) {
             std::thread::sleep(step);
             waited += step;
-            // Touched again: on a filesystem with a coarse clock the first
-            // write may simply be indistinguishable from the measurement.
-            write(&root.join("b"), 11);
+            nudge += 1;
+            write(&root.join(format!("b{nudge}")), 10);
         }
         assert_ne!(
             current_mtime(&root),
