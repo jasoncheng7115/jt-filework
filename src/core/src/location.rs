@@ -381,6 +381,33 @@ mod tests {
         assert_eq!(remote.display_text(), "sftp://jason@host.example:2222/");
     }
 
+    /// A server URL typed into the path bar is a server, not a folder name.
+    ///
+    /// The path bar was the one caller that did not go through
+    /// `parse_display`: it expanded whatever was typed as a local path, so
+    /// `sftp://user@host/srv` became `<current folder>/sftp:/user@host/srv`
+    /// and the breadcrumb showed `sftp:` as a directory. This holds the
+    /// property the path bar now relies on.
+    #[test]
+    fn a_typed_server_url_is_a_remote_location() {
+        for text in [
+            "sftp://jason@127.0.0.1/home/jason/data",
+            "sftp://root@10.0.0.1:2222/var/log",
+            "  sftp://jason@host.example/  ",
+        ] {
+            let location = Location::parse_display(text.trim());
+            assert!(
+                location.is_remote(),
+                "{text:?} was not read as a server; a path bar would send it \
+                 to a folder that does not exist"
+            );
+            assert!(
+                location.as_path().is_none(),
+                "{text:?} came back with a local path"
+            );
+        }
+    }
+
     /// What `display_text` writes, `parse_display` must read.
     ///
     /// These two are the only bridge between a location and the strings the

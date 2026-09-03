@@ -876,6 +876,21 @@ impl App {
     }
 
     pub(crate) fn navigate(&mut self, pane: PaneId, path: &str) {
+        // A server URL is a location, not a path, and must not go through the
+        // expansion below. It used to: `sftp://user@host/srv` was read as a
+        // relative name and joined to the current folder, which produced
+        // `/home/jason/sftp:/user@host/srv` - a local path that does not
+        // exist, with the breadcrumb cheerfully showing `sftp:` as a folder.
+        // `Location::parse_display` is the one thing that reads what the path
+        // bar writes, and the path bar was the one caller not using it.
+        if path.trim_start().starts_with("sftp://") {
+            let location = Location::parse_display(path.trim());
+            if location.is_remote() {
+                self.navigate_to_location(pane, location);
+                return;
+            }
+        }
+
         // What a person types is not yet a path: `~`, `$HOME`, `..` and a
         // bare relative name all have to become one first, or typing `~`
         // navigates to a folder actually named `~`.
