@@ -157,9 +157,22 @@ fn remove_directory(path: &Path) -> Result<(), Error> {
     use std::fs;
 
     let mut directories = Vec::new();
-    let mut stack = vec![path.to_path_buf()];
+    // Depth travels with each directory, so the same bound the descriptor
+    // walk enforces applies here too. Without it this build walked a tree of
+    // any depth: the count bound below stops a *wide* tree and says nothing
+    // about a deep one, and the two are different accidents.
+    let mut stack = vec![(path.to_path_buf(), 0usize)];
 
-    while let Some(dir) = stack.pop() {
+    while let Some((dir, depth)) = stack.pop() {
+        if depth >= MAX_DEPTH {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                format!(
+                    "{}: deeper than {MAX_DEPTH} levels; refusing to keep going",
+                    dir.display()
+                ),
+            ));
+        }
         if directories.len() > 1_000_000 {
             return Err(Error::new(
                 ErrorCode::Unsupported,
@@ -174,7 +187,7 @@ fn remove_directory(path: &Path) -> Result<(), Error> {
                 .or_else(|_| fs::symlink_metadata(entry.path()))
                 .map_err(|e| io_error(&entry.path(), &e))?;
             if meta.is_dir() && !meta.file_type().is_symlink() {
-                stack.push(entry.path());
+                stack.push((entry.path(), depth + 1));
             } else {
                 fs::remove_file(entry.path()).map_err(|e| io_error(&entry.path(), &e))?;
             }

@@ -195,16 +195,30 @@ pub fn check(device: &Device, image: &Path, image_size: u64) -> Result<(), Refus
 /// halfway through writing it, and the failure looks like a hardware fault
 /// rather than the mistake it was.
 fn holds(device: &Device, path: &Path) -> bool {
-    // Compared as absolute paths where possible, because a relative path
-    // compared against a mount point matches nothing and would answer "no".
-    let absolute = path
-        .canonicalize()
-        .unwrap_or_else(|_| std::env::current_dir().map_or_else(|_| path.to_path_buf(), |d| d.join(path)));
+    // Both sides resolved the same way, because comparing a resolved path
+    // against an unresolved one answers "different disk" for two names of the
+    // same place. On macOS `/var` is a link to `/private/var`, so an image
+    // under a resolved `/private/var/...` was held against a mount point
+    // still written `/var/...` and the disk holding the source was offered
+    // for writing.
+    let absolute = resolve(path);
     device.volumes.iter().any(|volume| {
         volume
             .mount_point
             .as_ref()
-            .is_some_and(|mount| under(&absolute, mount))
+            .is_some_and(|mount| under(&absolute, &resolve(mount)))
+    })
+}
+
+/// A path in the form the filesystem itself would give it, as far as it can
+/// be known: links followed if it exists, otherwise made absolute.
+fn resolve(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| {
+        if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            std::env::current_dir().map_or_else(|_| path.to_path_buf(), |d| d.join(path))
+        }
     })
 }
 
@@ -237,6 +251,21 @@ fn unsupported(what: &str) -> Error {
 mod tests {
     use super::*;
 
+    /// A directory that really exists, so `canonicalize` succeeds and the
+    /// comparison is between two paths of the same shape.
+    ///
+    /// Hard-coded `/Volumes/UNTITLED` worked on macOS and quietly did not on
+    /// Windows: a path with a root but no drive letter is not absolute there,
+    /// so the fallback joined it under the working directory and the
+    /// containment check then compared `C:\...\Volumes\UNTITLED` against
+    /// `/Volumes/UNTITLED` and answered "different disk". The test that was
+    /// meant to prove the source is protected proved nothing at all.
+    fn mount(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("jtf-devices-{}-{name}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("mount point");
+        dir
+    }
+
     fn stick(size: u64) -> Device {
         Device {
             node: PathBuf::from("/dev/rdisk4"),
@@ -245,7 +274,7 @@ mod tests {
             bus: Bus::Usb,
             volumes: vec![Volume {
                 label: Some("UNTITLED".into()),
-                mount_point: Some(PathBuf::from("/Volumes/UNTITLED")),
+                mount_point: Some(mount("UNTITLED")),
             }],
         }
     }
@@ -283,22 +312,30 @@ mod tests {
         // Reading the source from the disk being overwritten destroys the
         // source partway through, and looks like a hardware fault.
         let device = stick(8_000_000_000);
-        let source = Path::new("/Volumes/UNTITLED/ubuntu.iso");
+        let source = mount("UNTITLED").join("ubuntu.iso");
+        std::fs::write(&source, b"x").expect("image");
         assert_eq!(
-            check(&device, source, 1_000).unwrap_err(),
+            check(&device, &source, 1_000).unwrap_err(),
             Refusal::HoldsTheSource
         );
+        let _ = std::fs::remove_file(&source);
     }
 
     #[test]
     fn a_mount_point_that_is_only_a_string_prefix_is_a_different_disk() {
-        // /Volumes/USB2 starts with /Volumes/USB and is not on it.
+        // `USB2` starts with `USB` as text and is a different disk. Built from
+        // real directories so the comparison is between paths of the same
+        // shape on every platform - as strings these both passed on Windows
+        // for a reason that had nothing to do with the rule being tested.
         let mut device = stick(8_000_000_000);
         device.volumes = vec![Volume {
             label: None,
-            mount_point: Some(PathBuf::from("/Volumes/USB")),
+            mount_point: Some(mount("USB")),
         }];
-        assert!(check(&device, Path::new("/Volumes/USB2/x.iso"), 1_000).is_ok());
+        let elsewhere = mount("USB2").join("x.iso");
+        std::fs::write(&elsewhere, b"x").expect("image");
+        assert!(check(&device, &elsewhere, 1_000).is_ok());
+        let _ = std::fs::remove_file(&elsewhere);
     }
 
     #[test]

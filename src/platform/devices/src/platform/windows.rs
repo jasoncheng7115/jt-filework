@@ -29,11 +29,18 @@ pub const fn is_supported() -> bool {
 ///
 /// [`ErrorCode::ProviderFailed`] if PowerShell could not be run.
 pub fn list() -> Result<Vec<Device>, Error> {
-    // `-AsArray` so a machine with exactly one removable disk produces a
+    // Forced to an array so a machine with exactly one removable disk gives a
     // one-element array rather than a bare object, which would otherwise need
     // a second parse path that nobody would ever exercise.
-    let script = "Get-Disk | Select-Object Number,FriendlyName,Size,BusType,IsBoot,IsSystem,\
-                  IsOffline,OperationalStatus | ConvertTo-Json -AsArray -Compress";
+    //
+    // Through `@(...)` and `-InputObject`, not `-AsArray`: that switch
+    // arrived in PowerShell 6, and `powershell.exe` on a stock Windows is
+    // Windows PowerShell 5.1. It did not degrade - the whole command failed
+    // with "cannot find a parameter named AsArray", so enumeration returned
+    // an error and the writer offered no disks at all on an ordinary machine.
+    let script = "$d = @(Get-Disk | Select-Object Number,FriendlyName,Size,BusType,IsBoot,\
+                  IsSystem,IsOffline,OperationalStatus); \
+                  ConvertTo-Json -InputObject $d -Compress";
     let json = run(
         "powershell",
         &["-NoProfile", "-NonInteractive", "-Command", script],
@@ -248,11 +255,13 @@ fn json_bool(object: &str, key: &str) -> Option<bool> {
 /// Best effort: not knowing a stick's drive letter makes the warning less
 /// useful, not the write less safe.
 fn volumes_by_disk() -> Vec<(u32, Volume)> {
-    let script = "Get-Partition | ForEach-Object { \
+    // Same array-forcing as `list`, for the same reason: one partition would
+    // otherwise come back as a bare object.
+    let script = "$p = @(Get-Partition | ForEach-Object { \
                   $v = $_ | Get-Volume -ErrorAction SilentlyContinue; \
                   [pscustomobject]@{ Disk = $_.DiskNumber; \
-                  Letter = $_.DriveLetter; Label = $v.FileSystemLabel } } | \
-                  ConvertTo-Json -AsArray -Compress";
+                  Letter = $_.DriveLetter; Label = $v.FileSystemLabel } }); \
+                  ConvertTo-Json -InputObject $p -Compress";
     let Ok(json) = run(
         "powershell",
         &["-NoProfile", "-NonInteractive", "-Command", script],

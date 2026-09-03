@@ -84,6 +84,12 @@ pub fn run(
     watcher: &mut dyn Watcher,
     cancel: &CancellationToken,
 ) -> Result<Report, Error> {
+    // Before the disk is touched at all, not merely before it is opened.
+    // Unmounting is a change to somebody's disk - on Windows it takes the
+    // whole disk offline - and a run cancelled while the confirmation was
+    // still on screen has to leave it exactly as it was.
+    cancel.check()?;
+
     watcher.stage(Stage::Unmounting);
     // A disk with nothing mounted on it is the normal case for a stick that has
     // just been written once already, and is not a failure.
