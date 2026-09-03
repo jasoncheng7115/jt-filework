@@ -291,10 +291,11 @@
       <a class="btn ghost" href="#build" data-lang="zh-tw">開始建置</a>
     </div>
 
-    <p class="status" data-lang="en"><strong>0.6.9</strong> — running on macOS (Apple Silicon) and
-      Windows (x64); Linux builds from source. <code>636</code> tests pass.</p>
-    <p class="status" data-lang="zh-tw"><strong>0.6.9</strong>　macOS（Apple Silicon）跟 Windows（x64）
-      已經在跑，Linux 自己建置。<code>636</code> 個測試通過。</p>
+    <p class="status" data-lang="en"><strong>0.6.20</strong> — runs on macOS, Windows and Linux.
+      Built from source on all three; there are no packaged downloads yet.
+      <code>640</code> tests pass.</p>
+    <p class="status" data-lang="zh-tw"><strong>0.6.20</strong>　macOS、Windows、Linux 三個平台都跑得起來。
+      目前三邊都是自己建置，還沒有打包好的下載。<code>640</code> 個測試通過。</p>
 
     <figure class="shot">
       <img src="site/mac-panes.png" alt="jt-filework showing two panes side by side">
@@ -491,25 +492,39 @@
           <tr><td><code>.tar.bz2</code>, <code>.tar.xz</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
           <tr><td><code>.gz</code>, <code>.bz2</code>, <code>.xz</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
           <tr><td>ISO 9660 <span style="color:var(--dim)">(Joliet, Rock Ridge)</span></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
+          <tr><td><code>.7z</code>, <code>.rar</code></td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
         </tbody>
       </table>
     </div>
 
-    <p class="note" data-lang="en" style="margin-top:22px">Every reader treats its input as hostile.
-      A member whose name would land outside the folder you chose is <strong>refused and
-      reported</strong> — never written, never silently renamed — however it is spelled:
+    <p class="note" data-lang="en" style="margin-top:22px"><strong>Every reader treats what is inside
+      an archive as hostile.</strong><br>
+      <strong>No member escapes the folder you chose.</strong> One that would land outside it is
+      refused and named — never written, never quietly renamed to fit. However it is spelled:
       <code>../</code>, an absolute path, a Windows drive letter, a UNC prefix, backslashes on any
-      platform. Expansion is bounded against bytes that actually arrive, not against what a header
-      claims, because a lying header is what a decompression bomb is.</p>
-    <p class="note" data-lang="zh-tw" style="margin-top:22px">每個讀取器都把輸入當成有問題的來看。檔名跑到你選的資料夾外面，
-      一律<strong>擋下來並回報</strong>，不寫、也不會自己改名。不管它怎麼寫都一樣：<code>../</code>、
-      絕對路徑、Windows 磁碟機代號、UNC 開頭、任何平台的反斜線。解出來的量是照實際讀到的位元組去算，
-      不是照標頭寫的數字，因為標頭會騙人，這就是解壓縮炸彈在做的事。</p>
+      platform.<br>
+      <strong>Expansion is measured against bytes that actually arrive</strong>, not against what a
+      header claims — a lying header is precisely what a decompression bomb is.</p>
+    <p class="note" data-lang="zh-tw" style="margin-top:22px"><strong>壓縮檔裡的東西一律當成有問題的來看。</strong><br>
+      <strong>檔名不會跑出你選的資料夾。</strong>只要解出來會落在資料夾外面，就擋下來並告訴你是哪一個，
+      不寫進去、也不會自己改個名字塞進去。<code>../</code>、絕對路徑、Windows 磁碟機代號、UNC 開頭、
+      任何平台的反斜線，一律同樣處理。<br>
+      <strong>解出來的量照實際讀到的算。</strong>不看標頭寫幾個位元組，因為標頭會騙人 ——
+      那正是解壓縮炸彈的手法。</p>
 
-    <p style="font-size:14.5px;color:var(--dim)" data-lang="en"><code>.7z</code> and
-      <code>.rar</code> are not supported — and are not labelled as archives this build can open.</p>
-    <p style="font-size:14.5px;color:var(--dim)" data-lang="zh-tw"><code>.7z</code> 與
-      <code>.rar</code> 不支援，也不會被列成這版打得開的壓縮檔。</p>
+    <p style="font-size:14.5px;color:var(--dim)" data-lang="en">An unsupported format is not
+      labelled as an archive this build can open, so nothing invites a press of <kbd>Enter</kbd>
+      that cannot work.</p>
+    <p style="font-size:14.5px;color:var(--dim)" data-lang="zh-tw">不支援的格式不會被標成這版打得開的壓縮檔，
+      所以不會有東西引誘你去按 <kbd>Enter</kbd> 然後發現沒用。</p>
+
+    <p class="sub" data-lang="en" style="margin-top:26px">An <code>.iso</code> also goes the other
+      way: <strong>write it to a USB disk</strong> from the file's own context menu. Only removable
+      external disks are offered, the write is confirmed twice with the disk named in full, and what
+      was written is read back and compared before it says it is done.</p>
+    <p class="sub" data-lang="zh-tw" style="margin-top:26px"><code>.iso</code> 也可以反過來走：
+      在檔案上按右鍵就能<strong>寫進 USB 磁碟</strong>。清單只列可移除的外接磁碟，
+      寫入前會確認兩次、兩次都把是哪一顆碟寫清楚，寫完還會整個讀回來比對過才說成功。</p>
   </section>
 
   <section id="keyboard">
@@ -536,8 +551,8 @@
       <div><kbd class="k">O</kbd> New file</div>
       <div><kbd class="k">Space</kbd> Mark, and move on</div>
       <div><kbd class="k">*</kbd> Invert the marks</div>
-      <div><kbd class="k">+</kbd> Mark by pattern</div>
-      <div><kbd class="k">−</kbd> Unmark by pattern</div>
+      <div><kbd class="k">+</kbd> Mark by name pattern, e.g. <code>*.pdf</code></div>
+      <div><kbd class="k">−</kbd> Unmark by name pattern</div>
       <div><kbd class="k">Tab</kbd> The other pane</div>
       <div><span class="k"><kbd>P</kbd> <span class="or">or</span> <kbd>\</kbd></span> Type a path</div>
       <div><kbd class="k">F</kbd> Filter</div>
@@ -566,8 +581,8 @@
       <div><kbd class="k">O</kbd> 新增檔案</div>
       <div><kbd class="k">Space</kbd> 標記並移到下一列</div>
       <div><kbd class="k">*</kbd> 反轉標記</div>
-      <div><kbd class="k">+</kbd> 依樣式標記</div>
-      <div><kbd class="k">−</kbd> 依樣式取消標記</div>
+      <div><kbd class="k">+</kbd> 用檔名樣式標記，例如 <code>*.pdf</code></div>
+      <div><kbd class="k">−</kbd> 用檔名樣式取消標記</div>
       <div><kbd class="k">Tab</kbd> 下一個區域</div>
       <div><span class="k"><kbd>P</kbd> <span class="or">或</span> <kbd>\</kbd></span> 輸入路徑</div>
       <div><kbd class="k">F</kbd> 篩選</div>
@@ -665,14 +680,17 @@
     <p class="sub" data-lang="en">Named here rather than left to be discovered.</p>
     <p class="sub" data-lang="zh-tw">先講清楚，不要讓人自己踩到才知道。</p>
     <ul class="plain" data-lang="en">
-      <li>SFTP writes — upload, download, rename and delete on the server.</li>
+      <li>SFTP writes. The transport can upload, download, rename and delete; the file operations
+        do not use it yet, so copying or moving <em>to</em> a server is not offered. Browsing and
+        reading a server work.</li>
       <li><code>.7z</code> and <code>.rar</code>.</li>
       <li>Quick Look, “reveal in file manager”, eject and external editor on Windows and Linux.
         There is no system equivalent, so those commands are hidden rather than offered and inert.</li>
       <li>Running a typed command over every marked file.</li>
     </ul>
     <ul class="plain" data-lang="zh-tw">
-      <li>SFTP 的寫入：上傳、下載、在伺服器上更名跟刪除。</li>
+      <li>SFTP 的寫入。傳輸層的上傳、下載、更名、刪除都寫好了，但檔案操作還沒接上去，
+        所以還不能複製或搬移<em>到</em>伺服器。瀏覽跟讀取是可以的。</li>
       <li><code>.7z</code> 與 <code>.rar</code>。</li>
       <li>Windows 跟 Linux 上的快速查看、「在檔案管理員中顯示」、退出磁碟、外部編輯器。
         那兩個平台沒有對應的系統機制，所以這些指令直接隱藏，不做按了沒反應的東西。</li>

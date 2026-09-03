@@ -7,6 +7,7 @@
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
+#include <QLocale>
 #include <QFontDatabase>
 #include <QSlider>
 #include <QHBoxLayout>
@@ -253,7 +254,12 @@ void ViewerWindow::updateStatus() {
 
     QStringList parts;
     parts << trKey(QString::fromUtf8(kind));
-    parts << QStringLiteral("%1 bytes").arg(size);
+    // Grouped, and from the catalogue. A raw run of digits is unreadable at
+    // the sizes a hex window deals in - 1073741824 has to be counted with a
+    // finger to be told from 107374182 - and "bytes" was the one word in this
+    // line that was never translated.
+    parts << jtfFill(tr_("viewer.bytes"), "count",
+                     QLocale().toString(static_cast<qulonglong>(size)));
     if (jtf_viewer_is_text(m_app)) {
         parts << trKey(QString::fromUtf8(encoding));
         parts << trKey(QString::fromUtf8(endings));

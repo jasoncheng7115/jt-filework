@@ -266,9 +266,9 @@
       <p class="lede">這一版有的功能、讀得懂的格式、每一道上限，數字都在這。
       這一頁是拿來查的，不是拿來讀完的。</p>
     </div>
-    <p class="status" data-lang="en"><strong>0.6.9</strong> — 636 tests pass. Anything not listed
+    <p class="status" data-lang="en"><strong>0.6.20</strong> — 640 tests pass. Anything not listed
       here is not built; the last section says so explicitly.</p>
-    <p class="status" data-lang="zh-tw"><strong>0.6.9</strong> — 636 個測試通過。這一頁沒列到的就是
+    <p class="status" data-lang="zh-tw"><strong>0.6.20</strong> — 640 個測試通過。這一頁沒列到的就是
       沒做，最後一節有清單。</p>
   </div>
 
@@ -295,7 +295,7 @@
   <h2 data-lang="zh-tw">1. 一覽</h2>
   <div class="scroller"><table class="spec">
     <tbody>
-      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.9</td></tr>
+      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.20</td></tr>
       <tr><th data-lang="en">Platforms</th><th data-lang="zh-tw">平台</th>
         <td data-lang="en">macOS 12+ (Apple Silicon and Intel), Windows 10/11 x64, Linux (Qt 6.2+)</td>
         <td data-lang="zh-tw">macOS 12 以上（Apple Silicon 與 Intel）、Windows 10/11 x64、Linux（Qt 6.2 以上）</td></tr>
@@ -307,8 +307,8 @@
         <td data-lang="zh-tw">只有兩者中間的 C ABI 橋接層，每一塊都寫了為什麼安全</td></tr>
       <tr><th data-lang="en">Licence</th><th data-lang="zh-tw">授權</th><td>GPL-3.0-or-later</td></tr>
       <tr><th data-lang="en">Tests</th><th data-lang="zh-tw">測試</th>
-        <td data-lang="en">636 automated, including architecture, migration and hostile-input levels</td>
-        <td data-lang="zh-tw">636 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
+        <td data-lang="en">640 automated, including architecture, migration and hostile-input levels</td>
+        <td data-lang="zh-tw">640 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
       <tr><th data-lang="en">Telemetry</th><th data-lang="zh-tw">遙測</th>
         <td data-lang="en"><span class="no">None.</span> The program makes no network connection you did not ask for</td>
         <td data-lang="zh-tw"><span class="no">沒有。</span>除了你自己要連的，程式不會連去別的地方</td></tr>
@@ -434,10 +434,17 @@
 
   <h3 data-lang="en">Native mode</h3>
   <h3 data-lang="zh-tw">原生模式</h3>
-  <p data-lang="en">The operating system's own combinations, for when muscle memory says
-    <kbd>Cmd-C</kbd>. Switching between the two profiles is one chord, and that chord is the same in
-    both — a switch that only exists in the mode you left is a door that locks behind you.</p>
-  <p data-lang="zh-tw">作業系統自己的組合鍵，給習慣按「Cmd-C」的人。兩套設定檔用一個組合鍵切換，兩邊都是同一個；
+  <p data-lang="en">The operating system's own combinations, for when muscle memory reaches for the
+    copy chord your platform taught you — <kbd>Cmd-C</kbd> on macOS, <kbd>Ctrl-C</kbd> on Windows and
+    Linux. The same profile follows that convention throughout, so it is your machine's shortcuts
+    rather than a translation of somebody else's.</p>
+  <p data-lang="en">Switching is live: one chord, no restart, nothing reloaded, and it is the same
+    chord in both modes — a switch that only exists in the mode you left is a door that locks behind
+    you.</p>
+  <p data-lang="zh-tw">作業系統自己的組合鍵，給習慣按平台原本那組複製鍵的人 —— macOS 是
+    <kbd>Cmd-C</kbd>，Windows 跟 Linux 是 <kbd>Ctrl-C</kbd>。整套設定檔都照你這台機器的慣例走，
+    不是把別的平台那套翻譯過來。</p>
+  <p data-lang="zh-tw">切換是即時的：按一個組合鍵就換，不用重開、也不用重新載入，而且兩邊用的是同一個組合鍵；
     只在其中一邊有的開關，等於一扇會在背後鎖上的門。</p>
   <div class="anchor" id="layout"></div>
   <h2 data-lang="en">3. Panes, tabs and windows</h2>
@@ -601,9 +608,10 @@
   </div>
   <p data-lang="en"><strong>Text encodings:</strong> detected from the byte-order mark and then from
     the content, and selectable by hand — UTF-8, UTF-16 LE and BE, Big5, GB18030, Shift-JIS, EUC-KR,
-    Latin-1. Line endings (LF, CRLF, CR) are detected and reported rather than normalised away.</p>
+    Latin-1. Line endings (LF, CRLF, CR) are identified and shown in the status line; the file keeps
+    whichever it has, and is never converted to another.</p>
   <p data-lang="zh-tw"><strong>文字編碼：</strong>先看位元組順序記號、再看內容自動偵測，也可以自己指定：UTF-8、UTF-16 LE 與 BE、Big5、GB18030、Shift-JIS、EUC-KR、Latin-1。
-      換行字元（LF、CRLF、CR）會偵測出來並顯示，不會被偷偷統一掉。</p>
+      換行符號（LF、CRLF、CR）會判讀出來並顯示在狀態列，檔案本身維持原樣，不會被轉成另一種。</p>
   <p data-lang="en"><strong>Quick Look</strong> on macOS is the real system panel, the same one
     Finder shows. Windows and Linux have no equivalent, so the command is hidden there rather than
     offered and inert.</p>
@@ -1030,8 +1038,11 @@
   <div class="scroller"><table class="spec">
     <tbody>
       <tr><th data-lang="en">SFTP writes</th><th data-lang="zh-tw">SFTP 寫入</th>
-        <td data-lang="en">Upload, download, remote rename, remote delete</td>
-        <td data-lang="zh-tw">上傳、下載、在伺服器上更名與刪除</td></tr>
+        <td data-lang="en">The transport implements upload, download, rename and delete; the file
+          operations do not call it yet, so copying or moving <em>to</em> a server is not offered.
+          Browsing and reading work</td>
+        <td data-lang="zh-tw">傳輸層的上傳、下載、更名、刪除都寫好了，但檔案操作還沒接上去，
+          所以還不能複製或搬移<em>到</em>伺服器。瀏覽跟讀取可以</td></tr>
       <tr><th><code>.7z</code> · <code>.rar</code></th>
         <td data-lang="en">Neither reading nor writing</td><td data-lang="zh-tw">讀寫都沒有</td></tr>
       <tr><th data-lang="en">Windows and Linux platform services</th><th data-lang="zh-tw">Windows 與 Linux 的平台服務</th>
