@@ -1,5 +1,7 @@
 #include "theme.h"
 
+#include "icons.h"
+
 namespace {
 QColor tokenColour(const JtfApp *app, bool dark, int token) {
     return QColor::fromRgba(jtf_theme_color(app, dark ? 1 : 0, token));
@@ -463,6 +465,12 @@ QComboBox::drop-down {
 }
 QComboBox::drop-down:hover { background: %HOVER%; border-top-right-radius: 5px;
                              border-bottom-right-radius: 5px; }
+/* Styling `::drop-down` above hands the whole control to the stylesheet
+   style, which draws no indicator of its own. Without this the combo has a
+   box, a value and an empty 24px cell, which is exactly what a read-only text
+   field looks like - and the settings dialog was full of them. */
+QComboBox::down-arrow { image: url("%CHEVRON%"); width: 11px; height: 11px; }
+QComboBox::down-arrow:disabled { image: url("%CHEVRONDIM%"); }
 QComboBox QAbstractItemView {
     background: %PANE%;
     color: %TEXT%;
@@ -837,5 +845,7 @@ QMenu::separator { height: 1px; background: %BORDER%; margin: 4px 8px; }
         // those surfaces are opposites.
         .replace(QStringLiteral("%PANERING%"), hex(indicator))
         .replace(QStringLiteral("%MARK%"), hex(mark))
-        .replace(QStringLiteral("%ERROR%"), hex(error));
+        .replace(QStringLiteral("%ERROR%"), hex(error))
+        .replace(QStringLiteral("%CHEVRONDIM%"), glyph::stylesheetImage(glyph::Shape::ArrowDown, border, 11))
+        .replace(QStringLiteral("%CHEVRON%"), glyph::stylesheetImage(glyph::Shape::ArrowDown, textSecondary, 11));
 }

@@ -7,6 +7,7 @@
 #include <QHash>
 #include <QPainter>
 #include <QPixmap>
+#include <QStandardPaths>
 #include <QStringList>
 #include <QSvgRenderer>
 
@@ -334,6 +335,34 @@ QIcon forCommand(const QString &id, const QColor &colour) {
     // boxes beside the commands nobody has drawn yet is worse than a menu
     // where only some rows carry a picture.
     return renderIcon(tintedFile(commandFiles().value(id), colour), colour, false);
+}
+
+QString stylesheetImage(Shape shape, const QColor &colour, int size) {
+    const QString cache = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+    if (cache.isEmpty()) {
+        return {};
+    }
+    const QString dir = cache + QStringLiteral("/stylesheet-glyphs");
+    if (!QDir().mkpath(dir)) {
+        return {};
+    }
+    // Keyed by everything that changes the picture, so switching theme picks
+    // up a different file rather than a stale one, and switching back does
+    // not re-render.
+    const QString path = QStringLiteral("%1/%2-%3-%4.png")
+                             .arg(dir)
+                             .arg(static_cast<int>(shape))
+                             .arg(colour.name(QColor::HexRgb).mid(1))
+                             .arg(size);
+    if (!QFile::exists(path)) {
+        // Rendered at three times the size it is drawn at, so it stays clean
+        // on a scaled display; the stylesheet gives the width and height.
+        QPixmap pixmap = make(shape, colour).pixmap(QSize(size, size) * 3);
+        if (pixmap.isNull() || !pixmap.save(path, "PNG")) {
+            return {};
+        }
+    }
+    return path;
 }
 
 bool hasCommandIcon(const QString &id) { return commandFiles().contains(id); }

@@ -70,6 +70,22 @@ QIcon make(Shape shape, const QColor &colour);
 // because it teaches the wrong association.
 QIcon forCommand(const QString &id, const QColor &colour);
 
+// A tinted glyph written out as a file, for a stylesheet's `url()`.
+//
+// Qt draws no arrow of its own once `QComboBox::drop-down` is styled - the
+// stylesheet style takes over the whole control and has no image to draw - so
+// every combo in the settings dialog read as a flat text box with no way to
+// tell it opened. The arrow cannot come from `QIcon`: a stylesheet takes a
+// path, not an object, and it cannot come from the SVG directly either,
+// because those are stroked in `currentColor` and a stylesheet gives them no
+// colour to inherit.
+//
+// So the tinted PNG is written once per shape, colour and size into the
+// application's cache directory and the path handed to the sheet. Returns an
+// empty string if it cannot be written, which leaves the sheet without an
+// image rather than with a broken one.
+QString stylesheetImage(Shape shape, const QColor &colour, int size);
+
 // Whether a command has an icon at all.
 bool hasCommandIcon(const QString &id);
 

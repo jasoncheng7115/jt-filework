@@ -37,7 +37,7 @@ pub use session::{
     app_version, FontSettings, RestoreOnLaunch, RestoreOutcome, Restored, Session, SessionSettings,
     SESSION_FORMAT_VERSION,
 };
-pub use sorting::{sort_entries, sort_entries_with};
+pub use sorting::{natural_key, sort_entries, sort_entries_with};
 pub use tab::Tab;
 pub use tree::{Orientation, WorkspaceNode, MAX_SPLIT_DEPTH};
 pub use view::{
