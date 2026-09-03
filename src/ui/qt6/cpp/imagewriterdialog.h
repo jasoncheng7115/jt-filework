@@ -25,6 +25,7 @@
 #include "bridge.h"
 
 #include <QDialog>
+#include <QElapsedTimer>
 #include <QString>
 
 class QCheckBox;
@@ -50,6 +51,8 @@ private:
     void startWrite();
     void pump();
     void showOutcome();
+    /// The elapsed time and the current rate, as one line.
+    void updateRate();
     QString sizeText(quint64 bytes) const;
 
     JtfApp *m_app = nullptr;
@@ -65,6 +68,15 @@ private:
     QPushButton *m_write = nullptr;
     QPushButton *m_refresh = nullptr;
     QPushButton *m_close = nullptr;
+    /// Stops a write that is under way. Only ever visible while one is.
+    QPushButton *m_cancel = nullptr;
+    /// How long it has been going and how fast, to the right of the bar.
+    QLabel *m_rate = nullptr;
     QTimer *m_pump = nullptr;
     bool m_running = false;
+    /// Set once Stop has been pressed, so the label can say so and the button
+    /// does not invite a second press at something already stopping.
+    bool m_cancelling = false;
+    /// When the write started, for the elapsed time and the rate.
+    QElapsedTimer m_since;
 };

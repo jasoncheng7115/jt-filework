@@ -37,6 +37,7 @@
 )]
 
 mod app;
+mod hexedit;
 mod ffi;
 mod operations;
 

@@ -287,6 +287,8 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
         emit stateChanged();
     });
     connect(m_header, &JtfHeaderView::markAllToggled, this, [this](bool wanted) {
+        // Ticking the header's box is building a set.
+        m_marksAreDeliberate = wanted;
         // 0 marks every listed entry, 1 clears them - the same two actions the
         // Edit menu offers, so there is one implementation of "all".
         jtf_mark_listed(m_app, m_pane, wanted ? 0 : 1);
@@ -1090,6 +1092,10 @@ constexpr int kGridIconEdge = 72;
 
 } // namespace
 
+void PaneWidget::markSetIsDeliberate() {
+    m_marksAreDeliberate = true;
+}
+
 void PaneWidget::toggleCurrentInSelection() {
     // Through the selection, because the selection is what the tick shows.
     // `Toggle | Rows` adds the row if it is out and removes it if it is in,
@@ -1144,13 +1150,21 @@ void PaneWidget::syncSelectionFromMarks() {
 
     QVector<int> rows(m_model->rowCount());
     const int count = jtf_marked_rows(m_app, m_pane, rows.data(), rows.size());
-    // This runs for the model's own mark changes - a tick box, "mark all",
-    // "invert", a pattern - and every one of those is somebody building a set
-    // on purpose, so the arrow keys should leave it alone from here. Clearing
-    // the set puts the arrows back to ordinary. A plain click does not come
-    // through here: it changes the selection, which is written out to the
-    // bridge without the model's marks moving.
-    m_marksAreDeliberate = count > 0;
+    // Only ever *clears* the flag. It cannot set it.
+    //
+    // This runs whenever the model's marks change, which includes a re-listing
+    // restoring the marks that were already there - and the folder poll
+    // re-lists a second after any change on disk. So a plain click, which
+    // marks the row it lands on because selection is the mark, came back
+    // through here a moment later looking like a set built on purpose, and
+    // the arrow keys quietly stopped carrying the highlight again.
+    //
+    // Being deliberate is a property of the gesture, so it is set at the
+    // gestures - Space, a tick box, Ctrl- or Shift-click, mark all, invert,
+    // by pattern - and never inferred from the marks existing.
+    if (count == 0) {
+        m_marksAreDeliberate = false;
+    }
     QItemSelection wanted;
     const int columns = m_model->columnCount();
     for (int i = 0; i < count; ++i) {

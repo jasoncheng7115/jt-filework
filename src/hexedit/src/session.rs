@@ -308,17 +308,27 @@ impl Session {
         if bytes.is_empty() {
             return Ok(());
         }
-        // Typing over a selection replaces it, which is what every editor
-        // does and what makes "select and retype" work.
+        if self.mode == Mode::ReadOnly {
+            return Ok(());
+        }
+        // Typing over a selection replaces exactly that selection, in either
+        // mode. The mode says what an unaided keystroke does - push in, or
+        // land on the byte under the cursor - and once a range has been
+        // marked out, the range is the answer to "how much".
+        //
+        // Applying the mode as well was wrong and looked right in insert
+        // mode, where the two happen to agree. In overwrite mode replacing
+        // one selected byte deleted it and then overwrote the *next* one, so
+        // a replace-all over `aXaXaX` turned it into `bbb`.
         if let Some(selection) = self.selection() {
             self.history.delete(selection.start(), selection.len())?;
             self.cursor = selection.start();
             self.anchor = None;
-        }
-        match self.mode {
-            Mode::ReadOnly => return Ok(()),
-            Mode::Overwrite => self.history.overwrite(self.cursor, bytes)?,
-            Mode::Insert => self.history.insert(self.cursor, bytes),
+            self.history.insert(self.cursor, bytes);
+        } else if self.mode == Mode::Overwrite {
+            self.history.overwrite(self.cursor, bytes)?;
+        } else {
+            self.history.insert(self.cursor, bytes);
         }
         self.cursor += bytes.len() as u64;
         self.pending_nibble = None;
@@ -585,6 +595,29 @@ mod tests {
         assert_eq!(all(&mut s), b"01--56789");
         assert!(s.selection().is_none());
         assert_eq!(s.cursor(), 4);
+    }
+
+    #[test]
+    fn a_selection_is_replaced_by_exactly_the_new_bytes_in_overwrite_mode_too() {
+        // Overwrite mode used to delete the selection and then overwrite what
+        // followed it, eating a byte per replacement.
+        let mut s = session("selover", b"aXaXaX");
+        s.set_mode(Mode::Overwrite);
+        s.move_to(0, false);
+        s.move_to(1, true);
+        s.write(b"b").unwrap();
+        assert_eq!(all(&mut s), b"bXaXaX");
+        assert_eq!(Session::len(&s), 6, "the file changed length");
+    }
+
+    #[test]
+    fn replacing_a_selection_with_more_bytes_grows_by_the_difference() {
+        let mut s = session("selgrow", b"0123456789");
+        s.set_mode(Mode::Overwrite);
+        s.move_to(2, false);
+        s.move_to(5, true);
+        s.write(b"ABCDE").unwrap();
+        assert_eq!(all(&mut s), b"01ABCDE56789");
     }
 
     #[test]

@@ -49,6 +49,10 @@ public:
     QList<int> selectedRows() const;
     /// Add or remove the cursor's row from the selection, then step down.
     void toggleCurrentInSelection();
+    /// Say that the marked set was built on purpose, so the arrow keys stop
+    /// carrying the highlight and leave it alone. Called by the mark commands;
+    /// see the arrow-key branch in `eventFilter`.
+    void markSetIsDeliberate();
     /// Put the keyboard in the file list.
     void focusList();
     void openCurrentRow();

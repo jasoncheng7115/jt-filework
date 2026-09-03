@@ -111,12 +111,30 @@ ImageWriterDialog::ImageWriterDialog(JtfApp *app, const QString &image, QWidget 
     m_progress = new QProgressBar(this);
     m_progress->setVisible(false);
     m_progress->setTextVisible(true);
-    layout->addWidget(m_progress);
+    // Beside the bar rather than under it. A proportion answers "how far",
+    // and the two questions a person actually has while watching a disk being
+    // written are "how long has this been going" and "is it moving at all" -
+    // a bar that has not visibly moved for thirty seconds looks identical to
+    // one that has stopped.
+    m_rate = new QLabel(this);
+    m_rate->setTextFormat(Qt::PlainText);
+    m_rate->setVisible(false);
+    m_rate->setStyleSheet(QStringLiteral("color: %1;").arg(theme.textSecondary.name()));
+    // Its width must not push the bar around as the numbers change.
+    m_rate->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    auto *progressRow = new QHBoxLayout;
+    progressRow->setContentsMargins(0, 0, 0, 0);
+    progressRow->setSpacing(10);
+    progressRow->addWidget(m_progress, 1);
+    progressRow->addWidget(m_rate, 0);
+    layout->addLayout(progressRow);
     layout->addSpacing(2);
 
     auto *buttons = new QDialogButtonBox(this);
     m_refresh = buttons->addButton(tr_("command.view.refresh"), QDialogButtonBox::ResetRole);
     m_write = buttons->addButton(tr_("imaging.confirm"), QDialogButtonBox::AcceptRole);
+    m_cancel = buttons->addButton(tr_("imaging.cancel"), QDialogButtonBox::DestructiveRole);
+    m_cancel->setVisible(false);
     m_close = buttons->addButton(QDialogButtonBox::Close);
     dialogs::localizeButtons(buttons, [this](const char *key) { return tr_(key); },
                              palette().color(QPalette::WindowText));
@@ -126,16 +144,27 @@ ImageWriterDialog::ImageWriterDialog(JtfApp *app, const QString &image, QWidget 
     const QColor iconColour = palette().color(QPalette::WindowText);
     m_refresh->setIcon(glyph::make(glyph::Shape::Reload, iconColour));
     m_write->setIcon(glyph::forCommand(QStringLiteral("file.write_image"), iconColour));
+    m_cancel->setIcon(glyph::make(glyph::Shape::Close, iconColour));
     layout->addWidget(buttons);
 
     connect(m_refresh, &QPushButton::clicked, this, &ImageWriterDialog::reloadDevices);
     connect(m_write, &QPushButton::clicked, this, &ImageWriterDialog::startWrite);
+    connect(m_cancel, &QPushButton::clicked, this, [this] {
+        if (!m_running || m_cancelling) {
+            return;
+        }
+        // Stopping leaves the disk partly written. The pump reports that as a
+        // failure with the wording that says so, rather than the dialog
+        // closing as though nothing had happened.
+        m_cancelling = true;
+        jtf_write_cancel(m_app);
+        updateAffordances();
+    });
     connect(m_close, &QPushButton::clicked, this, [this] {
         if (m_running) {
-            // Cancelling leaves the disk partly written. The pump reports that
-            // as a failure with the wording that says so, rather than the
-            // dialog closing as though nothing had happened.
-            jtf_write_cancel(m_app);
+            // Cannot happen - Close is disabled while a write is running -
+            // but a window that could be closed mid-write by a stray Escape
+            // would leave a half-written disk and no report of it.
             return;
         }
         jtf_write_close(m_app);
@@ -247,6 +276,15 @@ void ImageWriterDialog::updateAffordances() {
     m_write->setAutoDefault(ready);
     m_refresh->setEnabled(!m_running);
     m_verify->setEnabled(!m_running);
+    m_devices->setEnabled(!m_running);
+    // Close is not available while a disk is being written. It would leave
+    // the disk half written with the window gone and nothing to say so; the
+    // way out of a running write is Stop, which says what it does and reports
+    // the state the disk is left in.
+    m_close->setEnabled(!m_running);
+    m_cancel->setVisible(m_running);
+    m_cancel->setEnabled(m_running && !m_cancelling);
+    m_cancel->setText(m_cancelling ? tr_("imaging.cancelling") : tr_("imaging.cancel"));
 
     if (!chosen) {
         m_warning->clear();
@@ -277,32 +315,46 @@ bool ImageWriterDialog::confirmTwice(const QListWidgetItem *row) {
     const QString image = QFileInfo(m_image).fileName();
     const QColor ink = palette().color(QPalette::Text);
 
-    const auto ask = [&](const char *titleKey, const char *bodyKey) {
-        QString body = tr_(bodyKey);
-        body = jtfFill(body, "device", device);
-        body = jtfFill(body, "detail", detail);
-        body = jtfFill(body, "node", node);
-        body = jtfFill(body, "image", image);
+    const auto ask = [&](const char *titleKey, const char *questionKey, const char *detailKey) {
+        const auto fill = [&](const char *key) {
+            QString text = tr_(key);
+            text = jtfFill(text, "device", device);
+            text = jtfFill(text, "detail", detail);
+            text = jtfFill(text, "node", node);
+            text = jtfFill(text, "image", image);
+            return text;
+        };
 
         QMessageBox box(this);
         box.setIconPixmap(
             glyph::forCommand(QStringLiteral("file.write_image"), ink).pixmap(48, 48));
         box.setWindowTitle(tr_(titleKey));
-        box.setText(body);
+        // The question is the heading and the disk is underneath it. Both in
+        // one block gave a paragraph with no shape, where the sentence that
+        // has to be read and the disk that has to be checked carried the same
+        // weight - so neither was read.
+        box.setText(fill(questionKey));
+        box.setInformativeText(fill(detailKey));
+
         // Cancel is the default on both. A dialog answered by pressing Return
         // without reading is answered "no" here.
         QPushButton *go =
             box.addButton(tr_("imaging.confirm_write_now"), QMessageBox::DestructiveRole);
         QPushButton *stop =
             box.addButton(tr_("imaging.confirm_cancel"), QMessageBox::RejectRole);
+        // Every other button in the program carries a picture; these two came
+        // up bare.
+        go->setIcon(glyph::forCommand(QStringLiteral("file.write_image"), ink));
+        stop->setIcon(glyph::make(glyph::Shape::Close, ink));
         box.setDefaultButton(stop);
         box.setEscapeButton(stop);
         box.exec();
         return box.clickedButton() == go;
     };
 
-    return ask("imaging.confirm_title", "imaging.confirm_first")
-           && ask("imaging.confirm_again_title", "imaging.confirm_again");
+    return ask("imaging.confirm_title", "imaging.confirm_first", "imaging.confirm_first_detail")
+           && ask("imaging.confirm_again_title", "imaging.confirm_again",
+                  "imaging.confirm_again_detail");
 }
 
 void ImageWriterDialog::startWrite() {
@@ -328,6 +380,8 @@ void ImageWriterDialog::startWrite() {
         return;
     }
     m_running = true;
+    m_cancelling = false;
+    m_since.start();
     m_progress->setVisible(true);
     m_progress->setRange(0, 0);
     m_devices->setEnabled(false);
@@ -337,6 +391,7 @@ void ImageWriterDialog::startWrite() {
 
 void ImageWriterDialog::pump() {
     jtf_pump_write(m_app);
+    updateRate();
 
     const QString stageKey =
         jtfText([&](char *b, int l) { return jtf_write_stage_key(m_app, b, l); });
@@ -361,8 +416,49 @@ void ImageWriterDialog::pump() {
     if (jtf_write_is_done(m_app) != 0) {
         m_pump->stop();
         m_running = false;
+        m_cancelling = false;
+        // How long it took stays on screen. It is the one number nobody can
+        // recover afterwards, and it is what tells you whether the next one
+        // is worth starting now or later.
+        m_rate->setVisible(true);
         showOutcome();
     }
+}
+
+void ImageWriterDialog::updateRate() {
+    if (!m_running) {
+        m_rate->setVisible(false);
+        return;
+    }
+    const qint64 ms = m_since.elapsed();
+    const qint64 seconds = ms / 1000;
+    // Minutes and seconds rather than a count of seconds: 214 has to be
+    // divided in the reader's head to mean anything.
+    const QString elapsed = seconds >= 3600
+                                ? QStringLiteral("%1:%2:%3")
+                                      .arg(seconds / 3600)
+                                      .arg((seconds / 60) % 60, 2, 10, QLatin1Char('0'))
+                                      .arg(seconds % 60, 2, 10, QLatin1Char('0'))
+                                : QStringLiteral("%1:%2")
+                                      .arg(seconds / 60)
+                                      .arg(seconds % 60, 2, 10, QLatin1Char('0'));
+
+    const quint64 done = jtf_write_progress(m_app, 0);
+    QString rate;
+    // A rate computed over the first fraction of a second is noise, and a
+    // number that swings wildly reads as a fault in the program rather than
+    // in the arithmetic.
+    if (ms > 1500 && done > 0) {
+        const quint64 perSecond = static_cast<quint64>(static_cast<double>(done) * 1000.0
+                                                       / static_cast<double>(ms));
+        rate = jtfFill(tr_("imaging.rate"), "rate", sizeText(perSecond));
+    } else {
+        rate = tr_("imaging.rate_unknown");
+    }
+
+    m_rate->setVisible(true);
+    m_rate->setText(QStringLiteral("%1   %2")
+                        .arg(jtfFill(tr_("imaging.elapsed"), "time", elapsed), rate));
 }
 
 void ImageWriterDialog::showOutcome() {

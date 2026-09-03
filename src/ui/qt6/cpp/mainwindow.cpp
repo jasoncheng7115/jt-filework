@@ -706,12 +706,19 @@ void MainWindow::buildMenus() {
     // back out of step.
     command(m_editMenu, "file.mark.toggle",
             paneAction([](PaneWidget *pane) { pane->toggleCurrentInSelection(); }));
-    command(m_editMenu, "file.mark.all",
-            [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 0); });
-    command(m_editMenu, "file.mark.none",
-            [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 1); });
-    command(m_editMenu, "file.mark.invert",
-            [this] { jtf_mark_listed(m_app, jtf_active_pane(m_app), 2); });
+    // Each of these is somebody building a set on purpose, which is what
+    // stops the arrow keys dragging the highlight through it. "None" is not:
+    // it empties the set, and an empty set is not one being built.
+    const auto markListed = [this](int how) {
+        const int pane = jtf_active_pane(m_app);
+        jtf_mark_listed(m_app, pane, how);
+        if (PaneWidget *on = m_panes.value(pane, nullptr); on != nullptr && how != 1) {
+            on->markSetIsDeliberate();
+        }
+    };
+    command(m_editMenu, "file.mark.all", [markListed] { markListed(0); });
+    command(m_editMenu, "file.mark.none", [markListed] { markListed(1); });
+    command(m_editMenu, "file.mark.invert", [markListed] { markListed(2); });
     command(m_editMenu, "file.mark.pattern", [this] { markByPattern(true); });
     command(m_editMenu, "file.unmark.pattern", [this] { markByPattern(false); });
     m_editMenu->addSeparator();
@@ -1009,8 +1016,13 @@ void MainWindow::markByPattern(bool mark) {
         return;
     }
     const QByteArray utf8 = pattern.toUtf8();
-    const int count =
-        jtf_mark_pattern(m_app, jtf_active_pane(m_app), utf8.constData(), mark ? 1 : 0);
+    const int pane = jtf_active_pane(m_app);
+    const int count = jtf_mark_pattern(m_app, pane, utf8.constData(), mark ? 1 : 0);
+    // Marking by pattern is building a set on purpose; unmarking is taking
+    // one apart, and if it empties the set the pane works that out itself.
+    if (PaneWidget *on = m_panes.value(pane, nullptr); on != nullptr && mark && count > 0) {
+        on->markSetIsDeliberate();
+    }
     // Say how many matched: a pattern that matched nothing looks identical to
     // one that was ignored, and the difference matters.
     statusBar()->showMessage(jtfFill(tr_("status.marked_count"), "count", QString::number(count)),
