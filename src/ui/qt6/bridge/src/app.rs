@@ -336,9 +336,19 @@ pub struct App {
     show_hidden: bool,
     settings: SessionSettings,
     pending_plan: Option<Plan>,
+    /// The same, for work that crosses to a server.
+    ///
+    /// Beside the local one rather than an enum over both: every accessor
+    /// below answers for whichever is set, and the window never learns there
+    /// are two - it asks the same questions and gets the same answers.
+    pending_transfer: Option<jtf_transfer::Plan>,
     planning: Option<crate::operations::Planning>,
     plan_error: Option<PlanError>,
     running: Option<crate::operations::Running>,
+    /// A transfer under way. Only one of this and `running` is ever set.
+    running_transfer: Option<crate::transfer::Running>,
+    /// What the last finished transfer amounted to, until the window reads it.
+    last_transfer_summary: Option<crate::transfer::Summary>,
     /// Operations waiting for the running one to finish.
     queue: std::collections::VecDeque<(Plan, ConflictPolicy)>,
     viewer: Option<ViewerSession>,
@@ -399,6 +409,20 @@ pub struct App {
     archive_entries: Vec<jtf_viewer::ArchiveEntry>,
 }
 
+/// The transfer kind a local operation kind means.
+const fn transfer_kind(kind: crate::operations::OperationKind) -> jtf_transfer::Kind {
+    match kind {
+        crate::operations::OperationKind::Move => jtf_transfer::Kind::Move,
+        // Trash and delete are both "take it away". A server has no trash, so
+        // the two collapse into one thing there and the confirmation is what
+        // tells them apart.
+        crate::operations::OperationKind::Trash | crate::operations::OperationKind::Delete => {
+            jtf_transfer::Kind::Delete
+        }
+        crate::operations::OperationKind::Copy => jtf_transfer::Kind::Copy,
+    }
+}
+
 impl App {
     /// Start the application, restoring the previous session if the user's
     /// preference allows it (`docs/PRODUCT_SPEC.md` §5.1).
@@ -449,9 +473,12 @@ impl App {
             theme_mode,
             show_hidden: false,
             pending_plan: None,
+            pending_transfer: None,
             planning: None,
             plan_error: None,
             running: None,
+            running_transfer: None,
+            last_transfer_summary: None,
             queue: std::collections::VecDeque::new(),
             viewer: None,
             preview: None,
@@ -2298,6 +2325,156 @@ impl App {
     /// folder; the cursor is the fallback when there are none, which is the
     /// precedence `OperationTarget` documents with the selection folded into
     /// the marks (`AGENTS.md` §10).
+    /// Whether the pane a copy would land in is showing a server.
+    fn target_pane_is_remote(&self) -> bool {
+        self.workspace
+            .target_pane_id()
+            .is_some_and(|id| self.pane_is_remote(id))
+    }
+
+    /// The target pane's folder, as a side.
+    fn target_side(&self) -> Option<jtf_transfer::Side> {
+        let id = self.workspace.target_pane_id()?;
+        let location = self
+            .workspace
+            .pane(id)
+            .and_then(jtf_workspace::Pane::active_tab)
+            .map(jtf_workspace::Tab::location)?;
+        jtf_transfer::Side::of(location)
+    }
+
+    /// The selected entries as transfer items, whichever machine they are on.
+    ///
+    /// The sizes and the kinds come from the listing that is already on
+    /// screen, which is the whole reason a transfer needs no pre-flight walk.
+    fn transfer_sources(&self, pane: PaneId) -> Vec<jtf_transfer::Item> {
+        // The marked set when there is one, and the row the cursor is on when
+        // there is not - the same rule the local operations follow, so C on a
+        // server behaves the way C on a local folder does.
+        let marked = self.marked_rows(pane);
+        let entries: Vec<&FileEntry> = if marked.is_empty() {
+            self.workspace
+                .pane(pane)
+                .and_then(jtf_workspace::Pane::active_tab)
+                .and_then(jtf_workspace::Tab::active_entry)
+                .and_then(|location| {
+                    (0..self.row_count(pane))
+                        .filter_map(|row| self.entry_at(pane, row))
+                        .find(|entry| entry.location() == location)
+                })
+                .into_iter()
+                .collect()
+        } else {
+            marked
+                .into_iter()
+                .filter_map(|row| self.entry_at(pane, row))
+                .collect()
+        };
+        entries
+            .into_iter()
+            .filter_map(|entry| {
+                let source = jtf_transfer::Side::of(entry.location())?;
+                Some(jtf_transfer::Item {
+                    source,
+                    destination: None,
+                    bytes: entry.size().unwrap_or(0),
+                    is_directory: entry.kind().is_directory_on_disk(),
+                    is_symlink: entry.kind() == jtf_core::FileKind::Symlink,
+                })
+            })
+            .collect()
+    }
+
+    /// Build a transfer for `pane`'s selection into `destination`.
+    ///
+    /// Returns false and sets `plan_error` when it cannot be built. The
+    /// conflicts are filled from one listing of the destination folder - see
+    /// `jtf_transfer::Plan::note_conflicts` for why only the top level.
+    pub(crate) fn prepare_transfer(
+        &mut self,
+        pane: PaneId,
+        kind: jtf_transfer::Kind,
+        destination: Option<jtf_transfer::Side>,
+    ) -> bool {
+        self.plan_error = None;
+        self.pending_plan = None;
+        self.pending_transfer = None;
+
+        let sources = self.transfer_sources(pane);
+        if sources.is_empty() {
+            self.plan_error = Some(PlanError::NothingToDo);
+            return false;
+        }
+
+        let mut plan = match jtf_transfer::Plan::build(kind, sources, destination) {
+            Ok(plan) => plan,
+            Err(error) => {
+                self.plan_error = Some(PlanError::Failed(error));
+                return false;
+            }
+        };
+
+        if let Some(into) = plan.destination.clone() {
+            let existing = self.names_in(&into);
+            plan.note_conflicts(&existing);
+        }
+        self.pending_transfer = Some(plan);
+        true
+    }
+
+    /// The names directly inside a folder, on either machine.
+    ///
+    /// Empty when it cannot be listed: a destination that cannot be read will
+    /// fail when it is written to, with a better message than a guess here.
+    fn names_in(&self, side: &jtf_transfer::Side) -> Vec<String> {
+        match side {
+            jtf_transfer::Side::Local(path) => std::fs::read_dir(path)
+                .map(|entries| {
+                    entries
+                        .filter_map(Result::ok)
+                        .map(|e| e.file_name().to_string_lossy().into_owned())
+                        .collect()
+                })
+                .unwrap_or_default(),
+            jtf_transfer::Side::Remote { endpoint, path } => self
+                .sftp
+                .connection_for(endpoint)
+                .and_then(|connection| connection.read_dir(path))
+                .map(|entries| entries.into_iter().map(|e| e.name).collect())
+                .unwrap_or_default(),
+        }
+    }
+
+    /// Start the pending transfer.
+    pub(crate) fn start_transfer(&mut self, policy: i32) -> bool {
+        let Some(plan) = self.pending_transfer.take() else {
+            return false;
+        };
+        if self.running.is_some() || self.running_transfer.is_some() {
+            // Not queued like a local operation: a queued transfer would hold
+            // a connection open with nothing on screen saying why, and the
+            // second one is usually a mistake rather than more work.
+            self.pending_transfer = Some(plan);
+            return false;
+        }
+        self.running_transfer = Some(crate::transfer::Running::start(
+            plan,
+            self.sftp.clone(),
+            crate::transfer::policy_of(policy),
+        ));
+        true
+    }
+
+    /// The summary of the last finished transfer, if it has not been read.
+    pub(crate) const fn last_transfer_summary(&self) -> Option<&crate::transfer::Summary> {
+        self.last_transfer_summary.as_ref()
+    }
+
+    /// Clear it once the window has shown it.
+    pub(crate) fn take_transfer_summary(&mut self) {
+        self.last_transfer_summary = None;
+    }
+
     fn operation_sources(&self, pane: PaneId) -> Vec<PathBuf> {
         let listed: Vec<PathBuf> = self
             .marked_rows(pane)
@@ -2360,21 +2537,24 @@ impl App {
         self.plan_error = None;
         self.pending_plan = None;
 
+        // A server on either end is a transfer, not a filesystem operation:
+        // different machinery, because none of what makes a local move atomic
+        // survives a network. Routed here rather than at the call site, so
+        // every way in - the menu, a key, the target pane - takes the same
+        // decision from the same place.
+        if self.pane_is_remote(pane) || self.target_pane_is_remote() {
+            let destination = kind
+                .needs_destination()
+                .then(|| self.target_side())
+                .flatten();
+            return self.prepare_transfer(pane, transfer_kind(kind), destination);
+        }
+
         let sources = self.operation_sources(pane);
         if sources.is_empty() {
             // A refusal explains itself; silently doing nothing is worse than
             // an error (docs/UI_CONVENTIONS.md 9).
-            //
-            // Remote entries produce no sources because a remote location has
-            // no local path - which is what stops a copy from grabbing the
-            // wrong local file of the same name. But "nothing is selected" is
-            // then a lie: something is selected, and it is somewhere this
-            // program cannot yet copy from.
-            self.plan_error = Some(if self.pane_is_remote(pane) {
-                PlanError::NotOnThisFilesystem
-            } else {
-                PlanError::NothingToDo
-            });
+            self.plan_error = Some(PlanError::NothingToDo);
             return false;
         }
 
@@ -2414,17 +2594,20 @@ impl App {
         self.plan_error = None;
         self.pending_plan = None;
 
-        // Three different situations used to report "nothing selected", and
-        // one of them was reachable with three files visibly ticked: entries
-        // on a server have no local path, so the source list comes back empty
-        // and the program contradicted the screen. Each says what it means.
+        // A selection on a server goes to the transfer machinery, with the
+        // folder the picker returned as a local destination.
+        if self.pane_is_remote(pane) {
+            let into = kind
+                .needs_destination()
+                .then(|| jtf_transfer::Side::Local(std::path::PathBuf::from(destination)));
+            return self.prepare_transfer(pane, transfer_kind(kind), into);
+        }
+
+        // Three different situations used to report "nothing selected". Each
+        // says what it means.
         let sources = self.operation_sources(pane);
         if sources.is_empty() {
-            self.plan_error = Some(if self.pane_is_remote(pane) {
-                PlanError::NotOnThisFilesystem
-            } else {
-                PlanError::NothingToDo
-            });
+            self.plan_error = Some(PlanError::NothingToDo);
             return false;
         }
         if !kind.needs_destination() {
@@ -3259,7 +3442,12 @@ impl App {
 
     /// Whether an operation is in flight.
     pub(crate) const fn operation_running(&self) -> bool {
-        self.running.is_some()
+        self.running.is_some() || self.running_transfer.is_some()
+    }
+
+    /// The transfer waiting for a policy, if the pending work is one.
+    pub(crate) const fn pending_transfer(&self) -> Option<&jtf_transfer::Plan> {
+        self.pending_transfer.as_ref()
     }
 
     /// Percent complete, or `None` when the total is not yet known.
@@ -3267,6 +3455,11 @@ impl App {
         self.running
             .as_ref()
             .and_then(crate::operations::Running::percent)
+            .or_else(|| {
+                self.running_transfer
+                    .as_ref()
+                    .and_then(crate::transfer::Running::percent)
+            })
     }
 
     /// Localization key for the running operation's label.
@@ -3274,6 +3467,11 @@ impl App {
         self.running
             .as_ref()
             .map(|running| running.kind().label_key())
+            .or_else(|| {
+                self.running_transfer
+                    .as_ref()
+                    .map(|running| running.kind().label_key())
+            })
     }
 
     /// The entry being worked on.
@@ -3281,11 +3479,20 @@ impl App {
         self.running
             .as_ref()
             .and_then(crate::operations::Running::current)
+            .or_else(|| {
+                self.running_transfer
+                    .as_ref()
+                    .and_then(crate::transfer::Running::current)
+                    .map(PathBuf::from)
+            })
     }
 
     /// Ask the running operation to stop.
     pub(crate) fn cancel_operation(&self) {
         if let Some(running) = &self.running {
+            running.cancel();
+        }
+        if let Some(running) = &self.running_transfer {
             running.cancel();
         }
     }
@@ -4101,6 +4308,33 @@ impl App {
     }
 
     // ------------------------------------------------------- background work
+    /// Collect a finished transfer, if there is one. Returns whether anything
+    /// on screen needs redrawing.
+    ///
+    /// Its own step rather than folded in beside the local one: a transfer
+    /// has no undo record to build - the bytes went to another machine and
+    /// there is nothing here to rename back - and its summary knows about the
+    /// one outcome a local operation cannot have.
+    fn pump_transfer(&mut self) -> bool {
+        if !self
+            .running_transfer
+            .as_ref()
+            .is_some_and(crate::transfer::Running::is_finished)
+        {
+            return self.running_transfer.is_some();
+        }
+        if let Some(running) = self.running_transfer.take() {
+            if let Some(report) = running.finish() {
+                self.last_transfer_summary = Some(crate::transfer::Summary::from_report(&report));
+            }
+        }
+        // Both ends may have changed.
+        for pane in self.workspace.pane_order() {
+            self.start_enumeration(pane);
+        }
+        true
+    }
+
 
     /// Collect whatever the enumerators have produced. Returns whether any
     /// pane changed, so the C++ side repaints only when there is a reason.
@@ -4146,6 +4380,8 @@ impl App {
         } else if self.running.is_some() {
             changed = true; // progress moved
         }
+
+        changed |= self.pump_transfer();
         let panes: Vec<PaneId> = self.views.keys().copied().collect();
         let show_hidden = self.show_hidden;
         let folders_first = self.settings.folders_first;

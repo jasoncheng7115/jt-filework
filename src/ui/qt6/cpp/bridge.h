@@ -410,6 +410,8 @@ int jtf_op_conflicts(const JtfApp *app);
 int jtf_op_entries(const JtfApp *app);
 uint64_t jtf_op_bytes(const JtfApp *app);
 int jtf_op_is_irreversible(const JtfApp *app);
+// Whether a pending move is a copy-then-delete rather than a rename.
+int jtf_op_is_two_step_move(const JtfApp *app);
 int jtf_op_removes(const JtfApp *app); // trash or delete
 int jtf_op_first_conflict(const JtfApp *app, char *buf, int len);
 int jtf_op_start(JtfApp *app, int policy);

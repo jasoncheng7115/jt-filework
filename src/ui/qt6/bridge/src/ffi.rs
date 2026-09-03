@@ -3558,6 +3558,10 @@ pub unsafe extern "C" fn jtf_op_conflicts(app: *const App) -> c_int {
     unsafe { app_ref(app) }.map_or(0, |a| {
         a.pending_plan()
             .and_then(|plan| c_int::try_from(plan.conflicts.len()).ok())
+            .or_else(|| {
+                a.pending_transfer()
+                    .and_then(|plan| c_int::try_from(plan.conflicts.len()).ok())
+            })
             .unwrap_or(0)
     })
 }
@@ -3571,6 +3575,10 @@ pub unsafe extern "C" fn jtf_op_entries(app: *const App) -> c_int {
     unsafe { app_ref(app) }.map_or(0, |a| {
         a.pending_plan()
             .and_then(|plan| c_int::try_from(plan.total_entries).ok())
+            .or_else(|| {
+                a.pending_transfer()
+                    .and_then(|plan| c_int::try_from(plan.items.len()).ok())
+            })
             .unwrap_or(0)
     })
 }
@@ -3582,7 +3590,14 @@ pub unsafe extern "C" fn jtf_op_entries(app: *const App) -> c_int {
 #[no_mangle]
 pub unsafe extern "C" fn jtf_op_bytes(app: *const App) -> u64 {
     unsafe { app_ref(app) }
-        .and_then(|a| a.pending_plan().map(|plan| plan.total_bytes))
+        .and_then(|a| {
+            a.pending_plan().map(|plan| plan.total_bytes).or_else(|| {
+                // What is known so far. A folder contributes nothing until it
+                // is walked, which is the point: the alternative is a round
+                // trip per entry before anything starts.
+                a.pending_transfer().map(|plan| plan.known_bytes)
+            })
+        })
         .unwrap_or(0)
 }
 
@@ -3600,7 +3615,9 @@ pub unsafe extern "C" fn jtf_op_removes(app: *const App) -> c_int {
     unsafe { app_ref(app) }.map_or(0, |a| {
         c_int::from(
             a.pending_plan()
-                .is_some_and(|plan| plan.operation.removes()),
+                .is_some_and(|plan| plan.operation.removes())
+                || a.pending_transfer()
+                    .is_some_and(|plan| plan.kind.removes_source()),
         )
     })
 }
@@ -3612,8 +3629,34 @@ pub unsafe extern "C" fn jtf_op_is_irreversible(app: *const App) -> c_int {
     unsafe { app_ref(app) }.map_or(0, |a| {
         c_int::from(
             a.pending_plan()
-                .is_some_and(|plan| plan.operation.is_irreversible()),
+                .is_some_and(|plan| plan.operation.is_irreversible())
+                // A server has no trash. Removing something there is the
+                // permanent kind however the local rule would have gone, so
+                // it gets the stronger question.
+                || a.pending_transfer()
+                    .is_some_and(jtf_transfer::Plan::deletes_on_a_server),
         )
+    })
+}
+
+/// Whether the pending work is a move that cannot be done in one step.
+///
+/// A local move within one filesystem is a rename: atomic, and either it
+/// happened or it did not. Across a network there is no such operation, so a
+/// move is a copy and then a delete, and an interruption leaves both. The
+/// window says so before it starts, because that is not what "move" usually
+/// promises.
+///
+/// Zero for a move within one server, which really is a rename.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_op_is_two_step_move(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        c_int::from(a.pending_transfer().is_some_and(|plan| {
+            plan.kind == jtf_transfer::Kind::Move && !plan.is_same_server_rename()
+        }))
     })
 }
 
@@ -3633,9 +3676,14 @@ pub unsafe extern "C" fn jtf_op_first_conflict(
     let text = app
         .pending_plan()
         .and_then(|plan| plan.conflicts.first())
-        .map_or_else(String::new, |conflict| {
-            conflict.destination.display().to_string()
-        });
+        .map_or_else(
+            || {
+                app.pending_transfer()
+                    .and_then(|plan| plan.conflicts.first())
+                    .map_or_else(String::new, jtf_transfer::Side::display)
+            },
+            |conflict| conflict.destination.display().to_string(),
+        );
     unsafe { write_str(&text, buf, len) }
 }
 
@@ -3645,13 +3693,20 @@ pub unsafe extern "C" fn jtf_op_first_conflict(
 /// See [`jtf_app_free`].
 #[no_mangle]
 pub unsafe extern "C" fn jtf_op_start(app: *mut App, policy: c_int) -> c_int {
+    let policy_code = policy;
     let policy = match policy {
         1 => jtf_ops::ConflictPolicy::Overwrite,
         2 => jtf_ops::ConflictPolicy::KeepBoth,
         3 => jtf_ops::ConflictPolicy::Abort,
         _ => jtf_ops::ConflictPolicy::Skip,
     };
-    unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.start_operation(policy)))
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        // Whichever is pending. Only one ever is.
+        if a.pending_transfer().is_some() {
+            return c_int::from(a.start_transfer(policy_code));
+        }
+        c_int::from(a.start_operation(policy))
+    })
 }
 
 /// Whether there is anything to undo.
@@ -3752,7 +3807,9 @@ pub unsafe extern "C" fn jtf_op_cancel(app: *const App) {
 /// See [`jtf_app_free`].
 #[no_mangle]
 pub unsafe extern "C" fn jtf_op_has_result(app: *const App) -> c_int {
-    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.last_summary().is_some()))
+    unsafe { app_ref(app) }.map_or(0, |a| {
+        c_int::from(a.last_summary().is_some() || a.last_transfer_summary().is_some())
+    })
 }
 
 /// The result's message key, its counts, and the first failure.
@@ -3774,7 +3831,33 @@ pub unsafe extern "C" fn jtf_op_result(
         return 0;
     };
     let Some(summary) = app.last_summary() else {
-        return 0;
+        // A finished transfer reports through the same call, so the window
+        // shows one kind of result however the work was done.
+        let Some(transfer) = app.last_transfer_summary() else {
+            return 0;
+        };
+        unsafe { write_str(transfer.key, key_buf, key_len) };
+        // Already a sentence rather than a key: a transfer failure is the
+        // server's own words - "permission denied", "no such file" - and
+        // there is no catalogue entry for what a server chose to say.
+        let detail = transfer
+            .first_error
+            .clone()
+            .map_or_else(String::new, |text| format!("\t{text}"));
+        unsafe { write_str(&detail, error_buf, error_len) };
+        // SAFETY: caller contract; each pointer is checked before writing.
+        unsafe {
+            if !succeeded.is_null() {
+                *succeeded = c_int::try_from(transfer.succeeded).unwrap_or(0);
+            }
+            if !skipped.is_null() {
+                *skipped = c_int::try_from(transfer.skipped).unwrap_or(0);
+            }
+            if !failed.is_null() {
+                *failed = c_int::try_from(transfer.failed).unwrap_or(0);
+            }
+        }
+        return 1;
     };
 
     unsafe { write_str(summary.key, key_buf, key_len) };
@@ -3810,6 +3893,7 @@ pub unsafe extern "C" fn jtf_op_result(
 pub unsafe extern "C" fn jtf_op_clear_result(app: *mut App) {
     if let Some(a) = unsafe { app_mut(app) } {
         a.take_summary();
+        a.take_transfer_summary();
     }
 }
 

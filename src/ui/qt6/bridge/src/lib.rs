@@ -38,6 +38,7 @@
 
 mod app;
 mod hexedit;
+mod transfer;
 mod ffi;
 mod operations;
 

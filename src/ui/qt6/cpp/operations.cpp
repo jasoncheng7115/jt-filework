@@ -259,6 +259,31 @@ bool ops::confirmAndStart(JtfApp *app, QWidget *parent, int pane, Kind kind, QSt
 // Everything between "there is a plan" and "it is running": the same
 // questions whatever route built the plan.
 bool ops::confirmAndRun(JtfApp *app, QWidget *parent) {
+    // A move across machines is not the operation the word usually names.
+    // Locally it is a rename: atomic, and either it happened or it did not.
+    // There is no such thing between two machines, so it is a copy and then a
+    // delete, and an interruption leaves the file in both places. Said before
+    // it starts, because afterwards is too late to have wanted something else.
+    if (jtf_op_is_two_step_move(app) != 0) {
+        const QColor ink = parent != nullptr ? parent->palette().color(QPalette::Text) : QColor();
+        QMessageBox box(parent);
+        setBoxIcon(&box, glyph::forCommand(QStringLiteral("file.move_to"), ink));
+        box.setWindowTitle(tr_(app, "transfer.two_step_title"));
+        box.setText(tr_(app, "transfer.two_step"));
+        QAbstractButton *go =
+            box.addButton(tr_(app, "transfer.two_step_go"), QMessageBox::AcceptRole);
+        QAbstractButton *stop =
+            box.addButton(tr_(app, "conflict.abort"), QMessageBox::RejectRole);
+        iconise(go, glyph::forCommand(QStringLiteral("file.move_to"), ink));
+        iconise(stop, glyph::make(glyph::Shape::Close, ink));
+        box.setDefaultButton(qobject_cast<QPushButton *>(stop));
+        box.setEscapeButton(stop);
+        box.exec();
+        if (box.clickedButton() != go) {
+            return false;
+        }
+    }
+
     // Every removal is confirmed, whichever route built the plan - the menu,
     // a key, the disc usage window. Permanent deletion gets the stronger
     // warning; the trash gets the plainer question.

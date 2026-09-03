@@ -149,6 +149,15 @@ pub struct Plan {
     /// Bytes known up front. A folder contributes nothing until it is walked,
     /// so this grows during the run and the bar is honest about that.
     pub known_bytes: u64,
+    /// Top-level destinations that are already occupied.
+    ///
+    /// Only the top level, and filled from a single listing of the
+    /// destination folder. The local planner walks the whole tree to find
+    /// every collision; here that is a round trip per entry, and one listing
+    /// answers for every name being dropped in - which is the collision
+    /// anyone is actually about to make. Deeper ones get the policy applied
+    /// as they are reached, and are reported afterwards.
+    pub conflicts: Vec<Side>,
 }
 
 impl Plan {
@@ -205,7 +214,26 @@ impl Plan {
             items,
             destination,
             known_bytes,
+            conflicts: Vec::new(),
         })
+    }
+
+    /// Record which top-level destinations are taken.
+    ///
+    /// `existing` is the names directly inside the destination folder, from
+    /// one listing. Pure, so the rule is testable without a server.
+    pub fn note_conflicts(&mut self, existing: &[String]) {
+        self.conflicts = self
+            .items
+            .iter()
+            .filter_map(|item| item.destination.as_ref())
+            .filter(|target| {
+                target
+                    .name()
+                    .is_some_and(|name| existing.contains(&name))
+            })
+            .cloned()
+            .collect();
     }
 
     /// Whether anything here touches a server.
@@ -389,6 +417,32 @@ mod tests {
         assert!(Plan::build(Kind::Delete, vec![item(remote("/srv/a"), 1, false)], None).is_ok());
         assert!(Plan::build(Kind::Copy, vec![item(remote("/srv/a"), 1, false)], None).is_err());
         assert!(Plan::build(Kind::Copy, Vec::new(), Some(remote("/srv"))).is_err());
+    }
+
+    #[test]
+    fn conflicts_come_from_one_listing_of_the_destination() {
+        let mut plan = Plan::build(
+            Kind::Copy,
+            vec![
+                item(remote("/srv/a.txt"), 10, false),
+                item(remote("/srv/b.txt"), 10, false),
+                item(remote("/srv/c.txt"), 10, false),
+            ],
+            Some(Side::Local(PathBuf::from("/tmp/here"))),
+        )
+        .unwrap();
+        assert!(plan.conflicts.is_empty(), "nothing asked, nothing found");
+
+        plan.note_conflicts(&["a.txt".to_string(), "c.txt".to_string(), "z.txt".to_string()]);
+        assert_eq!(plan.conflicts.len(), 2);
+        assert_eq!(
+            plan.conflicts[0],
+            Side::Local(PathBuf::from("/tmp/here/a.txt"))
+        );
+        assert_eq!(
+            plan.conflicts[1],
+            Side::Local(PathBuf::from("/tmp/here/c.txt"))
+        );
     }
 
     #[test]
