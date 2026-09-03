@@ -998,6 +998,27 @@ than *what the dialog says*, because the dialog is read after the decision.
 
 ---
 
+## 19b. Sorting and Pasting — `UI-SORT` / `UI-PASTE`
+
+Both came from the same session: the user put our list beside Finder's and
+beside Explorer's, and asked why ours was the odd one out.
+
+| ID | Case | Layer |
+|---|---|---|
+| SORT-001 | Folders named `1`..`13` list as 1, 2, 3 … 9, 10, 11, 12, 13, not 1, 10, 11, 2 | H2 |
+| SORT-002 | The number counts wherever it sits: `img_9` before `img_10`, `v1.2.30` before `v1.9.0` | H1 |
+| SORT-003 | Numbers sort ahead of names, and case still does not matter | H1 |
+| SORT-004 | `007` and `7` are the same value; a 20-digit run is left as text | H1 |
+| SORT-005 | Sorting 100 000 names stays inside the budget (`docs/TESTING.md` §8.2) | H1 |
+| PASTE-001 | Ctrl-V never asks whether to copy or move; the clipboard already said | H2 |
+| PASTE-002 | Copy, then paste in the same folder, makes `report 2.txt`; again makes `report 3.txt` | H2 |
+| PASTE-003 | Cut, then paste in the same folder, does nothing - it is already there | H2 |
+| PASTE-004 | Paste onto an existing name in another folder offers 略過 / 兩者都保留 / 取代 / 取消 | H2 |
+| PASTE-005 | Ctrl-D duplicates without asking anything, and never overwrites the original | H2 |
+| PASTE-006 | A combo box is distinguishable from a text field: it carries an arrow in both themes | H3 |
+
+---
+
 ## 20. Session and Recovery — `UI-SESS`
 
 | ID | Case | Layer |
