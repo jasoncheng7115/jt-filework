@@ -121,7 +121,15 @@ private:
     void openPalette();
     void openSettings();
     void runOperation(OperationRequest request);
-    void runDrop(int pane, const QStringList &paths, bool fromUs);
+    // `kind` is ops::Copy or ops::Move when the caller already knows which
+    // it is, and -1 when it has to be asked for. A drop has to ask; a paste
+    // must not, because the clipboard already recorded whether it was a copy
+    // or a cut.
+    void runDrop(int pane, const QStringList &paths, bool fromUs, int kind = -1);
+    // Duplicate the given paths where they already are. What a paste into the
+    // folder something already lives in means, and the same thing `file.
+    // duplicate` does.
+    void cloneInPlace(int pane, const QStringList &paths);
     QStringList targetPaths() const;
     void clipboardPut(bool cut);
     void markByPattern(bool mark);

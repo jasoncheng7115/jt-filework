@@ -33,6 +33,8 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QDialogButtonBox>
+#include <algorithm>
+
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QFrame>
@@ -1034,9 +1036,29 @@ void MainWindow::clipboardPaste() {
     // and it moves once: the clipboard still holds the paths afterwards, and
     // pasting them again would be a second move of files that are no longer
     // there.
-    const int kind = m_clipboardIsCut ? 1 : 0;
+    const int kind = m_clipboardIsCut ? ops::Move : ops::Copy;
     m_clipboardIsCut = false;
-    runDrop(jtf_active_pane(m_app), paths, kind);
+    const int pane = jtf_active_pane(m_app);
+
+    // Pasting a copy into the folder the files already live in is how every
+    // file manager is asked for a duplicate, and it is the one case the drop
+    // path refuses outright - it treats same-folder as an accident and does
+    // nothing at all, silently. A cut is different: moving something to where
+    // it already is really is nothing.
+    if (kind == ops::Copy && !paths.isEmpty()) {
+        const QString here =
+            jtfText([&](char *buf, int len) { return jtf_current_path(m_app, pane, buf, len); });
+        const bool allHere =
+            !here.isEmpty() && std::all_of(paths.cbegin(), paths.cend(), [&](const QString &p) {
+                return QFileInfo(p).absolutePath() == QFileInfo(here).absoluteFilePath();
+            });
+        if (allHere) {
+            cloneInPlace(pane, paths);
+            return;
+        }
+    }
+
+    runDrop(pane, paths, false, kind);
 }
 
 void MainWindow::copyText(bool fullPath) {
@@ -1095,11 +1117,49 @@ void MainWindow::editSelection() {
     }
 }
 
-void MainWindow::runDrop(int pane, const QStringList &paths, bool fromUs) {
+void MainWindow::cloneInPlace(int pane, const QStringList &paths) {
+    // A duplicate is a copy into the folder the entry is already in, resolved
+    // as "keep both" - which the plan machinery already does, so this is the
+    // same route `file.duplicate` takes rather than a second implementation
+    // of the naming.
+    const QString here =
+        jtfText([&](char *buf, int len) { return jtf_current_path(m_app, pane, buf, len); });
+    if (here.isEmpty()) {
+        return;
+    }
+    const QByteArray joined = paths.join(QLatin1Char('\n')).toUtf8();
+    const QByteArray into = here.toUtf8();
+    if (!jtf_op_prepare_paths(m_app, ops::Copy, joined.constData(), into.constData()) ||
+        !ops::awaitPlan(m_app, this)) {
+        const QString key =
+            jtfText([&](char *buf, int len) { return jtf_op_error_key(m_app, buf, len); });
+        if (!key.isEmpty()) {
+            const QByteArray utf8 = key.toUtf8();
+            m_statusIsIdle = false;
+            m_statusMessage->setText(jtfText(
+                [&](char *buf, int len) { return jtf_tr(m_app, utf8.constData(), buf, len); }));
+        }
+        return;
+    }
+    // Never asked: a duplicate that overwrote the original would be a
+    // contradiction in terms, which is the same reason `file.duplicate` forces
+    // it too.
+    jtf_op_start(m_app, 2);
+    updateOperationUi();
+}
+
+void MainWindow::runDrop(int pane, const QStringList &paths, bool fromUs, int kind) {
     // Asked, not inferred from the modifier Qt happened to resolve. Nothing on
     // screen distinguishes a move from a copy until it has happened, and the
     // two are not equally undoable.
-    const int kind = ops::askDropKind(m_app, this, static_cast<int>(paths.size()), fromUs);
+    //
+    // Only for a drop. A paste arrives here having already been told which it
+    // is by the clipboard, and asking again put a dialog headed "dropped
+    // items" in front of every Ctrl-V - answering a question the user had
+    // answered when they pressed Ctrl-C or Ctrl-X.
+    if (kind < 0) {
+        kind = ops::askDropKind(m_app, this, static_cast<int>(paths.size()), fromUs);
+    }
     if (kind < 0) {
         return;
     }
