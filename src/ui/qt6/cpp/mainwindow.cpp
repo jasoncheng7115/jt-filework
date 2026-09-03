@@ -261,6 +261,11 @@ MainWindow::MainWindow(JtfApp *app, quint64 windowId, QWidget *parent)
         jtf_app_save_session(m_app);
         m_places->refresh();
     });
+    connect(m_places, &PlacesList::writeImageRequested, this, [this] {
+        // No image under the cursor to assume, because the right-click was on
+        // a disk rather than on a file - so the writer asks for one.
+        openImageWriter();
+    });
     connect(m_places, &PlacesList::ejectFailed, this, [this](const QString &mountPoint) {
         m_statusIsIdle = false;
         m_statusMessage->setText(
@@ -1817,6 +1822,18 @@ void MainWindow::showEntryMenu(int paneId, const QPoint &global, bool onEntry) {
                 openUsageWindow(QFileInfo(row).isDir() ? row : QString());
             },
             !remote);
+        // Beside the other tools, because it belongs to the same group and
+        // the context menu already carries every one of them - this was the
+        // only one missing, so the way in was the Tools menu or nothing, and
+        // the file you want to write is the file you have just right-clicked.
+        //
+        // Only on a local file. A folder is not an image, and a file on a
+        // server would have to be fetched whole before the first sector could
+        // be written.
+        add(
+            "file.write_image", [this] { openImageWriter(); },
+            localTarget && pane->currentRow() >= 0
+                && jtf_row_is_directory(m_app, paneId, pane->currentRow()) == 0);
         add("file.attributes", [this] { showAttributes(); });
         menu.addSeparator();
         add("file.copy_path", [this] { copyText(true); });

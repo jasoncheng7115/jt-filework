@@ -761,10 +761,25 @@ void PlacesList::showContextMenu(const QPoint &at) {
         return;
     }
     if (kind == Kind::Favorite || kind == Kind::Volume) {
+        // A removable disk is the thing an image gets written to, so the way
+        // to ask for that belongs on the disk as well as on the image. It
+        // does not hand the disk over: the writer is built around nothing
+        // being preselected, and the disk still has to be picked there.
+        QAction *write = nullptr;
+        if (kind == Kind::Volume) {
+            write = menu.addAction(glyph::forCommand(QStringLiteral("file.write_image"),
+                                                     iconColour),
+                                   tr_("command.file.write_image"));
+            menu.addSeparator();
+        }
         QAction *add = menu.addAction(glyph::make(glyph::Shape::Bookmark, iconColour),
                                       tr_("places.add"));
         QAction *chosen = menu.exec(m_tree->viewport()->mapToGlobal(at));
         if (handledNewWindow(chosen)) {
+            return;
+        }
+        if (write != nullptr && chosen == write) {
+            emit writeImageRequested();
             return;
         }
         if (chosen == add) {

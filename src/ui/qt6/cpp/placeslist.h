@@ -53,6 +53,13 @@ signals:
     /// Ejecting a removable volume did not work. The window says why; a
     /// button that quietly does nothing is worse than one that reports.
     void ejectFailed(const QString &mountPoint);
+    /// Write a disk image, asked for from a removable volume's own menu.
+    ///
+    /// Carries no disk with it on purpose. The writer preselects nothing -
+    /// see the comment at the top of `imagewriterdialog.h` - and a disk
+    /// arriving already chosen is exactly the reflex confirmation that
+    /// rule exists to prevent.
+    void writeImageRequested();
 
 private:
     QLabel *m_title = nullptr;
