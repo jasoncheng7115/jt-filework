@@ -1075,6 +1075,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "jtf-hexedit"
+version = "0.6.21"
+dependencies = [
+ "jtf-core",
+]
+
+[[package]]
 name = "jtf-imaging"
 version = "0.6.21"
 dependencies = [

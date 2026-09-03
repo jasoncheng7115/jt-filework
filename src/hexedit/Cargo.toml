@@ -1,0 +1,16 @@
+[package]
+name = "jtf-hexedit"
+description = "Editing a file as bytes: an edit buffer over the file, undo, search and byte formats."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+jtf-core = { workspace = true }
+
+[lints]
+workspace = true

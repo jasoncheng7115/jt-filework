@@ -26,6 +26,7 @@ members = [
     "src/platform/devices",
     "src/platform/removal",
     "src/viewer",
+    "src/hexedit",
     "src/search",
     "src/commands",
     "src/cli",
@@ -35,7 +36,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.6.21"
+version = "0.6.22"
 edition = "2021"
 rust-version = "1.98"
 license = "GPL-3.0-or-later"
@@ -56,6 +57,7 @@ jtf-platform-devices = { path = "src/platform/devices" }
 jtf-imaging = { path = "src/imaging" }
 jtf-platform-removal = { path = "src/platform/removal" }
 jtf-viewer = { path = "src/viewer" }
+jtf-hexedit = { path = "src/hexedit" }
 jtf-commands = { path = "src/commands" }
 jtf-search = { path = "src/search" }
 jtf-ai = { path = "src/ai" }
