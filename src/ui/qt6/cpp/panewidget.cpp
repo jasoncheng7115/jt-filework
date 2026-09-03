@@ -1100,8 +1100,17 @@ void PaneWidget::toggleCurrentInSelection() {
     }
     const int columns = m_model->columnCount();
     const QItemSelection range(m_model->index(row, 0), m_model->index(row, columns - 1));
-    currentView()->selectionModel()->select(range, QItemSelectionModel::Toggle |
-                                                       QItemSelectionModel::Rows);
+    // The first Space starts the set; it does not toggle.
+    //
+    // While no set is being built the highlight travels with the cursor, so
+    // the row Space lands on is already selected - and `Toggle` would take it
+    // straight back out again. Space, Down, Space then ended with nothing
+    // marked at all rather than with two. Once a set exists, Toggle is right
+    // and is what lets Space take a row back out.
+    const auto how = m_marksAreDeliberate
+                         ? QItemSelectionModel::Toggle
+                         : QItemSelectionModel::Select;
+    currentView()->selectionModel()->select(range, how | QItemSelectionModel::Rows);
     // Space is the gesture that means "build a set", so from here the arrow
     // keys stop dragging the highlight along with them.
     m_marksAreDeliberate = true;
