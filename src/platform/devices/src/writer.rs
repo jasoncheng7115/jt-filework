@@ -142,11 +142,21 @@ pub fn open(device: &Device) -> Result<Sink, Error> {
     open_node(node)
 }
 
+/// Where `authopen` actually is.
+///
+/// By absolute path, not by name. It lives in `/usr/libexec`, which is on
+/// nobody's `PATH` - and an application launched from Finder has barely any
+/// `PATH` at all - so `Command::new("authopen")` failed to start before it
+/// could ask anyone anything. Pressing Write did nothing visible and no
+/// authorization sheet ever appeared.
+#[cfg(target_os = "macos")]
+const AUTHOPEN: &str = "/usr/libexec/authopen";
+
 #[cfg(target_os = "macos")]
 fn open_node(node: &str) -> Result<Sink, Error> {
     // -w: open for writing. authopen then copies its stdin to the file it
     // opened, so this process never holds the privileged descriptor.
-    spawn("authopen", &["-w", node], "authopen")
+    spawn(AUTHOPEN, &["-w", node], "authopen")
 }
 
 #[cfg(target_os = "linux")]
@@ -308,5 +318,22 @@ mod tests {
         if !cfg!(target_os = "windows") {
             assert!(!needs_elevation());
         }
+    }
+}
+
+#[cfg(test)]
+mod path_tests {
+    /// The helper is named by absolute path and that path is the real one.
+    ///
+    /// A bare name is resolved against `PATH`, which a bundled application
+    /// does not meaningfully have - this is the whole of the bug this test
+    /// exists for, and it is not visible from the outside because a helper
+    /// that never starts looks the same as one the user declined.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn authopen_is_named_by_absolute_path_and_is_there() {
+        let path = std::path::Path::new(super::AUTHOPEN);
+        assert!(path.is_absolute(), "resolved against PATH: {}", super::AUTHOPEN);
+        assert!(path.exists(), "not where we look for it: {}", super::AUTHOPEN);
     }
 }

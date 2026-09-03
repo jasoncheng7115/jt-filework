@@ -30,6 +30,7 @@
 class QCheckBox;
 class QLabel;
 class QListWidget;
+class QListWidgetItem;
 class QProgressBar;
 class QPushButton;
 class QTimer;
@@ -44,6 +45,8 @@ private:
     QString tr_(const char *key) const;
     void reloadDevices();
     void updateAffordances();
+    /// Ask twice, naming the disk both times. False means do not write.
+    bool confirmTwice(const QListWidgetItem *row);
     void startWrite();
     void pump();
     void showOutcome();

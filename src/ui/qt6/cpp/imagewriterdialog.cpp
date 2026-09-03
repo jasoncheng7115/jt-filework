@@ -13,6 +13,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QTimer>
@@ -261,9 +262,55 @@ void ImageWriterDialog::updateAffordances() {
     m_warning->setText(jtfFill(tr_("imaging.warning"), "device", name));
 }
 
+bool ImageWriterDialog::confirmTwice(const QListWidgetItem *row) {
+    // Twice, and both times with the disk written out in full.
+    //
+    // One dialog is one reflex. The disk is named in both because the thing
+    // being agreed to is *which disk*, and a second question that only says
+    // "are you sure" adds a click without adding a decision - the person
+    // reads the same words they have already dismissed once. So the first
+    // asks whether to write to this disk, and the second puts the disk, its
+    // size, its node and the image side by side one last time.
+    const QString device = row->data(DeviceDelegate::ModelRole).toString();
+    const QString detail = row->data(DeviceDelegate::DetailRole).toString();
+    const QString node = row->data(DeviceDelegate::NodeRole).toString();
+    const QString image = QFileInfo(m_image).fileName();
+    const QColor ink = palette().color(QPalette::Text);
+
+    const auto ask = [&](const char *titleKey, const char *bodyKey) {
+        QString body = tr_(bodyKey);
+        body = jtfFill(body, "device", device);
+        body = jtfFill(body, "detail", detail);
+        body = jtfFill(body, "node", node);
+        body = jtfFill(body, "image", image);
+
+        QMessageBox box(this);
+        box.setIconPixmap(
+            glyph::forCommand(QStringLiteral("file.write_image"), ink).pixmap(48, 48));
+        box.setWindowTitle(tr_(titleKey));
+        box.setText(body);
+        // Cancel is the default on both. A dialog answered by pressing Return
+        // without reading is answered "no" here.
+        QPushButton *go =
+            box.addButton(tr_("imaging.confirm_write_now"), QMessageBox::DestructiveRole);
+        QPushButton *stop =
+            box.addButton(tr_("imaging.confirm_cancel"), QMessageBox::RejectRole);
+        box.setDefaultButton(stop);
+        box.setEscapeButton(stop);
+        box.exec();
+        return box.clickedButton() == go;
+    };
+
+    return ask("imaging.confirm_title", "imaging.confirm_first")
+           && ask("imaging.confirm_again_title", "imaging.confirm_again");
+}
+
 void ImageWriterDialog::startWrite() {
     auto *row = m_devices->currentItem();
     if (row == nullptr || !row->data(kWritableRole).toBool()) {
+        return;
+    }
+    if (!confirmTwice(row)) {
         return;
     }
     if (jtf_write_needs_elevation() != 0) {
