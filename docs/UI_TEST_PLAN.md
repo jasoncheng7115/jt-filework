@@ -1016,6 +1016,10 @@ beside Explorer's, and asked why ours was the odd one out.
 | PASTE-004 | Paste onto an existing name in another folder offers 略過 / 兩者都保留 / 取代 / 取消 | H2 |
 | PASTE-005 | Ctrl-D duplicates without asking anything, and never overwrites the original | H2 |
 | PASTE-006 | A combo box is distinguishable from a text field: it carries an arrow in both themes | H3 |
+| MARK-001 | Click one row, then Down twice: the highlight lands two rows down, not just the outline | H2 |
+| MARK-002 | Space, Down, Space marks two rows - the first Space starts the set rather than toggling it away | H2 |
+| MARK-003 | With a set built, the arrows move the cursor alone and leave the set intact | H2 |
+| MARK-004 | Ctrl-click, Shift-click and a tick box all count as building a set; a bare click does not | H2 |
 
 ---
 
