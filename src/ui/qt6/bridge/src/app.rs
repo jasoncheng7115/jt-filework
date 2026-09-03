@@ -2397,8 +2397,7 @@ impl App {
         destination: Option<jtf_transfer::Side>,
     ) -> bool {
         self.plan_error = None;
-        self.pending_plan = None;
-        self.pending_transfer = None;
+        self.clear_pending();
 
         let sources = self.transfer_sources(pane);
         if sources.is_empty() {
@@ -2535,7 +2534,7 @@ impl App {
         kind: crate::operations::OperationKind,
     ) -> bool {
         self.plan_error = None;
-        self.pending_plan = None;
+        self.clear_pending();
 
         // A server on either end is a transfer, not a filesystem operation:
         // different machinery, because none of what makes a local move atomic
@@ -2592,7 +2591,7 @@ impl App {
         destination: &str,
     ) -> bool {
         self.plan_error = None;
-        self.pending_plan = None;
+        self.clear_pending();
 
         // A selection on a server goes to the transfer machinery, with the
         // folder the picker returned as a local destination.
@@ -3012,7 +3011,7 @@ impl App {
     /// contradiction in terms.
     pub(crate) fn prepare_duplicate(&mut self, pane: PaneId) -> bool {
         self.plan_error = None;
-        self.pending_plan = None;
+        self.clear_pending();
 
         let sources = self.operation_sources(pane);
         if sources.is_empty() {
@@ -3133,7 +3132,7 @@ impl App {
         sources: Vec<PathBuf>,
     ) -> bool {
         self.plan_error = None;
-        self.pending_plan = None;
+        self.clear_pending();
         if sources.is_empty() {
             self.plan_error = Some(PlanError::NothingToDo);
             return false;
@@ -3181,7 +3180,7 @@ impl App {
         destination: Option<PathBuf>,
     ) -> bool {
         self.plan_error = None;
-        self.pending_plan = None;
+        self.clear_pending();
         if sources.is_empty() || (kind.needs_destination() && destination.is_none()) {
             self.plan_error = Some(PlanError::NothingToDo);
             return false;
@@ -3192,7 +3191,7 @@ impl App {
     /// Build a rename plan.
     pub(crate) fn prepare_rename(&mut self, pane: PaneId, new_name: &str) -> bool {
         self.plan_error = None;
-        self.pending_plan = None;
+        self.clear_pending();
         // The cursor's row, not the marked set: see `cursor_source`.
         let Some(source) = self.cursor_source(pane) else {
             self.plan_error = Some(PlanError::NothingToDo);
@@ -3244,7 +3243,7 @@ impl App {
 
     pub(crate) fn prepare_new_folder(&mut self, pane: PaneId, name: &str) -> bool {
         self.plan_error = None;
-        self.pending_plan = None;
+        self.clear_pending();
         let Some(parent) = self
             .workspace
             .pane(pane)
@@ -3281,7 +3280,12 @@ impl App {
     /// still counting.
     pub(crate) fn poll_planning(&mut self) -> i32 {
         let Some(planning) = self.planning.as_mut() else {
-            return i32::from(self.pending_plan.is_some());
+            // A transfer counts. It is built on the calling thread - there is
+            // no tree to walk, which is the whole point - so by the time this
+            // is asked it is either there or it failed. Answering only about
+            // the local plan reported every prepared transfer as a failure,
+            // and the copy stopped here without a word.
+            return i32::from(self.pending_plan.is_some() || self.pending_transfer.is_some());
         };
         match planning.take() {
             None => -1,
@@ -3303,12 +3307,22 @@ impl App {
         if let Some(planning) = self.planning.take() {
             planning.cancel();
         }
-        self.pending_plan = None;
+        self.clear_pending();
     }
 
     /// The plan waiting for confirmation.
     pub(crate) const fn pending_plan(&self) -> Option<&Plan> {
         self.pending_plan.as_ref()
+    }
+
+    /// Forget whatever was pending, of either kind.
+    ///
+    /// Both, always. Clearing only the local one left a transfer prepared
+    /// earlier sitting there, and the next `start` would have run *that*
+    /// instead of the rename or the new folder it was asked for.
+    fn clear_pending(&mut self) {
+        self.pending_plan = None;
+        self.pending_transfer = None;
     }
 
     /// Why the last prepare failed, as a localization key.
