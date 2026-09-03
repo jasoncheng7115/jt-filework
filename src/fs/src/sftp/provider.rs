@@ -133,6 +133,22 @@ impl SftpProvider {
         Self::connect(&self.state, endpoint)
     }
 
+    /// The same, for callers outside this module that need to move bytes.
+    ///
+    /// Handed out rather than wrapping every operation here, because the
+    /// transfers are orchestration - recursion, conflict policy, a move that
+    /// is a copy and then a delete - and that belongs with the other file
+    /// operations rather than in the connection pool. The pool stays the only
+    /// thing that decides when to open one.
+    ///
+    /// # Errors
+    ///
+    /// Whatever connecting reports, including a host that has not been
+    /// accepted and a password that was never given.
+    pub fn connection_for(&self, endpoint: &Endpoint) -> Result<Arc<Connection>> {
+        self.connection(endpoint)
+    }
+
     /// The same, over the shared state alone, so a worker thread can call it.
     fn connect(state: &ProviderState, endpoint: &Endpoint) -> Result<Arc<Connection>> {
         if let Ok(open) = state.connections.lock() {
