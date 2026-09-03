@@ -1290,7 +1290,20 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     // drag `bb` while `aa` is selected and the drop was handed `aa`. Selecting
     // the pressed row first is what every file manager does, and here it also
     // sets the mark, because selection is the mark (`AGENTS.md` §10).
-    if (watched == m_view && event->type() == QEvent::MouseButtonPress) {
+    //
+    // On the viewport, not on the view. An item view's mouse events are
+    // delivered to its viewport - the view itself sees only what the viewport
+    // does not want - so a branch guarded on the view never ran for an
+    // ordinary click. That silently disabled the drag payload fix above, and
+    // it disabled the one line that says a plain click is not somebody
+    // building a marked set. With no way to clear that flag, one press of
+    // Space put the list into set-building mode for good and the arrow keys
+    // stopped carrying the highlight until the folder changed. Three attempts
+    // at this bug fixed reasoning that was correct and never reached.
+    //
+    // `pos()` is in viewport coordinates here, which is exactly what `indexAt`
+    // wants; measured against the view it was off by the header.
+    if (watched == m_view->viewport() && event->type() == QEvent::MouseButtonPress) {
         auto *mouse = static_cast<QMouseEvent *>(event);
         const bool modified =
             (mouse->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier | Qt::MetaModifier))
