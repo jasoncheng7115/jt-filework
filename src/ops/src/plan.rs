@@ -124,6 +124,14 @@ pub enum PlanError {
     InvalidName(String),
     /// Nothing was selected.
     NothingToDo,
+    /// The entries live on a server, and file operations are local-only.
+    ///
+    /// Its own variant rather than `NothingToDo`, which is what a remote
+    /// selection used to produce: the sources are gathered as local paths and
+    /// a server entry has none, so an operation on three visibly marked files
+    /// reported "nothing selected". Saying what is actually true costs one
+    /// variant and stops the program contradicting the screen.
+    NotOnThisFilesystem,
     /// The filesystem refused during the scan.
     Failed(Error),
 }
@@ -140,6 +148,9 @@ impl core::fmt::Display for PlanError {
             }
             Self::InvalidName(n) => write!(f, "invalid name: {n}"),
             Self::NothingToDo => f.write_str("nothing selected"),
+            Self::NotOnThisFilesystem => {
+                f.write_str("those entries are on a server, not on this filesystem")
+            }
             Self::Failed(e) => write!(f, "{e}"),
         }
     }
@@ -155,6 +166,10 @@ impl From<PlanError> for Error {
             | PlanError::DestinationInsideSource(_)
             | PlanError::SourceIsDestination(_) => ErrorCode::InvalidPath,
             PlanError::DestinationNotADirectory(_) | PlanError::NothingToDo => ErrorCode::WrongKind,
+            // Not WrongKind: the entries are fine, this build cannot reach
+            // them. `Unsupported` is what a caller checks to decide whether
+            // to offer the operation at all.
+            PlanError::NotOnThisFilesystem => ErrorCode::Unsupported,
         };
         Self::new(code, value.to_string())
     }

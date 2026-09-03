@@ -198,6 +198,7 @@ plan.source_is_destination = 來源與目的地相同。
 plan.destination_not_a_directory = 目的地不是資料夾。
 plan.invalid_name = 無法使用這個名稱。
 plan.nothing_to_do = 沒有選取任何項目。
+plan.not_on_this_filesystem = 這些項目在伺服器上。目前只能對本機的檔案做這項操作，伺服器上的複製與搬移還沒做。
 plan.failed = 無法準備這項操作。
 prompt.rename_title = 重新命名
 prompt.rename_label = 新名稱

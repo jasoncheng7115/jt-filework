@@ -2371,10 +2371,7 @@ impl App {
             // then a lie: something is selected, and it is somewhere this
             // program cannot yet copy from.
             self.plan_error = Some(if self.pane_is_remote(pane) {
-                PlanError::Failed(jtf_core::Error::new(
-                    jtf_core::ErrorCode::Unsupported,
-                    "remote.write_not_built",
-                ))
+                PlanError::NotOnThisFilesystem
             } else {
                 PlanError::NothingToDo
             });
@@ -2417,9 +2414,17 @@ impl App {
         self.plan_error = None;
         self.pending_plan = None;
 
+        // Three different situations used to report "nothing selected", and
+        // one of them was reachable with three files visibly ticked: entries
+        // on a server have no local path, so the source list comes back empty
+        // and the program contradicted the screen. Each says what it means.
         let sources = self.operation_sources(pane);
         if sources.is_empty() {
-            self.plan_error = Some(PlanError::NothingToDo);
+            self.plan_error = Some(if self.pane_is_remote(pane) {
+                PlanError::NotOnThisFilesystem
+            } else {
+                PlanError::NothingToDo
+            });
             return false;
         }
         if !kind.needs_destination() {
@@ -2428,7 +2433,7 @@ impl App {
         }
         let target = std::path::PathBuf::from(destination);
         if !target.is_dir() {
-            self.plan_error = Some(PlanError::NothingToDo);
+            self.plan_error = Some(PlanError::DestinationNotADirectory(target));
             return false;
         }
         self.build_plan(kind, sources, Some(target))
@@ -3131,6 +3136,7 @@ impl App {
             PlanError::DestinationNotADirectory(_) => "plan.destination_not_a_directory",
             PlanError::InvalidName(_) => "plan.invalid_name",
             PlanError::NothingToDo => "plan.nothing_to_do",
+            PlanError::NotOnThisFilesystem => "plan.not_on_this_filesystem",
             // PlanError is non_exhaustive: a variant without its own message
             // reports generically rather than failing to compile here.
             PlanError::Failed(_) | _ => "plan.failed",

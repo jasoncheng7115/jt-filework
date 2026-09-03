@@ -198,6 +198,7 @@ plan.source_is_destination = The source and the destination are the same.
 plan.destination_not_a_directory = The destination is not a folder.
 plan.invalid_name = That name cannot be used.
 plan.nothing_to_do = Nothing is selected.
+plan.not_on_this_filesystem = Those entries are on a server. This operation works on local files only; copying and moving to and from a server is not built yet.
 plan.failed = The operation could not be prepared.
 prompt.rename_title = Rename
 prompt.rename_label = New name
