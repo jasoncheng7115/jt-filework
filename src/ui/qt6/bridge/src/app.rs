@@ -2608,12 +2608,38 @@ impl App {
         self.plan_error = None;
         self.clear_pending();
 
-        // A selection on a server goes to the transfer machinery, with the
-        // folder the picker returned as a local destination.
-        if self.pane_is_remote(pane) {
-            let into = kind
-                .needs_destination()
-                .then(|| jtf_transfer::Side::Local(std::path::PathBuf::from(destination)));
+        // A selection on a server goes to the transfer machinery. The
+        // destination is read as a location rather than assumed local, for
+        // the same reason the path bar has to: typing an sftp:// URL into
+        // that box would otherwise make a local folder called `sftp:`, which
+        // is the shape of bug this pair has produced twice already.
+        //
+        // The picker offers local folders, so a local path is what it
+        // normally returns; typing a server URL into the box is the way to
+        // say the other thing, and it now works.
+        if self.pane_is_remote(pane) || destination.trim_start().starts_with("sftp://") {
+            let into = kind.needs_destination().then(|| {
+                let trimmed = destination.trim();
+                if trimmed.starts_with("sftp://") {
+                    jtf_transfer::Side::of(&Location::parse_display(trimmed))
+                } else {
+                    Some(jtf_transfer::Side::Local(std::path::PathBuf::from(
+                        destination,
+                    )))
+                }
+            });
+            // A destination that was asked for and could not be read is a
+            // refusal, not a transfer with nowhere to go.
+            let into = match into {
+                Some(None) => {
+                    self.plan_error = Some(PlanError::DestinationNotADirectory(
+                        std::path::PathBuf::from(destination),
+                    ));
+                    return false;
+                }
+                Some(Some(side)) => Some(side),
+                None => None,
+            };
             return self.prepare_transfer(pane, transfer_kind(kind), into);
         }
 
