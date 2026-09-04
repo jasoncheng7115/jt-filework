@@ -409,6 +409,21 @@ pub struct App {
     archive_entries: Vec<jtf_viewer::ArchiveEntry>,
 }
 
+/// The closest ancestor of `path` that is still there.
+///
+/// Falls back to the filesystem root, which exists on every platform this
+/// runs on, so this always answers with somewhere a pane can go.
+fn nearest_existing(path: &Path) -> PathBuf {
+    let mut candidate = path.parent();
+    while let Some(dir) = candidate {
+        if dir.is_dir() {
+            return dir.to_path_buf();
+        }
+        candidate = dir.parent();
+    }
+    PathBuf::from(std::path::MAIN_SEPARATOR_STR)
+}
+
 /// The transfer kind a local operation kind means.
 const fn transfer_kind(kind: crate::operations::OperationKind) -> jtf_transfer::Kind {
     match kind {
@@ -2127,6 +2142,51 @@ impl App {
     }
 
     /// Whether the pane is showing a folder on a server.
+    /// Move every tab that was inside `mount_point` somewhere that still
+    /// exists, because the disk it was showing has gone.
+    ///
+    /// Ejecting refreshed the sidebar and left the panes listing a volume
+    /// that is no longer mounted: names, sizes and dates for files nobody can
+    /// open, and no sign that anything had changed. A listing that outlives
+    /// its disk is worse than an empty pane, because it looks like a working
+    /// one.
+    ///
+    /// Every tab, not only the visible one - a background tab left pointing
+    /// at the ejected disk is the same stale listing waiting to be clicked.
+    ///
+    /// The nearest surviving ancestor rather than home: after ejecting
+    /// `/Volumes/16G` that is `/Volumes`, which is where the disk was and
+    /// where its replacement will appear.
+    ///
+    /// Returns whether anything moved.
+    pub(crate) fn volume_left(&mut self, mount_point: &Path) -> bool {
+        let landing = nearest_existing(mount_point);
+        let mut moved = Vec::new();
+        for pane in self.workspace.pane_order() {
+            let Some(p) = self.workspace.pane_mut(pane) else {
+                continue;
+            };
+            let mut touched = false;
+            for tab in p.tabs_mut() {
+                let inside = tab
+                    .location()
+                    .as_path()
+                    .is_some_and(|path| path.starts_with(mount_point));
+                if inside {
+                    tab.navigate_to(Location::local(landing.clone()));
+                    touched = true;
+                }
+            }
+            if touched {
+                moved.push(pane);
+            }
+        }
+        for pane in &moved {
+            self.start_enumeration(*pane);
+        }
+        !moved.is_empty()
+    }
+
     pub(crate) fn pane_is_remote(&self, pane: PaneId) -> bool {
         self.workspace
             .pane(pane)
@@ -5888,5 +5948,40 @@ impl App {
         if width > 0 {
             self.settings.column_widths.push((column, width));
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
+mod ejection_tests {
+    use super::nearest_existing;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn the_landing_place_is_the_closest_folder_that_is_still_there() {
+        let root = std::env::temp_dir().join("jtf-eject-landing");
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+
+        // Ejecting `<root>/disk` leaves `<root>`, which is where the disk was
+        // and where its replacement will appear.
+        let gone = root.join("disk");
+        assert_eq!(nearest_existing(&gone), root);
+
+        // Several levels can vanish at once - the mount point and everything
+        // that was under it - and it still lands somewhere real.
+        let deep = root.join("disk/folder/inner");
+        assert_eq!(nearest_existing(&deep), root);
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_path_with_no_surviving_ancestor_still_lands_somewhere() {
+        // Never `None`, never the path that has gone: a pane must always have
+        // somewhere to be.
+        let answer = nearest_existing(Path::new("/no-such-volume/at/all"));
+        assert!(answer.is_dir(), "{} is not a folder", answer.display());
+        assert_ne!(answer, PathBuf::from("/no-such-volume/at/all"));
     }
 }

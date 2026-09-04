@@ -266,6 +266,18 @@ MainWindow::MainWindow(JtfApp *app, quint64 windowId, QWidget *parent)
         // a disk rather than on a file - so the writer asks for one.
         openImageWriter();
     });
+    connect(m_places, &PlacesList::volumeEjected, this, [this](const QString &mountPoint) {
+        const QByteArray utf8 = mountPoint.toUtf8();
+        if (jtf_volume_ejected(m_app, utf8.constData()) != 0) {
+            // Somewhere was showing it. Say so, because a pane that changes
+            // folder on its own is otherwise a mystery.
+            m_statusIsIdle = false;
+            m_statusMessage->setText(
+                jtfFill(tr_("places.ejected_moved"), "name", QFileInfo(mountPoint).fileName()));
+            refreshAll();
+            jtf_app_save_session(m_app);
+        }
+    });
     connect(m_places, &PlacesList::ejectFailed, this, [this](const QString &mountPoint) {
         m_statusIsIdle = false;
         m_statusMessage->setText(

@@ -620,6 +620,7 @@ remote.sign_in = Sign in to the server
 remote.password_for = Password for {server}. The server accepted no key, and no agent offered one.
 places.eject = Eject
 places.eject_failed = Could not eject “{name}”; something may still be using it.
+places.ejected_moved = {name} was ejected; panes that were showing it moved up a level.
 places.servers = Servers
 places.forget_server = Forget This Server
 places.connect = Connect

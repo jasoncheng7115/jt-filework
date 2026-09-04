@@ -3643,6 +3643,24 @@ pub unsafe extern "C" fn jtf_op_is_irreversible(app: *const App) -> c_int {
     })
 }
 
+/// Tell the app a volume has gone, so no pane keeps listing it.
+///
+/// Called after a successful eject. Returns whether any pane had to move.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `mount_point` must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_volume_ejected(app: *mut App, mount_point: *const c_char) -> c_int {
+    let Some(text) = (unsafe { read_str(mount_point) }) else {
+        return 0;
+    };
+    if text.trim().is_empty() {
+        return 0;
+    }
+    unsafe { app_mut(app) }
+        .map_or(0, |a| c_int::from(a.volume_left(std::path::Path::new(text.trim()))))
+}
+
 /// Whether the pending work is a move that cannot be done in one step.
 ///
 /// A local move within one filesystem is a rename: atomic, and either it

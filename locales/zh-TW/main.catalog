@@ -620,6 +620,7 @@ remote.sign_in = 登入伺服器
 remote.password_for = 請輸入 {server} 的密碼。伺服器不接受任何金鑰，ssh-agent 也沒有提供。
 places.eject = 退出
 places.eject_failed = 無法退出「{name}」，可能仍有程式正在使用它。
+places.ejected_moved = 已退出 {name}，原本顯示它的面板已改到上一層。
 places.servers = 伺服器
 places.forget_server = 忘記這台伺服器
 places.connect = 連線

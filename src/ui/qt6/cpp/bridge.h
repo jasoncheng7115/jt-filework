@@ -412,6 +412,8 @@ uint64_t jtf_op_bytes(const JtfApp *app);
 int jtf_op_is_irreversible(const JtfApp *app);
 // Whether a pending move is a copy-then-delete rather than a rename.
 int jtf_op_is_two_step_move(const JtfApp *app);
+// A volume was ejected; move any pane that was inside it. Returns 1 if any did.
+int jtf_volume_ejected(JtfApp *app, const char *mount_point);
 int jtf_op_removes(const JtfApp *app); // trash or delete
 int jtf_op_first_conflict(const JtfApp *app, char *buf, int len);
 int jtf_op_start(JtfApp *app, int policy);

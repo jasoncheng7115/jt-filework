@@ -53,6 +53,9 @@ signals:
     /// Ejecting a removable volume did not work. The window says why; a
     /// button that quietly does nothing is worse than one that reports.
     void ejectFailed(const QString &mountPoint);
+    /// A volume was ejected. Panes showing it are now showing a disk that is
+    /// not there.
+    void volumeEjected(const QString &mountPoint);
     /// Write a disk image, asked for from a removable volume's own menu.
     ///
     /// Carries no disk with it on purpose. The writer preselects nothing -

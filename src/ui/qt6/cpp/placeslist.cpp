@@ -622,7 +622,10 @@ bool PlacesList::eventFilter(QObject *watched, QEvent *event) {
             // Refreshing either way: on success the disk is gone and the row
             // must go with it; on failure the row is still right, and the
             // status line is where the reason belongs.
-            if (!platform::eject(root)) {
+            if (platform::eject(root)) {
+                // The panes are showing a disk that is no longer there.
+                emit volumeEjected(root);
+            } else {
                 emit ejectFailed(root);
             }
             refresh();
