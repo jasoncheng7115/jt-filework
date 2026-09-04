@@ -111,9 +111,15 @@ impl Kind {
         matches!(self, Self::Copy | Self::Move)
     }
 
-    /// Whether the sources are removed once the bytes are across.
-    pub const fn removes_source(self) -> bool {
-        matches!(self, Self::Move | Self::Delete)
+    /// Whether this is the kind that destroys data.
+    ///
+    /// Not "does the source go away", which a move also does: this is what
+    /// decides whether the user is asked to agree to losing something. It had
+    /// one caller and it was the wrong question there - a move between two
+    /// folders on one server was confirmed first as a permanent delete and
+    /// then as a trip to the trash.
+    pub const fn destroys(self) -> bool {
+        matches!(self, Self::Delete)
     }
 }
 
@@ -255,7 +261,7 @@ impl Plan {
     /// user is `is_same_server_rename`'s opposite: that it happens in two
     /// steps and can leave both.
     pub fn deletes_on_a_server(&self) -> bool {
-        self.kind == Kind::Delete && self.items.iter().any(|i| i.source.is_remote())
+        self.kind.destroys() && self.items.iter().any(|i| i.source.is_remote())
     }
 
     /// Whether a move here can be done as a rename.
@@ -492,6 +498,28 @@ mod tests {
         )
         .unwrap();
         assert!(!down.is_same_server_rename());
+    }
+
+    #[test]
+    fn a_move_earns_neither_the_trash_question_nor_the_permanent_one() {
+        // Both were asked of a move, one after the other: first "permanently
+        // delete 1 item?" and then "move 1 item to the trash?", for an
+        // operation that puts the file in another folder.
+        for destination in [remote("/srv/elsewhere"), Side::Local(PathBuf::from("/tmp"))] {
+            let plan = Plan::build(
+                Kind::Move,
+                vec![item(remote("/srv/a.txt"), 10, false)],
+                Some(destination.clone()),
+            )
+            .unwrap();
+            assert!(
+                !plan.kind.destroys(),
+                "a move to {destination} was treated as destroying the file"
+            );
+            assert!(!plan.deletes_on_a_server());
+        }
+        assert!(Kind::Delete.destroys());
+        assert!(!Kind::Copy.destroys());
     }
 
     #[test]

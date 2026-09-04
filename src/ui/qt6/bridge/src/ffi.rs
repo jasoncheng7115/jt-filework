@@ -3616,8 +3616,12 @@ pub unsafe extern "C" fn jtf_op_removes(app: *const App) -> c_int {
         c_int::from(
             a.pending_plan()
                 .is_some_and(|plan| plan.operation.removes())
+                // Only a delete, matching what `removes` means locally: trash
+                // or delete, never a move. A move does remove its source, and
+                // mapping it here asked "move 1 item to the trash?" of someone
+                // who had asked to move a file between two folders.
                 || a.pending_transfer()
-                    .is_some_and(|plan| plan.kind.removes_source()),
+                    .is_some_and(|plan| plan.kind == jtf_transfer::Kind::Delete),
         )
     })
 }
