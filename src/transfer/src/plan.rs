@@ -242,12 +242,20 @@ impl Plan {
             || self.items.iter().any(|i| i.source.is_remote())
     }
 
-    /// Whether this removes anything from a server.
+    /// Whether this destroys data on a server.
     ///
-    /// What decides which confirmation is asked: a server has no trash, so
-    /// this is the permanent kind however the local side would have behaved.
+    /// What decides whether the permanent question is asked. A server has no
+    /// trash, so a delete there cannot be taken back and has to say so.
+    ///
+    /// A move is not this, even though it removes the source. The bytes are
+    /// at the destination afterwards; nothing is gone. Counting it here put
+    /// "permanently delete 1 item? this cannot be undone" in front of someone
+    /// who had asked to move a file to another folder on the same server -
+    /// which is a rename, and destroys nothing at all. What a move owes the
+    /// user is `is_same_server_rename`'s opposite: that it happens in two
+    /// steps and can leave both.
     pub fn deletes_on_a_server(&self) -> bool {
-        self.kind.removes_source() && self.items.iter().any(|i| i.source.is_remote())
+        self.kind == Kind::Delete && self.items.iter().any(|i| i.source.is_remote())
     }
 
     /// Whether a move here can be done as a rename.
@@ -487,14 +495,36 @@ mod tests {
     }
 
     #[test]
-    fn removing_from_a_server_is_known_to_be_permanent() {
-        let moved = Plan::build(
+    fn only_a_delete_on_a_server_asks_the_permanent_question() {
+        let deleted = Plan::build(
+            Kind::Delete,
+            vec![item(remote("/srv/a.txt"), 10, false)],
+            None,
+        )
+        .unwrap();
+        assert!(deleted.deletes_on_a_server(), "a server has no trash");
+
+        // The one that was wrong. A move to another folder on the same server
+        // is a rename and destroys nothing, and this asked the user to agree
+        // to permanently deleting the file they were moving.
+        let renamed = Plan::build(
+            Kind::Move,
+            vec![item(remote("/srv/a.txt"), 10, false)],
+            Some(remote("/srv/elsewhere")),
+        )
+        .unwrap();
+        assert!(!renamed.deletes_on_a_server());
+
+        let moved_off = Plan::build(
             Kind::Move,
             vec![item(remote("/srv/a.txt"), 10, false)],
             Some(Side::Local(PathBuf::from("/tmp"))),
         )
         .unwrap();
-        assert!(moved.deletes_on_a_server(), "a move takes the source away");
+        assert!(
+            !moved_off.deletes_on_a_server(),
+            "the bytes end up here; nothing was destroyed"
+        );
 
         let copied = Plan::build(
             Kind::Copy,
@@ -504,14 +534,14 @@ mod tests {
         .unwrap();
         assert!(!copied.deletes_on_a_server());
 
-        let uploaded = Plan::build(
-            Kind::Move,
+        let deleted_here = Plan::build(
+            Kind::Delete,
             vec![item(Side::Local(PathBuf::from("/tmp/a.txt")), 10, false)],
-            Some(remote("/srv")),
+            None,
         )
         .unwrap();
         assert!(
-            !uploaded.deletes_on_a_server(),
+            !deleted_here.deletes_on_a_server(),
             "the source is local, so the trash still applies to it"
         );
     }
