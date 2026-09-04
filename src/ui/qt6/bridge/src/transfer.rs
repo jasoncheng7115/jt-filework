@@ -167,7 +167,11 @@ impl Summary {
             match outcome {
                 jtf_transfer::Outcome::Failed(e)
                 | jtf_transfer::Outcome::CopiedButSourceRemains(e) => {
-                    Some(format!("{name}: {e}"))
+                    // The context, not the whole error. `Display` prefixes the
+                    // code, and for a failure the server described in its own
+                    // words that came out as "Permission denied: Permission
+                    // denied" on the status line.
+                    Some(format!("{name}: {}", e.context()))
                 }
                 _ => None,
             }
