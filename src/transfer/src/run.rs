@@ -610,7 +610,7 @@ mod tests {
 
     #[test]
     fn a_failed_download_leaves_nothing_behind() {
-        let dir = std::env::temp_dir().join("jtf-transfer-partial");
+        let dir = std::env::temp_dir().join(format!("jtf-transfer-partial-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let final_path = dir.join("x.bin");
         let partial = partial_path(&final_path);
@@ -629,7 +629,7 @@ mod tests {
 
     #[test]
     fn a_finished_download_is_renamed_into_place() {
-        let dir = std::env::temp_dir().join("jtf-transfer-finish");
+        let dir = std::env::temp_dir().join(format!("jtf-transfer-finish-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let final_path = dir.join("y.bin");
         let _ = std::fs::remove_file(&final_path);

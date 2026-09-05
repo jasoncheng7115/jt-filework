@@ -27,7 +27,7 @@ use jtf_jobs::{CancellationToken, Progress};
 use jtf_platform_devices::{Bus, Device};
 
 fn scratch(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join("jtf-imaging-whole");
+    let dir = std::env::temp_dir().join(format!("jtf-imaging-whole-{}", std::process::id()));
     fs::create_dir_all(&dir).unwrap();
     dir.join(name)
 }
@@ -157,7 +157,7 @@ fn writing_the_image_onto_the_disk_it_lives_on_is_refused() {
     let mut device = fake_disk("whole-disk-5.img", 1_000_000);
     device.volumes = vec![jtf_platform_devices::Volume {
         label: Some("SCRATCH".into()),
-        mount_point: Some(scratch("").parent().unwrap().join("jtf-imaging-whole")),
+        mount_point: Some(scratch("").parent().unwrap().join(format!("jtf-imaging-whole-{}", std::process::id()))),
     }];
     let err = Plan::new(&source, device.clone()).unwrap_err();
     assert_eq!(err.code(), ErrorCode::PermissionDenied);

@@ -492,7 +492,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn scratch(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join("jtf-hexedit-session");
+        let dir = std::env::temp_dir().join(format!("jtf-hexedit-session-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join(name);
         let _ = std::fs::remove_file(&path);

@@ -329,7 +329,7 @@ mod tests {
     use super::*;
 
     fn scratch(name: &str, contents: &[u8]) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join("jtf-bridge-hexedit");
+        let dir = std::env::temp_dir().join(format!("jtf-bridge-hexedit-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join(name);
         std::fs::write(&path, contents).unwrap();

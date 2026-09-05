@@ -17,7 +17,7 @@ use jtf_imaging::{copy, verify, Crc32, CHUNK};
 use jtf_jobs::{CancellationToken, Progress};
 
 fn scratch(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join("jtf-imaging-tests");
+    let dir = std::env::temp_dir().join(format!("jtf-imaging-tests-{}", std::process::id()));
     fs::create_dir_all(&dir).unwrap();
     dir.join(name)
 }

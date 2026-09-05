@@ -179,3 +179,33 @@ fn the_gallery_shows_all_three_platforms() {
         );
     }
 }
+
+/// The version in the READMEs' titles is the version being built.
+///
+/// A number written by hand goes stale the moment it is not: the status line
+/// in both files said 0.6.9 for twenty-eight releases, and the pages said it
+/// too until someone read them. This makes the release bump the title.
+#[test]
+fn both_readmes_name_the_version_that_is_being_built() {
+    let root = repo_root();
+    let manifest = std::fs::read_to_string(root.join("Cargo.toml")).expect("Cargo.toml");
+    let version = manifest
+        .lines()
+        .find_map(|line| line.strip_prefix("version = \""))
+        .and_then(|rest| rest.split('"').next())
+        .expect("a workspace version");
+
+    for name in ["README.md", "README_zh-TW.md"] {
+        let text = std::fs::read_to_string(root.join(name)).unwrap_or_else(|e| panic!("{name}: {e}"));
+        let title = text.lines().next().unwrap_or_default();
+        assert_eq!(
+            title,
+            format!("# jt-filework v{version}"),
+            "{name}'s title does not name the version being built"
+        );
+        assert!(
+            text.contains(version),
+            "{name} does not mention {version} in its status line either"
+        );
+    }
+}
