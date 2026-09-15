@@ -237,6 +237,12 @@ and the set is wrong by the third one.
 | MARK-028 | Click one row, then Down twice: the **highlight** lands two rows down, not only the thin cursor outline | H2 |
 | MARK-029 | Space, Down, Space marks two rows. The first Space starts the set; it does not toggle away the row the highlight is already on | H2 |
 | MARK-030 | A bare click is not a set being built, so the arrows keep carrying the highlight; Ctrl-click, Shift-click, a tick box, Space, mark all and invert all are | H2 |
+| MARK-031 | The bar follows the arrows **always** - after Space, after a click, with anything marked. It is a position, never a choice | H2 |
+| MARK-032 | Marked rows are drawn in the mark colour, not by the bar, so a marked row and the row you are on are never confused | H3 |
+| MARK-033 | Space, Down, Space from a clean list leaves two marked and the bar a row below the second | H2 |
+| MARK-034 | Space on a row that is already marked unmarks it - it toggles, and the bar still moves on | H2 |
+| MARK-035 | A plain click moves the bar and marks nothing; the tick box, Ctrl-click and Shift-click mark without moving the bar | H2 |
+| MARK-036 | A command acts on the marked set, and on the row under the bar when nothing is marked | H1 |
 | TAB-020 | A tab can be pinned from its context menu and from the File menu, and shows a mark when it is | H2 |
 | TAB-021 | A pinned tab refuses to close and cannot be dragged out of the leading block | H1 |
 
