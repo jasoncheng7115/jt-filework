@@ -4808,6 +4808,28 @@ pub unsafe extern "C" fn jtf_set_utc_offset(app: *mut App, seconds: c_int) {
     }
 }
 
+/// Re-read the rows `count` rows from `first` in `pane`, and say whether any
+/// of them changed.
+///
+/// The window passes what it is showing. See `App::refresh_rows` for why it
+/// is the visible rows rather than all of them.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_refresh_rows(
+    app: *mut App,
+    pane_id: c_int,
+    first: c_int,
+    count: c_int,
+) -> c_int {
+    let first = usize::try_from(first).unwrap_or(0);
+    let count = usize::try_from(count).unwrap_or(0);
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        c_int::from(a.refresh_rows(pane(pane_id), first, count))
+    })
+}
+
 /// Re-list any pane whose folder has changed underneath it. Returns 1 if any
 /// pane was re-read.
 ///

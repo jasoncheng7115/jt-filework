@@ -1,4 +1,4 @@
-# jt-filework v0.6.38
+# jt-filework v0.6.39
 
 > A keyboard-first, mouse-complete file workspace for macOS, Windows and Linux.
 
@@ -15,7 +15,7 @@ browse, remote folders over SFTP, and a disc usage report that says which
 
 By Jason Cheng (Jason Tools).
 
-**Status: 0.6.38.** Runs on macOS, Windows and Linux. Built from source on
+**Status: 0.6.39.** Runs on macOS, Windows and Linux. Built from source on
 all three; there are no packaged downloads yet. 763 tests pass.
 
 ---

@@ -42,6 +42,9 @@ public:
     void refresh();
     // Rows and status only: what changes while a directory streams in.
     void refreshRows();
+    /// Re-read only the rows on screen, so a size or date that changed under
+    /// the pane shows without re-listing the folder. True if anything moved.
+    bool refreshVisibleRows();
     // Row the keyboard is on, or -1. The window needs it for commands that
     // act on the focused entry.
     int currentRow() const;

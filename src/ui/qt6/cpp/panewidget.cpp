@@ -1998,6 +1998,35 @@ void PaneWidget::refresh() {
     retranslate();
 }
 
+bool PaneWidget::refreshVisibleRows() {
+    // Which rows are actually on screen, plus a little either side so a row
+    // scrolled to is already right rather than correcting itself a moment
+    // after it appears.
+    auto *view = currentView();
+    if (view == nullptr || m_model->rowCount() == 0) {
+        return false;
+    }
+    const QModelIndex top = view->indexAt(view->viewport()->rect().topLeft());
+    const QModelIndex bottom = view->indexAt(view->viewport()->rect().bottomLeft());
+    const int first = top.isValid() ? top.row() : 0;
+    const int last = bottom.isValid() ? bottom.row() : m_model->rowCount() - 1;
+    constexpr int kSpare = 4;
+    const int from = qMax(0, first - kSpare);
+    const int count = qMin(m_model->rowCount() - from, (last - first + 1) + kSpare * 2);
+    if (count <= 0) {
+        return false;
+    }
+
+    if (jtf_refresh_rows(m_app, m_pane, from, count) == 0) {
+        return false;
+    }
+    // Only the rows that were asked about: a full reset here would collapse
+    // the selection and fight the cursor every second.
+    emit m_model->dataChanged(m_model->index(from, 0),
+                              m_model->index(from + count - 1, m_model->columnCount() - 1));
+    return true;
+}
+
 void PaneWidget::refreshRows() {
     m_model->refresh();
     ensureCurrentRow();

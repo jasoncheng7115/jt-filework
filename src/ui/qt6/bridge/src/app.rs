@@ -5881,6 +5881,75 @@ impl App {
     /// A pane that is already loading, showing search results, or reporting an
     /// error is left alone: it is either about to be replaced anyway or it is
     /// not showing a directory.
+    /// Re-read the rows the window is actually showing.
+    ///
+    /// The folder poll below notices entries appearing and disappearing,
+    /// because that moves the directory's own modification time. Writing to a
+    /// file already in the folder does not: the size and the date on screen
+    /// went on saying what they said when the folder was first read, for as
+    /// long as the pane stayed there.
+    ///
+    /// Statting every entry would fix that and cost a hundred thousand stats
+    /// a second on a large folder. Only the rows on screen are re-read - a
+    /// few dozen - which is bounded by the size of the window rather than by
+    /// the size of the directory, and is exactly the set whose numbers anyone
+    /// can see are wrong.
+    ///
+    /// Returns whether any row actually changed, so the window redraws only
+    /// when there is something different to draw.
+    pub(crate) fn refresh_rows(&mut self, pane: PaneId, first: usize, count: usize) -> bool {
+        if count == 0 {
+            return false;
+        }
+        // Not while the listing is being built or replaced: those rows are
+        // about to be thrown away, and a search result is not a directory.
+        let busy = self.views.get(&pane).is_some_and(|view| {
+            view.loading || view.search.is_some() || view.error.is_some()
+        });
+        if busy {
+            return false;
+        }
+
+        let targets: Vec<(usize, PathBuf)> = {
+            let Some(view) = self.views.get(&pane) else {
+                return false;
+            };
+            view.visible
+                .iter()
+                .skip(first)
+                .take(count)
+                .filter_map(|index| {
+                    let entry = view.entries.get(*index)?;
+                    Some((*index, entry.location().as_path()?.to_path_buf()))
+                })
+                .collect()
+        };
+
+        let mut changed = false;
+        for (index, path) in targets {
+            let Some(fresh) = jtf_fs::describe(&path) else {
+                continue;
+            };
+            let Some(view) = self.views.get_mut(&pane) else {
+                break;
+            };
+            let Some(existing) = view.entries.get_mut(index) else {
+                continue;
+            };
+            // Only what the list shows. A row whose bytes changed but whose
+            // size and dates did not has nothing different to draw, and
+            // replacing it anyway would repaint the list every tick.
+            let moved = existing.size() != fresh.size()
+                || existing.timestamps() != fresh.timestamps()
+                || existing.kind() != fresh.kind();
+            if moved {
+                *existing = fresh;
+                changed = true;
+            }
+        }
+        changed
+    }
+
     pub(crate) fn poll_folders(&mut self) -> bool {
         let panes: Vec<PaneId> = self.views.keys().copied().collect();
         let mut restarted = false;

@@ -599,6 +599,17 @@ MainWindow::MainWindow(JtfApp *app, quint64 windowId, QWidget *parent)
                 pane->refreshRows();
             }
             updateStatus();
+            return;
+        }
+        // The folder's own time only moves when an entry appears or goes.
+        // Writing to a file already in it changes that file's size and date
+        // and nothing else, so the rows on screen are asked about themselves.
+        bool moved = false;
+        for (auto *pane : std::as_const(m_panes)) {
+            moved = pane->refreshVisibleRows() || moved;
+        }
+        if (moved) {
+            updateStatus();
         }
     });
     watch->start(kWatchIntervalMs);

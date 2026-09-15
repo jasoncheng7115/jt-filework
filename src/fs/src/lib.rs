@@ -113,7 +113,7 @@ pub fn extract_container_members(
         )),
     }
 }
-pub use local::LocalProvider;
+pub use local::{describe, LocalProvider};
 pub use provider::{Batch, EnumerationHandle, Provider};
 pub use sftp::{verify as verify_host_key, HostKeyVerdict, SftpProvider};
 pub use tarball::{

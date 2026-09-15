@@ -59,14 +59,34 @@ impl LocalProvider {
         Self
     }
 
-    /// Build an entry from a directory entry, without following symlinks.
+    /// Build an entry from a directory entry.
+    fn entry_from(dir_entry: &DirEntry) -> FileEntry {
+        Self::describe_with_name(&dir_entry.path(), RawName::new(dir_entry.file_name()))
+    }
+}
+
+/// Describe one path the way enumeration would.
+///
+/// The same function the listing uses, so a row refreshed after the file
+/// changed is built exactly like the row it replaces - anything else and a
+/// refreshed row would differ from a re-listed one in some detail nobody
+/// thought to keep in step.
+///
+/// `None` when the path has no name, which only a filesystem root has.
+#[must_use]
+pub fn describe(path: &Path) -> Option<FileEntry> {
+    let name = path.file_name()?;
+    Some(LocalProvider::describe_with_name(path, RawName::new(name)))
+}
+
+impl LocalProvider {
+    /// Build an entry for `path`, without following symlinks.
     ///
     /// `symlink_metadata` is deliberate: a symlink must be reported as a
     /// symlink, not silently as whatever it points at
     /// (`docs/SECURITY.md` §3.1).
-    fn entry_from(dir_entry: &DirEntry) -> FileEntry {
-        let path = dir_entry.path();
-        let raw_name = RawName::new(dir_entry.file_name());
+    fn describe_with_name(path: &Path, raw_name: RawName) -> FileEntry {
+        let path = path.to_path_buf();
         // Never follows a symlink (`docs/SECURITY.md` §3): the entry is
         // described as it is, not as what it points at.
         //
@@ -502,5 +522,52 @@ mod tests {
         assert!(entries
             .iter()
             .any(|e| e.display_name().contains('\u{4e2d}')));
+    }
+}
+
+#[cfg(test)]
+mod describe_tests {
+    use super::describe;
+    use std::path::PathBuf;
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("jtf-describe-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("scratch");
+        dir.join(name)
+    }
+
+    #[test]
+    fn describing_again_reports_the_size_the_file_has_now() {
+        // What the list refresh is built on: the row is asked about itself
+        // after the file underneath it changed.
+        let path = scratch("grows.txt");
+        std::fs::write(&path, b"small").expect("write");
+        let before = describe(&path).expect("an entry");
+        assert_eq!(before.size(), Some(5));
+
+        std::fs::write(&path, vec![b'x'; 5000]).expect("rewrite");
+        let after = describe(&path).expect("an entry");
+        assert_eq!(after.size(), Some(5000), "the new size was not read");
+        assert_ne!(
+            before.timestamps().modified,
+            after.timestamps().modified,
+            "the modification time did not move"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_folder_has_no_name_at_the_root_and_says_so() {
+        assert!(describe(std::path::Path::new("/")).is_none());
+    }
+
+    #[test]
+    fn describing_a_path_that_is_gone_still_yields_an_entry_of_unknown_kind() {
+        // Not `None`: the caller distinguishes "no name" from "not there", and
+        // a refresh of a deleted row should not silently keep the old one.
+        let path = scratch("vanished.txt");
+        let _ = std::fs::remove_file(&path);
+        let entry = describe(&path).expect("a name is still a name");
+        assert_eq!(entry.kind(), jtf_core::FileKind::Unknown);
     }
 }
