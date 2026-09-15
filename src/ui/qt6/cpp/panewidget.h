@@ -52,10 +52,6 @@ public:
     QList<int> selectedRows() const;
     /// Add or remove the cursor's row from the selection, then step down.
     void toggleCurrentInSelection();
-    /// Say that the marked set was built on purpose, so the arrow keys stop
-    /// carrying the highlight and leave it alone. Called by the mark commands;
-    /// see the arrow-key branch in `eventFilter`.
-    void markSetIsDeliberate();
     /// Put the keyboard in the file list.
     void focusList();
     void openCurrentRow();
@@ -74,9 +70,7 @@ public:
     /// Keep the header's mark-all box in step with the marks.
     void syncMarkAll();
     /// Put the selection back to the marks on arriving in a folder.
-    void restoreSelectionFromMarks();
     /// True while doing that, so the write-back does not loop.
-    bool m_restoringMarks = false;
     // The folder whose contents the current column widths were measured from,
     // so a resize does not re-measure and make the columns crawl.
     QString m_measuredFor;
@@ -177,9 +171,6 @@ private:
     class MatchDelegate *m_matches = nullptr;
     /// Guards the selection/mark round trip against itself.
     bool m_syncingSelection = false;
-    // Whether the marked set was built on purpose, or is just the row that
-    // was last clicked. See the arrow-key branch in `eventFilter`.
-    bool m_marksAreDeliberate = false;
     class RowDelegate *m_rows = nullptr;
     /// True only between a press on the column header and its release.
     /// Every column width this widget has applied itself, so a width it did

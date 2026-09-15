@@ -146,24 +146,38 @@ Do not wire keyboard events directly to business logic.
 
 All core commands must also be invokable from mouse/menu UI where appropriate.
 
-## 10. Selection Is the Mark
+## 10. The Bar Is Where You Are; Marks Are What You Chose
 
-What is highlighted is what is ticked. Selecting rows - with the mouse, with
-Shift and the arrow keys, or with Space - marks exactly those rows, and
-nothing else marks.
+Two states, and a rule that removes the ambiguity between them.
 
-**Changed on 2026-08-31**, by the project owner, after using it. This section
-used to read "Selection and Mark Are Different / Do not conflate their state",
-and the two were kept apart: a selection highlighted rows without ticking
-them, and Space maintained a separate marked set. In use that was a list where
-five rows were blue and one was ticked, and no way to tell which the next
-command would act on. One state, shown two ways, is the answer.
+- **The bar** follows the arrow keys and the mouse. It is a position. It never
+  marks anything, and moving it never disturbs a mark.
+- **Marks** are made by `Space`, by a tick box, by Ctrl- or Shift-clicking, and
+  by the mark commands. They are drawn in the mark colour rather than by the
+  bar, so the two are always distinguishable.
+- **A command acts on the marked set; when nothing is marked, on the row under
+  the bar.** That is the rule, and it is why two states are not ambiguous.
 
-What survives from the old rule is the part that was doing real work: the
-**marks are the stored state** - the session keeps them, an operation reads
-them - and the selection is restored from them on arriving in a folder. So
-marks still survive navigating away and back (`docs/UI_TEST_PLAN.md`
-MARK-004); they are simply no longer a second thing to maintain.
+The marks are the stored state - the session keeps them, an operation reads
+them - so they survive navigating away and back (`docs/UI_TEST_PLAN.md`
+MARK-004).
+
+**Changed twice.** It first read "Selection and Mark Are Different / Do not
+conflate their state", and there were *three* states: a cursor, a native
+selection that no command used, and marks. That is the list the project owner
+described on 2026-08-31 as five rows blue and one ticked with no way to tell
+which the next command would act on, and they merged selection into the mark.
+
+The merge then failed the other way, three separate times: with one highlight
+meaning both "where I am" and "what I chose", the arrow keys could not move
+the bar without destroying the marked set, so they were made to move a thin
+outline instead and leave the bar behind. Each report of it was the same
+sentence - the keyboard moves and the bar does not.
+
+The answer, on 2026-09-15 and at the project owner's direction to follow
+CView, is neither one state nor three. It is two, plus the rule above about
+which one a command acts on. The ambiguity that killed the first version came
+from the third state, not from having two.
 
 ## 10.1 The Product Name Is `jt-filework`
 

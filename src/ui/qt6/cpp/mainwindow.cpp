@@ -735,9 +735,6 @@ void MainWindow::buildMenus() {
     const auto markListed = [this](int how) {
         const int pane = jtf_active_pane(m_app);
         jtf_mark_listed(m_app, pane, how);
-        if (PaneWidget *on = m_panes.value(pane, nullptr); on != nullptr && how != 1) {
-            on->markSetIsDeliberate();
-        }
     };
     command(m_editMenu, "file.mark.all", [markListed] { markListed(0); });
     command(m_editMenu, "file.mark.none", [markListed] { markListed(1); });
@@ -1042,10 +1039,6 @@ void MainWindow::markByPattern(bool mark) {
     const int pane = jtf_active_pane(m_app);
     const int count = jtf_mark_pattern(m_app, pane, utf8.constData(), mark ? 1 : 0);
     // Marking by pattern is building a set on purpose; unmarking is taking
-    // one apart, and if it empties the set the pane works that out itself.
-    if (PaneWidget *on = m_panes.value(pane, nullptr); on != nullptr && mark && count > 0) {
-        on->markSetIsDeliberate();
-    }
     // Say how many matched: a pattern that matched nothing looks identical to
     // one that was ignored, and the difference matters.
     statusBar()->showMessage(jtfFill(tr_("status.marked_count"), "count", QString::number(count)),
