@@ -5947,6 +5947,19 @@ impl App {
                 changed = true;
             }
         }
+
+        if changed {
+            // The folder's totals are cached at listing time, so a row whose
+            // size changed left the status line saying the old sum: a pane
+            // reading "2 items, 16 B" with one of them selected and shown as
+            // 878.9 KB. Recomputed from the same function the listing uses, so
+            // the two cannot say different things.
+            let needle = self.filter_text(pane).to_lowercase();
+            let show_hidden = self.show_hidden;
+            if let Some(view) = self.views.get_mut(&pane) {
+                Self::recompute_visible(view, &needle, show_hidden);
+            }
+        }
         changed
     }
 
