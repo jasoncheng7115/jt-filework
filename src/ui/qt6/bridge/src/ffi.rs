@@ -3657,8 +3657,9 @@ pub unsafe extern "C" fn jtf_volume_ejected(app: *mut App, mount_point: *const c
     if text.trim().is_empty() {
         return 0;
     }
-    unsafe { app_mut(app) }
-        .map_or(0, |a| c_int::from(a.volume_left(std::path::Path::new(text.trim()))))
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        c_int::from(a.volume_left(std::path::Path::new(text.trim())))
+    })
 }
 
 /// Whether the pending work is a move that cannot be done in one step.
@@ -4560,7 +4561,9 @@ pub unsafe extern "C" fn jtf_device_bus_key(
     buf: *mut c_char,
     len: c_int,
 ) -> c_int {
-    let text = unsafe { app_ref(app) }.map_or("", |a| a.device_bus_key(usize::try_from(index).unwrap_or(0)));
+    let text = unsafe { app_ref(app) }.map_or("", |a| {
+        a.device_bus_key(usize::try_from(index).unwrap_or(0))
+    });
     unsafe { write_str(text, buf, len) }
 }
 
@@ -4597,8 +4600,9 @@ pub unsafe extern "C" fn jtf_device_refusal_key(
     let Some(path) = (unsafe { read_str(image) }) else {
         return 0;
     };
-    let text =
-        unsafe { app_ref(app) }.map_or("", |a| a.device_refusal_key(usize::try_from(index).unwrap_or(0), path));
+    let text = unsafe { app_ref(app) }.map_or("", |a| {
+        a.device_refusal_key(usize::try_from(index).unwrap_or(0), path)
+    });
     unsafe { write_str(text, buf, len) }
 }
 
@@ -4616,8 +4620,9 @@ pub unsafe extern "C" fn jtf_write_start(
     let Some(path) = (unsafe { read_str(image) }) else {
         return 0;
     };
-    unsafe { app_mut(app) }
-        .map_or(0, |a| c_int::from(a.start_write(usize::try_from(index).unwrap_or(0), path, verify != 0)))
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        c_int::from(a.start_write(usize::try_from(index).unwrap_or(0), path, verify != 0))
+    })
 }
 
 /// Take whatever the writing thread has said. Returns 1 if anything changed.
@@ -4675,11 +4680,7 @@ pub unsafe extern "C" fn jtf_write_progress(app: *const App, which: c_int) -> u6
 /// # Safety
 /// See [`jtf_app_free`].
 #[no_mangle]
-pub unsafe extern "C" fn jtf_write_target(
-    app: *const App,
-    buf: *mut c_char,
-    len: c_int,
-) -> c_int {
+pub unsafe extern "C" fn jtf_write_target(app: *const App, buf: *mut c_char, len: c_int) -> c_int {
     let text = unsafe { app_ref(app) }.map_or("", App::write_target);
     unsafe { write_str(text, buf, len) }
 }

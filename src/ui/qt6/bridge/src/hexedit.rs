@@ -145,7 +145,9 @@ impl HexEdit {
                 .flatten()
                 .or_else(|| {
                     let end = self.session.len();
-                    find_backward(&mut self.session, &needle, end).ok().flatten()
+                    find_backward(&mut self.session, &needle, end)
+                        .ok()
+                        .flatten()
                 })
         };
         match found {
@@ -197,8 +199,7 @@ impl HexEdit {
         let mut at = 0u64;
         while let Ok(Some(found)) = find_forward(&mut self.session, &needle, at) {
             self.session.move_to(found, false);
-            self.session
-                .move_to(found + needle.len() as u64, true);
+            self.session.move_to(found + needle.len() as u64, true);
             if let Err(error) = self.session.write(with) {
                 self.fail(&error);
                 break;
@@ -414,7 +415,10 @@ mod tests {
         e.session_mut().move_to(0, false);
         assert!(e.paste("FF FF"));
         assert_eq!(e.take_paste_kind(), Some("hex.paste.hex"));
-        assert_eq!(e.session_mut().buffer_mut().read_bytes(0, 2).unwrap(), vec![0xff, 0xff]);
+        assert_eq!(
+            e.session_mut().buffer_mut().read_bytes(0, 2).unwrap(),
+            vec![0xff, 0xff]
+        );
     }
 
     #[test]

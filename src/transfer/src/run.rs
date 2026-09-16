@@ -72,9 +72,7 @@ impl Report {
     pub fn failed(&self) -> usize {
         self.outcomes
             .iter()
-            .filter(|(_, o)| {
-                matches!(o, Outcome::Failed(_) | Outcome::CopiedButSourceRemains(_))
-            })
+            .filter(|(_, o)| matches!(o, Outcome::Failed(_) | Outcome::CopiedButSourceRemains(_)))
             .count()
     }
 }
@@ -363,9 +361,12 @@ impl State<'_> {
                 for entry in std::fs::read_dir(path)
                     .map_err(|e| Error::new(ErrorCode::Io, format!("{}: {e}", path.display())))?
                 {
-                    let entry = entry
-                        .map_err(|e| Error::new(ErrorCode::Io, format!("{}: {e}", path.display())))?;
-                    let meta = entry.metadata().or_else(|_| entry.path().symlink_metadata());
+                    let entry = entry.map_err(|e| {
+                        Error::new(ErrorCode::Io, format!("{}: {e}", path.display()))
+                    })?;
+                    let meta = entry
+                        .metadata()
+                        .or_else(|_| entry.path().symlink_metadata());
                     let (is_dir, bytes, is_symlink) = meta.map_or((false, 0, false), |m| {
                         (m.is_dir(), m.len(), m.file_type().is_symlink())
                     });
@@ -469,14 +470,12 @@ impl State<'_> {
     /// Remove something, recursively for a folder.
     fn remove(&self, side: &Side, is_directory: bool) -> Result<(), Error> {
         match side {
-            Side::Local(path) => {
-                if is_directory {
-                    std::fs::remove_dir_all(path)
-                } else {
-                    std::fs::remove_file(path)
-                }
-                .map_err(|e| Error::new(ErrorCode::Io, format!("{}: {e}", path.display())))
+            Side::Local(path) => if is_directory {
+                std::fs::remove_dir_all(path)
+            } else {
+                std::fs::remove_file(path)
             }
+            .map_err(|e| Error::new(ErrorCode::Io, format!("{}: {e}", path.display()))),
             Side::Remote { endpoint, path } => {
                 let connection = self.connection(endpoint)?;
                 if !is_directory {
@@ -524,15 +523,20 @@ struct Child {
 
 /// The temporary a local download lands in.
 fn partial_path(final_path: &Path) -> PathBuf {
-    let mut name = final_path
-        .file_name()
-        .map_or_else(|| "download".to_string(), |n| n.to_string_lossy().into_owned());
+    let mut name = final_path.file_name().map_or_else(
+        || "download".to_string(),
+        |n| n.to_string_lossy().into_owned(),
+    );
     name.push_str(PARTIAL);
     final_path.with_file_name(name)
 }
 
 /// Put a finished download in its place, or clear up after one that failed.
-fn finish_local(outcome: Result<u64, Error>, partial: &Path, final_path: &Path) -> Result<(), Error> {
+fn finish_local(
+    outcome: Result<u64, Error>,
+    partial: &Path,
+    final_path: &Path,
+) -> Result<(), Error> {
     match outcome {
         Ok(_) => std::fs::rename(partial, final_path).map_err(|e| {
             let _ = std::fs::remove_file(partial);

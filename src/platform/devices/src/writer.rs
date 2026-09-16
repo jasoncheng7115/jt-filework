@@ -22,10 +22,10 @@
 //! else.
 
 use std::io::Write;
-#[cfg(any(target_os = "macos", target_os = "linux"))]
-use std::process::{Child, Command, Stdio};
 #[cfg(not(any(target_os = "macos", target_os = "linux")))]
 use std::process::Child;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+use std::process::{Child, Command, Stdio};
 
 use jtf_core::{Error, ErrorCode};
 
@@ -105,9 +105,9 @@ impl Sink {
                 // input. Without this it waits for EOF that never comes and
                 // the program hangs on a disk it has already written.
                 drop(child.stdin.take());
-                let status = child.wait().map_err(|e| {
-                    Error::new(ErrorCode::ProviderFailed, format!("{what}: {e}"))
-                })?;
+                let status = child
+                    .wait()
+                    .map_err(|e| Error::new(ErrorCode::ProviderFailed, format!("{what}: {e}")))?;
                 if status.success() {
                     Ok(())
                 } else {
@@ -133,12 +133,10 @@ impl Sink {
 /// which includes the user declining the prompt; [`ErrorCode::Unsupported`] on
 /// a platform with no implementation.
 pub fn open(device: &Device) -> Result<Sink, Error> {
-    let node = device.node.to_str().ok_or_else(|| {
-        Error::new(
-            ErrorCode::InvalidPath,
-            "the device node is not valid UTF-8",
-        )
-    })?;
+    let node = device
+        .node
+        .to_str()
+        .ok_or_else(|| Error::new(ErrorCode::InvalidPath, "the device node is not valid UTF-8"))?;
     open_node(node)
 }
 
@@ -238,9 +236,10 @@ fn spawn(program: &str, args: &[&str], what: &'static str) -> Result<Sink, Error
 ///
 /// [`ErrorCode::PermissionDenied`] if the disk could not be opened for reading.
 pub fn open_for_read(device: &Device) -> Result<std::fs::File, Error> {
-    let node = device.node.to_str().ok_or_else(|| {
-        Error::new(ErrorCode::InvalidPath, "the device node is not valid UTF-8")
-    })?;
+    let node = device
+        .node
+        .to_str()
+        .ok_or_else(|| Error::new(ErrorCode::InvalidPath, "the device node is not valid UTF-8"))?;
     std::fs::File::open(node).map_err(|e| {
         let code = if e.kind() == std::io::ErrorKind::PermissionDenied {
             ErrorCode::PermissionDenied
@@ -333,7 +332,15 @@ mod path_tests {
     #[test]
     fn authopen_is_named_by_absolute_path_and_is_there() {
         let path = std::path::Path::new(super::AUTHOPEN);
-        assert!(path.is_absolute(), "resolved against PATH: {}", super::AUTHOPEN);
-        assert!(path.exists(), "not where we look for it: {}", super::AUTHOPEN);
+        assert!(
+            path.is_absolute(),
+            "resolved against PATH: {}",
+            super::AUTHOPEN
+        );
+        assert!(
+            path.exists(),
+            "not where we look for it: {}",
+            super::AUTHOPEN
+        );
     }
 }

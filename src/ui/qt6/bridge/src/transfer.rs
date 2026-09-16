@@ -70,10 +70,7 @@ impl Running {
                         // A failure to reach the server at all is still a
                         // report: the window has to say something happened.
                         Err(error) => Report {
-                            outcomes: vec![(
-                                String::new(),
-                                jtf_transfer::Outcome::Failed(error),
-                            )],
+                            outcomes: vec![(String::new(), jtf_transfer::Outcome::Failed(error))],
                             cancelled: false,
                         },
                     });
@@ -240,7 +237,9 @@ mod tests {
         assert_eq!(summary.failed, 1, "it is not a success");
         assert_eq!(summary.key, "transfer.both_copies");
         assert!(
-            summary.first_error.is_some_and(|e| e.contains("permission denied")),
+            summary
+                .first_error
+                .is_some_and(|e| e.contains("permission denied")),
             "the reason the source survived was not carried"
         );
     }

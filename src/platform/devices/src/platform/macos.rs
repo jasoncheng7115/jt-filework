@@ -54,9 +54,9 @@ pub fn list() -> Result<Vec<Device>, Error> {
 /// unmounted; the message names it.
 pub fn unmount_volumes(device: &Device) -> Result<(), Error> {
     let node = whole_disk_node(device);
-    let node = node.to_str().ok_or_else(|| {
-        Error::new(ErrorCode::InvalidPath, "device node is not valid UTF-8")
-    })?;
+    let node = node
+        .to_str()
+        .ok_or_else(|| Error::new(ErrorCode::InvalidPath, "device node is not valid UTF-8"))?;
     run("diskutil", &["unmountDisk", node]).map(|_| ())
 }
 
@@ -127,9 +127,7 @@ fn describe(id: &str, mounts: &[(String, PathBuf)]) -> Option<Device> {
         .iter()
         .filter(|(dev, _)| is_partition_of(dev, &prefix))
         .map(|(_, mount)| Volume {
-            label: mount
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned()),
+            label: mount.file_name().map(|n| n.to_string_lossy().into_owned()),
             mount_point: Some(mount.clone()),
         })
         .collect();

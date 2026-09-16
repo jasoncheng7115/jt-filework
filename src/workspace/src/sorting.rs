@@ -225,7 +225,11 @@ mod tests {
         let long = "a12345678901234567890";
         let longer = "a12345678901234567891";
         assert_eq!(ordered(&[longer, long]), [long, longer]);
-        assert_eq!(natural_key(long), long, "an id was padded as if it were a count");
+        assert_eq!(
+            natural_key(long),
+            long,
+            "an id was padded as if it were a count"
+        );
     }
 
     #[test]

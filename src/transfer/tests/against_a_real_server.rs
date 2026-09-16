@@ -211,7 +211,11 @@ fn a_file_comes_down_with_its_bytes_intact() {
 
     let plan = Plan::build(
         Kind::Copy,
-        vec![Fixture::item(f.remote("payload.bin"), body.len() as u64, false)],
+        vec![Fixture::item(
+            f.remote("payload.bin"),
+            body.len() as u64,
+            false,
+        )],
         Some(f.local("")),
     )
     .unwrap();
@@ -444,7 +448,11 @@ fn a_cancelled_transfer_stops_and_leaves_no_half_file() {
 
     let plan = Plan::build(
         Kind::Copy,
-        vec![Fixture::item(f.remote("large.bin"), big.len() as u64, false)],
+        vec![Fixture::item(
+            f.remote("large.bin"),
+            big.len() as u64,
+            false,
+        )],
         Some(f.local("")),
     )
     .unwrap();

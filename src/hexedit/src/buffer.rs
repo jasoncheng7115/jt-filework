@@ -223,7 +223,11 @@ impl Buffer {
     ///
     /// Whatever reading the file reports.
     pub fn read_bytes(&mut self, offset: u64, len: usize) -> Result<Vec<u8>, Error> {
-        Ok(self.read(offset, len)?.into_iter().map(|b| b.value).collect())
+        Ok(self
+            .read(offset, len)?
+            .into_iter()
+            .map(|b| b.value)
+            .collect())
     }
 
     /// Split the run containing `offset` so that a run boundary falls there.
@@ -241,10 +245,7 @@ impl Buffer {
             let end = cursor + piece.len;
             if offset < end {
                 let left = offset - cursor;
-                self.pieces[index] = Piece {
-                    len: left,
-                    ..piece
-                };
+                self.pieces[index] = Piece { len: left, ..piece };
                 self.pieces.insert(
                     index + 1,
                     Piece {
@@ -398,16 +399,15 @@ impl Buffer {
         const CHUNK: usize = 1 << 20;
 
         let parent = self.path.parent().unwrap_or_else(|| Path::new("."));
-        let name = self
-            .path
-            .file_name()
-            .map_or_else(|| "buffer".to_string(), |n| n.to_string_lossy().into_owned());
+        let name = self.path.file_name().map_or_else(
+            || "buffer".to_string(),
+            |n| n.to_string_lossy().into_owned(),
+        );
         let temporary = parent.join(format!(".{name}.jtf-hexedit"));
 
         {
-            let file = File::create(&temporary).map_err(|e| {
-                Error::new(ErrorCode::Io, format!("{}: {e}", temporary.display()))
-            })?;
+            let file = File::create(&temporary)
+                .map_err(|e| Error::new(ErrorCode::Io, format!("{}: {e}", temporary.display())))?;
             let mut out = std::io::BufWriter::new(file);
             let total = self.len();
             let mut at = 0u64;

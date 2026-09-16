@@ -37,9 +37,9 @@
 )]
 
 mod app;
-mod hexedit;
-mod transfer;
 mod ffi;
+mod hexedit;
 mod operations;
+mod transfer;
 
 pub use app::App;

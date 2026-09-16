@@ -571,7 +571,10 @@ mod tests {
         s.type_hex_digit('f').unwrap();
         assert!(s.has_pending_nibble());
         s.set_mode(Mode::Insert);
-        assert!(!s.has_pending_nibble(), "half a byte survived a mode change");
+        assert!(
+            !s.has_pending_nibble(),
+            "half a byte survived a mode change"
+        );
         assert_eq!(all(&mut s), b"\x00");
     }
 

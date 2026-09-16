@@ -266,7 +266,9 @@ mod tests {
     fn image(bytes: usize) -> Vec<u8> {
         // Not all one value: a comparison against a run of identical bytes
         // passes even when the offsets are wrong.
-        (0..bytes).map(|i| u8::try_from(i % 251).unwrap_or(0)).collect()
+        (0..bytes)
+            .map(|i| u8::try_from(i % 251).unwrap_or(0))
+            .collect()
     }
 
     #[test]

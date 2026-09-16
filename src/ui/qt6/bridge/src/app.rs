@@ -4450,7 +4450,6 @@ impl App {
         true
     }
 
-
     /// Collect whatever the enumerators have produced. Returns whether any
     /// pane changed, so the C++ side repaints only when there is a reason.
     ///
@@ -5903,9 +5902,10 @@ impl App {
         }
         // Not while the listing is being built or replaced: those rows are
         // about to be thrown away, and a search result is not a directory.
-        let busy = self.views.get(&pane).is_some_and(|view| {
-            view.loading || view.search.is_some() || view.error.is_some()
-        });
+        let busy = self
+            .views
+            .get(&pane)
+            .is_some_and(|view| view.loading || view.search.is_some() || view.error.is_some());
         if busy {
             return false;
         }
@@ -5975,9 +5975,10 @@ impl App {
             else {
                 continue;
             };
-            let busy = self.views.get(&pane).is_some_and(|view| {
-                view.loading || view.search.is_some() || view.error.is_some()
-            });
+            let busy = self
+                .views
+                .get(&pane)
+                .is_some_and(|view| view.loading || view.search.is_some() || view.error.is_some());
             if busy {
                 continue;
             }

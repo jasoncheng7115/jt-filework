@@ -79,10 +79,9 @@ impl Side {
     pub fn display(&self) -> String {
         match self {
             Self::Local(path) => path.display().to_string(),
-            Self::Remote {
-                endpoint,
-                path,
-            } => format!("sftp://{}@{}{path}", endpoint.user, endpoint.host),
+            Self::Remote { endpoint, path } => {
+                format!("sftp://{}@{}{path}", endpoint.user, endpoint.host)
+            }
         }
     }
 }
@@ -233,11 +232,7 @@ impl Plan {
             .items
             .iter()
             .filter_map(|item| item.destination.as_ref())
-            .filter(|target| {
-                target
-                    .name()
-                    .is_some_and(|name| existing.contains(&name))
-            })
+            .filter(|target| target.name().is_some_and(|name| existing.contains(&name)))
             .cloned()
             .collect();
     }
@@ -447,7 +442,11 @@ mod tests {
         .unwrap();
         assert!(plan.conflicts.is_empty(), "nothing asked, nothing found");
 
-        plan.note_conflicts(&["a.txt".to_string(), "c.txt".to_string(), "z.txt".to_string()]);
+        plan.note_conflicts(&[
+            "a.txt".to_string(),
+            "c.txt".to_string(),
+            "z.txt".to_string(),
+        ]);
         assert_eq!(plan.conflicts.len(), 2);
         assert_eq!(
             plan.conflicts[0],

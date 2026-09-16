@@ -1050,7 +1050,10 @@ mod tests {
         // tests whatever shape was guessed.
         let settings = crate::SessionSettings::default();
         let text = serde_json::to_string(&settings).unwrap();
-        assert!(text.contains("filter_bar_always"), "the field is not written");
+        assert!(
+            text.contains("filter_bar_always"),
+            "the field is not written"
+        );
 
         let mut stored: serde_json::Value = serde_json::from_str(&text).unwrap();
         stored
@@ -1133,7 +1136,11 @@ mod tests {
         let first = w.target_pane_id().unwrap();
         let second = w.cycle_target().unwrap();
         assert_ne!(first, second, "cycling did not move the target");
-        assert_ne!(second, w.active_pane_id(), "the target became the active pane");
+        assert_ne!(
+            second,
+            w.active_pane_id(),
+            "the target became the active pane"
+        );
 
         // And it comes back round rather than running out.
         assert_eq!(w.cycle_target(), Some(first));

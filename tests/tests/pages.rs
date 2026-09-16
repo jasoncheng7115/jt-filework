@@ -87,7 +87,11 @@ fn no_two_elements_claim_the_same_anchor() {
         for id in ids(&html) {
             *seen.entry(id).or_default() += 1;
         }
-        let duplicated: Vec<_> = seen.iter().filter(|(_, &n)| n > 1).map(|(k, _)| k).collect();
+        let duplicated: Vec<_> = seen
+            .iter()
+            .filter(|(_, &n)| n > 1)
+            .map(|(k, _)| k)
+            .collect();
         assert!(
             duplicated.is_empty(),
             "{name}: these ids appear more than once: {duplicated:?}"
@@ -160,7 +164,10 @@ fn every_image_the_pages_reference_is_actually_there() {
                 continue;
             }
             let path = repo_root().join("docs").join(&src);
-            assert!(path.exists(), "{name}: references {src}, which does not exist");
+            assert!(
+                path.exists(),
+                "{name}: references {src}, which does not exist"
+            );
         }
     }
 }
@@ -196,7 +203,8 @@ fn both_readmes_name_the_version_that_is_being_built() {
         .expect("a workspace version");
 
     for name in ["README.md", "README_zh-TW.md"] {
-        let text = std::fs::read_to_string(root.join(name)).unwrap_or_else(|e| panic!("{name}: {e}"));
+        let text =
+            std::fs::read_to_string(root.join(name)).unwrap_or_else(|e| panic!("{name}: {e}"));
         let title = text.lines().next().unwrap_or_default();
         assert_eq!(
             title,

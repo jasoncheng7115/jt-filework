@@ -186,9 +186,7 @@ fn whole_disk_of(node: &str) -> Option<String> {
     let partition = PathBuf::from("/sys/class/block").join(name);
     if partition.join("partition").exists() {
         let parent = std::fs::canonicalize(partition.join("..")).ok()?;
-        return parent
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned());
+        return parent.file_name().map(|n| n.to_string_lossy().into_owned());
     }
     Path::new("/sys/block")
         .join(name)

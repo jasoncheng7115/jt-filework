@@ -59,7 +59,9 @@ fn the_disk_this_machine_booted_from_is_never_offered() {
     let roots: Vec<String> = mounts()
         .into_iter()
         .filter(|(_, mount)| {
-            mount == Path::new("/") || mount == Path::new("/boot") || mount == Path::new("/boot/efi")
+            mount == Path::new("/")
+                || mount == Path::new("/boot")
+                || mount == Path::new("/boot/efi")
         })
         .map(|(node, _)| node)
         .collect();

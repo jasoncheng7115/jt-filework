@@ -243,7 +243,10 @@ fn as_hex(text: &str) -> Option<Vec<u8>> {
         .unwrap_or(body);
 
     // The per-byte prefixes become separators, so what is left is digits.
-    let spaced = body.replace("0x", " ").replace("0X", " ").replace("\\x", " ");
+    let spaced = body
+        .replace("0x", " ")
+        .replace("0X", " ")
+        .replace("\\x", " ");
     let digits: String = spaced
         .chars()
         .filter(|c| !c.is_whitespace() && *c != ',')

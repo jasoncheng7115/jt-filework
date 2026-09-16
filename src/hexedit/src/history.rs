@@ -229,7 +229,10 @@ mod tests {
         assert_eq!(all(&mut h), b"hello world");
 
         assert!(!h.can_undo());
-        assert!(!h.buffer().is_modified(), "undone all the way is unmodified");
+        assert!(
+            !h.buffer().is_modified(),
+            "undone all the way is unmodified"
+        );
     }
 
     #[test]

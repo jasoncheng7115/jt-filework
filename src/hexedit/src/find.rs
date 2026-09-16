@@ -110,14 +110,8 @@ impl Needle {
                     })
                 })
                 .collect::<Result<Vec<u8>, Error>>()?,
-            Kind::Utf16Le => text
-                .encode_utf16()
-                .flat_map(u16::to_le_bytes)
-                .collect(),
-            Kind::Utf16Be => text
-                .encode_utf16()
-                .flat_map(u16::to_be_bytes)
-                .collect(),
+            Kind::Utf16Le => text.encode_utf16().flat_map(u16::to_le_bytes).collect(),
+            Kind::Utf16Be => text.encode_utf16().flat_map(u16::to_be_bytes).collect(),
             Kind::Integer {
                 width,
                 little_endian,
@@ -292,7 +286,9 @@ mod tests {
             self.0.len() as u64
         }
         fn read_at(&mut self, offset: u64, len: usize) -> Result<Vec<u8>, Error> {
-            let from = usize::try_from(offset).unwrap_or(usize::MAX).min(self.0.len());
+            let from = usize::try_from(offset)
+                .unwrap_or(usize::MAX)
+                .min(self.0.len());
             let to = from.saturating_add(len).min(self.0.len());
             Ok(self.0[from..to].to_vec())
         }

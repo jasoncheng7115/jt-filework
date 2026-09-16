@@ -157,7 +157,12 @@ fn writing_the_image_onto_the_disk_it_lives_on_is_refused() {
     let mut device = fake_disk("whole-disk-5.img", 1_000_000);
     device.volumes = vec![jtf_platform_devices::Volume {
         label: Some("SCRATCH".into()),
-        mount_point: Some(scratch("").parent().unwrap().join(format!("jtf-imaging-whole-{}", std::process::id()))),
+        mount_point: Some(
+            scratch("")
+                .parent()
+                .unwrap()
+                .join(format!("jtf-imaging-whole-{}", std::process::id())),
+        ),
     }];
     let err = Plan::new(&source, device.clone()).unwrap_err();
     assert_eq!(err.code(), ErrorCode::PermissionDenied);
