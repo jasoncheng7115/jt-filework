@@ -468,22 +468,30 @@ Before marking work complete:
 - implementation state updated (§19)
 - `git diff` reviewed
 
+
 ---
 
 ## Current Implementation State
 
-**Updated:** 2026-08-30 · **Branch:** `poc/qt6` · **Phase:** 1 — usable build
+**Updated:** 2026-09-16 · **Version:** 0.6.43 · **Branch:** `main` ·
+**Phase:** 1 — usable build
 
 ### Gates
 
 ```text
-tests     411 passing, 0 failing
-clippy    clean (-D warnings, workspace-wide)
-rustfmt   clean
+tests     766 passing, 0 failing, 0 ignored  (cargo test --workspace)
+clippy    clean (-D warnings, --all-targets, workspace-wide)
+rustfmt   clean - and it was not, until 2026-09-16: 52 sites in the crates
+          added since 0.6.9 had never been through it. Run it, do not assume it
 bench     100K and 1M measured and recorded in ADR-0001
 watchdog  first run recorded; p99 486us with a 100K directory loaded
 CI        lint / i18n / security audit / test on macOS, Windows, Linux / rustdoc
+by hand   the suite is also run on Ubuntu 22.04 (Qt 6.2.4) and Windows 11
+          (Qt 6.8.3 msvc2022_64); macOS builds against Qt 6.11.1
 ```
+
+The UI is verified on Linux rather than on the author's Mac: driving the Mac's
+windows takes the machine away from the person using it.
 
 ### Runnable
 
@@ -492,6 +500,7 @@ CI        lint / i18n / security audit / test on macOS, Windows, Linux / rustdoc
 ./src/ui/qt6/build.sh release    # optimised build, then launch
 cargo run -p jtf-cli             # headless walkthrough of the core
 cargo run -p jtf-bench 1000000   # performance budgets
+./scripts/release-gate.sh        # the §20.5 checks
 JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
 ```
 
@@ -501,26 +510,43 @@ JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
   home, a breadcrumb that becomes an editable path when clicked, a folder tree
   and a places sidebar with favourites, volumes, removable devices, bookmarks
   and recent locations.
-- **Views** — a detail list and an icon grid over one model, thumbnails
-  decoded off the UI thread, columns chosen from the model's own set, and
-  sorting by any of them.
-- **Panes and windows** — splits, the quad preset, per-pane tabs, and tabs
-  that tear off into their own window or merge back by dragging.
-- **Operations** — copy, move, rename, duplicate, new file, new folder, trash,
-  delete, attributes and batch rename, queued rather than refused, with
-  conflict resolution, progress, cancellation and undo. Trashing goes through
-  the platform, so Finder's Put Back works.
-- **Marks** — space, all, none, invert, and by wildcard.
+- **Views** — a detail list and an icon grid over one model, thumbnails decoded
+  off the UI thread, columns chosen from the model's own set, column widths
+  that survive a folder change and a restart once dragged, and sorting by any
+  column — numerically, the way every platform's file manager sorts
+  (`file2` before `file10`).
+- **Panes and windows** — splits, the quad preset, per-pane tabs, and tabs that
+  tear off into their own window or merge back by dragging.
+- **Operations** — copy, move, rename, duplicate, clone in place with an
+  automatic `(1)`, new file, new folder, trash, delete, attributes and batch
+  rename, queued rather than refused, with conflict resolution (overwrite,
+  keep both, skip, abort), progress, cancellation and undo. Trashing goes
+  through the platform, so Finder's Put Back works.
+- **Marks** — space, all, none, invert, and by wildcard. §10 is the model.
+- **Remote** — an SFTP location in any pane, with copy, move and delete between
+  it and this machine: a partial file is written under `.jtf-part` and only
+  then named, a move that copied but could not remove the source says so in
+  those words, and the same conflict questions are asked as locally.
+- **Disks** — removable devices listed with what is safe to write to, a disk
+  image written with progress, rate, elapsed time and a working cancel, and
+  eject, after which a pane that was showing the disk leaves rather than
+  displaying a mount point that is gone.
+- **Archives** — zip, tar and ISO contents browsed like a folder, members
+  extracted, and a new archive created from the marked entries.
 - **Finding** — a filter over the current folder and a recursive search, both
-  highlighting what matched.
-- **Reading** — text and hex viewers, archive contents browsed like a folder,
-  an inspector with a preview and the file's facts, and Quick Look.
+  highlighting what matched; folder sizes and disk usage on demand; two panes
+  compared.
+- **Reading** — text and hex viewers, an inspector with a preview and the
+  file's facts, and Quick Look.
+- **Staying current** — the visible rows are re-stat'd on a one-second timer,
+  so a size or a date that changes underneath is shown without navigating away
+  and back. Never while a text field has focus.
 - **Keyboard** — two profiles, Single-Key and Native, switchable from the
   toolbar; a hint strip that changes with what the cursor is on; a searchable
   shortcut reference read from the live keymap.
 - **Chrome** — command palette, settings, menus with icons and shortcuts,
-  Light / Dark / System following the system live, `en` ↔ `zh-TW` following
-  the system unless told otherwise, and session restore that can be turned off.
+  Light / Dark / System following the system live, `en` ↔ `zh-TW` following the
+  system unless told otherwise, and session restore that can be turned off.
 
 ### Crates
 
@@ -528,32 +554,53 @@ JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
 |---|---|
 | `jtf-core` | file model, error codes, i18n catalogue + localizer, theme tokens, path input |
 | `jtf-jobs` | job state machine, monotonic progress, cancellation |
-| `jtf-workspace` | windows, recursive split tree, tabs, selection vs marking, session, sorting |
+| `jtf-workspace` | windows, recursive split tree, tabs, marks, session, natural sort |
 | `jtf-commands` | command registry, keymap, command bus |
-| `jtf-fs` | local provider, cancellable enumeration, folder sizes |
+| `jtf-fs` | local, SFTP, archive, tarball and ISO providers; folder sizes; compare |
 | `jtf-ops` | planning, conflict policy, execution, trash, undo, batch rename |
-| `jtf-viewer` | format detection, text decoding, hex view, archive listing |
+| `jtf-transfer` | copy, move and delete across a network, where nothing is atomic |
+| `jtf-viewer` | format detection, text decoding, hex view, archive and ISO listing |
+| `jtf-hexedit` | piece-table edit buffer, undo, go-to, find and replace, clipboard formats |
+| `jtf-imaging` | writing a disk image to a device, with verification |
+| `jtf-platform-devices` | which removable disks may be offered as a write target |
+| `jtf-platform-removal` | deleting a tree with directory-relative syscalls |
+| `jtf-platform-links` | the one file operation that cannot be written portably |
 | `jtf-search` | query parsing, matching, bounded recursive walk |
 | `jtf-qt6-bridge` | C ABI over the core; the only `unsafe` in Rust |
-| `jtf-conformance` | architecture, locale parity, keymaps, hostile input |
+| `jtf-conformance` | architecture, locale parity, keymaps, pages, migration, hostile input |
 | `jtf-cli` | headless walkthrough |
 | `jtf-bench` | performance budgets |
 | `src/ui/qt6/cpp` | Qt 6 Widgets front end, Objective-C++ for macOS |
 
-Also: `locales/{en,zh-TW}`, `keymaps/{native,single-key}.keymap`, Iconoir
-icons (MIT), the application icon, CI, ADR-0002, and the reference layouts and
-CView key table in `docs/design/`.
+Also: `locales/{en,zh-TW}`, `keymaps/{native,single-key}.keymap`, Iconoir icons
+(MIT), the application icon, CI, ADR-0002 to ADR-0006, and the reference
+layouts and CView key table in `docs/design/`.
 
 ### Not built yet
 
 ```text
-archive extraction  browsing works; taking files out needs a decompressor
-platform adapters   Windows and Linux trash, reveal, tags and Open With are stubs
-sidebars            no smart views, no remote locations
-viewers             no image, JSON, CSV or syntax-highlighted view
-metadata            no ratings, comments or descriptions of our own
-upgrade             migration chain and version stamps are specified, not built
-AI providers        none - deliberately last, docs/SEARCH_AI.md
+hex editing       jtf-hexedit and its bridge module are written and tested;
+                  the window that would use them is not. Nothing calls it yet
+file watching     a one-second timer, not inotify / FSEvents /
+                  ReadDirectoryChangesW. An interim, and named as one (§10.2)
+remote            one server at a time; a copy from one server to another is
+                  refused rather than routed through this machine
+platform          Windows and Linux reveal, Open With and tags go through Qt,
+                  not the shell. Their trash is the freedesktop fallback
+viewers           no image, JSON, CSV or syntax-highlighted view
+metadata          no ratings, comments or descriptions of our own
+packaging         no installer, no signed build, no GitHub release (§20.5)
+AI providers      none - deliberately last, docs/SEARCH_AI.md
+```
+
+Two documents have fallen behind the code and are debt, not history:
+
+```text
+CHANGELOG.md      stops at 0.6.9; 0.6.10 to 0.6.43 are unrecorded, in both
+CHANGELOG_zh-TW.md  languages, though the work itself is in the git log
+FEATURE_INVENTORY  rows still read "planned" for things that shipped weeks ago
+                  - thumbnails, breadcrumb, invert, select by pattern, folder
+                  sizes. §10.3 says a stale row there is a bug in the document
 ```
 
 `docs/BASELINE_FEATURES.md` tracks the acceptance list;
@@ -565,13 +612,15 @@ for.
 - **ADR-0001 (GUI stack)** — the macOS performance gates are measured and met;
   it stays *Proposed* pending the same numbers on Windows and Linux and a
   decision by the project owner.
-- Commercial dual-licensing, which decides whether SignPath Foundation
-  signing is available for Windows (`docs/SIGNING_RUNBOOK.md` §B1).
-- Whether to take on a decompression dependency for archive extraction, and
-  where our own file metadata would live. Both want an ADR before code.
+- **ADR-0006 (tar and stream compressors)** — accepted, still being built.
+- Commercial dual-licensing, which decides whether SignPath Foundation signing
+  is available for Windows (`docs/SIGNING_RUNBOOK.md` §B1).
+- Where our own file metadata would live. That wants an ADR before code.
 
 ### Next
 
-1. Windows and Linux platform adapters: trash, reveal, tags, Open With.
-2. The remaining reference-layout items, in the order that document ranks them.
-3. `docs/UPGRADE.md`'s migration chain and version stamps.
+1. The hex editor window: the core and the bridge are waiting for it.
+2. Native file watching, replacing the timer.
+3. The two stale documents above, caught up to 0.6.43.
+4. Windows and Linux platform adapters: trash, reveal, tags, Open With.
+5. Packaging and a signed release on all three platforms (§20.5).
