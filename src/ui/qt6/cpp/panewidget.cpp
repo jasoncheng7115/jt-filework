@@ -494,6 +494,12 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
                 if (column == 0 || width <= 0) {
                     return;
                 }
+                // Everything that moves while the columns are being fitted is
+                // the fit: measuring to contents, hiding a column that has no
+                // room, the squeeze.
+                if (m_fittingName) {
+                    return;
+                }
                 if (m_appliedWidths.value(column, -1) == width) {
                     return; // ours
                 }
@@ -964,7 +970,17 @@ void PaneWidget::fitNameColumn() {
     if (m_fittingName) {
         return;
     }
-    const QSignalBlocker blockFit(m_view->horizontalHeader());
+    // The header's signals are left alone, however many widths this moves.
+    //
+    // They were blocked here, so that the widths set while fitting would not
+    // read as widths somebody dragged. But `sectionResized` is also how the
+    // table itself learns a column moved - it is what repaints the rows and
+    // recomputes the scroll range - so the header was redrawn at the new
+    // widths and the rows were not. Whatever part of the list happened to be
+    // repainted afterwards for some other reason showed the new columns, and
+    // the rest kept the old ones: the list came up with its lower half shifted
+    // sideways against the header, and only sometimes, because it depended on
+    // what else repainted. The drag handler asks `m_fittingName` instead.
     m_fittingName = true;
 
     const int viewport = m_view->viewport()->width();
@@ -1010,9 +1026,21 @@ void PaneWidget::fitNameColumn() {
     // visibly shifted and then settled a moment later. What a column needs is
     // a property of the folder, so it is worked out when the folder changes
     // and reused for the resizes in between.
+    //
+    // Worked out from the finished listing, though, the same rule the cursor
+    // keeps in `ensureCurrentRow`. The first pass for a new folder runs on
+    // the reset that empties the list, before a single row has arrived, so it
+    // measured the header text alone - and then held that as the folder's
+    // answer. A folder that lists in one batch never noticed; one that
+    // streams in, like a Downloads of a few thousand files, came up with
+    // 「22…」 for every size and 「2026-09…」 for every date beside a name
+    // column with room to spare. While the rows are still arriving the
+    // measurement stands in for the real one and is not written down.
     const QString here = m_shownPath;
     if (here != m_measuredFor) {
-        m_measuredFor = here;
+        if (jtf_is_loading(m_app, m_pane) == 0) {
+            m_measuredFor = here;
+        }
         m_view->horizontalHeader()->setResizeContentsPrecision(64);
         for (int column : shown) {
             if (column == 0) {
@@ -2215,6 +2243,12 @@ void PaneWidget::ensureCurrentRow() {
         return;
     }
     m_positionedGeneration = generation;
+
+    // The columns wait for the same moment (`fitNameColumn`): now there are
+    // rows to measure them against.
+    if (m_measuredFor != m_shownPath) {
+        scheduleFitNameColumn();
+    }
 
     // Stepping out of a folder puts the cursor on the folder you left; any
     // other arrival starts at the first entry, past the `..` row.

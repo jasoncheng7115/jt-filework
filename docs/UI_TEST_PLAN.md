@@ -943,6 +943,9 @@ than *what the dialog says*, because the dialog is read after the decision.
 | COL-010 | **A column width set by dragging survives walking into another folder and back**, and a restart | H2 |
 | COL-011 | A column nobody has dragged still measures itself against its contents, so a folder of long dates stays readable | H2 |
 | COL-012 | The auto-measure does not record its own measurements as though they had been chosen | H1/H2 |
+| COL-013 | **Every row lines up with the header after a folder opens.** Enter a folder large enough that the vertical scroll bar appears while rows are still arriving: no row's size, date or type sits sideways from its column heading, above or below the first screenful | H2/H3 |
+| COL-014 | The fit that follows the scroll bar appearing repaints the rows, not only the header — tested by entering the folder with the pointer outside the list, so no hover repaint hides the fault | H2/H3 |
+| COL-015 | **A folder that streams in measures its columns against its rows**, not against the empty list it starts as: a Downloads of a few thousand files shows whole sizes and whole dates when there is room for them | H2 |
 | LIVE-001 | **A file added, renamed or touched by another program appears without pressing anything** | H2/H5 |
 | LIVE-002 | A re-list keeps the cursor on the same *file*, not the same row number, when something is inserted above it | H2 |
 | LIVE-003 | A re-list keeps the marks, the scroll position and the sort order | H2 |
