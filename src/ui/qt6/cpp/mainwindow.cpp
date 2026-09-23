@@ -743,6 +743,8 @@ void MainWindow::buildMenus() {
     command(m_editMenu, "file.unmark.pattern", [this] { markByPattern(false); });
     m_editMenu->addSeparator();
     command(m_editMenu, "search.open", [this] { focusSearchField(); });
+    m_stopSearchAction = command(m_editMenu, "search.stop",
+                                 paneAction([](PaneWidget *pane) { pane->stopSearch(); }));
     command(m_editMenu, "search.clear", paneAction([](PaneWidget *pane) { pane->clearSearch(); }));
     command(m_editMenu, "view.filter", paneAction([](PaneWidget *pane) { pane->toggleFilter(); }));
 
@@ -2560,6 +2562,9 @@ void MainWindow::buildToolbar() {
         }
     });
     connect(m_searchEdit, &QLineEdit::textChanged, this, [this](const QString &text) {
+        if (m_syncingSearchBox) {
+            return; // the box following the pane, not someone emptying it
+        }
         if (text.isEmpty()) {
             if (PaneWidget *pane = activePane()) {
                 pane->clearSearch();
@@ -2687,6 +2692,28 @@ void MainWindow::syncToolbar() {
     m_backAction->setEnabled(jtf_can_go_back(m_app, pane) != 0);
     m_forwardAction->setEnabled(jtf_can_go_forward(m_app, pane) != 0);
     m_upAction->setEnabled(jtf_can_go_up(m_app, pane) != 0);
+
+    // The search box says what the active pane is searching for, and is
+    // empty when it is not. Leaving the results by the card's button or by
+    // Escape used to leave the query sitting in the box over a plain folder,
+    // which reads as a search still in force; and moving to another pane
+    // kept showing the first pane's query. Never while someone is typing in
+    // it.
+    //
+    // Flagged rather than silenced. An emptied box is taken as "clear the
+    // search", which on a pane with no search clears its filter, so our own
+    // handler has to know this was not the person. But blocking the box's
+    // signals also blocks the one Qt listens to itself, and the clear button
+    // stayed on an empty box - the same fault as the list's header.
+    if (m_searchEdit != nullptr && !m_searchEdit->hasFocus()) {
+        const QString query =
+            jtfText([&](char *buf, int len) { return jtf_search_query(m_app, pane, buf, len); });
+        if (m_searchEdit->text() != query) {
+            m_syncingSearchBox = true;
+            m_searchEdit->setText(query);
+            m_syncingSearchBox = false;
+        }
+    }
 
     // A toggle button shows what it is toggling, or it is just a button that
     // sometimes does nothing visible (docs/UI_CONVENTIONS.md 1).
@@ -3442,6 +3469,14 @@ void MainWindow::updateStatus() {
     // about the pane you are looking at rather than about one of them.
     for (auto *pane : std::as_const(m_panes)) {
         pane->retranslate();
+    }
+    // Here rather than in syncToolbar: a search ends on its own, between
+    // state changes, and this is what runs as its results arrive. Stopping a
+    // search that has finished is a menu entry that does nothing.
+    if (m_stopSearchAction != nullptr) {
+        const int pane = jtf_active_pane(m_app);
+        m_stopSearchAction->setEnabled(jtf_is_searching(m_app, pane) != 0
+                                       && jtf_is_loading(m_app, pane) != 0);
     }
     updateStatusSummary();
 }

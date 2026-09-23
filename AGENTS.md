@@ -473,13 +473,13 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-09-23 · **Version:** 0.6.44 · **Branch:** `main` ·
+**Updated:** 2026-09-23 · **Version:** 0.6.45 · **Branch:** `main` ·
 **Phase:** 1 — usable build
 
 ### Gates
 
 ```text
-tests     766 passing, 0 failing, 0 ignored  (cargo test --workspace)
+tests     768 passing, 0 failing, 0 ignored  (cargo test --workspace)
 clippy    clean (-D warnings, --all-targets, workspace-wide)
 rustfmt   clean - and it was not, until 2026-09-16: 52 sites in the crates
           added since 0.6.9 had never been through it. Run it, do not assume it
@@ -596,7 +596,7 @@ AI providers      none - deliberately last, docs/SEARCH_AI.md
 Two documents have fallen behind the code and are debt, not history:
 
 ```text
-CHANGELOG.md      stops at 0.6.9; 0.6.10 to 0.6.44 are unrecorded, in both
+CHANGELOG.md      stops at 0.6.9; 0.6.10 to 0.6.45 are unrecorded, in both
 CHANGELOG_zh-TW.md  languages, though the work itself is in the git log
 FEATURE_INVENTORY  rows still read "planned" for things that shipped weeks ago
                   - thumbnails, breadcrumb, invert, select by pattern, folder
@@ -621,6 +621,6 @@ for.
 
 1. The hex editor window: the core and the bridge are waiting for it.
 2. Native file watching, replacing the timer.
-3. The two stale documents above, caught up to 0.6.44.
+3. The two stale documents above, caught up to 0.6.45.
 4. Windows and Linux platform adapters: trash, reveal, tags, Open With.
 5. Packaging and a signed release on all three platforms (§20.5).

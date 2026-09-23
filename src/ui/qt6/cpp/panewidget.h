@@ -60,6 +60,8 @@ public:
     /// Put the breadcrumb into its editable full-path form.
     void editPath();
     void clearSearch();
+    /// Halt a running search and keep its results on screen.
+    void stopSearch();
     void toggleFilter();
     /// Show or hide the filter bar to match the setting.
     void applyFilterBarSetting();

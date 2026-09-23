@@ -1639,6 +1639,25 @@ pub unsafe extern "C" fn jtf_search_in(
     unsafe { write_str(app.search_in(pane(pane_id)), buf, len) }
 }
 
+/// Stop the pane's search and keep what it has found. Returns 1 if a search
+/// was running.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_search_stop(app: *mut App, pane_id: c_int) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.stop_search(pane(pane_id))))
+}
+
+/// Whether the results on show are from a search stopped before it finished.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_search_stopped(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.search_stopped(pane(pane_id))))
+}
+
 /// Abandon the results and show the directory again.
 ///
 /// # Safety

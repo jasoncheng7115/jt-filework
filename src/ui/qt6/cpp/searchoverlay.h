@@ -4,7 +4,8 @@
 // screen saying so, a list that is filling slowly is indistinguishable from a
 // list that is finished and short - and there was no way to call the search
 // off short of clearing the box and hoping. This says "still going", says how
-// much it has found, and offers the one button that matters.
+// much it has found, and offers the one button that matters - which is a
+// different button depending on whether the search is still going.
 //
 // A floating child of the pane rather than a row in its layout: it appears and
 // disappears constantly, and anything that changes a layout's size hint that
@@ -47,16 +48,19 @@ class SearchOverlay : public QWidget {
 public:
     explicit SearchOverlay(QWidget *parent = nullptr);
 
-    /// `running` keeps the spinner turning; `found` is what to report so far.
-    void setState(bool running, int found, const QString &runningText,
-                  const QString &doneText, const QString &cancelText);
+    /// `running` keeps the spinner turning and makes the button a stop.
+    void setState(bool running, const QString &text, const QString &button);
     void applyTheme(const QColor &text, const QColor &accent);
 
 signals:
-    void cancelled();
+    /// Halt the walk and keep what it found. Only while running.
+    void stopRequested();
+    /// Leave the results for the folder. Only once nothing is running.
+    void backRequested();
 
 private:
     Spinner *m_spinner = nullptr;
     QLabel *m_label = nullptr;
-    QPushButton *m_cancel = nullptr;
+    QPushButton *m_button = nullptr;
+    bool m_running = false;
 };

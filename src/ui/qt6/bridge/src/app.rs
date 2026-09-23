@@ -214,6 +214,13 @@ struct PaneView {
     /// The folder the running search is in, for the status line. Cleared when
     /// the walk ends, so a finished search does not go on naming a folder.
     search_in: String,
+    /// Whether the results were cut short by the person rather than by the
+    /// walk running out of tree.
+    ///
+    /// Said on screen, because the two look identical otherwise and mean
+    /// different things: a finished search that found nothing is an answer,
+    /// a stopped one is not.
+    stopped: bool,
     /// Bumped whenever the row set changes identity rather than merely
     /// growing: a new location, a re-sort, a filter change. The UI uses it to
     /// decide between inserting rows and rebuilding the whole model, which is
@@ -295,6 +302,48 @@ fn drain_search(view: &mut PaneView, updates: Vec<SearchUpdate>) -> (bool, bool)
     (finished, changed)
 }
 
+/// Put a search's results in their final order and stop calling it running.
+///
+/// The same whether the walk ran out of tree or was stopped: either way these
+/// are the rows the pane will go on showing, so they are sorted once, now,
+/// rather than left in the order the walk happened to find them.
+fn settle_search(view: &mut PaneView, filter: &str, show_hidden: bool, folders_first: bool) {
+    view.loading = false;
+    view.search = None;
+    view.search_in.clear();
+    let sort = view.sort;
+    sort_entries_with(&mut view.entries, sort, folders_first);
+    App::recompute_visible(view, filter, show_hidden);
+    view.generation += 1;
+}
+
+/// Stop a running search where it is, keeping what it has found.
+///
+/// Returns whether there was a search to stop.
+///
+/// Stopping is not clearing. The rows already on screen are what somebody
+/// was looking at when they pressed the button, and a "stop" that takes them
+/// away is "clear" under a misleading name - which is what the button was.
+/// Whatever the walk had already sent is taken in before it is let go, so
+/// nothing that was counted disappears.
+fn stop_search_in(
+    view: &mut PaneView,
+    filter: &str,
+    show_hidden: bool,
+    folders_first: bool,
+) -> bool {
+    let Some(search) = view.search.take() else {
+        return false;
+    };
+    search.cancel();
+    let _ = drain_search(view, search.poll());
+    // Joins the walker, which checks for cancellation between entries.
+    drop(search);
+    settle_search(view, filter, show_hidden, folders_first);
+    view.stopped = true;
+    true
+}
+
 impl PaneView {
     fn new() -> Self {
         Self {
@@ -303,6 +352,7 @@ impl PaneView {
             search: None,
             query: String::new(),
             search_in: String::new(),
+            stopped: false,
             generation: 0,
             handle: None,
             sort: SortSpec::default(),
@@ -4019,6 +4069,7 @@ impl App {
         // an old one to fill the same pane.
         view.handle = None;
         view.search = None;
+        view.stopped = false;
         // Listing a directory means the pane is no longer showing results.
         // Leaving the query set made the status line keep claiming "N results"
         // for a directory it had navigated to since.
@@ -4063,6 +4114,26 @@ impl App {
         self.views
             .get(&pane)
             .map_or_else(String::new, |view| view.query.clone())
+    }
+
+    /// Stop the pane's search and keep the results it has so far.
+    ///
+    /// Returns whether a search was running.
+    pub(crate) fn stop_search(&mut self, pane: PaneId) -> bool {
+        let filter = self.filter_text(pane).to_lowercase();
+        let show_hidden = self.show_hidden;
+        let folders_first = self.settings.folders_first;
+        self.views
+            .get_mut(&pane)
+            .is_some_and(|view| stop_search_in(view, &filter, show_hidden, folders_first))
+    }
+
+    /// Whether the results on show are from a search that was stopped before
+    /// it finished.
+    pub(crate) fn search_stopped(&self, pane: PaneId) -> bool {
+        self.views
+            .get(&pane)
+            .is_some_and(|view| view.stopped && !view.query.is_empty())
     }
 
     /// Abandon the results and go back to showing the directory.
@@ -4513,13 +4584,7 @@ impl App {
                     Self::recompute_visible(view, &filter, show_hidden);
                 }
                 if finished {
-                    view.loading = false;
-                    view.search = None;
-                    view.search_in.clear();
-                    let sort = view.sort;
-                    sort_entries_with(&mut view.entries, sort, folders_first);
-                    Self::recompute_visible(view, &filter, show_hidden);
-                    view.generation += 1;
+                    settle_search(view, &filter, show_hidden, folders_first);
                 }
                 continue;
             }
@@ -4619,6 +4684,7 @@ impl App {
         // navigation cannot leave two enumerations racing to fill one pane.
         view.handle = None;
         view.search = None;
+        view.stopped = false;
         // Listing a directory means the pane is no longer showing results.
         // Leaving the query set made the status line keep claiming "N results"
         // for a directory it had navigated to since.
@@ -6066,5 +6132,88 @@ mod ejection_tests {
         let answer = nearest_existing(Path::new("/no-such-volume/at/all"));
         assert!(answer.is_dir(), "{} is not a folder", answer.display());
         assert_ne!(answer, PathBuf::from("/no-such-volume/at/all"));
+    }
+}
+
+#[cfg(test)]
+mod stopping_a_search {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
+    use super::{drain_search, stop_search_in, PaneView};
+    use jtf_core::Location;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{Duration, Instant};
+
+    /// A tree with enough folders that a walk has somewhere to be when it is
+    /// stopped. Under the system's temporary directory, and named for this
+    /// process, so two runs of the suite do not share it.
+    fn tree(name: &str, folders: usize) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("jtf-stop-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        for folder in 0..folders {
+            let dir = root.join(format!("d{folder:04}"));
+            fs::create_dir_all(&dir).unwrap();
+            for file in 0..50 {
+                fs::write(dir.join(format!("f{file:02}.xlsx")), b"x").unwrap();
+            }
+        }
+        root
+    }
+
+    /// Stopping keeps what was on screen.
+    ///
+    /// The button said 取消搜尋 and did what "clear" does: the results went
+    /// and the folder came back, so there was no way to halt a long search and
+    /// look at what it had found.
+    #[test]
+    fn a_stopped_search_keeps_every_row_it_had_shown() {
+        let root = tree("keeps", 100);
+        let mut view = PaneView::new();
+        view.query = ".xlsx".to_string();
+        view.loading = true;
+        let query = jtf_search::parse(".xlsx").unwrap();
+        view.search = Some(jtf_search::search(&Location::local(&root), query).unwrap());
+
+        // Take in results the way the pump does, until some are showing.
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while view.entries.is_empty() && Instant::now() < deadline {
+            let updates = view.search.as_ref().unwrap().poll();
+            let _ = drain_search(&mut view, updates);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let shown = view.entries.len();
+        assert!(shown > 0, "nothing arrived to stop over");
+
+        assert!(stop_search_in(&mut view, "", false, true));
+        assert!(view.search.is_none(), "the walk is still attached");
+        assert!(!view.loading, "a stopped search still says it is running");
+        assert!(view.stopped, "nothing records that the results are partial");
+        assert_eq!(view.query, ".xlsx", "stopping left the results");
+        assert!(
+            view.entries.len() >= shown,
+            "{shown} rows were showing and {} are left",
+            view.entries.len()
+        );
+        assert_eq!(
+            view.visible.len(),
+            view.entries.len(),
+            "rows are not visible"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn stopping_when_nothing_is_running_changes_nothing() {
+        let mut view = PaneView::new();
+        view.query = ".xlsx".to_string();
+        let generation = view.generation;
+        assert!(!stop_search_in(&mut view, "", false, true));
+        assert!(!view.stopped, "a finished search was relabelled as stopped");
+        assert_eq!(
+            view.generation, generation,
+            "the rows were rebuilt for nothing"
+        );
     }
 }

@@ -477,6 +477,10 @@ forgotten, and marked as belonging to stage two.
 | SRCH-009 | A deterministic query never routes through AI, even when the AI panel is open | H1 |
 | SRCH-010 | Provenance (deterministic / semantic / reranked) is visible per row | H3 |
 | SRCH-011 | Zero results is distinct from "still searching" and from "scan failed" | H3 |
+| SRCH-012 | **Stopping a running search keeps its results.** Start a search that takes several seconds, press 停止搜尋 on the card: the walk stops, every row that was showing is still there, and the folder does not come back | H1/H2 |
+| SRCH-013 | A stopped search says it was stopped — 「已停止搜尋，找到 N 個」 on the card and the status line — so partial results are never taken for a complete answer | H2/H3 |
+| SRCH-014 | Once nothing is running the card's button reads 返回資料夾, and only that button, the search box's clear and Escape leave the results for the folder | H2 |
+| SRCH-015 | 停止搜尋 in the Edit menu and the palette is enabled only while a search is running in the active pane | H2 |
 
 ---
 

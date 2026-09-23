@@ -313,10 +313,14 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // up in pieces.
     m_searchOverlay = new SearchOverlay(this);
     m_searchOverlay->setVisible(false);
-    connect(m_searchOverlay, &SearchOverlay::cancelled, this, [this] {
-        clearSearch();
-        emit stateChanged();
-    });
+    // Stopping and leaving are two things. The button used to be one of
+    // them - "stop" in English, 取消搜尋 in Chinese - and did the other: it
+    // threw the results away and put the folder back, so a long search could
+    // not be halted to look at what it had found. Explorer's stop in the
+    // address bar keeps the results too; clearing the search box is what
+    // leaves them.
+    connect(m_searchOverlay, &SearchOverlay::stopRequested, this, [this] { stopSearch(); });
+    connect(m_searchOverlay, &SearchOverlay::backRequested, this, [this] { clearSearch(); });
 
     connect(m_view, &QAbstractItemView::entered, this, [this](const QModelIndex &index) {
         setHoveredRow(index.isValid() ? index.row() : -1);
@@ -750,6 +754,13 @@ void PaneWidget::searchFor(const QString &query) {
 
 void PaneWidget::editPath() { m_crumbs->beginEditing(); }
 
+
+void PaneWidget::stopSearch() {
+    if (jtf_search_stop(m_app, m_pane) != 0) {
+        m_view->setFocus();
+        emit stateChanged();
+    }
+}
 
 void PaneWidget::clearSearch() {
     // Clearing returns to the folder the pane was already on, rather than
@@ -2352,8 +2363,9 @@ void PaneWidget::retranslate() {
     } else if (jtf_is_loading(m_app, m_pane)) {
         status = tr_("status.loading");
     } else if (jtf_is_searching(m_app, m_pane)) {
-        status = jtfFill(tr_("status.results"), "count",
-                         QString::number(jtf_listed_count(m_app, m_pane)));
+        status = jtfFill(tr_(jtf_search_stopped(m_app, m_pane) != 0 ? "status.search_stopped"
+                                                                    : "status.results"),
+                         "count", QString::number(jtf_listed_count(m_app, m_pane)));
     } else {
         // Items, not rows: a `..` row is a way out of the folder, not a file in it.
     const int rows = jtf_listed_count(m_app, m_pane);
@@ -2420,12 +2432,18 @@ void PaneWidget::retranslate() {
         const bool running = searching && jtf_is_loading(m_app, m_pane) != 0;
         m_searchOverlay->setVisible(searching);
         if (searching) {
-            const int found = jtf_listed_count(m_app, m_pane);
-            m_searchOverlay->setState(
-                running, found,
-                jtfFill(tr_("status.searching"), "count", QString::number(found)),
-                jtfFill(tr_("status.results"), "count", QString::number(found)),
-                tr_("search.cancel"));
+            const QString found = QString::number(jtf_listed_count(m_app, m_pane));
+            if (running) {
+                m_searchOverlay->setState(true, jtfFill(tr_("status.searching"), "count", found),
+                                          tr_("search.stop"));
+            } else {
+                const bool stopped = jtf_search_stopped(m_app, m_pane) != 0;
+                m_searchOverlay->setState(
+                    false,
+                    jtfFill(tr_(stopped ? "status.search_stopped" : "status.results"), "count",
+                            found),
+                    tr_("search.back"));
+            }
             positionSearchOverlay();
         }
     }

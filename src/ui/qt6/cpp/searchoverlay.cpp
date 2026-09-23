@@ -68,22 +68,30 @@ SearchOverlay::SearchOverlay(QWidget *parent) : QWidget(parent) {
     m_spinner = new Spinner(this);
     m_label = new QLabel(this);
     m_label->setProperty("jtfOverlayLabel", true);
-    m_cancel = new QPushButton(this);
-    m_cancel->setObjectName(QStringLiteral("JtfSearchCancel"));
-    m_cancel->setCursor(Qt::PointingHandCursor);
-    connect(m_cancel, &QPushButton::clicked, this, &SearchOverlay::cancelled);
+    m_button = new QPushButton(this);
+    m_button->setObjectName(QStringLiteral("JtfSearchCancel"));
+    m_button->setCursor(Qt::PointingHandCursor);
+    // Two actions behind one button, decided by what the button *said* when it
+    // was pressed rather than by asking again: a search that finishes between
+    // the paint and the click must not turn a "stop" into a "go back".
+    connect(m_button, &QPushButton::clicked, this, [this] {
+        if (m_running) {
+            emit stopRequested();
+        } else {
+            emit backRequested();
+        }
+    });
 
     row->addWidget(m_spinner);
     row->addWidget(m_label);
-    row->addWidget(m_cancel);
+    row->addWidget(m_button);
 }
 
-void SearchOverlay::setState(bool running, int found, const QString &runningText,
-                             const QString &doneText, const QString &cancelText) {
+void SearchOverlay::setState(bool running, const QString &text, const QString &button) {
+    m_running = running;
     m_spinner->setVisible(running);
-    m_label->setText(running ? runningText : doneText);
-    m_cancel->setText(cancelText);
-    Q_UNUSED(found);
+    m_label->setText(text);
+    m_button->setText(button);
     adjustSize();
 }
 

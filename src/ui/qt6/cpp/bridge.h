@@ -183,6 +183,8 @@ int jtf_search_start(JtfApp *app, int pane, const char *query, char *error_buf, 
 int jtf_is_searching(const JtfApp *app, int pane);
 int jtf_search_query(const JtfApp *app, int pane, char *buf, int len);
 int jtf_search_in(const JtfApp *app, int pane, char *buf, int len);
+int jtf_search_stop(JtfApp *app, int pane);
+int jtf_search_stopped(const JtfApp *app, int pane);
 void jtf_search_clear(JtfApp *app, int pane);
 int jtf_filter(const JtfApp *app, int pane, char *buf, int len);
 void jtf_set_filter(JtfApp *app, int pane, const char *text);

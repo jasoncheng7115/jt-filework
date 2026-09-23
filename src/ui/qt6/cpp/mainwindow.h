@@ -193,6 +193,8 @@ private:
     class QAction *m_backAction = nullptr;
     class QAction *m_forwardAction = nullptr;
     class QAction *m_upAction = nullptr;
+    class QAction *m_stopSearchAction = nullptr;
+    bool m_syncingSearchBox = false;
     class QAction *m_refreshAction = nullptr;
     class QAction *m_treeAction = nullptr;
     class QAction *m_inspectorAction = nullptr;

@@ -229,6 +229,8 @@ const QHash<QString, QString> &commandFiles() {
         {QStringLiteral("theme.set"), QStringLiteral("light-bulb")},
         // Search
         {QStringLiteral("search.open"), QStringLiteral("search")},
+        // The same mark as stopping a running job, which is what it is.
+        {QStringLiteral("search.stop"), QStringLiteral("xmark-circle")},
         {QStringLiteral("search.clear"), QStringLiteral("xmark")},
         {QStringLiteral("search.ai"), QStringLiteral("light-bulb")},
         {QStringLiteral("ai.ask"), QStringLiteral("light-bulb")},
