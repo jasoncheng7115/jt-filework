@@ -49,7 +49,13 @@ step "building $version for $arch, macOS $minimum and later"
 cmake -S "$root/src/ui/qt6" -B "$build" -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_PREFIX_PATH="$qt" -DCMAKE_OSX_ARCHITECTURES="$arch" \
     -DCMAKE_OSX_DEPLOYMENT_TARGET="$minimum" >/dev/null
-cmake --build "$build" --parallel
+# As many compile jobs as there are cores, not `--parallel` alone: with make
+# that means no limit, and a clean build starts every C++ file at once. On
+# the 8-core, 7 GB machine the Linux packages are built on, the kernel killed
+# the compilers for memory and the build stopped at "signal terminated
+# program cc1plus" - only from clean, which is how a release is built.
+jobs="${JTF_JOBS:-$(getconf _NPROCESSORS_ONLN)}"
+cmake --build "$build" --parallel "$jobs"
 
 app="$build/jt-filework.app"
 [ -d "$app" ] || fail "no bundle at $app"

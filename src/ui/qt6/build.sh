@@ -47,7 +47,9 @@ if [ "$(uname -s)" = "Darwin" ]; then
 fi
 
 cmake -S "$here" -B "$build_dir" -DCMAKE_BUILD_TYPE="$build_type" ${extra[@]+"${extra[@]}"}
-cmake --build "$build_dir" --parallel
+# Bounded by the core count: `--parallel` alone is no limit under make, and a
+# clean build then runs out of memory on a small machine (packaging/linux).
+cmake --build "$build_dir" --parallel "${JTF_JOBS:-$(getconf _NPROCESSORS_ONLN)}"
 
 # On macOS the product is an .app; everywhere else it is the executable.
 app="$build_dir/jt-filework"

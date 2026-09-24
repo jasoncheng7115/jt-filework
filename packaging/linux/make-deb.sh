@@ -33,7 +33,13 @@ export PATH="$HOME/.cargo/bin:$PATH"
 
 step "building $version for $debarch on $(lsb_release -ds 2>/dev/null || uname -sr)"
 cmake -S "$root/src/ui/qt6" -B "$build" -DCMAKE_BUILD_TYPE=Release >/dev/null
-cmake --build "$build" --parallel
+# As many compile jobs as there are cores, not `--parallel` alone: with make
+# that means no limit, and a clean build starts every C++ file at once. On
+# the 8-core, 7 GB machine the Linux packages are built on, the kernel killed
+# the compilers for memory and the build stopped at "signal terminated
+# program cc1plus" - only from clean, which is how a release is built.
+jobs="${JTF_JOBS:-$(getconf _NPROCESSORS_ONLN)}"
+cmake --build "$build" --parallel "$jobs"
 exe="$build/jt-filework"
 [ -x "$exe" ] || fail "no executable at $exe"
 [ -f "$build/locales/en/main.catalog" ] \
