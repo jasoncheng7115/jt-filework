@@ -131,12 +131,25 @@ if (Test-Path $zip) { Remove-Item -Force $zip }
 $portable = Join-Path $build $name
 if (Test-Path $portable) { Remove-Item -Recurse -Force $portable }
 Copy-Item -Recurse $stage $portable
-# Not Compress-Archive: in Windows PowerShell 5.1 it writes `\` between the
-# folders inside the zip, which the format does not allow. Windows unpacks
-# that anyway; macOS and Linux make files with backslashes in their names.
+# Every entry named here, with `/` between folders as the zip format
+# requires. Windows PowerShell 5.1 writes `\` - both Compress-Archive and
+# ZipFile.CreateFromDirectory, because it runs .NET in its old compatibility
+# mode. Windows unpacks that anyway; macOS and Linux make files with
+# backslashes in their names.
+Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-[IO.Compression.ZipFile]::CreateFromDirectory($portable, $zip,
-  [IO.Compression.CompressionLevel]::Optimal, $true)
+$parent = Split-Path (Resolve-Path $portable).Path -Parent
+$archive = [IO.Compression.ZipFile]::Open($zip, [IO.Compression.ZipArchiveMode]::Create)
+try {
+  Get-ChildItem -Recurse -File $portable | ForEach-Object {
+    $entry = $_.FullName.Substring($parent.Length).TrimStart('\').Replace('\', '/')
+    [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+      $archive, $_.FullName, $entry, [IO.Compression.CompressionLevel]::Optimal)
+  }
+} finally {
+  $archive.Dispose()
+}
+if ((Get-Item $zip).Length -eq 0) { Fail 'the zip is empty' }
 Remove-Item -Recurse -Force $portable
 
 foreach ($file in $msi, $zip) {
