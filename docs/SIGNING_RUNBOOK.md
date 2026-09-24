@@ -277,3 +277,54 @@ expires, and sign the installer as well as the executable.
    B1 condition 5.
 4. **Every release, on both platforms** — verify on a clean machine with the
    quarantine attribute present, before announcing anything.
+
+---
+
+## 5. When a Build Is Not Signed
+
+Until Part A and Part B are done, every macOS and Windows build is unsigned
+(macOS: an ad hoc signature, no notarization; Windows: no signature at all).
+`docs/RELEASE_CHECKLIST.md` §3 requires that any such build shared with anyone
+carries the text below, **verbatim**, in both languages - in the release notes
+and anywhere else the files are offered.
+
+It says what will happen, why, and the one safe way past it. It never tells
+anyone to switch Gatekeeper or SmartScreen off, or to strip the quarantine
+attribute wholesale: those instructions turn the protection off for everything,
+permanently, and are the ones people copy from forums (`docs/DISTRIBUTION.md`
+§1.2).
+
+### English
+
+> **These builds are not signed yet.** jt-filework does not have an Apple
+> Developer ID or a Windows code-signing certificate, so your system cannot
+> tell who made the file and will warn you the first time you open it. That
+> warning is the system doing its job. Before going past it, check that the
+> file's SHA-256 checksum matches the one published beside it.
+>
+> - **macOS** — the first time, macOS says it could not verify jt-filework
+>   and will not open it. Open **System Settings → Privacy & Security**,
+>   find the message about jt-filework near the bottom, and click
+>   **Open Anyway**. This is needed once. Do not turn Gatekeeper off, and do
+>   not run commands that remove the quarantine attribute from files in
+>   general.
+> - **Windows** — SmartScreen shows *Windows protected your PC*. Click
+>   **More info**, check that the file name is the one you downloaded, then
+>   **Run anyway**. Do not turn SmartScreen off.
+> - **Linux** — there is no warning to get past.
+
+### 中文
+
+> **這些安裝檔目前還沒有簽章。** jt-filework 還沒有 Apple 開發者 ID，也沒有
+> Windows 程式碼簽章憑證，所以系統無法確認檔案是誰做的，第一次開啟時會警告你。
+> 這個警告是系統在盡它的本分。放行之前，請先核對檔案的 SHA-256 檢查碼和旁邊
+> 公布的是否一致。
+>
+> - **macOS**：第一次開啟時，macOS 會說無法驗證 jt-filework 而拒絕開啟。請到
+>   **系統設定 → 隱私權與安全性**，在下方找到關於 jt-filework 的訊息，按
+>   **強制打開**。只需要一次。請不要關閉 Gatekeeper，也不要執行那種會把所有檔案
+>   的隔離屬性一併移除的指令。
+> - **Windows**：SmartScreen 會顯示「Windows 已保護您的電腦」。請按
+>   **其他資訊**，確認檔名是你下載的那一個，再按 **仍要執行**。請不要關閉
+>   SmartScreen。
+> - **Linux**：沒有需要放行的警告。

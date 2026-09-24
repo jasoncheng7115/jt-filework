@@ -1,4 +1,4 @@
-# jt-filework v0.6.45
+# jt-filework v0.6.46
 
 > A keyboard-first, mouse-complete file workspace for macOS, Windows and Linux.
 
@@ -15,8 +15,10 @@ browse, remote folders over SFTP, and a disc usage report that says which
 
 By Jason Cheng (Jason Tools).
 
-**Status: 0.6.45.** Runs on macOS, Windows and Linux. Built from source on
-all three; there are no packaged downloads yet. 763 tests pass.
+**Status: 0.6.46.** Runs on macOS, Windows and Linux. Installers for all
+three are on the [Releases](https://github.com/jasoncheng7115/jt-filework/releases)
+page - not signed yet, see [Download](#download) - or build it from source.
+768 tests pass.
 
 ---
 
@@ -142,6 +144,42 @@ are stage two and are not yet built.
   tree.
 
 ---
+
+## Download
+
+From [Releases](https://github.com/jasoncheng7115/jt-filework/releases):
+
+| Platform | File | Notes |
+|---|---|---|
+| macOS, Apple silicon | `jt-filework-<version>-macos-arm64.dmg` | Drag it to Applications. Qt is inside. |
+| Windows, x64 | `jt-filework-<version>-windows-x64.msi` | Installs to Program Files, with a Start menu entry. |
+| Windows, x64, no install | `jt-filework-<version>-windows-x64.zip` | Unpack anywhere and run `jt-filework.exe`. |
+| Debian and Ubuntu, x64 | `jt-filework_<version>_amd64.deb` | `sudo apt install ./jt-filework_<version>_amd64.deb` |
+
+Each file has a `.sha256` beside it. Tested on macOS 15, Windows 11 and
+Ubuntu 22.04. The macOS build declares macOS 14 as its minimum, the version
+Qt itself needs; the `.deb` is built on 22.04 so that later releases can
+install it, but neither claim has been tried on another machine yet.
+There is no Intel Mac build.
+
+> **These builds are not signed yet.** jt-filework does not have an Apple
+> Developer ID or a Windows code-signing certificate, so your system cannot
+> tell who made the file and will warn you the first time you open it. That
+> warning is the system doing its job. Before going past it, check that the
+> file's SHA-256 checksum matches the one published beside it.
+>
+> - **macOS** — the first time, macOS says it could not verify jt-filework
+>   and will not open it. Open **System Settings → Privacy & Security**,
+>   find the message about jt-filework near the bottom, and click
+>   **Open Anyway**. This is needed once. Do not turn Gatekeeper off, and do
+>   not run commands that remove the quarantine attribute from files in
+>   general.
+> - **Windows** — SmartScreen shows *Windows protected your PC*. Click
+>   **More info**, check that the file name is the one you downloaded, then
+>   **Run anyway**. Do not turn SmartScreen off.
+> - **Linux** — there is no warning to get past.
+
+The installers are made by the scripts in `packaging/`.
 
 ## Building
 

@@ -1,4 +1,4 @@
-# jt-filework v0.6.45
+# jt-filework v0.6.46
 
 > 鍵盤優先、滑鼠完備的檔案工作區，支援 macOS、Windows 與 Linux。
 
@@ -13,8 +13,9 @@ SFTP，磁碟用量會告訴你是哪**一類**檔案把空間吃掉的。
 
 作者：Jason Cheng（Jason Tools）。
 
-**狀態：0.6.45。** macOS、Windows、Linux 三個平台都跑得起來。目前三邊都是
-自己建置，還沒有打包好的下載。763 個測試通過。
+**狀態：0.6.46。** macOS、Windows、Linux 三個平台都跑得起來。三個平台的安裝檔
+都放在 [Releases](https://github.com/jasoncheng7115/jt-filework/releases)
+（目前還沒有簽章，請看[下載](#下載)），也可以自己從原始碼建置。768 個測試通過。
 
 ---
 
@@ -119,6 +120,38 @@ ISO 讀取器是自己寫的，沒有用套件（ADR-0005）；壓縮器選純 R
 - 書籤、最近位置、磁碟區、伺服器，都在樹狀圖旁邊的側邊欄。
 
 ---
+
+## 下載
+
+請到 [Releases](https://github.com/jasoncheng7115/jt-filework/releases) 下載：
+
+| 平台 | 檔案 | 說明 |
+|---|---|---|
+| macOS，Apple 晶片 | `jt-filework-<版號>-macos-arm64.dmg` | 拖進「應用程式」即可，Qt 已內含。 |
+| Windows，x64 | `jt-filework-<版號>-windows-x64.msi` | 安裝到 Program Files，並加入開始功能表。 |
+| Windows，x64，免安裝 | `jt-filework-<版號>-windows-x64.zip` | 解壓縮到任何地方，執行 `jt-filework.exe`。 |
+| Debian、Ubuntu，x64 | `jt-filework_<版號>_amd64.deb` | `sudo apt install ./jt-filework_<版號>_amd64.deb` |
+
+每個檔案旁邊都附有 `.sha256`。測試過的是 macOS 15、Windows 11、Ubuntu 22.04。
+macOS 版宣告的最低版本是 macOS 14，也就是 Qt 本身需要的版本；`.deb` 在 22.04 上
+建置，讓較新的版本也能安裝。這兩點都還沒在別的機器上實際試過。目前沒有 Intel Mac
+的版本。
+
+> **這些安裝檔目前還沒有簽章。** jt-filework 還沒有 Apple 開發者 ID，也沒有
+> Windows 程式碼簽章憑證，所以系統無法確認檔案是誰做的，第一次開啟時會警告你。
+> 這個警告是系統在盡它的本分。放行之前，請先核對檔案的 SHA-256 檢查碼和旁邊
+> 公布的是否一致。
+>
+> - **macOS**：第一次開啟時，macOS 會說無法驗證 jt-filework 而拒絕開啟。請到
+>   **系統設定 → 隱私權與安全性**，在下方找到關於 jt-filework 的訊息，按
+>   **強制打開**。只需要一次。請不要關閉 Gatekeeper，也不要執行那種會把所有檔案
+>   的隔離屬性一併移除的指令。
+> - **Windows**：SmartScreen 會顯示「Windows 已保護您的電腦」。請按
+>   **其他資訊**，確認檔名是你下載的那一個，再按 **仍要執行**。請不要關閉
+>   SmartScreen。
+> - **Linux**：沒有需要放行的警告。
+
+安裝檔由 `packaging/` 裡的腳本產生。
 
 ## 建置
 

@@ -591,6 +591,19 @@ fn the_chinese_is_the_one_taiwan_writes() {
         ("兼容", "相容"),
     ];
 
+    // Another program's own words, quoted so the reader can find the button
+    // on their screen. These are what that program says in Taiwan Chinese,
+    // however they read against the table above, and changing one would send
+    // the reader looking for a button that does not exist. Exact strings, each
+    // with where it was read from; any other use of the same word is still
+    // caught.
+    const PLATFORM_LABELS: &[&str] = &[
+        // macOS System Settings > Privacy & Security, "Open Anyway": the
+        // zh_TW value in SecurityPrivacyExtension.appex's
+        // Localizable.loctable, macOS 15. The unsigned-build notice names it.
+        "強制打開",
+    ];
+
     // Everything a reader of Chinese ever sees.
     let surfaces = [
         "locales/zh-TW/main.catalog",
@@ -607,8 +620,11 @@ fn the_chinese_is_the_one_taiwan_writes() {
             continue; // a surface that does not exist yet is not a failure
         };
         for (line_no, line) in text.lines().enumerate() {
+            let checked = PLATFORM_LABELS
+                .iter()
+                .fold(line.to_string(), |rest, label| rest.replace(label, ""));
             for (wrong, right) in INSTEAD {
-                if line.contains(wrong) {
+                if checked.contains(wrong) {
                     found.push(format!(
                         "{surface}:{}  「{wrong}」 should be 「{right}」\n    {}",
                         line_no + 1,

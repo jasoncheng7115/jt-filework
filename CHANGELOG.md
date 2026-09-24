@@ -12,6 +12,103 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.46] - 2026-09-24
+
+This entry covers everything since 0.6.9. Versions 0.6.10 to 0.6.45 went
+into the repository without entries of their own; rather than reconstruct
+thirty-six sections after the fact, what they changed is recorded here in
+one place. The commits are in the history for anyone who wants the order.
+
+This is also the first version published with ready-to-install builds. None
+of them is signed yet, so macOS and Windows will warn once before opening
+them; the release notes say what to expect and how to proceed.
+
+### Added
+
+- **Installers for all three platforms.** A disk image for macOS, an MSI
+  installer and a portable zip for Windows, and a `.deb` for Debian and
+  Ubuntu, each built by a script in `packaging/`. The macOS image carries
+  its own copy of Qt; the Windows installer carries Qt and the C++ runtime;
+  the Debian package uses the distribution's Qt.
+- **Copy, move and delete between this machine and an SFTP server.** A file
+  is written under a `.jtf-part` name and renamed only once it is complete,
+  so an interrupted copy never leaves something that looks finished. A move
+  whose copy arrived but whose source could not be removed says exactly
+  that - the file now exists in two places - instead of reporting success
+  or failure. Conflicts are asked about the same way as on a local disk.
+  A copy from one server to another is refused rather than attempted.
+- **Writing a disk image** is offered from the image file's context menu
+  and from the disk's, not only from the menu bar. The dialog shows elapsed
+  time and the write rate, has a Cancel that works while writing, and asks
+  a second time before it overwrites a disk.
+- **Pasting where the files already are makes copies.** It used to do
+  nothing, silently. It now duplicates them beside the originals, named
+  `report 2.txt`, `report 3.txt` as Finder names them - the same as
+  Duplicate. `Ctrl-V` also stopped asking whether to copy or move: the
+  clipboard knew from `Ctrl-C` or `Ctrl-X`.
+- **The list follows changes made by other programs.** A file whose size or
+  date changes underneath an open pane shows the new values within a second,
+  and the folder's total follows. This is a one-second check, not the
+  operating system's change notification; that is still to come.
+- **A pane leaves a disk that has been ejected** instead of showing a mount
+  point that no longer exists.
+- **Stop Search** in the Edit menu and the command palette.
+
+### Changed
+
+- **Names sort the way every file manager sorts them:** `file2` before
+  `file10`, as Finder, Explorer, Nautilus and Dolphin do.
+- **Marking follows CView.** The highlight bar is where you are; marks are
+  what you chose, drawn in the mark colour. The arrow keys and a plain click
+  move the bar and never disturb a mark. `Space` marks the row under the
+  bar and moves down; the tick box, Ctrl-click and Shift-click mark without
+  moving the bar. A command acts on the marked entries, or on the row under
+  the bar when nothing is marked. This replaces the model where selection
+  and marks were one thing, which could not move the bar without losing the
+  marks - the reason the highlight sometimes stayed behind the keyboard.
+- **Stopping a search keeps its results.** The search card's button used to
+  clear the search and bring the folder back. While a search runs it is now
+  *Stop Search*, which halts it and keeps every row found; the card then
+  says the search was stopped, so partial results are not mistaken for a
+  complete answer, and offers *Back to Folder*.
+- Drop-down lists draw their arrow and look like drop-down lists rather than
+  text fields.
+- The README's title carries the version.
+- The Windows build no longer opens a console window behind its own.
+
+### Fixed
+
+- **The rows could sit sideways against the column headings.** After the
+  columns were re-fitted - a folder opening, the scroll bar appearing, the
+  window changing width - the headings moved and part of the list did not,
+  so sizes and dates stood under the wrong heading until something else
+  repainted them.
+- **Large folders showed every size as `22…` and every date as `2026-09…`.**
+  The columns were measured before the first rows had arrived and the
+  measurement was kept. They are now measured against the finished listing.
+- **One column drag was recorded as three**, and widths set by the program
+  were mistaken for widths set by hand.
+- **Every label showed its catalogue key** in one build: a catalogue value
+  had been broken across two lines. A value is one line now, with `\n`
+  where it needs a break, and the tests would have caught it.
+- **Writing an image on macOS did nothing when the program was started from
+  Finder.** The privileged helper was looked up on `PATH`, which a program
+  started from Finder barely has; it is now named by its full path.
+- **On Windows**, the list of disks to write to was empty on every ordinary
+  machine: it used a PowerShell option that the PowerShell shipped with
+  Windows does not have. Cancelling at the confirmation could still take the
+  disk offline, because it was unmounted before the cancel was looked at.
+- **The disk an image is stored on could be offered as the disk to write it
+  to**, because one path had been resolved and the other had not.
+- **Copying from a server stopped without a word**, the path bar read an
+  `sftp://` address as a relative path, and a move was confirmed as though
+  it were a permanent delete.
+- A file's row updated when it changed on disk but the folder's total did
+  not.
+- The status line said nothing was selected while three entries were.
+- Leaving search results left the query in the search box above a plain
+  folder.
+
 ## [0.6.9] - 2026-09-03
 
 ### Fixed

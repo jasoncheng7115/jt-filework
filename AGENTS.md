@@ -473,7 +473,7 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-09-23 · **Version:** 0.6.45 · **Branch:** `main` ·
+**Updated:** 2026-09-24 · **Version:** 0.6.46 · **Branch:** `main` ·
 **Phase:** 1 — usable build
 
 ### Gates
@@ -501,6 +501,9 @@ windows takes the machine away from the person using it.
 cargo run -p jtf-cli             # headless walkthrough of the core
 cargo run -p jtf-bench 1000000   # performance budgets
 ./scripts/release-gate.sh        # the §20.5 checks
+./packaging/macos/make-dmg.sh    # macOS disk image, Qt inside
+./packaging/linux/make-deb.sh    # .deb, on the oldest supported Ubuntu
+packaging\windows\make-msi.ps1   # MSI and portable zip, on Windows
 JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
 ```
 
@@ -589,19 +592,22 @@ platform          Windows and Linux reveal, Open With and tags go through Qt,
                   not the shell. Their trash is the freedesktop fallback
 viewers           no image, JSON, CSV or syntax-highlighted view
 metadata          no ratings, comments or descriptions of our own
-packaging         no installer, no signed build, no GitHub release (§20.5)
+signing           installers exist for all three platforms and none is
+                  signed: macOS is ad hoc and not notarized, Windows not at
+                  all. Shipped with the notice in SIGNING_RUNBOOK §5 (§20.5)
 AI providers      none - deliberately last, docs/SEARCH_AI.md
 ```
 
-Two documents have fallen behind the code and are debt, not history:
+One document has fallen behind the code and is debt, not history:
 
 ```text
-CHANGELOG.md      stops at 0.6.9; 0.6.10 to 0.6.45 are unrecorded, in both
-CHANGELOG_zh-TW.md  languages, though the work itself is in the git log
 FEATURE_INVENTORY  rows still read "planned" for things that shipped weeks ago
                   - thumbnails, breadcrumb, invert, select by pattern, folder
                   sizes. §10.3 says a stale row there is a bug in the document
 ```
+
+The changelog was the other. 0.6.10 to 0.6.45 were never recorded one by
+one; the 0.6.46 entry records them together, in both languages.
 
 `docs/BASELINE_FEATURES.md` tracks the acceptance list;
 `docs/design/REFERENCE_LAYOUT.md` ranks what the reference layouts still ask
@@ -613,14 +619,25 @@ for.
   it stays *Proposed* pending the same numbers on Windows and Linux and a
   decision by the project owner.
 - **ADR-0006 (tar and stream compressors)** — accepted, still being built.
-- Commercial dual-licensing, which decides whether SignPath Foundation signing
-  is available for Windows (`docs/SIGNING_RUNBOOK.md` §B1).
+- **Signing, decided on 2026-09-24:** Windows through SignPath Foundation,
+  applied for after this first public release; macOS once the project owner's
+  Apple Developer Program enrolment is through (`docs/SIGNING_RUNBOOK.md`
+  Part A). SignPath carries a condition to confirm before applying: no
+  commercial dual-licence for as long as it is used (§B1 condition 5).
 - Where our own file metadata would live. That wants an ADR before code.
 
 ### Next
 
 1. The hex editor window: the core and the bridge are waiting for it.
 2. Native file watching, replacing the timer.
-3. The two stale documents above, caught up to 0.6.45.
+3. `docs/FEATURE_INVENTORY.md`, caught up.
 4. Windows and Linux platform adapters: trash, reveal, tags, Open With.
-5. Packaging and a signed release on all three platforms (§20.5).
+5. Signing, so the installers stop warning.
+   - **Windows / SignPath** — first move `packaging/windows/make-msi.ps1`
+     into a GitHub Actions workflow: SignPath signs from CI only (§B1
+     condition 3). Then MFA on GitHub and SignPath, the Author / Reviewer /
+     Approver roles, and a public code signing policy page (§B1 condition 4).
+   - **macOS / Developer ID** — waiting on the project owner's enrolment.
+     Then the hardened runtime, a Developer ID signature in place of the ad
+     hoc one in `packaging/macos/make-dmg.sh`, `notarytool` and `stapler`
+     (Part A6-A8).
