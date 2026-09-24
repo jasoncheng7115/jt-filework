@@ -14,7 +14,7 @@
 //! * Nothing is allocated to a size taken from the file. A directory's extent
 //!   is capped at [`MAX_DIRECTORY_BYTES`] before a buffer is made for it.
 //! * The walk is a queue, not recursion (`AGENTS.md` §20.2), bounded by
-//!   [`MAX_DEPTH`] and [`MAX_ENTRIES`], and it remembers which extents it has
+//!   `MAX_DEPTH` and `MAX_ENTRIES`, and it remembers which extents it has
 //!   already read — a directory that points at its own ancestor is a cycle,
 //!   and a cycle must end.
 //! * A name that would escape the extraction directory (`../`, a leading `/`,

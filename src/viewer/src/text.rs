@@ -172,7 +172,7 @@ pub struct TextWindow {
     pub first_line: u64,
     /// The decoded lines, without their line breaks.
     pub lines: Vec<String>,
-    /// Whether any line in this window was truncated at [`MAX_LINE_BYTES`].
+    /// Whether any line in this window was truncated at `MAX_LINE_BYTES`.
     pub truncated: bool,
 }
 

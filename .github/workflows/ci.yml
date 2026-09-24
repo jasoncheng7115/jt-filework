@@ -90,8 +90,18 @@ jobs:
       # advisory database but keep separate ignore lists - and two ignore
       # lists is how one of them ends up excusing something nobody reviewed.
       # An accepted advisory is an entry in deny.toml with a written reason.
+      # On failure the diagnostics are also raised as annotations, which the
+      # public API returns without a login - the raw log does not, and a
+      # failing gate whose reason cannot be read stays red for weeks.
       - name: cargo deny
-        run: cargo deny check
+        run: |
+          if ! cargo deny --color never check 2> deny.log; then
+            cat deny.log
+            grep -E '^(error|warning)(\[|:)' deny.log | grep -v -E 'duplicate|license-not-encountered' \
+              | head -20 | sed 's/^/::error title=cargo deny::/'
+            exit 1
+          fi
+          cat deny.log
 
   # Not yet enabled, and deliberately visible rather than forgotten:
   #

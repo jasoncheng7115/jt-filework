@@ -9,7 +9,7 @@
 //!
 //! `AGENTS.md` §3 forbids directory enumeration on the UI thread, and means
 //! it: a directory on a stalled network mount can block for minutes. So the
-//! interesting API here is [`enumerate_async`], which delivers rows in
+//! interesting API here is [`Provider::enumerate_async`], which delivers rows in
 //! batches, honours a [`CancellationToken`](jtf_jobs::CancellationToken) at
 //! every entry, and can be abandoned without waiting.
 //!

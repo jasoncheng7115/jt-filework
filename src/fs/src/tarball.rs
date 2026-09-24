@@ -13,7 +13,7 @@
 //! An archive is untrusted input, so:
 //!
 //! * Every member's destination is resolved through the same
-//!   [`crate::archive::safe_destination`] the ZIP and ISO paths use — one
+//!   `crate::archive::safe_destination` the ZIP and ISO paths use — one
 //!   function, so a traversal cannot be refused in one format and accepted in
 //!   another.
 //! * A header's claimed size is never believed. What bounds the write is the

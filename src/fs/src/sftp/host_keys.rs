@@ -17,7 +17,7 @@ pub enum HostKeyVerdict {
     /// The key matches the one recorded for this host.
     Known,
     /// This host is not in `known_hosts`. The caller must ask the user, and
-    /// record the answer with [`remember`].
+    /// record the answer by appending [`entry_line`] to it.
     Unknown {
         /// Fingerprint to show, so the user can compare it with the server's.
         fingerprint: String,

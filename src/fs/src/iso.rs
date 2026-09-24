@@ -12,7 +12,7 @@
 //!
 //! What it does not remove is the hostile *name*. A record can be called
 //! `../../etc/passwd`, and it is refused here by the same
-//! [`crate::archive::safe_destination`] the ZIP path uses. One function, so a
+//! `crate::archive::safe_destination` the ZIP path uses. One function, so a
 //! traversal cannot be refused in one format and accepted in the other.
 
 use std::fs::{self, File};

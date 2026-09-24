@@ -518,7 +518,7 @@ impl Connection {
     /// number of writes in flight, or reusing one SFTP channel - a fresh
     /// channel per transfer behaves the same, which is what rules out the
     /// per-channel window on its own. It is recorded here rather than worked
-    /// around by guessing, and [`REQUEST_TIMEOUT`] makes it an error rather
+    /// around by guessing, and `REQUEST_TIMEOUT` makes it an error rather
     /// than a hang. `docs/TESTING.md` §5.3 has the reproduction.
     ///
     /// # Errors
