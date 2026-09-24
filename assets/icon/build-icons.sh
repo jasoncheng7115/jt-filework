@@ -71,9 +71,14 @@ cp "$out/png/jt-filework-512.png" "$tmp/a512.png"
 for size in 128 64 32 16; do
     magick "$out/png/jt-filework-${size}.png" -filter point -resize 512x512 "$tmp/b${size}.png"
 done
-# montage emits a harmless FreeType warning when no label font is configured.
-magick montage \
+# montage emits a harmless FreeType warning when no label font is configured,
+# and on a machine with no fonts at all - a CI runner - it can fail outright.
+# The sheet is for a person to look at, not for anything to ship, so its
+# failing does not fail the icons.
+if ! magick montage \
     "$tmp/a512.png" "$tmp/b128.png" "$tmp/b64.png" "$tmp/b32.png" "$tmp/b16.png" \
-    -tile 5x1 -geometry +12+12 -background '#8A8A8A' "$out/contact-sheet.png"
+    -tile 5x1 -geometry +12+12 -background '#8A8A8A' "$out/contact-sheet.png"; then
+    echo "    contact sheet skipped: magick montage failed"
+fi
 
 echo "done -> $out"

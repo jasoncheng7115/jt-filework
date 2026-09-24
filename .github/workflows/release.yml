@@ -53,7 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: brew install librsvg imagemagick
-      - run: ./assets/icon/build-icons.sh
+      - run: packaging/ci-run.sh ./assets/icon/build-icons.sh
       - uses: actions/upload-artifact@v4
         with:
           name: icons
@@ -72,7 +72,7 @@ jobs:
           path: assets/icon/generated
       - run: brew install qt
       - name: package
-        run: ./packaging/macos/make-dmg.sh
+        run: packaging/ci-run.sh ./packaging/macos/make-dmg.sh
         env:
           JTF_DIST: ${{ github.workspace }}/dist
       - name: open the image and start what is in it
@@ -113,7 +113,7 @@ jobs:
             qt6-base-dev qt6-base-dev-tools libqt6svg6-dev \
             libgl1-mesa-dev libxkbcommon-dev qt6-qpa-plugins
       - name: package
-        run: ./packaging/linux/make-deb.sh
+        run: packaging/ci-run.sh ./packaging/linux/make-deb.sh
         env:
           JTF_DIST: ${{ github.workspace }}/dist
       - name: install it, start it, remove it
@@ -164,9 +164,17 @@ jobs:
         run: wix extension add --global WixToolset.UI.wixext/5.0.2
       - name: package
         shell: powershell
+        # On failure the end of the output becomes an annotation, readable
+        # without signing in, as packaging/ci-run.sh does for the others.
         run: |
-          ./packaging/windows/make-msi.ps1 -BuildRoot "$env:RUNNER_TEMP\jtf"
-          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $log = "$env:RUNNER_TEMP\make-msi.log"
+          & ./packaging/windows/make-msi.ps1 -BuildRoot "$env:RUNNER_TEMP\jtf" *>&1 | Tee-Object -FilePath $log
+          $failed = ($LASTEXITCODE -ne 0) -or (Select-String -Path $log -Pattern '^FAILED:' -Quiet)
+          if ($failed) {
+            $body = ((Get-Content $log -Tail 30) | ForEach-Object { $_.Replace('%', '%25') }) -join '%0A'
+            Write-Output "::error title=make-msi.ps1 failed::$body"
+            exit 1
+          }
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item "$env:RUNNER_TEMP\jtf\dist\*" dist
       - name: every DLL is shipped or part of Windows
