@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=jt-filework
+GenericName=File Manager
+GenericName[zh_TW]=檔案管理員
+Comment=Keyboard-first file manager with multiple panes
+Comment[zh_TW]=鍵盤優先、多窗格的檔案管理員
+Exec=jt-filework
+Icon=jt-filework
+Terminal=false
+Categories=System;FileTools;FileManager;
+Keywords=files;folders;file manager;explorer;
+StartupWMClass=jt-filework

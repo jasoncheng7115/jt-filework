@@ -325,9 +325,17 @@ else()
     # tree. Without this the program starts and shows every label as its
     # catalogue key, every shortcut blank and no icons at all, because the
     # catalogues, keymaps and icons simply are not there.
-    set_target_properties(jt-filework PROPERTIES
-        MACOSX_BUNDLE FALSE
-        WIN32_EXECUTABLE FALSE)
+    set_target_properties(jt-filework PROPERTIES MACOSX_BUNDLE FALSE)
+
+    # A windowed program, not a console one. As a console program the
+    # Windows build opened a black terminal behind the window every time it
+    # was started from the Start menu - useful for reading log lines while
+    # developing, and the first thing anyone who installed it would see.
+    # `-DJTF_WINDOWS_CONSOLE=ON` puts it back for a development build.
+    option(JTF_WINDOWS_CONSOLE "Keep a console window for log output on Windows" OFF)
+    if(WIN32 AND NOT JTF_WINDOWS_CONSOLE)
+        set_target_properties(jt-filework PROPERTIES WIN32_EXECUTABLE TRUE)
+    endif()
 
     set(JTF_DATA_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
     # Always out of date, for the reason given in the Apple branch above: a

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Windows installer, built by make-msi.ps1 with WiX 5.
+
+  UpgradeCode is the product's identity to Windows Installer and must never
+  change: it is how a newer package finds the older one and replaces it
+  instead of installing beside it. Everything else here may.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="jt-filework"
+           Manufacturer="Jason Tools"
+           Version="$(var.Version)"
+           UpgradeCode="5534015E-5AFE-424A-996D-105842BB9A39"
+           Scope="perMachine"
+           Compressed="yes">
+    <SummaryInformation Description="jt-filework $(var.Version)" />
+
+    <!-- One copy at a time: installing a newer one removes the older, and an
+         older one refuses to go over a newer. -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of jt-filework is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="AppIcon" SourceFile="$(var.IconPath)" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/jasoncheng7115/jt-filework" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/jasoncheng7115/jt-filework/issues" />
+
+    <!-- The program, Qt, the C runtime and the program's data all in one
+         folder: the program looks for its catalogues, keymaps and icons
+         beside its own executable. -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="jt-filework">
+        <Files Include="$(var.StageDir)\**" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="AppShortcut"
+                  Name="jt-filework"
+                  Description="Keyboard-first file manager"
+                  Target="[INSTALLFOLDER]jt-filework.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <!-- A shortcut cannot be a component's key path; this value is what
+             Windows Installer checks to know the shortcut is installed. -->
+        <RegistryValue Root="HKMU"
+                       Key="Software\Jason Tools\jt-filework"
+                       Name="StartMenuShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtf)" />
+  </Package>
+</Wix>
