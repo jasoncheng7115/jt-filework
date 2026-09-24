@@ -58,10 +58,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
+      # Through ci-run.sh, so a failing test names itself in an annotation
+      # that can be read without signing in. Bash on Windows too - the
+      # runner has Git Bash - so there is one wrapper, not two.
       - name: build
-        run: cargo build --workspace --all-targets
+        shell: bash
+        run: packaging/ci-run.sh cargo build --workspace --all-targets
       - name: test
-        run: cargo test --workspace
+        shell: bash
+        run: packaging/ci-run.sh cargo test --workspace
 
   docs:
     name: rustdoc

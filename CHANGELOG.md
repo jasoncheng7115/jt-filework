@@ -12,6 +12,21 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.47] - 2026-09-24
+
+### Fixed
+
+- **A withdrawn library in the SFTP encryption.** `wnaf` 0.14.0, which the
+  SSH library uses for elliptic-curve arithmetic, was yanked from crates.io
+  and replaced with 0.14.1; jt-filework now uses 0.14.1. Nothing about how
+  SFTP behaves changes - checked against a real server - but the project's
+  dependency check refuses yanked crates, and it had been failing since
+  2026-09-15 because of this one.
+- **The project's automatic checks pass again.** They had not passed once in
+  a hundred runs: seven broken links in the code documentation, and the
+  yanked crate above. A failing check now says why in a form that can be
+  read without signing in to GitHub.
+
 ## [0.6.46] - 2026-09-24
 
 This entry covers everything since 0.6.9. Versions 0.6.10 to 0.6.45 went
