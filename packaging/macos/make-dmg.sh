@@ -58,7 +58,9 @@ app="$build/jt-filework.app"
 # The number the program shows is compiled into its Rust half. The first
 # 0.6.46 images carried 0.6.45 there while their Info.plist said 0.6.46,
 # because the build reused a library made before the version moved.
-strings "$app/Contents/MacOS/jt-filework" | grep -qF "$version" \
+# Read directly, not piped from `strings`: under pipefail, `grep -q` quitting
+# at the first match is a SIGPIPE upstream, and a correct build fails.
+grep -aqF -- "$version" "$app/Contents/MacOS/jt-filework" \
     || fail "the program was not built as $version; it would show another version"
 
 step "copying Qt into the bundle"

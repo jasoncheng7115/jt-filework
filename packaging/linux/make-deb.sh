@@ -40,7 +40,9 @@ exe="$build/jt-filework"
     || fail "no catalogue beside the executable; every label would show its key"
 # The number the program shows is compiled into its Rust half; a build that
 # reused an older library would install as one version and call itself another.
-strings "$exe" | grep -qF "$version" \
+# Read directly, not piped from `strings`: under pipefail, `grep -q` quitting
+# at the first match is a SIGPIPE upstream, and a correct build fails.
+grep -aqF -- "$version" "$exe" \
     || fail "the program was not built as $version; it would show another version"
 
 step "laying out the package"
