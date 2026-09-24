@@ -473,7 +473,7 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-09-24 · **Version:** 0.6.47 · **Branch:** `main` ·
+**Updated:** 2026-09-24 · **Version:** 0.6.48 · **Branch:** `main` ·
 **Phase:** 1 — usable build
 
 ### Gates
@@ -486,7 +486,7 @@ rustfmt   clean - and it was not, until 2026-09-16: 52 sites in the crates
 bench     100K and 1M measured and recorded in ADR-0001
 watchdog  first run recorded; p99 486us with a 100K directory loaded
 CI        lint / i18n / security audit / test on macOS, Windows, Linux / rustdoc
-          - red for a hundred runs; the causes found are fixed in 0.6.47
+          - red for a hundred runs; the causes found are fixed in 0.6.47 and 0.6.48
 release   .github/workflows/release.yml on a v* tag; 0.6.46 published that way
 by hand   the suite is also run on Ubuntu 22.04 (Qt 6.2.4) and Windows 11
           (Qt 6.8.3 msvc2022_64); macOS builds against Qt 6.11.1

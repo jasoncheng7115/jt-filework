@@ -529,6 +529,7 @@ mod tests {
 mod describe_tests {
     use super::describe;
     use std::path::PathBuf;
+    use std::time::{Duration, SystemTime};
 
     fn scratch(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("jtf-describe-{}", std::process::id()));
@@ -540,18 +541,37 @@ mod describe_tests {
     fn describing_again_reports_the_size_the_file_has_now() {
         // What the list refresh is built on: the row is asked about itself
         // after the file underneath it changed.
+        //
+        // The two modification times are set, not left to the clock. Written
+        // back to back, both writes landed in one tick of the Windows clock -
+        // it moves about every 15.6 ms - and got the same time, so the test
+        // failed there while the code was right. A set time also lets it say
+        // the exact value was read, which is more than "it changed".
         let path = scratch("grows.txt");
+        let first = SystemTime::UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+        let second = first + Duration::from_secs(3600);
+        let stamp = |when: SystemTime| {
+            std::fs::OpenOptions::new()
+                .write(true)
+                .open(&path)
+                .and_then(|file| file.set_modified(when))
+                .expect("set the modification time");
+        };
+
         std::fs::write(&path, b"small").expect("write");
+        stamp(first);
         let before = describe(&path).expect("an entry");
         assert_eq!(before.size(), Some(5));
+        assert_eq!(before.timestamps().modified, Some(first));
 
         std::fs::write(&path, vec![b'x'; 5000]).expect("rewrite");
+        stamp(second);
         let after = describe(&path).expect("an entry");
         assert_eq!(after.size(), Some(5000), "the new size was not read");
-        assert_ne!(
-            before.timestamps().modified,
+        assert_eq!(
             after.timestamps().modified,
-            "the modification time did not move"
+            Some(second),
+            "the modification time was not read again"
         );
         let _ = std::fs::remove_file(&path);
     }
