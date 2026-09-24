@@ -55,6 +55,11 @@ app="$build/jt-filework.app"
 [ -d "$app" ] || fail "no bundle at $app"
 [ -f "$app/Contents/Resources/locales/en/main.catalog" ] \
     || fail "the bundle has no catalogue; every label would show its key"
+# The number the program shows is compiled into its Rust half. The first
+# 0.6.46 images carried 0.6.45 there while their Info.plist said 0.6.46,
+# because the build reused a library made before the version moved.
+strings "$app/Contents/MacOS/jt-filework" | grep -qF "$version" \
+    || fail "the program was not built as $version; it would show another version"
 
 step "copying Qt into the bundle"
 stage="$(mktemp -d)"

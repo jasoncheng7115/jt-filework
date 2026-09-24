@@ -63,6 +63,13 @@ if (-not (Test-Path $exe)) { Fail "no executable at $exe" }
 if (-not (Test-Path (Join-Path $build 'locales\en\main.catalog'))) {
   Fail 'no catalogue beside the executable; every label would show its key'
 }
+# The number the program shows is compiled into its Rust half, as plain ASCII.
+# A build that reused an older library would install as one version - the
+# installer and the resource stamp come from CMake - and call itself another.
+$bytes = [IO.File]::ReadAllBytes($exe)
+if (-not [Text.Encoding]::ASCII.GetString($bytes).Contains($version)) {
+  Fail "the program was not built as $version; it would show another version"
+}
 
 Step 'staging'
 $stage = Join-Path $build 'stage'
@@ -124,7 +131,12 @@ if (Test-Path $zip) { Remove-Item -Force $zip }
 $portable = Join-Path $build $name
 if (Test-Path $portable) { Remove-Item -Recurse -Force $portable }
 Copy-Item -Recurse $stage $portable
-Compress-Archive -Path $portable -DestinationPath $zip
+# Not Compress-Archive: in Windows PowerShell 5.1 it writes `\` between the
+# folders inside the zip, which the format does not allow. Windows unpacks
+# that anyway; macOS and Linux make files with backslashes in their names.
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[IO.Compression.ZipFile]::CreateFromDirectory($portable, $zip,
+  [IO.Compression.CompressionLevel]::Optimal, $true)
 Remove-Item -Recurse -Force $portable
 
 foreach ($file in $msi, $zip) {

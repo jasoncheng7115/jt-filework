@@ -20,6 +20,10 @@ set(JTF_VERSION "${CMAKE_MATCH_1}")
 if(NOT JTF_VERSION)
     message(FATAL_ERROR "could not read the version out of Cargo.toml")
 endif()
+# Read at configure time, so a changed Cargo.toml has to mean configuring
+# again - or the plist and the resource stamp keep the old number.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_LIST_DIR}/../../../Cargo.toml")
 
 # Objective-C++ is enabled on Apple only; the platform-neutral build never
 # sees it (AGENTS.md 5).
@@ -70,26 +74,27 @@ endif()
 get_filename_component(REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
 
 
-# Without an explicit dependency list the archive is built once and then
-# considered up to date forever, so a new bridge function silently becomes an
-# undefined symbol at link time.
-file(GLOB_RECURSE BRIDGE_SOURCES CONFIGURE_DEPENDS
-    "${REPO_ROOT}/src/*/src/*.rs"
-    "${REPO_ROOT}/src/ui/qt6/bridge/src/*.rs"
-    "${REPO_ROOT}/src/*/Cargo.toml")
-
-add_custom_command(
-    OUTPUT "${BRIDGE_LIB}"
+# Cargo decides whether the bridge is out of date, not CMake: cargo is run on
+# every build and does nothing, in well under a second, when nothing changed.
+#
+# It used to be a custom command with a list of files to watch, and a list
+# is always missing something. This one missed the workspace's own
+# Cargo.toml, which is where the version is - so bumping the version rebuilt
+# nothing, and 0.6.46's first installers said 0.6.46 in their package
+# metadata and 0.6.45 in their window title. It also missed Cargo.lock and
+# every crate more than one directory deep. Before the list there was no
+# list at all, and a new bridge function was an undefined symbol at link
+# time. Asking the tool that already knows is the only version of this that
+# cannot fall behind.
+add_custom_target(rust_bridge ALL
     COMMAND ${CMAKE_COMMAND} -E env
             "CARGO_TARGET_DIR=${RUST_TARGET_DIR}"
             cargo build ${CARGO_PROFILE_FLAG} -p jtf-qt6-bridge
     WORKING_DIRECTORY "${REPO_ROOT}"
-    DEPENDS ${BRIDGE_SOURCES}
+    BYPRODUCTS "${BRIDGE_LIB}"
     COMMENT "Building the Rust bridge"
     VERBATIM
     USES_TERMINAL)
-
-add_custom_target(rust_bridge DEPENDS "${BRIDGE_LIB}")
 
 # --- application -------------------------------------------------------------
 qt_add_executable(jt-filework

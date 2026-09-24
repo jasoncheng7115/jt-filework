@@ -38,6 +38,10 @@ exe="$build/jt-filework"
 [ -x "$exe" ] || fail "no executable at $exe"
 [ -f "$build/locales/en/main.catalog" ] \
     || fail "no catalogue beside the executable; every label would show its key"
+# The number the program shows is compiled into its Rust half; a build that
+# reused an older library would install as one version and call itself another.
+strings "$exe" | grep -qF "$version" \
+    || fail "the program was not built as $version; it would show another version"
 
 step "laying out the package"
 work="$(mktemp -d)"

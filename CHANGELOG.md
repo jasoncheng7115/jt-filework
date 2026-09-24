@@ -108,6 +108,10 @@ them; the release notes say what to expect and how to proceed.
 - The status line said nothing was selected while three entries were.
 - Leaving search results left the query in the search box above a plain
   folder.
+- A build after changing the version could keep the old number in the
+  window title and the About box: the Rust half was not rebuilt when only
+  the version moved. The packaging scripts now refuse a program that does
+  not carry the version they are packaging.
 
 ## [0.6.9] - 2026-09-03
 
