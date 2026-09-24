@@ -231,19 +231,27 @@ fn unsigned_notice(heading: &str) -> String {
         .split(heading)
         .nth(1)
         .unwrap_or_else(|| panic!("section 5 has no {heading}"));
-    block.split("\n### ").next().unwrap_or("").trim().to_string()
+    block
+        .split("\n### ")
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_string()
 }
 
 /// Both READMEs carry the unsigned-build notice word for word.
 ///
-/// docs/RELEASE_CHECKLIST.md requires the text verbatim wherever the files
+/// `docs/RELEASE_CHECKLIST.md` requires the text verbatim wherever the files
 /// are offered, and the READMEs are where most people meet them. Nothing
 /// checked it: the READMEs kept a shorter first draft after section 5 grew
 /// into step-by-step instructions, so the page people read and the notice
 /// the release carries said different things.
 #[test]
 fn both_readmes_carry_the_unsigned_notice_word_for_word() {
-    for (readme, heading) in [("README.md", "### English"), ("README_zh-TW.md", "### 中文")] {
+    for (readme, heading) in [
+        ("README.md", "### English"),
+        ("README_zh-TW.md", "### 中文"),
+    ] {
         let text = fs::read_to_string(repo_root().join(readme))
             .unwrap_or_else(|e| panic!("cannot read {readme}: {e}"));
         let notice = unsigned_notice(heading);
