@@ -504,6 +504,8 @@ cargo run -p jtf-bench 1000000   # performance budgets
 ./packaging/macos/make-dmg.sh    # macOS disk image, Qt inside
 ./packaging/linux/make-deb.sh    # .deb, on the oldest supported Ubuntu
 packaging\windows\make-msi.ps1   # MSI and portable zip, on Windows
+git push origin vX.Y.Z           # .github/workflows/release.yml builds all
+                                 # three, tests them, and publishes the release
 JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
 ```
 
@@ -633,10 +635,11 @@ for.
 3. `docs/FEATURE_INVENTORY.md`, caught up.
 4. Windows and Linux platform adapters: trash, reveal, tags, Open With.
 5. Signing, so the installers stop warning.
-   - **Windows / SignPath** — first move `packaging/windows/make-msi.ps1`
-     into a GitHub Actions workflow: SignPath signs from CI only (§B1
-     condition 3). Then MFA on GitHub and SignPath, the Author / Reviewer /
-     Approver roles, and a public code signing policy page (§B1 condition 4).
+   - **Windows / SignPath** — the MSI is already built in GitHub Actions
+     (`.github/workflows/release.yml`), which is what SignPath requires (§B1
+     condition 3); the signing step goes into its windows job. Still to do:
+     MFA on GitHub and SignPath, the Author / Reviewer / Approver roles, and
+     a public code signing policy page (§B1 condition 4).
    - **macOS / Developer ID** — waiting on the project owner's enrolment.
      Then the hardened runtime, a Developer ID signature in place of the ad
      hoc one in `packaging/macos/make-dmg.sh`, `notarytool` and `stapler`

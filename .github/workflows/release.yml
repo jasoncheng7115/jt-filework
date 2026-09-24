@@ -1,0 +1,255 @@
+# Build the installers on GitHub's machines and publish them, when a version
+# tag is pushed.
+#
+# Each platform runs the same script a person would (packaging/), so there is
+# one way to make an installer, not one for CI and one for a laptop. Each job
+# then installs what it built and starts it, because a package that only
+# builds proves nothing. The release is created with the workflow's own
+# token: nobody has to sign in anywhere for a tag to become a release.
+#
+# Signing is not here yet (docs/SIGNING_RUNBOOK.md). Windows signing through
+# SignPath requires exactly this - builds made in CI from the tagged source -
+# so the step slots into the windows job when the application is approved.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: the tag names the version being built
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        name: tag, Cargo.toml and both changelogs agree
+        run: |
+          version=$(awk -F'"' '/^version = "/ {print $2; exit}' Cargo.toml)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::the tag is $GITHUB_REF_NAME but Cargo.toml says $version"
+            exit 1
+          fi
+          # Fails if either changelog has no section for this version.
+          python3 packaging/release-notes.py "$version" /dev/null > /dev/null
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  icons:
+    name: application icons
+    needs: check
+    # The .icns needs iconutil, which only macOS has; one job makes all of
+    # them and the others take them from here. They are generated from the
+    # committed SVGs and are not committed themselves (AGENTS.md 2).
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install librsvg imagemagick
+      - run: ./assets/icon/build-icons.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: icons
+          path: assets/icon/generated
+          if-no-files-found: error
+
+  macos:
+    name: macOS disk image
+    needs: [check, icons]
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: icons
+          path: assets/icon/generated
+      - run: brew install qt
+      - name: package
+        run: ./packaging/macos/make-dmg.sh
+        env:
+          JTF_DIST: ${{ github.workspace }}/dist
+      - name: open the image and start what is in it
+        run: |
+          image=$(ls dist/*.dmg)
+          mount=$(mktemp -d)
+          hdiutil attach -nobrowse -readonly -mountpoint "$mount" "$image"
+          home=$(mktemp -d)
+          HOME="$home" QT_QPA_PLATFORM=offscreen "$mount/jt-filework.app/Contents/MacOS/jt-filework" &
+          pid=$!
+          sleep 8
+          kill -0 "$pid" || { echo "::error::the program did not stay running"; exit 1; }
+          kill "$pid"
+          hdiutil detach "$mount"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-macos
+          path: dist/*
+          if-no-files-found: error
+
+  linux:
+    name: Debian package
+    needs: [check, icons]
+    # The oldest distribution supported: a package built here installs on
+    # later ones, and not the other way round.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: icons
+          path: assets/icon/generated
+      - name: build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build dpkg-dev \
+            qt6-base-dev qt6-base-dev-tools libqt6svg6-dev \
+            libgl1-mesa-dev libxkbcommon-dev qt6-qpa-plugins
+      - name: package
+        run: ./packaging/linux/make-deb.sh
+        env:
+          JTF_DIST: ${{ github.workspace }}/dist
+      - name: install it, start it, remove it
+        run: |
+          sudo apt-get install -y ./dist/*.deb
+          dpkg -s jt-filework | grep -E '^(Status|Version)'
+          home=$(mktemp -d)
+          HOME="$home" QT_QPA_PLATFORM=offscreen /usr/bin/jt-filework &
+          pid=$!
+          sleep 8
+          kill -0 "$pid" || { echo "::error::the program did not stay running"; exit 1; }
+          kill "$pid"
+          sudo apt-get remove -y jt-filework
+          if [ -e /usr/lib/jt-filework ]; then
+            echo "::error::removing the package left /usr/lib/jt-filework"
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-linux
+          path: dist/*
+          if-no-files-found: error
+
+  windows:
+    name: Windows installer
+    needs: [check, icons]
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: icons
+          path: assets/icon/generated
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          arch: win64_msvc2022_64
+          dir: 'C:\'
+          cache: true
+      - name: NASM and WiX
+        shell: powershell
+        run: |
+          choco install nasm -y --no-progress
+          dotnet tool install --global wix --version 5.0.2
+          "$env:USERPROFILE\.dotnet\tools" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
+      - name: WiX UI extension
+        shell: powershell
+        run: wix extension add --global WixToolset.UI.wixext/5.0.2
+      - name: package
+        shell: powershell
+        run: |
+          ./packaging/windows/make-msi.ps1 -BuildRoot "$env:RUNNER_TEMP\jtf"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item "$env:RUNNER_TEMP\jtf\dist\*" dist
+      - name: every DLL is shipped or part of Windows
+        # A missing DLL can leave the process sitting behind an error dialog,
+        # so "still running" below does not prove this on its own.
+        shell: powershell
+        run: |
+          $dir = "$env:RUNNER_TEMP\jtf\package\stage"
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          $dumpbin = (Get-ChildItem "$vs\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -First 1).FullName
+          if (-not $dumpbin) { Write-Output "::error::no dumpbin"; exit 1 }
+          $checked = 0; $missing = @()
+          Get-ChildItem -Recurse $dir -Include *.exe,*.dll | ForEach-Object {
+            $bin = $_; $checked++
+            & $dumpbin /nologo /dependents $bin.FullName | ForEach-Object { $_.Trim() } |
+              Where-Object { $_ -match '^[\w.-]+\.dll$' -and $_ -notlike 'api-ms-*' -and $_ -notlike 'ext-ms-*' } |
+              ForEach-Object {
+                $dll = $_
+                if (-not ((Test-Path (Join-Path $bin.DirectoryName $dll)) -or (Test-Path (Join-Path $dir $dll)) -or
+                          (Test-Path (Join-Path "$env:WINDIR\System32" $dll)))) { $missing += "$($bin.Name) -> $dll" }
+              }
+          }
+          "binaries checked: $checked"
+          if ($checked -lt 10) { Write-Output "::error::only $checked binaries found in $dir"; exit 1 }
+          if ($missing.Count -gt 0) { $missing | ForEach-Object { Write-Output "::error::missing $_" }; exit 1 }
+      - name: install it, start it, remove it
+        shell: powershell
+        run: |
+          $msi = (Get-ChildItem dist\*.msi).FullName
+          $p = Start-Process msiexec -ArgumentList "/i `"$msi`" /qn" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Write-Output "::error::msiexec /i exited $($p.ExitCode)"; exit 1 }
+          $exe = 'C:\Program Files\jt-filework\jt-filework.exe'
+          $app = Start-Process $exe -PassThru
+          Start-Sleep -Seconds 8
+          $app.Refresh()
+          if ($app.HasExited) { Write-Output "::error::the program exited with $($app.ExitCode)"; exit 1 }
+          Stop-Process -Id $app.Id -Force
+          $p = Start-Process msiexec -ArgumentList "/x `"$msi`" /qn" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Write-Output "::error::msiexec /x exited $($p.ExitCode)"; exit 1 }
+          if (Test-Path 'C:\Program Files\jt-filework') {
+            Write-Output "::error::uninstalling left the install folder"; exit 1
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-windows
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: publish
+    needs: [check, macos, linux, windows]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: package-*
+          path: dist
+          merge-multiple: true
+      - name: checksums
+        working-directory: dist
+        run: |
+          # Every package's own checksum still matches after the trip here.
+          for sum in *.sha256; do sha256sum -c "$sum"; done
+          sha256sum *.dmg *.msi *.zip *.deb > SHA256SUMS
+          cat SHA256SUMS
+      - name: notes
+        run: python3 packaging/release-notes.py "${{ needs.check.outputs.version }}" dist/SHA256SUMS > notes.md
+      - name: create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+        # A pre-release until the builds are signed: macOS and Windows both
+        # warn before opening them, and the notes say how to proceed.
+        run: |
+          files="dist/*.dmg dist/*.msi dist/*.zip dist/*.deb dist/SHA256SUMS"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            # A re-run after a partial failure: replace, do not duplicate.
+            gh release upload "$GITHUB_REF_NAME" $files --clobber
+            gh release edit "$GITHUB_REF_NAME" --notes-file notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" $files \
+              --title "jt-filework $VERSION" --notes-file notes.md --prerelease
+          fi

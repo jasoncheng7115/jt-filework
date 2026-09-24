@@ -32,7 +32,9 @@ $dist = Join-Path $BuildRoot 'dist'
 $name = "jt-filework-$version-windows-x64"
 
 # Found rather than assumed, so an upgrade of any of them does not break this.
+# Only folders named as versions: an installer may also leave Tools there.
 $qt = Get-ChildItem 'C:\Qt' -Directory -ErrorAction SilentlyContinue |
+  Where-Object { $_.Name -match '^\d+(\.\d+)+$' } |
   Sort-Object { [version]($_.Name -replace '[^0-9.]', '') } -Descending |
   ForEach-Object { Join-Path $_.FullName 'msvc2022_64' } |
   Where-Object { Test-Path (Join-Path $_ 'bin\windeployqt.exe') } |

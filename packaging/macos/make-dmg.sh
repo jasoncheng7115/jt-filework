@@ -148,8 +148,20 @@ mkdir -p "$image"
 mv "$bundle" "$image/"
 ln -s /Applications "$image/Applications"
 rm -f "$dist/$name.dmg"
-hdiutil create -volname "jt-filework $version" -srcfolder "$image" \
-    -fs HFS+ -format UDZO -imagekey zlib-level=9 -ov "$dist/$name.dmg" >/dev/null
+# Retried: on a busy machine - GitHub's macOS runners in particular -
+# `hdiutil create` fails now and then with "Resource busy" and succeeds a
+# moment later.
+made=0
+for attempt in 1 2 3 4 5; do
+    if hdiutil create -volname "jt-filework $version" -srcfolder "$image" \
+        -fs HFS+ -format UDZO -imagekey zlib-level=9 -ov "$dist/$name.dmg" >/dev/null; then
+        made=1
+        break
+    fi
+    echo "  hdiutil create failed (attempt $attempt), retrying" >&2
+    sleep $((attempt * 5))
+done
+[ "$made" -eq 1 ] || fail "hdiutil could not create the image"
 hdiutil verify "$dist/$name.dmg" >/dev/null || fail "the image does not verify"
 
 ( cd "$dist" && shasum -a 256 "$name.dmg" > "$name.dmg.sha256" )

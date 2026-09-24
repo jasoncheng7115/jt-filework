@@ -30,6 +30,10 @@ them; the release notes say what to expect and how to proceed.
   Ubuntu, each built by a script in `packaging/`. The macOS image carries
   its own copy of Qt; the Windows installer carries Qt and the C++ runtime;
   the Debian package uses the distribution's Qt.
+- **Releases are built by GitHub Actions.** Pushing a version tag builds the
+  three installers on GitHub's own machines with the same scripts, installs
+  and starts each one there, and publishes them with a `SHA256SUMS` and notes
+  taken from this changelog.
 - **Copy, move and delete between this machine and an SFTP server.** A file
   is written under a `.jtf-part` name and renamed only once it is complete,
   so an interrupted copy never leaves something that looks finished. A move
