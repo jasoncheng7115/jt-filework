@@ -1,0 +1,43 @@
+# Rewrite a published release's notes from the current text: push a tag
+# named notes-vX.Y.Z, and release vX.Y.Z gets its notes made again by
+# packaging/release-notes.py, then the notes tag deletes itself.
+#
+# The notes are the release's own changelog section and the unsigned-build
+# notice from docs/SIGNING_RUNBOOK.md section 5. When that notice changes -
+# as it did in 0.6.50, from a short warning to step-by-step instructions -
+# releases published before it still carry the old one; this brings them in
+# line. The checksums are the release's own SHA256SUMS, downloaded from it,
+# never recomputed here. A tag because a tag is what can be pushed without
+# signing in; the edit is made with the workflow's token.
+
+name: Notes
+
+on:
+  push:
+    tags: ['notes-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  notes:
+    name: rewrite the release notes
+    runs-on: ubuntu-22.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: rewrite
+        run: |
+          tag="${GITHUB_REF_NAME#notes-}"
+          version="${tag#v}"
+          gh release download "$tag" --repo "$REPO" --pattern SHA256SUMS --dir sums
+          python3 packaging/release-notes.py "$version" sums/SHA256SUMS > notes.md
+          gh release edit "$tag" --repo "$REPO" --notes-file notes.md
+          gh release view "$tag" --repo "$REPO" --json body --jq .body | head -5
+      - name: remove the notes tag
+        # Always, like promote.yml: a tag left behind would rewrite again on
+        # a re-push and means nothing to anyone reading the tag list.
+        if: always()
+        run: gh api -X DELETE "repos/$REPO/git/refs/tags/$GITHUB_REF_NAME"

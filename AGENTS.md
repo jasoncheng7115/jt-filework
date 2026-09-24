@@ -473,7 +473,7 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-09-24 · **Version:** 0.6.50 · **Branch:** `main` ·
+**Updated:** 2026-09-24 · **Version:** 0.6.51 · **Branch:** `main` ·
 **Phase:** 1 — usable build
 
 ### Gates
@@ -510,6 +510,8 @@ git push origin vX.Y.Z           # .github/workflows/release.yml builds all
                                  # three, tests them, and publishes the release
 git push origin promote-vX.Y.Z   # marks a pre-release as a release, then the
                                  # promote tag deletes itself (promote.yml)
+git push origin notes-vX.Y.Z     # rewrites a release's notes from the current
+                                 # changelog and notice (notes.yml)
 JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
 ```
 

@@ -12,6 +12,19 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.51] - 2026-09-24
+
+### Fixed
+
+- **Chinese on the project site had a space wherever the page's source
+  broke a line** - 「目前還沒有簽章， 所以」 - eighty of them across the home
+  page and the full specification, now gone. A test keeps them from coming
+  back.
+- **The release pages already published carry the new install steps.**
+  0.6.50 changed the notice about unsigned builds, but releases published
+  before it kept the old text; a `notes-vX.Y.Z` tag now rewrites a release's
+  notes from the current text, and 0.6.46 and 0.6.49 have been rewritten.
+
 ## [0.6.50] - 2026-09-24
 
 ### Changed

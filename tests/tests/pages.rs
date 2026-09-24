@@ -262,3 +262,89 @@ fn both_readmes_carry_the_unsigned_notice_word_for_word() {
         );
     }
 }
+
+/// Whether a character is Chinese text or the punctuation that goes with it.
+fn is_cjk(c: char) -> bool {
+    matches!(u32::from(c),
+        0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xF900..=0xFAFF | 0x3000..=0x303F | 0xFF00..=0xFFEF)
+}
+
+/// The page with the parts whose whitespace is kept as written blanked out:
+/// `<pre>`, `<script>` and `<style>`. Their line breaks stay, so a line
+/// number counted in what is left is still the line in the file.
+fn without_raw_blocks(html: &str) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut rest = html;
+    'outer: while !rest.is_empty() {
+        for tag in ["pre", "script", "style"] {
+            if rest.starts_with(&format!("<{tag}")) {
+                let close = format!("</{tag}>");
+                let end = rest.find(&close).map_or(rest.len(), |at| at + close.len());
+                out.extend(
+                    rest[..end]
+                        .chars()
+                        .map(|c| if c == '\n' { '\n' } else { ' ' }),
+                );
+                rest = &rest[end..];
+                continue 'outer;
+            }
+        }
+        let mut chars = rest.chars();
+        if let Some(c) = chars.next() {
+            out.push(c);
+        }
+        rest = chars.as_str();
+    }
+    out
+}
+
+/// A line break in the source never falls between two pieces of Chinese.
+///
+/// A browser shows a line break in the source as a space. In English that is
+/// the space the words needed anyway; in Chinese there should be none, and
+/// both pages were full of them - 「目前還沒有簽章， 所以」, eighty in all -
+/// wherever a long sentence had been wrapped to fit the editor.
+#[test]
+fn chinese_text_is_not_broken_across_source_lines() {
+    const INLINE: &[&str] = &["a", "strong", "b", "em", "i", "code", "kbd", "span"];
+    let mut found = Vec::new();
+    for name in PAGES {
+        let html = without_raw_blocks(&page(name));
+        let chars: Vec<char> = html.chars().collect();
+        for (at, &c) in chars.iter().enumerate() {
+            if c != '\n' {
+                continue;
+            }
+            let before = chars[..at].iter().rev().find(|c| **c != ' ' && **c != '\t');
+            let mut next = at + 1;
+            while next < chars.len() && chars[next].is_whitespace() {
+                next += 1;
+            }
+            // Through an opening inline tag to the text inside it.
+            if chars.get(next) == Some(&'<') {
+                let tag: String = chars[next + 1..]
+                    .iter()
+                    .take_while(|c| c.is_ascii_alphanumeric())
+                    .collect();
+                if !INLINE.contains(&tag.as_str()) {
+                    continue;
+                }
+                while next < chars.len() && chars[next] != '>' {
+                    next += 1;
+                }
+                next += 1;
+            }
+            if let (Some(&b), Some(&a)) = (before, chars.get(next)) {
+                if is_cjk(b) && is_cjk(a) {
+                    let line = chars[..at].iter().filter(|c| **c == '\n').count() + 1;
+                    found.push(format!("{name}:{line}  {b}⏎{a}"));
+                }
+            }
+        }
+    }
+    assert!(
+        found.is_empty(),
+        "Chinese broken across source lines, which a browser shows as a space:\n{}",
+        found.join("\n")
+    );
+}
