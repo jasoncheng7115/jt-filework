@@ -200,7 +200,7 @@ fn overwrite_replaces_and_keep_both_writes_alongside() {
         "the original is untouched"
     );
     assert_eq!(
-        read(&target.join("a 2.txt")),
+        read(&target.join("a (1).txt")),
         "new",
         "the copy sits beside it"
     );

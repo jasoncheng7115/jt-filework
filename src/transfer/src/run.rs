@@ -430,13 +430,11 @@ impl State<'_> {
         let Some(name) = target.name() else {
             return Err(Error::new(ErrorCode::InvalidPath, "no name"));
         };
-        let (stem, extension) = split_extension(&name);
         let parent = parent_of(target);
-        for n in 2..1000 {
-            let candidate = parent.join(&match extension {
-                Some(ext) => format!("{stem} {n}.{ext}"),
-                None => format!("{stem} {n}"),
-            });
+        // The same rule as a local keep-both (`jtf_core::naming`), so a copy
+        // is named the same whichever side of the connection it lands on.
+        for copy in jtf_core::naming::copy_names(std::ffi::OsStr::new(&name)) {
+            let candidate = parent.join(&copy.to_string_lossy());
             if !self.exists(&candidate)? {
                 return Ok(candidate);
             }
@@ -578,15 +576,6 @@ fn split_remote(path: &str) -> (String, String) {
     }
 }
 
-/// A name split into the part before the extension and the extension.
-fn split_extension(name: &str) -> (&str, Option<&str>) {
-    match name.rfind('.') {
-        // A leading dot is the whole name, not an extension.
-        Some(0) | None => (name, None),
-        Some(at) => (&name[..at], Some(&name[at + 1..])),
-    }
-}
-
 /// The folder a side is in.
 fn parent_of(side: &Side) -> Side {
     match side {
@@ -660,21 +649,6 @@ mod tests {
             split_remote("/srv/data/"),
             ("/srv".to_string(), "data".to_string()),
             "a trailing slash changed which part was the name"
-        );
-    }
-
-    #[test]
-    fn a_generated_name_keeps_the_extension_where_it_belongs() {
-        assert_eq!(split_extension("report.txt"), ("report", Some("txt")));
-        assert_eq!(split_extension("report"), ("report", None));
-        assert_eq!(
-            split_extension(".hidden"),
-            (".hidden", None),
-            "a leading dot is the name, not an extension"
-        );
-        assert_eq!(
-            split_extension("archive.tar.gz"),
-            ("archive.tar", Some("gz"))
         );
     }
 

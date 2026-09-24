@@ -1,4 +1,4 @@
-# jt-filework v0.6.48
+# jt-filework v0.6.49
 
 > 鍵盤優先、滑鼠完備的檔案工作區，支援 macOS、Windows 與 Linux。
 
@@ -13,7 +13,7 @@ SFTP，磁碟用量會告訴你是哪**一類**檔案把空間吃掉的。
 
 作者：Jason Cheng（Jason Tools）。
 
-**狀態：0.6.48。** macOS、Windows、Linux 三個平台都跑得起來。三個平台的安裝檔
+**狀態：0.6.49。** macOS、Windows、Linux 三個平台都跑得起來。三個平台的安裝檔
 都放在 [Releases](https://github.com/jasoncheng7115/jt-filework/releases)
 （目前還沒有簽章，請看[下載](#下載)），也可以自己從原始碼建置。768 個測試通過。
 

@@ -1027,7 +1027,7 @@ beside Explorer's, and asked why ours was the odd one out.
 | SORT-004 | `007` and `7` are the same value; a 20-digit run is left as text | H1 |
 | SORT-005 | Sorting 100 000 names stays inside the budget (`docs/TESTING.md` §8.2) | H1 |
 | PASTE-001 | Ctrl-V never asks whether to copy or move; the clipboard already said | H2 |
-| PASTE-002 | Copy, then paste in the same folder, makes `report 2.txt`; again makes `report 3.txt` | H2 |
+| PASTE-002 | Copy, then paste in the same folder, makes `report (1).txt`; again makes `report (2).txt`; duplicating `report (1).txt` makes `report (2).txt`, not `report (1) (1).txt` | H2 |
 | PASTE-003 | Cut, then paste in the same folder, does nothing - it is already there | H2 |
 | PASTE-004 | Paste onto an existing name in another folder offers 略過 / 兩者都保留 / 取代 / 取消 | H2 |
 | PASTE-005 | Ctrl-D duplicates without asking anything, and never overwrites the original | H2 |

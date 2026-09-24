@@ -47,3 +47,18 @@ fn a_non_utf8_name_survives_intact_and_still_displays() {
         "display form is not the raw name"
     );
 }
+
+/// A copy of a file whose name is not UTF-8 still gets a copy name, and keeps
+/// the bytes it cannot read (`jtf_core::naming`). Its ` (1)` is not read as a
+/// copy number - that needs the name as text - so the number is added after
+/// it: still a correct, unused name, only not the tidiest one.
+#[test]
+fn a_name_that_is_not_utf8_still_gets_a_copy_name() {
+    use std::os::unix::ffi::OsStrExt;
+    let name = std::ffi::OsStr::from_bytes(b"caf\xe9 (1).txt");
+    let copy = jtf_core::naming::copy_names(name).next();
+    assert_eq!(
+        copy.map(OsStringExt::into_vec),
+        Some(b"caf\xe9 (1) (1).txt".to_vec())
+    );
+}

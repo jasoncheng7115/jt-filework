@@ -300,7 +300,7 @@ fn a_name_already_taken_is_skipped_or_kept_beside_it() {
     let report = f.run(&plan, Policy::KeepBoth);
     assert_eq!(report.succeeded(), 1, "{:?}", report.outcomes);
     assert_eq!(
-        local_bytes(&f.local_root.join("same 2.txt")),
+        local_bytes(&f.local_root.join("same (1).txt")),
         b"from the server",
         "keep-both did not write beside it"
     );

@@ -473,7 +473,7 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-09-24 · **Version:** 0.6.48 · **Branch:** `main` ·
+**Updated:** 2026-09-24 · **Version:** 0.6.49 · **Branch:** `main` ·
 **Phase:** 1 — usable build
 
 ### Gates
@@ -508,6 +508,8 @@ cargo run -p jtf-bench 1000000   # performance budgets
 packaging\windows\make-msi.ps1   # MSI and portable zip, on Windows
 git push origin vX.Y.Z           # .github/workflows/release.yml builds all
                                  # three, tests them, and publishes the release
+git push origin promote-vX.Y.Z   # marks a pre-release as a release, then the
+                                 # promote tag deletes itself (promote.yml)
 JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
 ```
 

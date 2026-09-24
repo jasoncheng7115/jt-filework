@@ -1,0 +1,41 @@
+# Turn a published pre-release into a release: push a tag named
+# promote-vX.Y.Z, and this marks release vX.Y.Z as a release and as the
+# latest, then deletes the promote tag again.
+#
+# A tag rather than a button because a tag is what can be pushed without
+# signing in to GitHub; the change itself is made with the workflow's own
+# token. First used for v0.6.46, published as a pre-release before the
+# project owner decided unsigned builds are released as releases.
+
+name: Promote
+
+on:
+  push:
+    tags: ['promote-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    name: mark the release as a release
+    runs-on: ubuntu-22.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: promote
+        run: |
+          tag="${GITHUB_REF_NAME#promote-}"
+          gh release edit "$tag" --repo "$REPO" --prerelease=false --latest
+          state=$(gh release view "$tag" --repo "$REPO" --json isPrerelease --jq .isPrerelease)
+          if [ "$state" != "false" ]; then
+            echo "::error::$tag is still marked as a pre-release"
+            exit 1
+          fi
+          echo "$tag is a release"
+      - name: remove the promote tag
+        # Always: a promote tag left behind would promote again on a re-push
+        # and means nothing to anyone reading the tag list.
+        if: always()
+        run: gh api -X DELETE "repos/$REPO/git/refs/tags/$GITHUB_REF_NAME"

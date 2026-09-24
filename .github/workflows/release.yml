@@ -249,8 +249,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.check.outputs.version }}
-        # A pre-release until the builds are signed: macOS and Windows both
-        # warn before opening them, and the notes say how to proceed.
+        # A release, not a pre-release, although the builds are not signed:
+        # the project owner's decision on 2026-09-24. The notes carry the
+        # unsigned-build notice, which is what the warning needs.
         run: |
           files="dist/*.dmg dist/*.msi dist/*.zip dist/*.deb dist/SHA256SUMS"
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
@@ -259,5 +260,5 @@ jobs:
             gh release edit "$GITHUB_REF_NAME" --notes-file notes.md
           else
             gh release create "$GITHUB_REF_NAME" $files \
-              --title "jt-filework $VERSION" --notes-file notes.md --prerelease
+              --title "jt-filework $VERSION" --notes-file notes.md
           fi

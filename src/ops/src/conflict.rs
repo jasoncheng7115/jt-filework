@@ -58,32 +58,19 @@ impl ConflictPolicy {
     pub const ALL: &'static [Self] = &[Self::Skip, Self::Overwrite, Self::KeepBoth, Self::Abort];
 }
 
-/// Pick a name that does not exist yet, in the style the platform uses.
-///
-/// `report.txt` becomes `report 2.txt`, then `report 3.txt`. The counter is
-/// bounded: a directory that somehow contains every candidate is a failure to
-/// report, not a loop to spin in.
+/// Pick a name that does not exist yet: `destination` itself if it is free,
+/// otherwise the first of `jtf_core::naming::copy_names` that is -
+/// `report (1).txt`, `report (2).txt`. Bounded: a directory that somehow holds
+/// every candidate is a failure to report, not a loop to spin in.
 pub fn unique_destination(destination: &std::path::Path) -> Option<PathBuf> {
     if !destination.exists() {
         return Some(destination.to_path_buf());
     }
     let parent = destination.parent()?;
-    let stem = destination.file_stem()?.to_owned();
-    let extension = destination.extension().map(std::ffi::OsStr::to_owned);
-
-    for n in 2..1000 {
-        let mut name = stem.clone();
-        name.push(format!(" {n}"));
-        if let Some(extension) = &extension {
-            name.push(".");
-            name.push(extension);
-        }
-        let candidate = parent.join(name);
-        if !candidate.exists() {
-            return Some(candidate);
-        }
-    }
-    None
+    let name = destination.file_name()?;
+    jtf_core::naming::copy_names(name)
+        .map(|candidate| parent.join(candidate))
+        .find(|candidate| !candidate.exists())
 }
 
 #[cfg(test)]

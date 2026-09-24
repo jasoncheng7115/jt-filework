@@ -12,6 +12,21 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.49] - 2026-09-24
+
+### Changed
+
+- **A copy kept beside the original is named `report (1).txt`**, then
+  `report (2).txt` - the way browsers and Windows name them - instead of
+  Finder's `report 2.txt`. Duplicating a copy that is already numbered carries
+  on counting: `report (1).txt` gives `report (2).txt`, not
+  `report (1) (1).txt`. One rule for all of them: Duplicate, pasting into the
+  folder the files came from, "keep both" on a local disk or on an SFTP
+  server, and a name already taken in the trash.
+- **Releases are published as releases**, not pre-releases, with the notice
+  about unsigned builds in their notes. 0.6.46, published as a pre-release,
+  is marked as a release too.
+
 ## [0.6.48] - 2026-09-24
 
 ### Fixed
