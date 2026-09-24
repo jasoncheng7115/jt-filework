@@ -35,6 +35,11 @@ def unsigned_notice(language: str) -> str:
     return part.split(heading, 1)[1].split("\n### ", 1)[0].strip()
 
 
+def with_version(text: str, version: str) -> str:
+    """The notice names the package as `<version>`; a release knows which."""
+    return text.replace("<version>", version).replace("<版號>", version)
+
+
 def main() -> None:
     if len(sys.argv) != 3:
         sys.exit(__doc__)
@@ -58,7 +63,7 @@ def main() -> None:
 
 Built by the release workflow from the tagged commit.
 
-{unsigned_notice("en")}
+{with_version(unsigned_notice("en"), version)}
 
 ```text
 {sums}
@@ -83,7 +88,7 @@ Built by the release workflow from the tagged commit.
 
 由發行流程從打了 tag 的提交建置。
 
-{unsigned_notice("zh")}
+{with_version(unsigned_notice("zh"), version)}
 
 檢查碼見上方的 `SHA256SUMS`。
 

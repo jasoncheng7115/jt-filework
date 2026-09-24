@@ -293,13 +293,11 @@
       <a class="btn ghost" href="#build" data-lang="zh-tw">開始建置</a>
     </div>
 
-    <p class="status" data-lang="en"><strong>0.6.49</strong> — runs on macOS, Windows and Linux.
-      Installers for all three are on the Releases page. They are not signed yet, so macOS
-      and Windows warn once before opening them; the release notes say how to proceed.
-      <code>768</code> tests pass.</p>
-    <p class="status" data-lang="zh-tw"><strong>0.6.49</strong>　macOS、Windows、Linux 三個平台都跑得起來。
-      三個平台的安裝檔都在 Releases 頁面。目前還沒有簽章，所以 macOS 和 Windows 第一次開啟時
-      會警告一次；發行說明裡寫了怎麼繼續。<code>768</code> 個測試通過。</p>
+    <p class="status" data-lang="en"><strong>0.6.50</strong> — runs on macOS, Windows and Linux.
+      Installers for all three are under <a href="#download">Download</a>. They are not signed yet,
+      so macOS and Windows ask once before opening them; <a href="#install">the steps</a> are there too.
+      <code>775</code> tests pass.</p>
+    <p class="status" data-lang="zh-tw"><strong>0.6.50</strong>　macOS、Windows、Linux 三個平台都跑得起來。三個平台的安裝檔在<a href="#download">下載</a>。目前還沒有簽章，所以 macOS 和 Windows 第一次開啟前會先問一次，<a href="#install">步驟</a>也在那裡。<code>775</code> 個測試通過。</p>
 
     <figure class="shot">
       <img src="site/mac-panes.png" alt="jt-filework showing two panes side by side">
@@ -612,34 +610,88 @@
   <section id="download">
     <h2 data-lang="en">Download</h2>
     <h2 data-lang="zh-tw">下載</h2>
-    <p class="sub" data-lang="en">Packaged installers are not published yet. Until they are, the
-      build instructions below produce the same application — this section is here so it is obvious
-      which is which when they arrive, rather than a link that quietly 404s.</p>
-    <p class="sub" data-lang="zh-tw">安裝檔還沒放上來。在那之前，照下面的說明建置會得到同一個程式。
-      這一區先擺著，位置留好，不放會 404 的連結。</p>
+    <p class="sub" data-lang="en">Installers for all three platforms, built from the tagged source
+      by the release workflow. They are not signed yet, so macOS and Windows ask once before
+      opening them &mdash; the steps are below.</p>
+    <p class="sub" data-lang="zh-tw">三個平台的安裝檔，由發行流程從打了 tag 的原始碼建置。目前還沒有簽章，所以 macOS 和 Windows 第一次開啟前會先問一次，步驟在下面。</p>
 
     <div class="grid">
       <div class="card dl">
         <h3>macOS</h3>
-        <p data-lang="en">Apple Silicon. A <code>.dmg</code> holding <code>jt-filework.app</code>.</p>
-        <p data-lang="zh-tw">Apple Silicon。內含 <code>jt-filework.app</code> 的 <code>.dmg</code>。</p>
-        <p class="soon" data-lang="en">Not published yet</p>
-        <p class="soon" data-lang="zh-tw">尚未提供</p>
+        <p data-lang="en">Apple silicon. A <code>.dmg</code> holding <code>jt-filework.app</code>, with Qt inside.</p>
+        <p data-lang="zh-tw">Apple 晶片。內含 <code>jt-filework.app</code> 的 <code>.dmg</code>，Qt 已包在裡面。</p>
+        <a class="get" href="https://github.com/jasoncheng7115/jt-filework/releases/latest" data-lang="en">Download</a>
+        <a class="get" href="https://github.com/jasoncheng7115/jt-filework/releases/latest" data-lang="zh-tw">下載</a>
       </div>
       <div class="card dl">
         <h3>Windows</h3>
-        <p data-lang="en">x64. An <code>.msi</code> installer, or a portable <code>.exe</code>.</p>
-        <p data-lang="zh-tw">x64。<code>.msi</code> 安裝檔，或免安裝的 <code>.exe</code>。</p>
-        <p class="soon" data-lang="en">Not published yet</p>
-        <p class="soon" data-lang="zh-tw">尚未提供</p>
+        <p data-lang="en">x64. An <code>.msi</code> installer, or a <code>.zip</code> that needs no installing.</p>
+        <p data-lang="zh-tw">x64。<code>.msi</code> 安裝檔，或不用安裝的 <code>.zip</code>。</p>
+        <a class="get" href="https://github.com/jasoncheng7115/jt-filework/releases/latest" data-lang="en">Download</a>
+        <a class="get" href="https://github.com/jasoncheng7115/jt-filework/releases/latest" data-lang="zh-tw">下載</a>
       </div>
       <div class="card dl">
         <h3>Linux</h3>
-        <p data-lang="en">x86-64, built on Ubuntu 22.04 so it runs on 22.04 and later.</p>
-        <p data-lang="zh-tw">x86-64，在 Ubuntu 22.04 上建置，所以 22.04 以後都能跑。</p>
-        <p class="soon" data-lang="en">Not published yet</p>
-        <p class="soon" data-lang="zh-tw">尚未提供</p>
+        <p data-lang="en">A <code>.deb</code> for Debian and Ubuntu, x86-64, built on Ubuntu 22.04.</p>
+        <p data-lang="zh-tw">給 Debian、Ubuntu 的 <code>.deb</code>，x86-64，在 Ubuntu 22.04 上建置。</p>
+        <a class="get" href="https://github.com/jasoncheng7115/jt-filework/releases/latest" data-lang="en">Download</a>
+        <a class="get" href="https://github.com/jasoncheng7115/jt-filework/releases/latest" data-lang="zh-tw">下載</a>
       </div>
+    </div>
+
+    <div id="install">
+    <h3 style="margin-top:30px" data-lang="en">Installing a build that is not signed</h3>
+    <h3 style="margin-top:30px" data-lang="zh-tw">安裝未簽章的版本</h3>
+    <p class="note" data-lang="en">jt-filework does not have an Apple Developer ID or a Windows
+      code-signing certificate yet, so your system cannot tell who made the file and will warn you
+      before opening it. That warning is the system doing its job. Before going past it, check that
+      the file's SHA-256 checksum matches the one in <code>SHA256SUMS</code> on the release page.</p>
+    <p class="note" data-lang="zh-tw">jt-filework 還沒有 Apple 開發者 ID，也沒有 Windows 程式碼簽章憑證，所以系統無法確認檔案是誰做的，開啟前會警告你。這個警告是系統在盡它的本分。放行之前，請先核對檔案的 SHA-256 檢查碼，和發行頁面上 <code>SHA256SUMS</code> 裡的是否一致。</p>
+
+    <h3 style="margin-top:18px">macOS</h3>
+    <ol data-lang="en">
+      <li>Open the <code>.dmg</code> and drag <strong>jt-filework</strong> into <strong>Applications</strong>.</li>
+      <li>Open jt-filework from Applications. macOS says <strong>&ldquo;jt-filework&rdquo; Not Opened</strong>,
+        because Apple could not verify it. Click <strong>Done</strong>.</li>
+      <li>Open <strong>System Settings &rarr; Privacy &amp; Security</strong>, scroll down to
+        <strong>Security</strong>, and click <strong>Open Anyway</strong> beside the line about jt-filework.</li>
+      <li>Confirm with your password or Touch ID, and choose <strong>Open Anyway</strong> if macOS asks once more.</li>
+    </ol>
+    <ol data-lang="zh-tw">
+      <li>開啟 <code>.dmg</code>，把 <strong>jt-filework</strong> 拖進「<strong>應用程式</strong>」。</li>
+      <li>從「應用程式」開啟 jt-filework。macOS 會顯示「<strong>未打開「jt-filework」</strong>」，因為 Apple 無法驗證它。按「<strong>完成</strong>」。</li>
+      <li>開啟「<strong>系統設定 &rarr; 隱私權與安全性</strong>」，往下捲到「<strong>安全性</strong>」，在關於 jt-filework 的那一行旁邊按「<strong>強制打開</strong>」。</li>
+      <li>用密碼或 Touch ID 確認；如果 macOS 再問一次，選「<strong>強制打開</strong>」。</li>
+    </ol>
+    <p style="font-size:14.5px;color:var(--dim)" data-lang="en">This is needed once. Do not turn
+      Gatekeeper off, and do not run commands that remove the quarantine attribute from files in general.</p>
+    <p style="font-size:14.5px;color:var(--dim)" data-lang="zh-tw">只需要做一次。請不要關閉 Gatekeeper，也不要執行那種會把所有檔案的隔離屬性一併移除的指令。</p>
+
+    <h3 style="margin-top:18px">Windows</h3>
+    <ol data-lang="en">
+      <li>If the browser says the file is not commonly downloaded, choose to keep it.</li>
+      <li>Open the <code>.msi</code>. SmartScreen shows <strong>Windows protected your PC</strong>: click
+        <strong>More info</strong>, check that the file name is the one you downloaded, then
+        <strong>Run anyway</strong>.</li>
+      <li>Allow the installer to make changes when Windows asks, and follow it through. jt-filework is
+        then in the Start menu.</li>
+    </ol>
+    <ol data-lang="zh-tw">
+      <li>如果瀏覽器說這個檔案不常被下載，選擇保留。</li>
+      <li>開啟 <code>.msi</code>。SmartScreen 會顯示「<strong>Windows 已保護您的電腦</strong>」：按「<strong>其他資訊</strong>」，確認檔名是你下載的那一個，再按「<strong>仍要執行</strong>」。</li>
+      <li>Windows 詢問是否允許安裝程式變更裝置時選「是」，照著安裝程式走完。之後 jt-filework 就在開始功能表裡。</li>
+    </ol>
+    <p style="font-size:14.5px;color:var(--dim)" data-lang="en">The <code>.zip</code> needs no
+      installing: unpack it and run <code>jt-filework.exe</code>, and SmartScreen asks the same question
+      the first time. Do not turn SmartScreen off.</p>
+    <p style="font-size:14.5px;color:var(--dim)" data-lang="zh-tw"><code>.zip</code> 不用安裝：解壓縮後執行 <code>jt-filework.exe</code>，第一次執行時 SmartScreen 會問同樣的問題。請不要關閉 SmartScreen。</p>
+
+    <h3 style="margin-top:18px" data-lang="en">Debian and Ubuntu</h3>
+    <h3 style="margin-top:18px" data-lang="zh-tw">Debian、Ubuntu</h3>
+    <pre><code>sudo apt install ./jt-filework_&lt;version&gt;_amd64.deb</code></pre>
+    <p style="font-size:14.5px;color:var(--dim)" data-lang="en">There is no warning to get past; apt
+      installs the Qt libraries it needs.</p>
+    <p style="font-size:14.5px;color:var(--dim)" data-lang="zh-tw">沒有需要放行的警告；apt 會一併裝好需要的 Qt 函式庫。</p>
     </div>
   </section>
 

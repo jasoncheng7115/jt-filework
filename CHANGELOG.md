@@ -12,6 +12,28 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.50] - 2026-09-24
+
+### Changed
+
+- **Step-by-step instructions for installing a build that is not signed**, in
+  both READMEs and on the project site. macOS: drag the app to Applications,
+  open it once, then Open Anyway in System Settings → Privacy & Security.
+  Windows: keep the download, then More info → Run anyway, then the
+  installer. Debian and Ubuntu: one `apt` command. The macOS names are the
+  ones macOS itself shows, read from its own string tables, so the steps
+  match the screen. The notice used to say only which setting to change;
+  it now says what to do first and what comes after. The release notes carry
+  the same text, with the version filled in.
+- **The site's Download section offers the downloads.** It still said no
+  installers had been published; it now links to the latest release and
+  carries the steps above.
+
+### Fixed
+
+- In the parts of the site changed here, Chinese text no longer shows a
+  space wherever the page's source happened to break a line.
+
 ## [0.6.49] - 2026-09-24
 
 ### Changed

@@ -473,7 +473,7 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-09-24 · **Version:** 0.6.49 · **Branch:** `main` ·
+**Updated:** 2026-09-24 · **Version:** 0.6.50 · **Branch:** `main` ·
 **Phase:** 1 — usable build
 
 ### Gates

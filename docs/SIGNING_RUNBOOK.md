@@ -298,33 +298,80 @@ permanently, and are the ones people copy from forums (`docs/DISTRIBUTION.md`
 
 > **These builds are not signed yet.** jt-filework does not have an Apple
 > Developer ID or a Windows code-signing certificate, so your system cannot
-> tell who made the file and will warn you the first time you open it. That
-> warning is the system doing its job. Before going past it, check that the
-> file's SHA-256 checksum matches the one published beside it.
+> tell who made the file and will warn you before opening it. That warning
+> is the system doing its job. Before going past it, check that the file's
+> SHA-256 checksum matches the one in `SHA256SUMS` beside it.
 >
-> - **macOS** — the first time, macOS says it could not verify jt-filework
->   and will not open it. Open **System Settings → Privacy & Security**,
->   find the message about jt-filework near the bottom, and click
->   **Open Anyway**. This is needed once. Do not turn Gatekeeper off, and do
->   not run commands that remove the quarantine attribute from files in
->   general.
-> - **Windows** — SmartScreen shows *Windows protected your PC*. Click
->   **More info**, check that the file name is the one you downloaded, then
->   **Run anyway**. Do not turn SmartScreen off.
-> - **Linux** — there is no warning to get past.
+> **macOS**
+>
+> 1. Open the `.dmg` and drag **jt-filework** into **Applications**.
+> 2. Open jt-filework from Applications. macOS says **“jt-filework” Not
+>    Opened**, because Apple could not verify it. Click **Done**.
+> 3. Open **System Settings → Privacy & Security**, scroll down to
+>    **Security**, and click **Open Anyway** beside the line about
+>    jt-filework.
+> 4. Confirm with your password or Touch ID, and choose **Open Anyway** if
+>    macOS asks once more.
+>
+> This is needed once. Do not turn Gatekeeper off, and do not run commands
+> that remove the quarantine attribute from files in general.
+>
+> **Windows**
+>
+> 1. If the browser says the file is not commonly downloaded, choose to keep
+>    it.
+> 2. Open the `.msi`. SmartScreen shows **Windows protected your PC**: click
+>    **More info**, check that the file name is the one you downloaded, then
+>    **Run anyway**.
+> 3. Allow the installer to make changes when Windows asks, and follow it
+>    through. jt-filework is then in the Start menu.
+>
+> The `.zip` needs no installing: unpack it and run `jt-filework.exe`, and
+> SmartScreen asks the same question the first time. Do not turn SmartScreen
+> off.
+>
+> **Debian and Ubuntu**
+>
+> ```text
+> sudo apt install ./jt-filework_<version>_amd64.deb
+> ```
+>
+> There is no warning to get past; apt installs the Qt libraries it needs.
 
 ### 中文
 
 > **這些安裝檔目前還沒有簽章。** jt-filework 還沒有 Apple 開發者 ID，也沒有
-> Windows 程式碼簽章憑證，所以系統無法確認檔案是誰做的，第一次開啟時會警告你。
-> 這個警告是系統在盡它的本分。放行之前，請先核對檔案的 SHA-256 檢查碼和旁邊
-> 公布的是否一致。
+> Windows 程式碼簽章憑證，所以系統無法確認檔案是誰做的，開啟前會警告你。這個
+> 警告是系統在盡它的本分。放行之前，請先核對檔案的 SHA-256 檢查碼，和旁邊
+> `SHA256SUMS` 裡的是否一致。
 >
-> - **macOS**：第一次開啟時，macOS 會說無法驗證 jt-filework 而拒絕開啟。請到
->   **系統設定 → 隱私權與安全性**，在下方找到關於 jt-filework 的訊息，按
->   **強制打開**。只需要一次。請不要關閉 Gatekeeper，也不要執行那種會把所有檔案
->   的隔離屬性一併移除的指令。
-> - **Windows**：SmartScreen 會顯示「Windows 已保護您的電腦」。請按
->   **其他資訊**，確認檔名是你下載的那一個，再按 **仍要執行**。請不要關閉
->   SmartScreen。
-> - **Linux**：沒有需要放行的警告。
+> **macOS**
+>
+> 1. 開啟 `.dmg`，把 **jt-filework** 拖進「**應用程式**」。
+> 2. 從「應用程式」開啟 jt-filework。macOS 會顯示「**未打開「jt-filework」**」，
+>    因為 Apple 無法驗證它。按「**完成**」。
+> 3. 開啟「**系統設定 → 隱私權與安全性**」，往下捲到「**安全性**」，在關於
+>    jt-filework 的那一行旁邊按「**強制打開**」。
+> 4. 用密碼或 Touch ID 確認；如果 macOS 再問一次，選「**強制打開**」。
+>
+> 只需要做一次。請不要關閉 Gatekeeper，也不要執行那種會把所有檔案的隔離屬性
+> 一併移除的指令。
+>
+> **Windows**
+>
+> 1. 如果瀏覽器說這個檔案不常被下載，選擇保留。
+> 2. 開啟 `.msi`。SmartScreen 會顯示「**Windows 已保護您的電腦**」：按
+>    「**其他資訊**」，確認檔名是你下載的那一個，再按「**仍要執行**」。
+> 3. Windows 詢問是否允許安裝程式變更裝置時選「是」，照著安裝程式走完。
+>    之後 jt-filework 就在開始功能表裡。
+>
+> `.zip` 不用安裝：解壓縮後執行 `jt-filework.exe`，第一次執行時 SmartScreen
+> 會問同樣的問題。請不要關閉 SmartScreen。
+>
+> **Debian、Ubuntu**
+>
+> ```text
+> sudo apt install ./jt-filework_<版號>_amd64.deb
+> ```
+>
+> 沒有需要放行的警告；apt 會一併裝好需要的 Qt 函式庫。

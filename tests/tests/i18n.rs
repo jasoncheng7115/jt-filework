@@ -602,6 +602,10 @@ fn the_chinese_is_the_one_taiwan_writes() {
         // zh_TW value in SecurityPrivacyExtension.appex's
         // Localizable.loctable, macOS 15. The unsigned-build notice names it.
         "強制打開",
+        // The headline Gatekeeper shows for an app it could not verify, with
+        // the app's name in it: Q_HEADLINE_SUNFISH_NOT_VERIFIED, 「未打開「%@」」,
+        // in CoreServicesUIAgent.app's QuarantineHeadlines.loctable, macOS 15.
+        "未打開「jt-filework」",
     ];
 
     // Everything a reader of Chinese ever sees.

@@ -1,4 +1,4 @@
-# jt-filework v0.6.49
+# jt-filework v0.6.50
 
 > A keyboard-first, mouse-complete file workspace for macOS, Windows and Linux.
 
@@ -15,7 +15,7 @@ browse, remote folders over SFTP, and a disc usage report that says which
 
 By Jason Cheng (Jason Tools).
 
-**Status: 0.6.49.** Runs on macOS, Windows and Linux. Installers for all
+**Status: 0.6.50.** Runs on macOS, Windows and Linux. Installers for all
 three are on the [Releases](https://github.com/jasoncheng7115/jt-filework/releases)
 page - not signed yet, see [Download](#download) - or build it from source.
 768 tests pass.
@@ -156,7 +156,7 @@ From [Releases](https://github.com/jasoncheng7115/jt-filework/releases):
 | Windows, x64, no install | `jt-filework-<version>-windows-x64.zip` | Unpack anywhere and run `jt-filework.exe`. |
 | Debian and Ubuntu, x64 | `jt-filework_<version>_amd64.deb` | `sudo apt install ./jt-filework_<version>_amd64.deb` |
 
-Each file has a `.sha256` beside it. Tested on macOS 15, Windows 11 and
+`SHA256SUMS` lists the checksum of every file. Tested on macOS 15, Windows 11 and
 Ubuntu 22.04. The macOS build declares macOS 14 as its minimum, the version
 Qt itself needs; the `.deb` is built on 22.04 so that later releases can
 install it, but neither claim has been tried on another machine yet.
@@ -164,20 +164,45 @@ There is no Intel Mac build.
 
 > **These builds are not signed yet.** jt-filework does not have an Apple
 > Developer ID or a Windows code-signing certificate, so your system cannot
-> tell who made the file and will warn you the first time you open it. That
-> warning is the system doing its job. Before going past it, check that the
-> file's SHA-256 checksum matches the one published beside it.
+> tell who made the file and will warn you before opening it. That warning
+> is the system doing its job. Before going past it, check that the file's
+> SHA-256 checksum matches the one in `SHA256SUMS` beside it.
 >
-> - **macOS** — the first time, macOS says it could not verify jt-filework
->   and will not open it. Open **System Settings → Privacy & Security**,
->   find the message about jt-filework near the bottom, and click
->   **Open Anyway**. This is needed once. Do not turn Gatekeeper off, and do
->   not run commands that remove the quarantine attribute from files in
->   general.
-> - **Windows** — SmartScreen shows *Windows protected your PC*. Click
->   **More info**, check that the file name is the one you downloaded, then
->   **Run anyway**. Do not turn SmartScreen off.
-> - **Linux** — there is no warning to get past.
+> **macOS**
+>
+> 1. Open the `.dmg` and drag **jt-filework** into **Applications**.
+> 2. Open jt-filework from Applications. macOS says **“jt-filework” Not
+>    Opened**, because Apple could not verify it. Click **Done**.
+> 3. Open **System Settings → Privacy & Security**, scroll down to
+>    **Security**, and click **Open Anyway** beside the line about
+>    jt-filework.
+> 4. Confirm with your password or Touch ID, and choose **Open Anyway** if
+>    macOS asks once more.
+>
+> This is needed once. Do not turn Gatekeeper off, and do not run commands
+> that remove the quarantine attribute from files in general.
+>
+> **Windows**
+>
+> 1. If the browser says the file is not commonly downloaded, choose to keep
+>    it.
+> 2. Open the `.msi`. SmartScreen shows **Windows protected your PC**: click
+>    **More info**, check that the file name is the one you downloaded, then
+>    **Run anyway**.
+> 3. Allow the installer to make changes when Windows asks, and follow it
+>    through. jt-filework is then in the Start menu.
+>
+> The `.zip` needs no installing: unpack it and run `jt-filework.exe`, and
+> SmartScreen asks the same question the first time. Do not turn SmartScreen
+> off.
+>
+> **Debian and Ubuntu**
+>
+> ```text
+> sudo apt install ./jt-filework_<version>_amd64.deb
+> ```
+>
+> There is no warning to get past; apt installs the Qt libraries it needs.
 
 The installers are made by the scripts in `packaging/`.
 
