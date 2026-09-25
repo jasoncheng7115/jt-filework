@@ -269,6 +269,17 @@ fn is_cjk(c: char) -> bool {
         0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xF900..=0xFAFF | 0x3000..=0x303F | 0xFF00..=0xFFEF)
 }
 
+/// Whether the space a line break becomes would show up in Chinese text.
+///
+/// Between two Chinese characters, always. After full-width punctuation, too,
+/// whatever follows: 回收筒、`V` 檢視 is right and 回收筒、 `V` 檢視 is not.
+/// Not after a closing quotation mark, which English quoting Chinese uses
+/// with a space after it: 「照片佔了 40 GB」 is now a question.
+fn break_shows(before: char, after: char) -> bool {
+    const SPACED: &str = "。，、：；！？）．";
+    (is_cjk(before) && is_cjk(after)) || SPACED.contains(before) || SPACED.contains(after)
+}
+
 /// The page with the parts whose whitespace is kept as written blanked out:
 /// `<pre>`, `<script>` and `<style>`. Their line breaks stay, so a line
 /// number counted in what is left is still the line in the file.
@@ -335,7 +346,7 @@ fn chinese_text_is_not_broken_across_source_lines() {
                 next += 1;
             }
             if let (Some(&b), Some(&a)) = (before, chars.get(next)) {
-                if is_cjk(b) && is_cjk(a) {
+                if break_shows(b, a) {
                     let line = chars[..at].iter().filter(|c| **c == '\n').count() + 1;
                     found.push(format!("{name}:{line}  {b}⏎{a}"));
                 }
@@ -345,6 +356,120 @@ fn chinese_text_is_not_broken_across_source_lines() {
     assert!(
         found.is_empty(),
         "Chinese broken across source lines, which a browser shows as a space:\n{}",
+        found.join("\n")
+    );
+}
+
+/// Every Markdown file in the repository, outside build output and hidden
+/// directories. Walked with a list rather than recursion, and without
+/// following links, so a symlink loop is a file it skips rather than a hang.
+fn markdown_files() -> Vec<PathBuf> {
+    let mut found = Vec::new();
+    let mut pending = vec![repo_root()];
+    while let Some(dir) = pending.pop() {
+        let entries = fs::read_dir(&dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display()));
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name.starts_with('.') || name == "target" || name == "node_modules" {
+                continue;
+            }
+            let Ok(kind) = entry.file_type() else {
+                continue;
+            };
+            let path = entry.path();
+            if kind.is_dir() {
+                pending.push(path);
+            } else if kind.is_file()
+                && path
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("md"))
+            {
+                found.push(path);
+            }
+        }
+    }
+    found.sort();
+    found
+}
+
+/// How deep in `>` a Markdown line is quoted, and the line without them.
+fn unquoted(line: &str) -> (usize, &str) {
+    let mut depth = 0;
+    let mut rest = line;
+    while let Some(after) = rest.trim_start().strip_prefix('>') {
+        depth += 1;
+        rest = after.strip_prefix(' ').unwrap_or(after);
+    }
+    (depth, rest)
+}
+
+/// Whether a Markdown line begins a block of its own - a heading, a list
+/// item, a table, a fence, a quote, HTML - rather than carrying on the
+/// paragraph above it. Only a line that carries on is joined by a space.
+fn starts_block(body: &str) -> bool {
+    let text = body.trim_start();
+    let ordered = text
+        .find(|c: char| !c.is_ascii_digit())
+        .is_some_and(|at| at > 0 && (text[at..].starts_with(". ") || text[at..].starts_with(") ")));
+    text.is_empty()
+        || ordered
+        || text.starts_with(['#', '|', '<', '>'])
+        || ["```", "~~~", "---", "===", "- ", "* ", "+ "]
+            .iter()
+            .any(|opener| text.starts_with(opener))
+        || (text.starts_with('[') && text.contains("]:"))
+}
+
+/// The same rule as the pages above, for Markdown, which GitHub renders the
+/// same way: a line break inside a paragraph becomes a space.
+///
+/// The Chinese README, the Chinese changelog and the Chinese half of the
+/// signing notice were all wrapped at eighty columns like the English, 404
+/// breaks in all, so the page GitHub shows - and every release note built
+/// from those files - read 「會跟著游標所在的東西 換」.
+#[test]
+fn chinese_markdown_is_not_broken_across_source_lines() {
+    const MARKUP: &[char] = &['*', '_', '`', '~'];
+    let root = repo_root();
+    let mut found = Vec::new();
+    for path in markdown_files() {
+        let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let lines: Vec<&str> = text.lines().collect();
+        let mut fenced = false;
+        for (at, pair) in lines.windows(2).enumerate() {
+            let (depth, body) = unquoted(pair[0]);
+            let (next_depth, next_body) = unquoted(pair[1]);
+            let fence =
+                |b: &str| b.trim_start().starts_with("```") || b.trim_start().starts_with("~~~");
+            if fence(body) {
+                fenced = !fenced;
+            }
+            if fenced
+                || depth != next_depth
+                || starts_block(next_body)
+                || body.ends_with("  ")
+                || body.ends_with('\\')
+            {
+                continue;
+            }
+            let before = body.trim_end().trim_end_matches(MARKUP).chars().next_back();
+            let after = next_body
+                .trim_start()
+                .trim_start_matches(MARKUP)
+                .trim_start_matches('[')
+                .chars()
+                .next();
+            if let (Some(b), Some(a)) = (before, after) {
+                if break_shows(b, a) {
+                    let name = path.strip_prefix(&root).unwrap_or(&path).display();
+                    found.push(format!("{name}:{}  {b}⏎{a}", at + 1));
+                }
+            }
+        }
+    }
+    assert!(
+        found.is_empty(),
+        "Chinese broken across Markdown source lines, which GitHub shows as a space:\n{}",
         found.join("\n")
     );
 }

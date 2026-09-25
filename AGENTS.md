@@ -473,21 +473,24 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-09-24 · **Version:** 0.6.51 · **Branch:** `main` ·
+**Updated:** 2026-09-25 · **Version:** 0.6.52 · **Branch:** `main` ·
 **Phase:** 1 — usable build
 
 ### Gates
 
 ```text
-tests     768 passing, 0 failing, 0 ignored  (cargo test --workspace)
+tests     778 passing, 0 failing, 0 ignored  (cargo test --workspace)
 clippy    clean (-D warnings, --all-targets, workspace-wide)
 rustfmt   clean - and it was not, until 2026-09-16: 52 sites in the crates
           added since 0.6.9 had never been through it. Run it, do not assume it
 bench     100K and 1M measured and recorded in ADR-0001
 watchdog  first run recorded; p99 486us with a 100K directory loaded
 CI        lint / i18n / security audit / test on macOS, Windows, Linux / rustdoc
-          - red for a hundred runs; the causes found are fixed in 0.6.47 and 0.6.48
-release   .github/workflows/release.yml on a v* tag; 0.6.46 published that way
+          - green since 0.6.49, after a hundred red runs whose causes were
+          fixed in 0.6.47 and 0.6.48; one lint slip in 0.6.50, fixed the
+          same hour
+release   .github/workflows/release.yml on a v* tag; 0.6.46 and 0.6.49
+          published that way
 by hand   the suite is also run on Ubuntu 22.04 (Qt 6.2.4) and Windows 11
           (Qt 6.8.3 msvc2022_64); macOS builds against Qt 6.11.1
 ```
@@ -595,9 +598,14 @@ hex editing       jtf-hexedit and its bridge module are written and tested;
 file watching     a one-second timer, not inotify / FSEvents /
                   ReadDirectoryChangesW. An interim, and named as one (§10.2)
 remote            one server at a time; a copy from one server to another is
-                  refused rather than routed through this machine
-platform          Windows and Linux reveal, Open With and tags go through Qt,
-                  not the shell. Their trash is the freedesktop fallback
+                  refused rather than routed through this machine. A file on
+                  a server cannot be viewed or previewed, and rename and new
+                  folder do not work there - all need Location::as_path()
+platform          Windows and Linux have no reveal, Open With, Share or
+                  external editor: greyed out, and Quick Look falls back to
+                  the built-in viewer. Linux trash is the freedesktop
+                  fallback. Windows has no trash at all - Move to Trash
+                  fails and says so; Shift-Delete is the only delete there
 viewers           no image, JSON, CSV or syntax-highlighted view
 metadata          no ratings, comments or descriptions of our own
 signing           installers exist for all three platforms and none is
@@ -606,13 +614,39 @@ signing           installers exist for all three platforms and none is
 AI providers      none - deliberately last, docs/SEARCH_AI.md
 ```
 
-One document has fallen behind the code and is debt, not history:
+Found on 2026-09-25 by checking the site's claims against the code, and not
+yet fixed:
+
+```text
+plain .tar        not recognised: jtf_viewer::detect has no check for the
+                  ustar marker at offset 257 (only jtf-fs tarball.rs has
+                  one), so an uncompressed tar is taken for a binary file.
+                  The compressed spellings are fine
+making a tar      tarball::create exists and is tested; the window offers ZIP
+                  only
+Linux trash       fails when ~/.local/share/Trash/files does not exist yet -
+                  trash_directory() never creates it
+pkexec            launched through PATH (platform/devices/src/writer.rs), which
+                  §20.4 forbids for anything privileged
+Edit on Win/Linux File > Edit and E stay enabled and do nothing, which
+                  UI_CONVENTIONS §1 forbids
+colour test       covers Rust only; the C++ has two literal colours, the
+                  checkerboard behind transparent images and one shadow
+```
+
+Two documents have fallen behind the code and are debt, not history:
 
 ```text
 FEATURE_INVENTORY  rows still read "planned" for things that shipped weeks ago
                   - thumbnails, breadcrumb, invert, select by pattern, folder
                   sizes. §10.3 says a stale row there is a bug in the document
+UI_TEST_PLAN      §6 still opens with "Selection is the mark", and MARK-004
+                  contradicts MARK-035
 ```
+
+The site was a third until 0.6.52: the full specification still described
+0.6.20, the selection model §10 replaced, SFTP as read-only and Quick Look as
+hidden. It was checked line by line against the code and corrected.
 
 The changelog was the other. 0.6.10 to 0.6.45 were never recorded one by
 one; the 0.6.46 entry records them together, in both languages.

@@ -12,6 +12,36 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.52] - 2026-09-25
+
+### Changed
+
+- **The full specification on the project site describes this version.** It
+  had stood at 0.6.20 and was checked line by line against the code. The
+  biggest corrections: the bar and the marks as they work since 0.6.46
+  rather than the model that replaced them; SFTP copy, move and delete,
+  which were listed as not built; Quick Look on Windows and Linux opening
+  the built-in viewer rather than being hidden; macOS 14 on Apple silicon,
+  not macOS 12 on Intel too; and `O`, not `0`, for a new file. It also now
+  says what does not work yet, where it used to claim otherwise: an
+  uncompressed `.tar` is not recognised, the window makes only ZIP files,
+  the viewer shows images as hex, and Windows has no trash. The home page
+  had the same errors in fewer places.
+- **A new screenshot at the top of the home page**, taken of 0.6.52 on
+  Ubuntu: two panes, one marked as the destination, two files marked and
+  the bar on a third. The one it replaces was taken of 0.6.0.
+
+### Fixed
+
+- **The Chinese README and changelog had a space wherever a line was
+  wrapped**, the same fault 0.6.51 removed from the site: GitHub turns a
+  line break inside a paragraph into a space, and both files, like the
+  Chinese half of the unsigned-build notice, had been wrapped at eighty
+  columns like the English. 404 breaks, joined; the release notes built from
+  those files lose them too. The test that guards the site now reads every
+  Markdown file as well, and also catches a break after full-width
+  punctuation - 「移到回收筒、 `V` 檢視」.
+
 ## [0.6.51] - 2026-09-24
 
 ### Fixed
@@ -84,6 +114,7 @@ must be updated in the same change.
   SFTP behaves changes - checked against a real server - but the project's
   dependency check refuses yanked crates, and it had been failing since
   2026-09-15 because of this one.
+
 ## [0.6.46] - 2026-09-24
 
 This entry covers everything since 0.6.9. Versions 0.6.10 to 0.6.45 went
