@@ -82,6 +82,11 @@ private:
     /// brought up to date without touching the rest of the list.
     QList<QPair<class QTreeWidgetItem *, QString>> m_volumeRows;
     QString m_volumes;
+    /// What the list was last built from, so a refresh that would build the
+    /// same list builds nothing.
+    QString m_builtSignature;
+    bool m_built = false;
+    QString contentSignature() const;
 
     JtfApp *m_app = nullptr;
     QTreeWidget *m_tree = nullptr;

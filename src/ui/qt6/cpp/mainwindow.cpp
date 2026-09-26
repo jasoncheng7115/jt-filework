@@ -1963,6 +1963,31 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
     // person typing meant.
     const bool typingSomewhere =
         isTextEntry(QApplication::focusWidget()) || QApplication::activePopupWidget() != nullptr;
+
+    // The key strip lights the chip of a key while it is held. Seen here, on
+    // the way to whatever handles the key, because a key bound to a menu
+    // command arrives as a shortcut and never as a press to any widget.
+    // Only for this window, and not while typing: a letter going into a text
+    // field is not the command the strip names for it. A release is always
+    // taken, wherever it lands - a key that opened a dialog comes up there.
+    if (m_keyHints != nullptr) {
+        switch (event->type()) {
+        case QEvent::ShortcutOverride:
+        case QEvent::KeyPress:
+            if (!typingSomewhere && QApplication::activeWindow() == this) {
+                m_keyHints->notePress(static_cast<QKeyEvent *>(event));
+            }
+            break;
+        case QEvent::KeyRelease:
+            m_keyHints->noteRelease(static_cast<QKeyEvent *>(event));
+            break;
+        case QEvent::ApplicationDeactivate:
+            m_keyHints->clearPressed();
+            break;
+        default:
+            break;
+        }
+    }
     if (event->type() == QEvent::ShortcutOverride && typingSomewhere) {
         auto *key = static_cast<QKeyEvent *>(event);
         constexpr Qt::KeyboardModifiers kChord =
@@ -2765,13 +2790,19 @@ void MainWindow::syncToolbar() {
 }
 
 QFont MainWindow::fixedListFont() const {
-    // The same size and family rules as `listFont`, but always fixed-width.
-    // The list needs both at once: one face for names, one for the columns
-    // that are read down.
+    // The face for the columns that are read down rather than across: sizes,
+    // dates, permissions. Fixed-width, so the digits line up - unless the
+    // user has turned fixed-width off, and then these columns are set in the
+    // list's own face like everything else. They used to stay fixed-width
+    // whatever the setting said, so "no fixed-width font" was not a choice
+    // anybody could actually make.
+    if (jtf_font_monospace(m_app) == 0) {
+        return listFont();
+    }
     const QString family =
         jtfText([&](char *buf, int len) { return jtf_font_family(m_app, buf, len); });
     QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
-    if (!family.isEmpty() && jtf_font_monospace(m_app) != 0) {
+    if (!family.isEmpty()) {
         font.setFamily(family);
         font.setStyleHint(QFont::Monospace, QFont::PreferMatch);
     }
@@ -2793,18 +2824,23 @@ QFont MainWindow::listFont() const {
     // and the model applies per column. A monospace face across a list of file
     // names is harder to read than proportional type, which is what names are
     // set in in every other file manager.
-    const bool monospace =
-        jtf_font_monospace(m_app) != 0 && jtf_font_monospace_everywhere(m_app) != 0;
+    const bool monospace = jtf_font_monospace(m_app) != 0;
+    const bool everywhere = monospace && jtf_font_monospace_everywhere(m_app) != 0;
 
-    // An empty family means the platform's own fixed-width font: Menlo or
-    // SF Mono on macOS, Consolas on Windows, DejaVu Sans Mono on Linux. That
-    // is the right default everywhere, needs no bundled asset and no licence,
-    // and has correct CJK fallback (AGENTS.md 18.2).
-    QFont font = monospace ? QFontDatabase::systemFont(QFontDatabase::FixedFont)
-                           : QFontDatabase::systemFont(QFontDatabase::GeneralFont);
-    if (!family.isEmpty()) {
+    // An empty family means the platform's own font: Menlo or SF Mono on
+    // macOS, Consolas on Windows, DejaVu Sans Mono on Linux when it is the
+    // fixed-width one. That is the right default everywhere, needs no bundled
+    // asset and no licence, and has correct CJK fallback (AGENTS.md 18.2).
+    QFont font = everywhere ? QFontDatabase::systemFont(QFontDatabase::FixedFont)
+                            : QFontDatabase::systemFont(QFontDatabase::GeneralFont);
+    // The chosen family is the face of whatever is fixed-width, or of the
+    // whole list when nothing is. With fixed-width on the aligned columns
+    // only, the picker offers fixed-width families and the choice is theirs:
+    // it used to land on the names as well, which made every name monospace
+    // while the setting said only the aligned columns were.
+    if (!family.isEmpty() && (everywhere || !monospace)) {
         font.setFamily(family);
-        if (monospace) {
+        if (everywhere) {
             font.setStyleHint(QFont::Monospace, QFont::PreferMatch);
         }
     }
@@ -2819,9 +2855,20 @@ void MainWindow::applyFont() {
     const QFont fixed = fixedListFont();
     const bool everywhere = jtf_font_monospace(m_app) != 0
                             && jtf_font_monospace_everywhere(m_app) != 0;
+    const int density = jtf_row_density(m_app);
+    // Each pane skips a font it already has; a pane built since the last call
+    // has none and takes it.
     for (auto *pane : std::as_const(m_panes)) {
-        pane->setListFont(font, fixed, everywhere);
+        pane->setListFont(font, fixed, everywhere, density);
     }
+    // The side panels live as long as the window, so one comparison covers
+    // them. This runs after every command, and handing them the same font
+    // again re-laid out the tree and the places list each time.
+    const QString sideKey = font.toString();
+    if (sideKey == m_sideFontKey) {
+        return;
+    }
+    m_sideFontKey = sideKey;
     if (m_inspector) {
         m_inspector->setListFont(font);
     }
@@ -3561,14 +3608,48 @@ void MainWindow::updateStatusSummary() {
     }
 }
 
+QString MainWindow::textSignature() const {
+    // What the static words and keys are made from: the language, the keymap,
+    // and every command's shortcut - a key rebound in Settings changes the
+    // last without changing the other two.
+    QString signature =
+        jtfText([&](char *buf, int len) { return jtf_locale(m_app, buf, len); });
+    signature += QLatin1Char('|');
+    signature += jtfText([&](char *buf, int len) { return jtf_keymap_name(m_app, buf, len); });
+    for (const auto &entry : std::as_const(m_commandActions)) {
+        signature += QLatin1Char('|');
+        signature += jtfText(
+            [&](char *buf, int len) { return jtf_shortcut_for(m_app, entry.second, buf, len); });
+    }
+    return signature;
+}
+
 void MainWindow::retranslate() {
+    // Everything with words in it, including the parts the frame pump owns:
+    // changing the language is exactly the case where nothing else changed.
+    //
+    // Two halves. The counts, the title, the places and each pane's status
+    // line change with what the user does, so they are set every time. The
+    // menus, the toolbar's tooltips and the key strip's words change only
+    // with the language or the keymap - and this runs after every command,
+    // where setting two hundred actions' text, shortcut and tooltip again
+    // was a third of the 190 ms a keypress cost on the Linux machine.
+    updateStatusSummary();
+    syncWindowTitle();
+    m_places->retranslate();
+    for (auto *p : std::as_const(m_panes)) {
+        p->retranslate();
+    }
+    const QString signature = textSignature();
+    if (signature == m_textSignature) {
+        return;
+    }
+    m_textSignature = signature;
+
     if (m_keyHints) {
         m_keyHints->invalidate();
         syncKeyHints();
     }
-    // Everything with words in it, including the parts the frame pump owns:
-    // changing the language is exactly the case where nothing else changed.
-    updateStatusSummary();
     if (m_keyHintsButton) {
         m_keyHintsButton->setToolTip(tr_("hints.toggle"));
     }
@@ -3584,13 +3665,8 @@ void MainWindow::retranslate() {
     for (const auto &entry : std::as_const(m_translatableMenus)) {
         entry.first->setTitle(tr_(entry.second));
     }
-    syncWindowTitle();
-    m_places->retranslate();
     m_tree->retranslate();
     m_cancelButton->setText(tr_("operation.cancel"));
-    for (auto *p : std::as_const(m_panes)) {
-        p->retranslate();
-    }
 }
 
 void MainWindow::syncWindowTitle() {

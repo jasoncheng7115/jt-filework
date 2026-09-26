@@ -160,6 +160,50 @@ impl Default for FontSettings {
     }
 }
 
+/// How much room each row of the file list gets.
+///
+/// Three steps, the way mail clients and Windows Explorer offer display
+/// density, rather than a pixel count: what people are choosing between is
+/// "as tight as Finder" and "room to breathe", and a number would make them
+/// find the one that means that on their font. The height follows the list's
+/// font in every step, so a larger font never clips.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RowDensity {
+    /// Four pixels over the font: Finder's list view.
+    Compact,
+    /// Eight pixels over the font.
+    Standard,
+    /// Twelve pixels over the font. The default, because it is what every
+    /// build before this setting drew, and an upgrade does not change what
+    /// the user was looking at (`docs/UPGRADE.md`).
+    #[default]
+    Comfortable,
+}
+
+impl RowDensity {
+    /// The value the settings screen and the bridge pass around: 0 compact,
+    /// 1 standard, 2 comfortable. Anything else is the default.
+    #[must_use]
+    pub const fn from_index(index: u8) -> Self {
+        match index {
+            0 => Self::Compact,
+            1 => Self::Standard,
+            _ => Self::Comfortable,
+        }
+    }
+
+    /// The inverse of [`Self::from_index`].
+    #[must_use]
+    pub const fn index(self) -> u8 {
+        match self {
+            Self::Compact => 0,
+            Self::Standard => 1,
+            Self::Comfortable => 2,
+        }
+    }
+}
+
 /// Session-related preferences.
 ///
 /// Always persisted, independently of whether the workspace is.
@@ -289,6 +333,9 @@ pub struct SessionSettings {
     /// Its width in logical pixels. 0 means the default.
     #[serde(default)]
     pub inspector_width: u16,
+    /// How much room each row of the file list gets.
+    #[serde(default)]
+    pub row_density: RowDensity,
 }
 
 const fn default_true() -> bool {
@@ -337,6 +384,7 @@ impl Default for SessionSettings {
             thumbnails: true,
             inspector_visible: false,
             inspector_width: 0,
+            row_density: RowDensity::Comfortable,
         }
     }
 }
@@ -382,6 +430,7 @@ impl SessionSettings {
             thumbnails: true,
             inspector_visible: false,
             inspector_width: 0,
+            row_density: RowDensity::Comfortable,
         }
     }
 }
@@ -750,6 +799,63 @@ mod tests {
             .unwrap();
         let back = Session::from_json(&json).unwrap();
         assert_eq!(back.settings().font, settings.font);
+    }
+
+    #[test]
+    fn a_session_from_before_row_density_keeps_the_rows_it_had() {
+        // docs/UPGRADE.md: a new setting defaults to what the user already
+        // had, and every build before this one drew the comfortable rows.
+        let json = Session::capture(&busy_workspace(), SessionSettings::default())
+            .to_json()
+            .unwrap();
+        let mut value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        value["settings"]
+            .as_object_mut()
+            .unwrap()
+            .remove("row_density");
+        let back = Session::from_json(&value.to_string()).unwrap();
+        assert_eq!(back.settings().row_density, RowDensity::Comfortable);
+        assert_eq!(
+            SessionSettings::forgetting().row_density,
+            RowDensity::Comfortable,
+            "forgetting where you were is not forgetting how the list looks"
+        );
+    }
+
+    #[test]
+    fn row_density_is_stored_as_a_word_and_survives_a_round_trip() {
+        for density in [
+            RowDensity::Compact,
+            RowDensity::Standard,
+            RowDensity::Comfortable,
+        ] {
+            let settings = SessionSettings {
+                row_density: density,
+                ..SessionSettings::default()
+            };
+            let json = Session::capture(&busy_workspace(), settings)
+                .to_json()
+                .unwrap();
+            let back = Session::from_json(&json).unwrap();
+            assert_eq!(back.settings().row_density, density);
+            assert_eq!(RowDensity::from_index(density.index()), density);
+        }
+        let json = Session::capture(
+            &busy_workspace(),
+            SessionSettings {
+                row_density: RowDensity::Compact,
+                ..SessionSettings::default()
+            },
+        )
+        .to_json()
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(value["settings"]["row_density"], "compact");
+        assert_eq!(
+            RowDensity::from_index(9),
+            RowDensity::Comfortable,
+            "a value from nowhere is the default, not the tightest"
+        );
     }
 
     #[test]

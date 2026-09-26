@@ -476,6 +476,25 @@ pub unsafe extern "C" fn jtf_set_key_hints_density(app: *mut App, density: c_int
     }
 }
 
+/// How much room each row of the file list gets: 0 compact, 1 standard,
+/// 2 comfortable (the default).
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_row_density(app: *const App) -> c_int {
+    unsafe { app_ref(app) }.map_or(2, |a| c_int::from(a.row_density()))
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_row_density(app: *mut App, density: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_row_density(u8::try_from(density).unwrap_or(u8::MAX));
+    }
+}
+
 /// The application's version, as the crate records it.
 ///
 /// Read from `CARGO_PKG_VERSION` rather than repeated as a constant: a

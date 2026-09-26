@@ -265,9 +265,9 @@
       <h1>完整功能規格</h1>
       <p class="lede">這一版有的功能、讀得懂的格式、每一道上限，數字都在這。這一頁是拿來查的，不是拿來讀完的。</p>
     </div>
-    <p class="status" data-lang="en"><strong>0.6.52</strong> — 778 tests pass. What is not built yet
+    <p class="status" data-lang="en"><strong>0.6.53</strong> — 780 tests pass. What is not built yet
       is named in the last section rather than left out.</p>
-    <p class="status" data-lang="zh-tw"><strong>0.6.52</strong> — 778 個測試通過。還沒做的功能不是略過不提，最後一節逐項列出。</p>
+    <p class="status" data-lang="zh-tw"><strong>0.6.53</strong> — 780 個測試通過。還沒做的功能不是略過不提，最後一節逐項列出。</p>
   </div>
 
   <nav class="toc">
@@ -293,7 +293,7 @@
   <h2 data-lang="zh-tw">1. 一覽</h2>
   <div class="scroller"><table class="spec">
     <tbody>
-      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.52</td></tr>
+      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.53</td></tr>
       <tr><th data-lang="en">Platforms</th><th data-lang="zh-tw">平台</th>
         <td data-lang="en">macOS 14 or later on Apple silicon; Windows 10/11 x64, as an MSI installer
           or a portable zip; Linux x86-64, as a <code>.deb</code> built on Ubuntu 22.04 — or from
@@ -307,8 +307,8 @@
         <td data-lang="zh-tw">只有兩者中間的 C ABI 橋接層，每一塊都寫了為什麼安全</td></tr>
       <tr><th data-lang="en">Licence</th><th data-lang="zh-tw">授權</th><td>GPL-3.0-or-later</td></tr>
       <tr><th data-lang="en">Tests</th><th data-lang="zh-tw">測試</th>
-        <td data-lang="en">778 automated, including architecture, migration and hostile-input levels</td>
-        <td data-lang="zh-tw">778 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
+        <td data-lang="en">780 automated, including architecture, migration and hostile-input levels</td>
+        <td data-lang="zh-tw">780 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
       <tr><th data-lang="en">Telemetry</th><th data-lang="zh-tw">遙測</th>
         <td data-lang="en"><span class="no">None.</span> The program makes no network connection you did not ask for</td>
         <td data-lang="zh-tw"><span class="no">沒有。</span>除了你自己要連的，程式不會連去別的地方</td></tr>
@@ -322,8 +322,8 @@
     adding one rebuilds nothing. Any binding can also be changed in Settings, and the change is kept
     in a file of your own as a difference from the preset, so the keys a new release adds still
     arrive. The keys you can press right now are named along the foot of the window and change with
-    what the bar is on.</p>
-  <p data-lang="zh-tw">兩套設定檔，都是 <code>keymaps/</code> 裡的純文字檔。一個綁定就是一行，加一個不用重建。每個綁定也能在設定裡改，改過的部分另存在你自己的檔案，只記跟預設不一樣的地方，所以新版本加的按鍵照樣會進來。現在可以按什麼就寫在視窗下緣，會跟著光棒所在的東西換。</p>
+    what the bar is on, and the one you are holding lights until you let it go.</p>
+  <p data-lang="zh-tw">兩套設定檔，都是 <code>keymaps/</code> 裡的純文字檔。一個綁定就是一行，加一個不用重建。每個綁定也能在設定裡改，改過的部分另存在你自己的檔案，只記跟預設不一樣的地方，所以新版本加的按鍵照樣會進來。現在可以按什麼就寫在視窗下緣，會跟著光棒所在的東西換；正按著的那個鍵會亮起，放開才熄。</p>
 
   <h3 data-lang="en">Single-Key mode — one letter, one command</h3>
   <h3 data-lang="zh-tw">全鍵模式 — 一個字母，一個命令</h3>
@@ -877,9 +877,15 @@
           stated rather than hidden</td>
         <td data-lang="zh-tw">Qt 6.5 以上會即時切換，macOS 和 Windows 版都是。Linux 的 <code>.deb</code> 用的是 Ubuntu 22.04 的 Qt 6.2，所以只在啟動時看一次。這件事寫出來，不藏</td></tr>
       <tr><th data-lang="en">Fonts</th><th data-lang="zh-tw">字型</th>
-        <td data-lang="en">Family and size for the lists, with an option to use a monospace face
-          everywhere. A slider in the status bar changes the size directly</td>
-        <td data-lang="zh-tw">可設定清單的字型與大小，也可以整個介面都用等寬字。狀態列的滑桿可直接調整大小</td></tr>
+        <td data-lang="en">Family and size for the lists. A fixed-width face goes on the size, date
+          and permission columns by default, so their digits line up; it can go nowhere, or on the
+          whole list. A slider in the status bar changes the size directly</td>
+        <td data-lang="zh-tw">可設定清單的字型與大小。等寬字型預設只用在大小、日期、權限這些需要對齊的欄位，讓數字對齊；也可以完全不用，或整個清單都用。狀態列的滑桿可直接調整大小</td></tr>
+      <tr><th data-lang="en">List density</th><th data-lang="zh-tw">清單密度</th>
+        <td data-lang="en">Compact, Standard or Comfortable. Compact is Finder's list, twenty pixels a
+          row at the default font; Comfortable is the default. The height follows the font at every
+          step</td>
+        <td data-lang="zh-tw">緊密、適中、寬鬆。緊密就是 Finder 的清單，預設字型下每列 20 像素；預設是寬鬆。三種的列高都會跟著字型大小走</td></tr>
       <tr><th data-lang="en">Languages</th><th data-lang="zh-tw">語言</th>
         <td data-lang="en">English and 台灣繁體中文, switchable while running. Every user-visible
           string is in a catalogue; a key missing from either language is a test failure, not a

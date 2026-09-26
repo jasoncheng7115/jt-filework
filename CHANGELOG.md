@@ -12,7 +12,43 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
-## [0.6.52] - 2026-09-25
+## [0.6.53] - 2026-09-26
+
+### Added
+
+- **List density, in Settings → Appearance: Compact, Standard or
+  Comfortable.** Compact is Finder's list view - twenty pixels a row at the
+  default font, four over the line of text - for anyone who would rather see
+  more rows than have room between them. Comfortable is what every earlier
+  build drew and stays the default, so nothing changes until it is chosen.
+  The height still follows the font at every step.
+- **The key strip lights the key you are holding.** A key named on the strip
+  along the foot of the window turns the selection colour while it is down
+  and goes out when it comes up, so the strip says what just happened as
+  well as what can happen. Not while typing into a field, where the letter
+  is going into the field rather than running the strip's command.
+
+### Changed
+
+- **The size and date columns can be set in the system font.** The fixed-width
+  choice in Settings is now one question with three answers - nowhere, the
+  aligned columns (size, date, permissions) or the whole list - where it was a
+  tick box and a second question. Unticking the box used to leave those
+  columns fixed-width anyway, so the system font was not a choice anyone
+  could make; "nowhere" now means nowhere. A family picked for the aligned
+  columns stays on those columns rather than turning every name monospace,
+  and a family picked from the list is stored by its name - the digit width
+  shown beside it was being stored as part of the name, and the face fell
+  back to the system one.
+- **Every command is faster.** After each one the window refreshed
+  everything - fonts re-applied to every row, every pane restyled, two
+  hundred menu and toolbar entries worded again, the places list rebuilt
+  twice with a look at every mounted disk - 190 ms on the Linux test machine
+  whether anything had changed or not. It now applies only what did, and the
+  same refresh takes a few milliseconds. Space held down marks at the
+  keyboard's own repeat rate instead of queueing marks for two seconds after
+  the key comes up.
+
 
 ### Changed
 

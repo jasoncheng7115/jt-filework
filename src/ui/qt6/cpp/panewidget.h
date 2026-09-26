@@ -82,7 +82,9 @@ public:
     /// Whether a press at `at` landed on the row's tick box.
     bool onCheckBox(const QModelIndex &index, const QPoint &at) const;
     void retranslate();
-    void setListFont(const QFont &font, const QFont &fixed, bool fixedEverywhere);
+    /// `density` is the row density setting: 0 compact, 1 standard,
+    /// 2 comfortable.
+    void setListFont(const QFont &font, const QFont &fixed, bool fixedEverywhere, int density);
     void applyTheme(const QColor &mark, const QColor &directory, const QColor &dim,
                     const QColor &indicator, const QColor &border,
                     const QColor &executable);
@@ -163,6 +165,13 @@ private:
     QTableView *m_view;
     FileListModel *m_model;
     bool m_active = false;
+    /// Whether `setActive` has styled the pane at all yet.
+    bool m_activeApplied = false;
+    /// The target state and word last styled, so a call that changes
+    /// neither does nothing.
+    QString m_appliedTarget;
+    /// The fonts and density last applied, likewise.
+    QString m_fontKey;
     QColor m_indicator;
     quint64 m_positionedGeneration = 0;
     /// Tab being dragged, or -1.

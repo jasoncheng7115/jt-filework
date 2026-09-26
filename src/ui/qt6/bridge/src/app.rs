@@ -3083,6 +3083,18 @@ impl App {
         self.settings.key_hints_density = if density > 2 { 0 } else { density };
     }
 
+    /// How much room each row of the list gets: 0 compact, 1 standard,
+    /// 2 comfortable.
+    pub(crate) const fn row_density(&self) -> u8 {
+        self.settings.row_density.index()
+    }
+
+    /// A value past the last step is the default rather than the tightest,
+    /// so a stray number can never make the list harder to read.
+    pub(crate) fn set_row_density(&mut self, density: u8) {
+        self.settings.row_density = jtf_workspace::RowDensity::from_index(density);
+    }
+
     /// The pane's view mode: 0 list, 1 grid.
     pub(crate) fn view_mode(&self, pane: PaneId) -> i32 {
         self.workspace

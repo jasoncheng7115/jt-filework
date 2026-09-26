@@ -6,10 +6,14 @@
 #include <QFontMetrics>
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QPropertyAnimation>
+#include <QStyle>
 #include <QTimer>
 #include <QResizeEvent>
 #include <QLabel>
+
+#include <algorithm>
 
 namespace {
 
@@ -79,6 +83,69 @@ const char *const *commandsFor(KeyHintBar::Context context) {
 /// about. Kept with the stylesheet rule it mirrors.
 constexpr int kChipPadding = 26;
 
+/// The modifiers a keymap can name. Keypad is left out: a digit on the keypad
+/// is the same key to a keymap as the digit above the letters.
+constexpr Qt::KeyboardModifiers kNamedModifiers =
+    Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier;
+
+/// One key the way a keymap names it: Enter on the keypad is Return, and
+/// Shift-Tab, which Qt reports as a key of its own, is Tab with Shift.
+QKeyCombination normalised(Qt::KeyboardModifiers modifiers, int key) {
+    if (key == Qt::Key_Enter) {
+        key = Qt::Key_Return;
+    }
+    if (key == Qt::Key_Backtab) {
+        key = Qt::Key_Tab;
+        modifiers |= Qt::ShiftModifier;
+    }
+    return QKeyCombination(modifiers & kNamedModifiers, Qt::Key(key));
+}
+
+bool isModifierKey(int key) {
+    return key == Qt::Key_Shift || key == Qt::Key_Control || key == Qt::Key_Alt
+           || key == Qt::Key_Meta || key == Qt::Key_AltGr || key == Qt::Key_CapsLock;
+}
+
+/// The modifier a modifier key holds down, so letting go of Shift can put out
+/// a Shift-chord whose other key is still held.
+Qt::KeyboardModifier modifierOf(int key) {
+    switch (key) {
+    case Qt::Key_Shift:
+        return Qt::ShiftModifier;
+    case Qt::Key_Control:
+        return Qt::ControlModifier;
+    case Qt::Key_Alt:
+    case Qt::Key_AltGr:
+        return Qt::AltModifier;
+    case Qt::Key_Meta:
+        return Qt::MetaModifier;
+    default:
+        return Qt::NoModifier;
+    }
+}
+
+/// Whether a held key is the one a chip names.
+///
+/// Exact, with one allowance Qt's own shortcut matching also makes: a key the
+/// keymap names by its character - `*`, `+`, `?` - is typed with Shift on
+/// most layouts and arrives with Shift held, and it is still that key. Not
+/// for letters, where Shift makes a different binding.
+bool matches(const QKeySequence &hint, QKeyCombination pressed) {
+    if (hint.isEmpty()) {
+        return false;
+    }
+    const QKeyCombination want = normalised(hint[0].keyboardModifiers(), hint[0].key());
+    if (want == pressed) {
+        return true;
+    }
+    const bool letter = pressed.key() >= Qt::Key_A && pressed.key() <= Qt::Key_Z;
+    if (!letter && pressed.keyboardModifiers().testFlag(Qt::ShiftModifier)) {
+        return want == QKeyCombination(pressed.keyboardModifiers() & ~Qt::ShiftModifier,
+                                       pressed.key());
+    }
+    return false;
+}
+
 } // namespace
 
 KeyHintBar::KeyHintBar(JtfApp *app, QWidget *parent) : QWidget(parent), m_app(app) {
@@ -141,6 +208,68 @@ QString KeyHintBar::tr_(const char *key) const {
 
 void KeyHintBar::invalidate() { m_valid = false; }
 
+void KeyHintBar::notePress(const QKeyEvent *event) {
+    if (event == nullptr || event->isAutoRepeat() || isModifierKey(event->key())
+        || event->key() == 0 || event->key() == Qt::Key_unknown) {
+        return;
+    }
+    const QKeyCombination held = normalised(event->modifiers(), event->key());
+    // The same press reaches this more than once - as the shortcut check
+    // and again as the press, and once per widget it propagates through - so
+    // it is kept once.
+    if (m_pressed.contains(held)) {
+        return;
+    }
+    m_pressed.append(held);
+    relight();
+}
+
+void KeyHintBar::noteRelease(const QKeyEvent *event) {
+    if (event == nullptr || event->isAutoRepeat() || m_pressed.isEmpty()) {
+        return;
+    }
+    const int key = normalised(Qt::NoModifier, event->key()).key();
+    const Qt::KeyboardModifier modifier = modifierOf(key);
+    // By key, not by the whole chord: Shift let go before Insert still has to
+    // put out Shift-Insert when Insert comes up, and the release no longer
+    // carries the Shift it was pressed with.
+    m_pressed.removeIf([&](QKeyCombination held) {
+        return held.key() == key
+               || (modifier != Qt::NoModifier && held.keyboardModifiers().testFlag(modifier));
+    });
+    relight();
+}
+
+void KeyHintBar::clearPressed() {
+    if (m_pressed.isEmpty()) {
+        return;
+    }
+    m_pressed.clear();
+    relight();
+}
+
+void KeyHintBar::relight() {
+    for (const Chip &chip : std::as_const(m_chips)) {
+        if (chip.label.isNull()) {
+            continue;
+        }
+        const bool lit = std::any_of(m_pressed.cbegin(), m_pressed.cend(),
+                                     [&](QKeyCombination held) { return matches(chip.key, held); });
+        if (chip.label->property("jtfHintLit").toBool() == lit) {
+            continue;
+        }
+        // A dynamic property is read by the stylesheet only when the widget
+        // is polished, so the change has to be followed by a repolish - and
+        // then a repaint, which the repolish does not ask for. Lighting got
+        // one anyway from whatever the key did; putting it out has nothing
+        // else happening, and the chip stayed lit after the key came up.
+        chip.label->setProperty("jtfHintLit", lit);
+        chip.label->style()->unpolish(chip.label);
+        chip.label->style()->polish(chip.label);
+        chip.label->update();
+    }
+}
+
 void KeyHintBar::applyTheme(const QColor &key, const QColor &label, const QColor &chip) {
     m_key = key;
     m_label = label;
@@ -175,15 +304,6 @@ void KeyHintBar::rebuild(Context context) {
     }
     m_rebuilding = true;
     m_builtForWidth = width();
-
-    while (QLayoutItem *item = m_row->takeAt(0)) {
-        if (QWidget *widget = item->widget()) {
-            widget->hide();
-            widget->setParent(nullptr);
-            widget->deleteLater();
-        }
-        delete item;
-    }
 
     // How much room there is to spend. The list is ordered by how often the
     // command is wanted for what the cursor is on, so filling from the front
@@ -233,6 +353,18 @@ void KeyHintBar::rebuild(Context context) {
         ordered.append(chords);
     }
 
+    // Decided in full before anything is built, so a strip that would come
+    // out the same is left alone. The window refreshes after every command,
+    // and that used to tear the strip down and build it again each time -
+    // a dozen widgets for nothing, and the chip of a key still held replaced
+    // by one that had not been shown yet, which is why it stayed lit after
+    // the key came up.
+    struct Planned {
+        QString keyText;
+        QString label;
+        QString portable;
+    };
+    QList<Planned> planned;
     for (const auto &entry : std::as_const(ordered)) {
         const QString &shortcut = entry.first;
         const char *const id = &*entry.second;
@@ -271,13 +403,45 @@ void KeyHintBar::rebuild(Context context) {
             break;
         }
         used += cost;
+        // What lights it: the key as the keymap spells it, not as it is
+        // drawn. The drawn form is the platform's own (⌘ on macOS) and does
+        // not read back as a key.
+        const QString portable =
+            jtfText([&](char *buf, int len) { return jtf_shortcut_for(m_app, id, buf, len); });
+        planned.append({keyText, label, portable});
+    }
 
+    QStringList signature;
+    for (const Planned &hint : std::as_const(planned)) {
+        signature << hint.keyText << hint.label << hint.portable;
+    }
+    // The chips are set in a size taken from the strip's own font, so a font
+    // change is a change to what would be built.
+    signature << (truncated ? QStringLiteral("…") : QString()) << font().toString();
+    if (signature == m_builtSignature) {
+        relight();
+        m_rebuilding = false;
+        return;
+    }
+    m_builtSignature = signature;
+
+    m_chips.clear();
+    while (QLayoutItem *item = m_row->takeAt(0)) {
+        if (QWidget *widget = item->widget()) {
+            widget->hide();
+            widget->setParent(nullptr);
+            widget->deleteLater();
+        }
+        delete item;
+    }
+
+    for (const Planned &planned_hint : std::as_const(planned)) {
         auto *hint = new QWidget(this);
         auto *row = new QHBoxLayout(hint);
         row->setContentsMargins(0, 0, 0, 0);
         row->setSpacing(5);
 
-        auto *key = new QLabel(keyText, hint);
+        auto *key = new QLabel(planned_hint.keyText, hint);
         key->setProperty("jtfHintKey", true);
         // The key is set in a fixed-width face whatever the list is using.
         // A chip is a picture of a key on a keyboard, and keycaps are
@@ -287,7 +451,8 @@ void KeyHintBar::rebuild(Context context) {
         keyFont.setPointSizeF(font().pointSizeF());
         keyFont.setBold(true);
         key->setFont(keyFont);
-        auto *text = new QLabel(label, hint);
+        m_chips.append({QKeySequence(planned_hint.portable, QKeySequence::PortableText), key});
+        auto *text = new QLabel(planned_hint.label, hint);
         text->setProperty("jtfHintLabel", true);
         row->addWidget(key);
         row->addWidget(text);
@@ -302,5 +467,8 @@ void KeyHintBar::rebuild(Context context) {
         more->setToolTip(tr_("hints.more"));
         m_row->addWidget(more);
     }
+    // A rebuild while a key is held - pressing Space marks a row, and the
+    // strip can change with what is marked - must not put the key out.
+    relight();
     m_rebuilding = false;
 }

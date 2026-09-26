@@ -336,8 +336,8 @@ case above names a **sequence** and the state after it.
 | KEY-022 | `Shift-Ins` moves to the other pane, and `Shift-C`/`Shift-M` no longer copy or move | H2 |
 | KEY-023 | `H` opens the viewer in hex mode | H2 |
 | KEY-024 | `Shift`+letter does **not** run the command bound to that bare letter — `Shift-H` jumps, it does not open the hex viewer | H2 |
-| SET-020 | With fixed-width ticked the font list shows only fixed-width families, each with a digit's width beside it | H2 |
-| SET-021 | Unticking it restores the full family list and keeps the chosen family | H2 |
+| SET-020 | With a fixed-width choice made - aligned columns or the whole list - the font list shows only fixed-width families, each with a digit's width beside it | H2 |
+| SET-021 | "Nowhere" restores the full family list; a fixed-width family chosen before is dropped rather than kept for the whole list | H2 |
 | KEY-017 | In Native mode the strip shows no entry for a command that mode does not bind, rather than a blank | H2 |
 | PAL-001 | Command palette lists every command by localized name and by id | H1/H2 |
 | PAL-002 | Palette fuzzy match, ranking and recent-commands ordering | H1 |
@@ -631,6 +631,12 @@ Extends §11b to everything the current build reads and writes.
 | HINT-005 | The strip uses short names; the menus keep the full ones — `D` reads「回收」in the strip and「移到資源回收筒」in the menu | H2 |
 | HINT-006 | Its three density modes each do what they say, and the choice survives a restart | H4 |
 | HINT-007 | Auto fades the strip while the list is worked and brings it back when the hands stop | H2 |
+| HINT-008 | A key on the strip lights while it is held and goes out when it is let go — `C` in Single-Key mode, a chord such as `Ctrl-C` in Native mode | H2 |
+| HINT-009 | A chord goes out whichever key is let go first: Shift up before Insert still puts out Shift-Ins | H2 |
+| HINT-010 | A key named by its character lights although it is typed with Shift — `*` and `+` on a US layout | H2 |
+| HINT-011 | Typing into a text field lights nothing: the letter is going into the field, not running the strip's command | H2 |
+| HINT-012 | A key that changes the strip while it is held — Space marking a row — stays lit through the rebuild | H2 |
+| HINT-013 | A key held when the window loses the keyboard does not stay lit, and a key that opened a dialog goes out when it comes up in the dialog | H2 |
 | STATUS-001 | Counts are per workspace, summed over every pane | H1 |
 | STATUS-002 | The selection count counts rows **in the folder on screen** | H1 |
 | STATUS-003 | A long message on the left elides in the middle and never pushes the counters off the end | H3 |
@@ -791,6 +797,12 @@ command that does nothing.
 | SET-005 | Resetting a setting to default works and is reversible within the session | H2 |
 | SET-006 | An invalid or corrupt settings file falls back to defaults with a visible notice | H1 |
 | SET-007 | Settings UI itself is fully keyboard operable and localized | H2 |
+| SET-015 | List density — Compact, Standard, Comfortable — changes the row height at once and survives a restart; Compact is Finder's list, twenty pixels at the default font | H2/H4 |
+| SET-016 | A session written before list density existed opens Comfortable, the rows every earlier build drew | H1 |
+| SET-017 | Row height still follows the font at every density: the largest font size clips nothing | H3 |
+| SET-018 | Fixed-width font "Nowhere" sets the size and date columns in the system font; "Aligned columns" sets them, and only them, fixed-width; "The whole list" sets names as well | H2 |
+| SET-019 | Changing the fixed-width choice drops a family of the other kind rather than carrying a proportional face into a fixed-width slot | H2 |
+| SET-022 | Picking a family from the list stores the family's name, not the label with its digit width | H2 |
 
 ---
 
@@ -890,6 +902,8 @@ exceeds the budget (`docs/TESTING.md` §7.1).
 | PERF-019 | Per-frame cost is constant in directory size — proof the list is virtualized |
 | PERF-020 | Cold start to a usable window |
 | PERF-021 | The same budgets hold on Windows and Linux, not only macOS |
+| PERF-022 | The refresh after a command applies nothing that did not change — fonts, pane styling, menu and toolbar text, the places list, the key strip — and costs single milliseconds, not the 190 ms it cost on the Linux machine until 0.6.53 |
+| PERF-023 | Space held down marks at the keyboard's repeat rate, and the release is handled within a frame of the key coming up: no backlog of queued marks, no key-strip chip left lit |
 
 Also recorded per scenario: peak memory, and memory after N cycles to prove no
 unbounded growth.

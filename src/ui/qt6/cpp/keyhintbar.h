@@ -12,9 +12,15 @@
 #include "bridge.h"
 
 #include <QColor>
+#include <QKeySequence>
+#include <QList>
+#include <QPointer>
+#include <QStringList>
 #include <QWidget>
 
 class QHBoxLayout;
+class QKeyEvent;
+class QLabel;
 
 class KeyHintBar : public QWidget {
     Q_OBJECT
@@ -51,6 +57,16 @@ public:
     /// keymap change, where the context is the same but the words are not.
     void invalidate();
 
+    /// A key went down or came up somewhere in the window. The chip of a key
+    /// on the strip lights while it is held and goes out when it is let go,
+    /// so the strip answers "did that do what I meant" as well as "what can
+    /// I press". Auto-repeat is ignored both ways.
+    void notePress(const QKeyEvent *event);
+    void noteRelease(const QKeyEvent *event);
+    /// Put every chip out: the window lost the keyboard with a key still
+    /// held, and its release will be delivered somewhere else.
+    void clearPressed();
+
 protected:
     void resizeEvent(class QResizeEvent *event) override;
 
@@ -71,4 +87,18 @@ private:
     bool m_rebuilding = false;
     int m_builtForWidth = -1;
     QColor m_key, m_label, m_chip;
+
+    /// A chip on the strip and the key it names.
+    struct Chip {
+        QKeySequence key;
+        QPointer<QLabel> label;
+    };
+    QList<Chip> m_chips;
+    /// The keys held down now, as they arrived.
+    QList<QKeyCombination> m_pressed;
+    /// What the strip was last built to show, so a refresh that would build
+    /// the same thing builds nothing.
+    QStringList m_builtSignature;
+    void relight();
 };
+

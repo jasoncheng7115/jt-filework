@@ -1142,7 +1142,15 @@ void PaneWidget::toggleCurrentInSelection() {
     // Repaint the row: its text colour changed and nothing else asked for it.
     repaintRow(m_model->index(row, 0));
     advanceCurrentRow();
-    emit stateChanged();
+    // Not `stateChanged`. That asks the window for everything - every pane
+    // re-read, every font re-applied, every panel translated again - which
+    // took 300 ms on the Linux machine, and Space held down on a long list
+    // queued thirty of those a second: the list went on marking for two
+    // seconds after the key came up, and the key strip lit it that long. A
+    // mark changes this pane's count, the window's count and what the strip
+    // offers, and those are what this updates.
+    retranslate();
+    emit selectionChanged();
 }
 
 QList<int> PaneWidget::selectedRows() const {
@@ -2294,7 +2302,19 @@ void PaneWidget::setCurrentRow(int row, QAbstractItemView::ScrollHint hint) {
     currentView()->scrollTo(index, hint);
 }
 
-void PaneWidget::setListFont(const QFont &font, const QFont &fixed, bool fixedEverywhere) {
+void PaneWidget::setListFont(const QFont &font, const QFont &fixed, bool fixedEverywhere,
+                             int density) {
+    // The window hands every pane its font after every command. The same
+    // font again changed nothing and cost a repaint of every row - the model
+    // announces a font change across the whole listing - so it is skipped.
+    const QString key = QStringLiteral("%1|%2|%3|%4")
+                            .arg(font.toString(), fixed.toString())
+                            .arg(int(fixedEverywhere))
+                            .arg(density);
+    if (key == m_fontKey) {
+        return;
+    }
+    m_fontKey = key;
     // The widget's own font is the proportional one; the model overrides it
     // per column for the ones that are read as aligned values. Row height is
     // measured from whichever is taller, so switching scope does not make the
@@ -2303,13 +2323,21 @@ void PaneWidget::setListFont(const QFont &font, const QFont &fixed, bool fixedEv
     m_view->horizontalHeader()->setFont(font);
     m_model->setListFonts(font, fixed, fixedEverywhere);
     // Row height follows the font, or descenders clip and the list looks
-    // cramped at larger sizes.
-    // Generous rather than tight: the reference layouts get their calm from
-    // row height more than from anything else, and a list at the minimum
-    // legible spacing is the single thing that makes an interface look cheap.
+    // cramped at larger sizes. How much room goes on top of it is the user's
+    // choice. Comfortable is the default and what every build drew before
+    // there was a choice: the reference layouts get their calm from row
+    // height more than from anything else. Compact is Finder's list view -
+    // four pixels over a 16-pixel line, twenty in all - for someone who
+    // would rather see more rows than have room between them.
+    struct Step {
+        int padding;
+        int minimum;
+    };
+    constexpr Step kSteps[] = {{4, 20}, {8, 22}, {12, 26}};
+    const Step step = kSteps[qBound(0, density, 2)];
     const int rowHeight =
-        qMax(QFontMetrics(font).height(), QFontMetrics(fixed).height()) + 12;
-    m_view->verticalHeader()->setDefaultSectionSize(qMax(26, rowHeight));
+        qMax(QFontMetrics(font).height(), QFontMetrics(fixed).height()) + step.padding;
+    m_view->verticalHeader()->setDefaultSectionSize(qMax(step.minimum, rowHeight));
 
     QFont chrome = font;
     chrome.setPointSizeF(font.pointSizeF() * 0.95);
@@ -2548,9 +2576,17 @@ void PaneWidget::applyTheme(const QColor &mark, const QColor &directory, const Q
 }
 
 void PaneWidget::setTarget(bool target) {
+    // Repolishing restyles the whole pane, and the window asks after every
+    // command whether this is the target; nearly always nothing has changed.
+    // The word goes into the key as well, so a language change still lands.
+    const QString word =
+        jtfText([&](char *b, int l) { return jtf_tr(m_app, "pane.target", b, l); });
+    const QString applied = QStringLiteral("%1|%2").arg(int(target)).arg(word);
+    if (applied == m_appliedTarget) {
+        return;
+    }
+    m_appliedTarget = applied;
     if (m_targetBadge != nullptr && m_targetWord != nullptr && m_targetIcon != nullptr) {
-        const QString word = jtfText(
-            [&](char *b, int l) { return jtf_tr(m_app, "pane.target", b, l); });
         // Sized once, from the text it holds when it has something to say, so
         // that having nothing to say costs exactly the same room.
         m_targetWord->setText(word);
@@ -2573,6 +2609,12 @@ void PaneWidget::setTarget(bool target) {
 }
 
 void PaneWidget::setActive(bool active) {
+    // The same reason as `setTarget`: restyling three widgets for a state
+    // that did not change, after every command.
+    if (m_activeApplied && active == m_active) {
+        return;
+    }
+    m_activeApplied = true;
     m_active = active;
     // Which pane the keyboard is in has to be obvious, or every command is a
     // guess about where it will land. One mark was not enough: a rule along

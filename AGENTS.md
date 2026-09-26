@@ -473,13 +473,13 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-09-25 · **Version:** 0.6.52 · **Branch:** `main` ·
+**Updated:** 2026-09-26 · **Version:** 0.6.53 · **Branch:** `main` ·
 **Phase:** 1 — usable build
 
 ### Gates
 
 ```text
-tests     778 passing, 0 failing, 0 ignored  (cargo test --workspace)
+tests     780 passing, 0 failing, 0 ignored  (cargo test --workspace)
 clippy    clean (-D warnings, --all-targets, workspace-wide)
 rustfmt   clean - and it was not, until 2026-09-16: 52 sites in the crates
           added since 0.6.9 had never been through it. Run it, do not assume it
@@ -528,7 +528,9 @@ JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
   off the UI thread, columns chosen from the model's own set, column widths
   that survive a folder change and a restart once dragged, and sorting by any
   column — numerically, the way every platform's file manager sorts
-  (`file2` before `file10`).
+  (`file2` before `file10`). Three row densities, Compact being Finder's; the
+  size and date columns fixed-width, in the system font, or the whole list
+  fixed-width.
 - **Panes and windows** — splits, the quad preset, per-pane tabs, and tabs that
   tear off into their own window or merge back by dragging.
 - **Operations** — copy, move, rename, duplicate, clone in place with an
@@ -556,8 +558,10 @@ JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
   so a size or a date that changes underneath is shown without navigating away
   and back. Never while a text field has focus.
 - **Keyboard** — two profiles, Single-Key and Native, switchable from the
-  toolbar; a hint strip that changes with what the cursor is on; a searchable
-  shortcut reference read from the live keymap.
+  toolbar; a hint strip that changes with what the cursor is on and lights the
+  key being held; a searchable shortcut reference read from the live keymap.
+  The refresh after a command applies only what changed - it re-applied
+  everything, 190 ms a keypress on the Linux machine, until 0.6.53.
 - **Chrome** — command palette, settings, menus with icons and shortcuts,
   Light / Dark / System following the system live, `en` ↔ `zh-TW` following the
   system unless told otherwise, and session restore that can be turned off.

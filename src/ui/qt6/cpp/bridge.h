@@ -295,6 +295,10 @@ int jtf_preview_background_colour(const JtfApp *app, char *buf, int len);
 void jtf_set_preview_background(JtfApp *app, int mode, const char *colour);
 int jtf_key_hints_density(const JtfApp *app);
 void jtf_set_key_hints_density(JtfApp *app, int density);
+/// How much room each row of the file list gets: 0 compact (Finder's list),
+/// 1 standard, 2 comfortable (the default).
+int jtf_row_density(const JtfApp *app);
+void jtf_set_row_density(JtfApp *app, int density);
 int jtf_inspector_visible(const JtfApp *app);
 int jtf_inspector_width(const JtfApp *app);
 void jtf_set_inspector_state(JtfApp *app, int visible, int width);

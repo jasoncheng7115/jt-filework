@@ -201,6 +201,11 @@ private:
     class QAction *m_listModeAction = nullptr;
     class QAction *m_gridModeAction = nullptr;
     class KeyHintBar *m_keyHints = nullptr;
+    /// The language, keymap and shortcuts the menus were last worded from.
+    QString m_textSignature;
+    QString textSignature() const;
+    /// The font the side panels were last given.
+    QString m_sideFontKey;
     class Inspector *m_inspector = nullptr;
     class PlacesList *m_places = nullptr;
     class QSplitter *m_sidebar = nullptr;

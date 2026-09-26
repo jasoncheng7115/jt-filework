@@ -421,32 +421,45 @@ QWidget *SettingsDialog::buildAppearanceTab() {
     });
     form->addRow(tr_("menu.language"), locale);
 
-    auto *monospace = new QCheckBox(tr_("settings.monospace"), page);
-    monospace->setChecked(jtf_font_monospace(m_app) != 0);
+    // Where a fixed-width face is used: one choice with three answers, rather
+    // than a tick box and a second question that only meant something while
+    // the box was ticked. The middle one is the default - sizes, dates and
+    // permissions are compared down the column and want digits that line up,
+    // while names are read one at a time and are easier in proportional type.
+    // "Nowhere" means nowhere: unticking the old box still left those columns
+    // fixed-width, so the system's own font was not a choice anyone could make.
+    auto *monospace = new QComboBox(page);
+    monospace->addItem(tr_("settings.monospace_none"));
+    monospace->addItem(tr_("settings.monospace_aligned"));
+    monospace->addItem(tr_("settings.monospace_all"));
+    const int storedMode = jtf_font_monospace(m_app) == 0
+                               ? 0
+                               : (jtf_font_monospace_everywhere(m_app) != 0 ? 2 : 1);
+    monospace->setCurrentIndex(storedMode);
+
     // The families actually installed, rather than a box to type a name into
     // and find out later that it was not one. Editable, so a family this
     // machine does not have - a session copied from another one - is still
-    // shown and kept rather than silently replaced.
+    // shown and kept rather than silently replaced. Never inserted into the
+    // list: a typed name is a name, not an item without one.
     auto *family = new QComboBox(page);
     family->setEditable(true);
+    family->setInsertPolicy(QComboBox::NoInsert);
 
     // Fills the list for the current mode, and says how wide each family is.
     //
-    // Two things this fixes. Offering proportional families while "fixed-width"
-    // is ticked is offering a choice that contradicts the tick. And a person
-    // asking for a narrower face to fit more columns cannot tell which of forty
+    // Two things this fixes. Offering proportional families while fixed-width
+    // is chosen is offering a choice that contradicts it. And a person asking
+    // for a narrower face to fit more columns cannot tell which of forty
     // monospace families is narrower by reading their names - so each one
     // carries the width of a digit, which is the only number that matters when
     // every character is that wide.
-    const QString currentFamily =
-        jtfText([&](char *buf, int len) { return jtf_font_family(m_app, buf, len); });
-    const auto fillFamilies = [this, family, currentFamily](bool fixedOnly) {
-        const QString kept = family->currentIndex() <= 0
-                                 ? currentFamily
-                                 : family->currentData().toString();
+    const auto fillFamilies = [this, family](const QString &kept, bool fixedOnly) {
         QSignalBlocker blocker(family);
         family->clear();
-        family->addItem(tr_("settings.font_placeholder"), QString());
+        family->addItem(tr_(fixedOnly ? "settings.font_placeholder"
+                                      : "settings.font_placeholder_system"),
+                        QString());
 
         QStringList families = QFontDatabase::families();
         families.removeDuplicates();
@@ -477,45 +490,64 @@ QWidget *SettingsDialog::buildAppearanceTab() {
             family->setEditText(kept);
         }
     };
-    fillFamilies(monospace->isChecked());
+    // The family the box names. An item's text carries the digit width after
+    // the name, so the name is its data; only a name typed by hand is read
+    // from the text. Reading the text for a picked item stored the width as
+    // part of the family's name, and the face quietly fell back to the system
+    // one.
+    const auto chosenFamily = [family]() -> QString {
+        const int at = family->currentIndex();
+        if (at >= 0 && family->itemText(at) == family->currentText()) {
+            return family->itemData(at).toString();
+        }
+        return family->currentText().trimmed();
+    };
+    fillFamilies(jtfText([&](char *buf, int len) { return jtf_font_family(m_app, buf, len); }),
+                 storedMode != 0);
     auto *size = new QSpinBox(page);
     size->setRange(0, 32);
     size->setSpecialValueText(tr_("settings.font_default_size"));
     size->setValue(jtf_font_point_size(m_app));
 
-    const auto applyFont = [this, monospace, family, size] {
-        // Index 0 is "the system's own", which is an empty name.
-        const QString chosen =
-            family->currentIndex() == 0 ? QString() : family->currentText().trimmed();
-        const QByteArray name = chosen.toUtf8();
-        jtf_set_font(m_app, name.constData(), size->value(), monospace->isChecked() ? 1 : 0);
+    const auto applyFont = [this, monospace, chosenFamily, size] {
+        const QByteArray name = chosenFamily().toUtf8();
+        const int mode = monospace->currentIndex();
+        jtf_set_font(m_app, name.constData(), size->value(), mode != 0 ? 1 : 0);
+        jtf_set_font_monospace_everywhere(m_app, mode == 2 ? 1 : 0);
         emit changed();
     };
-    // Where the fixed-width face applies. The default is the aligned columns
-    // alone: sizes, dates and permissions are compared down the column and
-    // want digits that line up, while names are read one at a time and are
-    // easier in proportional type.
-    auto *scope = new QComboBox(page);
-    scope->addItem(tr_("settings.monospace_aligned"));
-    scope->addItem(tr_("settings.monospace_all"));
-    scope->setCurrentIndex(jtf_font_monospace_everywhere(m_app) != 0 ? 1 : 0);
-    scope->setEnabled(monospace->isChecked());
-    connect(scope, &QComboBox::currentIndexChanged, this, [this](int index) {
-        jtf_set_font_monospace_everywhere(m_app, index == 1 ? 1 : 0);
-        emit changed();
-    });
-
-    connect(monospace, &QCheckBox::toggled, this, [applyFont, scope, fillFamilies](bool on) {
-        // The scope means nothing when there is no fixed-width face in play,
-        // and the family list should stop offering faces that contradict the
-        // tick that was just made.
-        scope->setEnabled(on);
-        fillFamilies(on);
-        applyFont();
-    });
+    connect(monospace, &QComboBox::currentIndexChanged, this,
+            [fillFamilies, chosenFamily, applyFont](int mode) {
+                // The list changes kind between "nowhere" and the two
+                // fixed-width modes, and a family of the other kind is dropped
+                // rather than carried over: a proportional face named as the
+                // fixed-width one would un-align the very columns the mode is
+                // for, and a fixed-width one kept for "nowhere" would leave the
+                // whole list monospace.
+                const bool fixedOnly = mode != 0;
+                QString kept = chosenFamily();
+                if (!kept.isEmpty() && QFontDatabase::isFixedPitch(kept) != fixedOnly) {
+                    kept.clear();
+                }
+                fillFamilies(kept, fixedOnly);
+                applyFont();
+            });
     connect(family, &QComboBox::currentIndexChanged, this, [applyFont](int) { applyFont(); });
     connect(family->lineEdit(), &QLineEdit::editingFinished, this, applyFont);
     connect(size, &QSpinBox::valueChanged, this, [applyFont](int) { applyFont(); });
+
+    // How much room each row gets. Three steps rather than a number of
+    // pixels, the way display density is offered elsewhere: what people are
+    // choosing between is "as tight as Finder" and "room to breathe".
+    auto *density = new QComboBox(page);
+    density->addItem(tr_("settings.row_density_compact"));
+    density->addItem(tr_("settings.row_density_standard"));
+    density->addItem(tr_("settings.row_density_comfortable"));
+    density->setCurrentIndex(qBound(0, jtf_row_density(m_app), 2));
+    connect(density, &QComboBox::currentIndexChanged, this, [this](int index) {
+        jtf_set_row_density(m_app, index);
+        emit changed();
+    });
 
     auto *parentRow = new QCheckBox(tr_("settings.parent_row"), page);
     parentRow->setChecked(jtf_parent_row(m_app) != 0);
@@ -558,8 +590,8 @@ QWidget *SettingsDialog::buildAppearanceTab() {
     form->addRow(QString(), parentRow);
     form->addRow(tr_("settings.recent_limit"), recent);
 
-    form->addRow(QString(), monospace);
-    form->addRow(tr_("settings.monospace_scope"), scope);
+    form->addRow(tr_("settings.row_density"), density);
+    form->addRow(tr_("settings.monospace_scope"), monospace);
     form->addRow(tr_("settings.font_family"), family);
     form->addRow(tr_("settings.font_size"), size);
     return page;

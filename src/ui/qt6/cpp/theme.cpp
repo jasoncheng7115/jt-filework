@@ -411,6 +411,12 @@ QLabel[jtfHintKey="true"] {
     font-weight: 600;
 }
 QLabel[jtfHintLabel="true"] { color: %DIM%; }
+/* Held down: the chip takes the selection colour until the key comes up. */
+QLabel[jtfHintKey="true"][jtfHintLit="true"] {
+    color: %ONSEL%;
+    background: %SEL%;
+    border-color: %SEL%;
+}
 
 QStatusBar { background: %HEADER%; border-top: 1px solid %BORDER%; padding: 2px 4px; }
 QStatusBar QLabel { padding-left: 8px; }
@@ -708,6 +714,12 @@ QLabel[jtfHintKey="true"] {
     font-weight: 600;
 }
 QLabel[jtfHintLabel="true"] { color: %DIM%; }
+/* Held down: the chip takes the selection colour until the key comes up. */
+QLabel[jtfHintKey="true"][jtfHintLit="true"] {
+    color: %ONSEL%;
+    background: %SEL%;
+    border-color: %SEL%;
+}
 
 QStatusBar { background: %HEADER%; color: %DIM%; border-top: 1px solid %BORDER%; }
 QStatusBar::item { border: none; }

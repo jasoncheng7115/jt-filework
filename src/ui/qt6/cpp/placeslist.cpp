@@ -225,7 +225,11 @@ PlacesList::PlacesList(JtfApp *app, QWidget *parent) : QWidget(parent), m_app(ap
     auto *watch = new QTimer(this);
     watch->setInterval(2500);
     connect(watch, &QTimer::timeout, this, [this] {
-        if (volumeSignature() != m_volumes) {
+        const QString volumes = volumeSignature();
+        if (volumes != m_volumes) {
+            // Recorded before the refresh, which decides from it whether
+            // there is anything to rebuild.
+            m_volumes = volumes;
             refresh();
             return;
         }
@@ -396,7 +400,42 @@ QString PlacesList::volumeSignature() {
     return roots.join(QLatin1Char('\n'));
 }
 
+QString PlacesList::contentSignature() const {
+    // Everything the list is built from that can change while it is open,
+    // read from where it is cheap to read: the core's lists, the colours and
+    // font it was given, the language, and the set of disks as the watch
+    // timer last saw it. Not the disks themselves - asking the system for
+    // every mount is what this exists to avoid doing after every keypress.
+    QStringList parts;
+    parts << m_volumes << m_listFont.toString() << m_glyphColour.name()
+          << m_connectedColour.name() << m_gaugeOk.name() << m_gaugeWarn.name()
+          << m_gaugeFull.name()
+          << jtfText([&](char *b, int l) { return jtf_locale(m_app, b, l); });
+    for (int i = 0; i < jtf_bookmark_count(m_app); ++i) {
+        parts << jtfText([&](char *b, int l) { return jtf_bookmark_name(m_app, i, b, l); })
+              << jtfText([&](char *b, int l) { return jtf_bookmark_path(m_app, i, b, l); });
+    }
+    for (int i = 0; i < jtf_server_count(m_app); ++i) {
+        parts << jtfText([&](char *b, int l) { return jtf_server_name(m_app, i, b, l); })
+              << QString::number(jtf_server_is_connected(m_app, i));
+    }
+    for (int i = 0; i < jtf_recent_count(m_app); ++i) {
+        parts << jtfText([&](char *b, int l) { return jtf_recent_path(m_app, i, b, l); });
+    }
+    return parts.join(QChar(0x1f));
+}
+
 void PlacesList::refresh() {
+    // Rebuilt only when something it shows has changed. The window refreshes
+    // after every command, and it asked for this twice each time: a rebuild
+    // of every row, a check that each favourite folder exists, and a walk of
+    // every mounted filesystem - on the UI thread (AGENTS.md 3), forty
+    // milliseconds on the Linux machine, for a list that had not changed.
+    // A disk arriving or leaving is the watch timer's to notice; it updates
+    // `m_volumes`, which is part of the signature, and calls this.
+    if (m_built && contentSignature() == m_builtSignature) {
+        return;
+    }
     // Remember what was expanded: rebuilding is how this list stays true, and
     // a rebuild that collapses the user's sections is a rebuild they notice.
     m_volumes = volumeSignature();
@@ -598,6 +637,8 @@ void PlacesList::refresh() {
             addChild(section, label, path, Kind::Recent, i);
         }
     }
+    m_built = true;
+    m_builtSignature = contentSignature();
 }
 
 bool PlacesList::eventFilter(QObject *watched, QEvent *event) {
@@ -628,6 +669,8 @@ bool PlacesList::eventFilter(QObject *watched, QEvent *event) {
             } else {
                 emit ejectFailed(root);
             }
+            // The disk is gone now, not at the watch timer's next look.
+            m_volumes = volumeSignature();
             refresh();
             return true; // and not a selection of the row behind it
         }
