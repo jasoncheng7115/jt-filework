@@ -1,6 +1,7 @@
 # ADR-0006: tar, and the gzip/bzip2/xz stream compressors
 
-- **Status:** Accepted — Option B, building
+- **Status:** Accepted — Option B, building; **amended 2026-09-26** for bzip2
+  (see the end)
 - **Date:** 2026-08-31
 - **Deciders:** project owner
 - **Decided:** 2026-08-31. Asked for `.gz`, `.bz2` and `.xz` as a priority, was
@@ -36,7 +37,7 @@ read a tar through a decompressor.
 | `tar` | 0.4.46 | pure Rust, archive format only |
 | `flate2` | 1.x, `rust_backend` | pure Rust gzip — already a dependency |
 | `bzip2-rs` | 0.1.2 | pure Rust, **decompress only** |
-| `bzip2` | 0.6.1 | binds C `libbz2`, both directions |
+| `bzip2` | 0.6.1 | both directions; binds C `libbz2` only with its `bzip2-sys` feature — by default it is `libbz2-rs-sys`, a Rust port (see the amendment) |
 | `lzma-rs` | 0.3.0 | pure Rust xz, decompress plus a weak compressor |
 | `xz2` | 0.1.7 | binds C `liblzma`, both directions |
 
@@ -124,3 +125,46 @@ rather than labelled as archives.
 
 Writing `.tar.bz2` or `.tar.xz` is not possible and will not be offered. If
 that is ever wanted, it is a new decision about C, taken on purpose.
+
+## Amendment, 2026-09-26: bzip2 is the `bzip2` crate on its Rust backend
+
+**What happened.** A Steam Deck repair image, `steamdeck-oobe-repair-20260707.10-3.8.14.img.bz2`
+(3.36 GB, 8,120,172,544 bytes decompressed), was unwrapped with `bzip2-rs`
+0.1.2. The decoder stopped at byte 339,577,852 with "huffman bitstream
+truncated" - at the same byte whatever the read buffer size - while the
+system's `bzip2` and the `bzip2` crate's decoder both read the file to its
+end. So the fault was the decoder's, not the file's.
+
+The decoder failing was survivable. What made it harmful was ours:
+extraction wrote members under their real names and did not remove what it
+had written when the stream failed, so a 324 MB third of the image sat in
+the download folder under the image's own name. It was then written to a USB
+stick, and the only sign was that the stick would not start. "The worst a
+bad one can do is fail loudly" was true of the decoder and not of the code
+around it.
+
+**Decided by the project owner**, shown both options, 2026-09-26:
+「換成 bzip2 0.6（建議）」.
+
+1. **bzip2 is read with the `bzip2` crate, 0.6, on its default backend,
+   `libbz2-rs-sys`** - the reference libbzip2 ported to Rust by the Trifecta
+   Tech Foundation. It is not C, so ADR-0003 §3 stands. It is not safe Rust
+   either: the port carries about 140 `unsafe` sites. That is the trade taken
+   on purpose - a maintained port of the reference implementation, which
+   reads real files, over a safe decoder that does not.
+2. **`bzip2-sys` and `lzma-sys` are banned in `deny.toml`**, so the one
+   feature flag that would put C libbzip2 in the process cannot be turned on
+   without the check failing.
+3. **`MultiBzDecoder`**, so a file from a parallel compressor - several
+   streams end to end - is read to the end rather than to the end of its first
+   stream, which a single-stream decoder reports as a clean end of file.
+4. **Condition 8 is widened.** It said a *cancelled* extraction removes its
+   partial file. Every failed one does now: a member is written as
+   `NAME.jtf-part` and renamed only when its stream has ended cleanly, and a
+   damaged tar is a failure rather than a shorter extraction reported as done.
+5. **Still owed:** `docs/TESTING.md` §9.1 lists fuzz targets for every
+   parser of untrusted input, and none exists in the repository yet, for this
+   decoder or any other. The hostile-stream tests added with this change -
+   `.bz2`, `.gz` and `.xz` cut short, `.bz2` and `.gz` damaged in the middle,
+   a tar cut short in a member -
+   are what stands in until they do.

@@ -265,9 +265,9 @@
       <h1>完整功能規格</h1>
       <p class="lede">這一版有的功能、讀得懂的格式、每一道上限，數字都在這。這一頁是拿來查的，不是拿來讀完的。</p>
     </div>
-    <p class="status" data-lang="en"><strong>0.6.53</strong> — 780 tests pass. What is not built yet
+    <p class="status" data-lang="en"><strong>0.6.54</strong> — 793 tests pass. What is not built yet
       is named in the last section rather than left out.</p>
-    <p class="status" data-lang="zh-tw"><strong>0.6.53</strong> — 780 個測試通過。還沒做的功能不是略過不提，最後一節逐項列出。</p>
+    <p class="status" data-lang="zh-tw"><strong>0.6.54</strong> — 793 個測試通過。還沒做的功能不是略過不提，最後一節逐項列出。</p>
   </div>
 
   <nav class="toc">
@@ -293,7 +293,7 @@
   <h2 data-lang="zh-tw">1. 一覽</h2>
   <div class="scroller"><table class="spec">
     <tbody>
-      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.53</td></tr>
+      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.54</td></tr>
       <tr><th data-lang="en">Platforms</th><th data-lang="zh-tw">平台</th>
         <td data-lang="en">macOS 14 or later on Apple silicon; Windows 10/11 x64, as an MSI installer
           or a portable zip; Linux x86-64, as a <code>.deb</code> built on Ubuntu 22.04 — or from
@@ -307,8 +307,8 @@
         <td data-lang="zh-tw">只有兩者中間的 C ABI 橋接層，每一塊都寫了為什麼安全</td></tr>
       <tr><th data-lang="en">Licence</th><th data-lang="zh-tw">授權</th><td>GPL-3.0-or-later</td></tr>
       <tr><th data-lang="en">Tests</th><th data-lang="zh-tw">測試</th>
-        <td data-lang="en">780 automated, including architecture, migration and hostile-input levels</td>
-        <td data-lang="zh-tw">780 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
+        <td data-lang="en">793 automated, including architecture, migration and hostile-input levels</td>
+        <td data-lang="zh-tw">793 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
       <tr><th data-lang="en">Telemetry</th><th data-lang="zh-tw">遙測</th>
         <td data-lang="en"><span class="no">None.</span> The program makes no network connection you did not ask for</td>
         <td data-lang="zh-tw"><span class="no">沒有。</span>除了你自己要連的，程式不會連去別的地方</td></tr>
@@ -717,8 +717,10 @@
     </tbody>
   </table></div>
   <p data-lang="en">Pressing <kbd>Enter</kbd> on any supported one opens a listing:
-    <kbd>Space</kbd> marks, <kbd>C</kbd> extracts what is marked, <kbd>X</kbd> extracts everything.</p>
-  <p data-lang="zh-tw">在任何一種支援的格式上按 <kbd>Enter</kbd> 都會開啟列表：<kbd>Space</kbd> 標記、<kbd>C</kbd> 解出已標記的、<kbd>X</kbd> 全部解出。</p>
+    <kbd>Space</kbd> marks, <kbd>C</kbd> extracts what is marked, <kbd>X</kbd> extracts everything.
+    A file comes out under a temporary name and takes its own only once it is whole, so an archive
+    that turns out damaged or cut short leaves nothing behind that looks extracted.</p>
+  <p data-lang="zh-tw">在任何一種支援的格式上按 <kbd>Enter</kbd> 都會開啟列表：<kbd>Space</kbd> 標記、<kbd>C</kbd> 解出已標記的、<kbd>X</kbd> 全部解出。檔案會先用暫存檔名寫出，完整了才換成正式檔名，所以損毀或不完整的壓縮檔不會留下看起來像解好的檔案。</p>
 
   <h3 data-lang="en">Everything else it recognises</h3>
   <h3 data-lang="zh-tw">其他可辨識的內容</h3>
@@ -756,6 +758,11 @@
         <td data-lang="en">Any file, byte for byte — <code>.iso</code>, <code>.img</code>,
           <code>.dmg</code>, a raw dump. Nothing is interpreted, so nothing can be misinterpreted</td>
         <td data-lang="zh-tw">任何檔案，一個位元組都不改：<code>.iso</code>、<code>.img</code>、<code>.dmg</code>、原始 dump。內容完全不解讀，所以也不會解讀錯</td></tr>
+      <tr><th data-lang="en">Checked first</th><th data-lang="zh-tw">事先檢查</th>
+        <td data-lang="en">An image carries its own map - a GPT, an MBR, an ISO 9660 descriptor -
+          and the map says how long it is. A file shorter than that, a download or a decompression
+          that stopped early, is flagged with both sizes before a disk is chosen</td>
+        <td data-lang="zh-tw">映像檔裡有自己的配置（GPT、MBR、ISO 9660），上面寫著完整大小。檔案比這個小，也就是下載或解壓縮沒有完成，選磁碟之前就會標出來，並列出兩個大小</td></tr>
       <tr><th data-lang="en">Offered</th><th data-lang="zh-tw">會列出來的</th>
         <td data-lang="en">Removable and external only. Never the boot or system disk. Never an
           internal disk, even one that is neither. Never a disk of size zero</td>
@@ -780,10 +787,11 @@
         <td data-lang="zh-tw">CRC-32（ISO-HDLC），跟 <code>gzip</code>、<code>cksum -a crc32</code> 印出來的是同一個數字，可以直接跟官方公布的用眼睛比</td></tr>
       <tr><th data-lang="en">Privilege</th><th data-lang="zh-tw">權限</th>
         <td data-lang="en">Borrowed for the one operation. macOS uses <code>authopen</code>, so
-          nothing of ours ever runs as root; Linux uses <code>pkexec</code>, and skips the prompt
+          nothing of ours ever runs as root, and the one access it grants both writes and reads back,
+          so the password is asked for once; Linux uses <code>pkexec</code>, and skips the prompt
           when the caller already has access; Windows needs an elevated process and says so before
           it starts</td>
-        <td data-lang="zh-tw">只為了這一次操作跟系統借。macOS 用 <code>authopen</code>，我們的程式碼完全不會用 root 跑；Linux 用 <code>pkexec</code>，本來就有權限的話不會問；Windows 需要提權的行程，會在開始前先講</td></tr>
+        <td data-lang="zh-tw">只為了這一次操作跟系統借。macOS 用 <code>authopen</code>，我們的程式碼完全不會用 root 跑，而且同一個權限既用來寫入也用來讀回核對，所以只問一次密碼；Linux 用 <code>pkexec</code>，本來就有權限的話不會問；Windows 需要提權的行程，會在開始前先講</td></tr>
       <tr><th data-lang="en">Cancelling</th><th data-lang="zh-tw">取消</th>
         <td data-lang="en">Stops. The disk then holds part of an image and is not usable, which is
           what it says — there is nothing to put back</td>

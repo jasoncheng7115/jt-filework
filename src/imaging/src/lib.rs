@@ -195,6 +195,10 @@ pub fn copy(
 
 /// Read `total` bytes from each of `source` and `written` and compare them.
 ///
+/// With `pad` set, `written` is read a whole number of sectors at a time and
+/// the padding past the image is ignored: a raw device refuses a read that is
+/// not sector-sized, the same rule `copy` pads its last write for.
+///
 /// # Errors
 ///
 /// [`ErrorCode::Cancelled`] if cancelled, [`ErrorCode::Io`] for a read failure,
@@ -204,6 +208,7 @@ pub fn verify(
     source: &mut dyn Read,
     written: &mut dyn Read,
     total: u64,
+    pad: bool,
     on_progress: &mut dyn FnMut(Progress),
     cancel: &CancellationToken,
 ) -> Result<u64, Error> {
@@ -216,7 +221,12 @@ pub fn verify(
         cancel.check()?;
         let want = usize::try_from((total - done).min(CHUNK as u64)).unwrap_or(CHUNK);
         read_exact_or_short(source, &mut want_buf[..want])?;
-        read_exact_or_short(written, &mut got_buf[..want])?;
+        let read = if pad {
+            usize::try_from(pad_to_sector(want as u64)).unwrap_or(want)
+        } else {
+            want
+        };
+        read_exact_or_short(written, &mut got_buf[..read])?;
 
         if want_buf[..want] != got_buf[..want] {
             let offset = done + first_difference(&want_buf[..want], &got_buf[..want]);
@@ -229,6 +239,125 @@ pub fn verify(
         on_progress(Progress::with_total(total).set_completed(done));
     }
     Ok(done)
+}
+
+/// Which of an image's own structures says how long it should be.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Layout {
+    /// A GUID partition table, whose backup header is the image's last sector.
+    Gpt,
+    /// An MBR partition table, whose partitions end somewhere.
+    Mbr,
+    /// An ISO 9660 volume, whose primary descriptor gives its size.
+    Iso9660,
+}
+
+/// The length an image's own structures say it has.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Declared {
+    /// Bytes the image needs to hold everything its table describes.
+    pub needs: u64,
+    /// What said so.
+    pub by: Layout,
+}
+
+/// What an image says about its own length, if it says anything.
+///
+/// A disk image carries its own map - a partition table, or a volume
+/// descriptor - and the map says how long the image has to be. A file shorter
+/// than that is not the image: a download that stopped, or a decompression
+/// that did. Written to a disk it gives one that does not boot, and nothing
+/// at write time says so. Checked before writing, so the dialog can: a
+/// Steam Deck repair image cut to 324 MB of its 8.12 GB was written to a USB
+/// stick, and the only sign was that the stick would not start.
+///
+/// `None` for anything with no map this recognises - a raw dump, a filesystem
+/// with no partition table - which is not the same as a map that fits.
+///
+/// # Errors
+///
+/// Whatever the file system reports when the image cannot be opened or read.
+pub fn declared_size(image: &Path) -> Result<Option<Declared>, Error> {
+    use std::io::{Seek, SeekFrom};
+    let io = |e: std::io::Error| Error::new(ErrorCode::Io, format!("{}: {e}", image.display()));
+    let mut file = std::fs::File::open(image).map_err(io)?;
+    let mut head = [0_u8; 1024];
+    let got = read_up_to(&mut file, &mut head).map_err(io)?;
+    let head = &head[..got];
+
+    // GPT: the header in sector 1 names the sector the backup header is in,
+    // and that is the last sector of the disk it was made for.
+    if head.len() >= 512 + 40 && &head[512..520] == b"EFI PART" {
+        let backup = u64::from_le_bytes(head[512 + 32..512 + 40].try_into().unwrap_or([0; 8]));
+        if backup > 1 {
+            return Ok(Some(Declared {
+                needs: backup.saturating_add(1).saturating_mul(SECTOR),
+                by: Layout::Gpt,
+            }));
+        }
+    }
+
+    // MBR: where the last partition ends. Only a table whose entries look like
+    // entries - boot flag 0x00 or 0x80 - because a filesystem written straight
+    // onto a stick carries the same 55 AA and boot code where the table would
+    // be, and reading code as a partition gives nonsense lengths.
+    if head.len() >= 512 && head[510] == 0x55 && head[511] == 0xAA {
+        let mut end = 0_u64;
+        let mut valid = true;
+        for entry in head[446..510].as_chunks::<16>().0 {
+            if entry[0] != 0x00 && entry[0] != 0x80 {
+                valid = false;
+                break;
+            }
+            let kind = entry[4];
+            let start = u32::from_le_bytes(entry[8..12].try_into().unwrap_or([0; 4]));
+            let count = u32::from_le_bytes(entry[12..16].try_into().unwrap_or([0; 4]));
+            // Empty, or the protective entry a GPT disk carries.
+            if kind == 0x00 || kind == 0xEE || count == 0 {
+                continue;
+            }
+            end = end.max((u64::from(start) + u64::from(count)) * SECTOR);
+        }
+        if valid && end > 0 {
+            return Ok(Some(Declared {
+                needs: end,
+                by: Layout::Mbr,
+            }));
+        }
+    }
+
+    // ISO 9660: the primary volume descriptor in sector 16 of 2048 bytes gives
+    // the volume's size in blocks and the block size.
+    let mut descriptor = [0_u8; 2048];
+    if file.seek(SeekFrom::Start(16 * 2048)).is_ok()
+        && read_up_to(&mut file, &mut descriptor).map_err(io)? == descriptor.len()
+        && descriptor[0] == 1
+        && &descriptor[1..6] == b"CD001"
+    {
+        let blocks = u32::from_le_bytes(descriptor[80..84].try_into().unwrap_or([0; 4]));
+        let block = u16::from_le_bytes(descriptor[128..130].try_into().unwrap_or([0; 2]));
+        if blocks > 0 && block > 0 {
+            return Ok(Some(Declared {
+                needs: u64::from(blocks) * u64::from(block),
+                by: Layout::Iso9660,
+            }));
+        }
+    }
+    Ok(None)
+}
+
+/// Read until `buffer` is full or the file ends, and say how much arrived.
+fn read_up_to(file: &mut impl Read, buffer: &mut [u8]) -> std::io::Result<usize> {
+    let mut filled = 0;
+    while filled < buffer.len() {
+        match file.read(&mut buffer[filled..]) {
+            Ok(0) => break,
+            Ok(n) => filled += n,
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(filled)
 }
 
 /// Where two equal-length slices first differ.
@@ -405,6 +534,7 @@ mod tests {
             &mut source.as_slice(),
             &mut disk.as_slice(),
             10_000,
+            false,
             &mut nothing,
             &CancellationToken::never(),
         )
@@ -421,6 +551,7 @@ mod tests {
             &mut source.as_slice(),
             &mut disk.as_slice(),
             10_000,
+            false,
             &mut nothing,
             &CancellationToken::never(),
         )
@@ -441,6 +572,7 @@ mod tests {
             &mut source.as_slice(),
             &mut disk.as_slice(),
             (CHUNK * 2) as u64,
+            false,
             &mut nothing,
             &CancellationToken::never(),
         )
@@ -459,6 +591,7 @@ mod tests {
             &mut source.as_slice(),
             &mut disk.as_slice(),
             3_000,
+            false,
             &mut nothing,
             &CancellationToken::never(),
         )
@@ -497,5 +630,129 @@ mod tests {
         assert_eq!(pad_to_sector(1), 512);
         assert_eq!(pad_to_sector(512), 512);
         assert_eq!(pad_to_sector(513), 1_024);
+    }
+
+    /// A reader that behaves like a raw device: whole sectors or nothing.
+    struct SectorsOnly<'a>(&'a [u8]);
+
+    impl Read for SectorsOnly<'_> {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            if !buf.len().is_multiple_of(512) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "not a sector",
+                ));
+            }
+            self.0.read(buf)
+        }
+    }
+
+    /// A raw device refuses a read that is not whole sectors, so the last
+    /// chunk is read padded - and the padding, which `copy` wrote as zeros past
+    /// the image, is not compared.
+    #[test]
+    fn verifying_a_raw_disk_reads_whole_sectors_and_ignores_the_padding() {
+        let image: Vec<u8> = (0..3_000_u32).map(|i| (i % 251) as u8).collect();
+        let mut disk = Vec::new();
+        let mut nothing = |_| {};
+        copy(
+            &mut image.as_slice(),
+            &mut disk,
+            3_000,
+            true,
+            &mut nothing,
+            &CancellationToken::never(),
+        )
+        .unwrap();
+        assert_eq!(disk.len(), 3_072, "padded to six sectors");
+
+        let checked = verify(
+            &mut image.as_slice(),
+            &mut SectorsOnly(&disk),
+            3_000,
+            true,
+            &mut nothing,
+            &CancellationToken::never(),
+        )
+        .unwrap();
+        assert_eq!(checked, 3_000);
+    }
+
+    fn image_file(name: &str, bytes: &[u8]) -> PathBuf {
+        let path = std::env::temp_dir().join(format!("jtf-declared-{}-{name}", std::process::id()));
+        std::fs::write(&path, bytes).unwrap();
+        path
+    }
+
+    /// The Steam Deck repair image that was cut short: a GPT whose backup header
+    /// is at sector 15,859,711, in a file of a few kilobytes.
+    #[test]
+    fn a_gpt_says_how_long_its_disk_is() {
+        let mut bytes = vec![0_u8; 4096];
+        bytes[510] = 0x55;
+        bytes[511] = 0xAA;
+        bytes[446 + 4] = 0xEE; // the protective MBR entry
+        bytes[512..520].copy_from_slice(b"EFI PART");
+        bytes[512 + 32..512 + 40].copy_from_slice(&15_859_711_u64.to_le_bytes());
+        let path = image_file("gpt", &bytes);
+        let declared = declared_size(&path).unwrap().expect("a GPT");
+        assert_eq!(declared.by, Layout::Gpt);
+        assert_eq!(declared.needs, 8_120_172_544);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn an_mbr_says_where_its_last_partition_ends() {
+        let mut bytes = vec![0_u8; 1024];
+        bytes[510] = 0x55;
+        bytes[511] = 0xAA;
+        // Two partitions: 2048 + 1000 sectors, and 4096 + 2048 sectors.
+        for (slot, start, count) in [(0_usize, 2048_u32, 1000_u32), (1, 4096, 2048)] {
+            let entry = 446 + slot * 16;
+            bytes[entry + 4] = 0x83;
+            bytes[entry + 8..entry + 12].copy_from_slice(&start.to_le_bytes());
+            bytes[entry + 12..entry + 16].copy_from_slice(&count.to_le_bytes());
+        }
+        let path = image_file("mbr", &bytes);
+        let declared = declared_size(&path).unwrap().expect("an MBR");
+        assert_eq!(declared.by, Layout::Mbr);
+        assert_eq!(declared.needs, (4096 + 2048) * 512);
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// A filesystem written straight onto a stick carries 55 AA and boot code
+    /// where a partition table would be. Code read as partitions gives
+    /// nonsense, so it is not read as one.
+    #[test]
+    fn boot_code_is_not_mistaken_for_a_partition_table() {
+        let mut bytes: Vec<u8> = (0..1024_u32).map(|i| (i * 37 % 253) as u8).collect();
+        bytes[446] = 0x33; // not a boot flag
+        bytes[510] = 0x55;
+        bytes[511] = 0xAA;
+        let path = image_file("fat", &bytes);
+        assert_eq!(declared_size(&path).unwrap(), None);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn an_iso_says_how_many_blocks_it_has() {
+        let mut bytes = vec![0_u8; 16 * 2048 + 2048];
+        let pvd = 16 * 2048;
+        bytes[pvd] = 1;
+        bytes[pvd + 1..pvd + 6].copy_from_slice(b"CD001");
+        bytes[pvd + 80..pvd + 84].copy_from_slice(&300_000_u32.to_le_bytes());
+        bytes[pvd + 128..pvd + 130].copy_from_slice(&2048_u16.to_le_bytes());
+        let path = image_file("iso", &bytes);
+        let declared = declared_size(&path).unwrap().expect("an ISO");
+        assert_eq!(declared.by, Layout::Iso9660);
+        assert_eq!(declared.needs, 300_000 * 2048);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn a_file_with_no_map_says_nothing() {
+        let path = image_file("plain", b"just some bytes");
+        assert_eq!(declared_size(&path).unwrap(), None);
+        let _ = std::fs::remove_file(path);
     }
 }

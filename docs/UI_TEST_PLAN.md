@@ -617,6 +617,12 @@ Extends §11b to everything the current build reads and writes.
 | ARCX-010 | Expansion is bounded against bytes that actually arrive, not against what the header claims | H1 |
 | ARCX-011 | A listing of a huge archive is bounded and says it was | H1 |
 | ARCX-012 | The listing window's key strip matches the keys it answers to | H2 |
+| ARCX-013 | A real-world `.bz2` extracts to its full length and matches what the system's `bzip2` produces — the 3.36 GB Steam Deck repair image, 8,120,172,544 bytes, which the decoder before 0.6.54 stopped reading at 339,577,852 | H4 |
+| ARCX-014 | A `.bz2` of several streams end to end (a parallel compressor's) is extracted to the end, not to the end of its first stream | H1 |
+| ARCX-015 | A `.bz2`, `.gz` or `.xz` cut short fails, and leaves nothing behind — no file under the real name, no `.jtf-part` | H1 |
+| ARCX-016 | A `.bz2` or `.gz` damaged in the middle fails the same way, rather than producing a file with a hole in it | H1 |
+| ARCX-017 | A tar cut short inside a member keeps the members before it, which are whole, and reports a failure rather than a shorter extraction as done | H1 |
+| ARCX-018 | A failed extraction says the archive is damaged or cut short, in words, not as a disk error | H2 |
 
 ---
 
@@ -1025,6 +1031,12 @@ than *what the dialog says*, because the dialog is read after the decision.
 | IMG-024 | The disk is unmounted before it is opened, not after | H1 |
 | IMG-025 | Asking for the device list twice gives the same disks in the same order | H1 |
 | IMG-026 | On a platform with no implementation the dialog says so, rather than showing an empty list | H2 |
+| IMG-027 | An image shorter than its own GPT, MBR or ISO 9660 layout says it is is flagged when the dialog opens, with both sizes, and again in the first confirmation | H1/H2 |
+| IMG-028 | Boot code behind a 55 AA signature is not read as a partition table, so a filesystem image is not flagged as short | H1 |
+| IMG-029 | Each way a write can fail is said in its own words: unmount refused (nothing written), authorization refused (nothing written), stopped part way (partly written), read-back refused, read-back different, read-back stopped (written, not checked) — never the sentence shown before the prompt | H1/H2 |
+| IMG-030 | The progress bar is full only after a write that finished; a failure leaves it where it stopped, and the message is in the error colour | H2 |
+| IMG-031 | macOS: the password is asked for once, and the same access reads the disk back — verification succeeds for an ordinary user, whose own access to the disk node is refused | H4 |
+| IMG-032 | The elapsed time and the rate are visible beside the bar while writing | H2 |
 
 ---
 

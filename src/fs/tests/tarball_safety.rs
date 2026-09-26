@@ -320,3 +320,170 @@ fn a_bare_gzip_unwraps_to_one_file() {
         "just some text"
     );
 }
+
+/// Text that compresses, but not to nothing: enough blocks that cutting the
+/// stream in half cuts through the middle of one.
+fn sample_text(bytes: usize) -> Vec<u8> {
+    let mut out = Vec::with_capacity(bytes);
+    let mut n: u32 = 1;
+    while out.len() < bytes {
+        n = n.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+        out.extend_from_slice(format!("line {n:08x} of a log nobody reads\n").as_bytes());
+    }
+    out.truncate(bytes);
+    out
+}
+
+fn bzip2_bytes(data: &[u8]) -> Vec<u8> {
+    let mut encoder = bzip2::write::BzEncoder::new(Vec::new(), bzip2::Compression::default());
+    encoder.write_all(data).expect("compress");
+    encoder.finish().expect("finish")
+}
+
+fn gzip_bytes(data: &[u8]) -> Vec<u8> {
+    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder.write_all(data).expect("compress");
+    encoder.finish().expect("finish")
+}
+
+fn xz_bytes(data: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    lzma_rs::xz_compress(&mut &data[..], &mut out).expect("compress");
+    out
+}
+
+/// Every file under `dir`, so a test can say nothing else was left there.
+fn files_in(dir: &Path) -> Vec<String> {
+    let mut found: Vec<String> = fs::read_dir(dir)
+        .map(|entries| {
+            entries
+                .flatten()
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .collect()
+        })
+        .unwrap_or_default();
+    found.sort();
+    found
+}
+
+/// A `.bz2` from a parallel compressor is several complete streams one after
+/// another, and all of them are the file.
+///
+/// A decoder that stops at the end of the first stream reports a clean end of
+/// file, and what it wrote looks like the whole thing.
+#[test]
+fn a_bzip2_of_several_streams_unwraps_all_of_them() {
+    let dir = temp_dir("bz2-multi");
+    let first = sample_text(300_000);
+    let second = sample_text(200_000);
+    let mut joined = bzip2_bytes(&first);
+    joined.extend_from_slice(&bzip2_bytes(&second));
+    let archive = dir.join("disk.img.bz2");
+    fs::write(&archive, &joined).expect("write");
+
+    let out = dir.join("out");
+    extract_tarball_members(&archive, &out, &[], &CancellationToken::never(), |_| {})
+        .expect("extracted");
+    let got = fs::read(out.join("disk.img")).expect("read back");
+    assert_eq!(got.len(), first.len() + second.len());
+    assert_eq!(&got[..first.len()], &first[..]);
+    assert_eq!(&got[first.len()..], &second[..]);
+    assert_eq!(files_in(&out), ["disk.img"], "no part file left behind");
+}
+
+/// A stream cut short - a download that did not finish - fails, and leaves
+/// nothing under the real name or any other.
+///
+/// Until 0.6.54 a decoder error left what it had written so far, named as if
+/// it were the whole file: 324 MB of an 8 GB disk image, which was then
+/// written to a USB stick.
+#[test]
+fn a_compressed_file_cut_short_fails_and_leaves_nothing() {
+    let data = sample_text(2_000_000);
+    for (suffix, compressed) in [
+        ("bz2", bzip2_bytes(&data)),
+        ("gz", gzip_bytes(&data)),
+        ("xz", xz_bytes(&data)),
+    ] {
+        let dir = temp_dir(&format!("cut-{suffix}"));
+        let archive = dir.join(format!("disk.img.{suffix}"));
+        fs::write(&archive, &compressed[..compressed.len() / 2]).expect("write");
+
+        let out = dir.join("out");
+        let outcome =
+            extract_tarball_members(&archive, &out, &[], &CancellationToken::never(), |_| {});
+        assert!(
+            outcome.is_err(),
+            ".{suffix} cut in half was reported as extracted"
+        );
+        assert!(
+            files_in(&out).is_empty(),
+            ".{suffix}: left behind {:?}",
+            files_in(&out)
+        );
+    }
+}
+
+/// Damage in the middle of a stream fails the same way, rather than
+/// producing a file with a hole in it.
+///
+/// Not xz: what makes damage detectable there is the check the `xz` tool
+/// writes after every block (CRC64 by default), which the decoder verifies -
+/// and `lzma-rs`'s own compressor, the only one a test can use, writes none.
+/// A stream with no check decodes damage into different bytes, and nothing
+/// can tell those from the file's own.
+#[test]
+fn a_damaged_compressed_file_fails_and_leaves_nothing() {
+    let data = sample_text(2_000_000);
+    for (suffix, mut compressed) in [("bz2", bzip2_bytes(&data)), ("gz", gzip_bytes(&data))] {
+        let middle = compressed.len() / 2;
+        for byte in &mut compressed[middle..middle + 64] {
+            *byte ^= 0x5a;
+        }
+        let dir = temp_dir(&format!("damaged-{suffix}"));
+        let archive = dir.join(format!("disk.img.{suffix}"));
+        fs::write(&archive, &compressed).expect("write");
+
+        let out = dir.join("out");
+        let outcome =
+            extract_tarball_members(&archive, &out, &[], &CancellationToken::never(), |_| {});
+        assert!(
+            outcome.is_err(),
+            "damaged .{suffix} was reported as extracted"
+        );
+        assert!(
+            files_in(&out).is_empty(),
+            ".{suffix}: left behind {:?}",
+            files_in(&out)
+        );
+    }
+}
+
+/// A `.tar.bz2` cut short in its second member keeps the first, which is
+/// whole, drops the second, which is not, and says it failed.
+#[test]
+fn a_tar_cut_short_keeps_whole_members_only_and_fails() {
+    let dir = temp_dir("tar-cut");
+    let first = sample_text(50_000);
+    let second = sample_text(900_000);
+    let mut tar_bytes = Vec::new();
+    for (name, body) in [("first.txt", &first), ("second.txt", &second)] {
+        tar_bytes.extend_from_slice(&tar_header(name, body.len()));
+        tar_bytes.extend_from_slice(body);
+        let padding = (512 - body.len() % 512) % 512;
+        tar_bytes.extend(std::iter::repeat_n(0_u8, padding));
+    }
+    tar_bytes.extend(std::iter::repeat_n(0_u8, 1024));
+    let compressed = bzip2_bytes(&tar_bytes);
+    let archive = dir.join("two.tar.bz2");
+    fs::write(&archive, &compressed[..compressed.len() * 3 / 4]).expect("write");
+
+    let out = dir.join("out");
+    let outcome = extract_tarball_members(&archive, &out, &[], &CancellationToken::never(), |_| {});
+    assert!(
+        outcome.is_err(),
+        "a truncated tar was reported as extracted"
+    );
+    assert_eq!(files_in(&out), ["first.txt"], "only the whole member stays");
+    assert_eq!(fs::read(out.join("first.txt")).unwrap(), first);
+}

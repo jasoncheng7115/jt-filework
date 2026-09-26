@@ -203,13 +203,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
-name = "bzip2-rs"
-version = "0.1.2"
+name = "bzip2"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "beeb59e7e4c811ab37cc73680c798c7a5da77fc9989c62b09138e31ee740f735"
+checksum = "f3a53fac24f34a81bc9954b5d6cfce0c21e18ec6959f44f56e8e90e4bb7c346c"
 dependencies = [
- "crc32fast",
- "tinyvec",
+ "libbz2-rs-sys",
 ]
 
 [[package]]
@@ -1007,7 +1006,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-bench"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "jtf-core",
  "jtf-fs",
@@ -1017,7 +1016,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-cli"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "jtf-commands",
  "jtf-core",
@@ -1027,7 +1026,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-commands"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "jtf-core",
  "serde",
@@ -1036,7 +1035,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-conformance"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "jtf-commands",
  "jtf-core",
@@ -1050,7 +1049,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-core"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "serde",
  "serde_json",
@@ -1058,9 +1057,9 @@ dependencies = [
 
 [[package]]
 name = "jtf-fs"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
- "bzip2-rs",
+ "bzip2",
  "dirs",
  "flate2",
  "jtf-core",
@@ -1076,14 +1075,14 @@ dependencies = [
 
 [[package]]
 name = "jtf-hexedit"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "jtf-core",
 ]
 
 [[package]]
 name = "jtf-imaging"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "jtf-core",
  "jtf-jobs",
@@ -1093,7 +1092,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-jobs"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "jtf-core",
  "serde",
@@ -1102,7 +1101,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-ops"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "jtf-core",
  "jtf-jobs",
@@ -1114,22 +1113,23 @@ dependencies = [
 
 [[package]]
 name = "jtf-platform-devices"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "jtf-core",
+ "rustix",
  "serde",
 ]
 
 [[package]]
 name = "jtf-platform-links"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "jtf-core",
 ]
 
 [[package]]
 name = "jtf-platform-removal"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "jtf-core",
  "rustix",
@@ -1137,7 +1137,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-qt6-bridge"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "dirs",
  "jtf-commands",
@@ -1156,7 +1156,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-search"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "jtf-core",
  "jtf-fs",
@@ -1166,7 +1166,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-transfer"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "jtf-core",
  "jtf-fs",
@@ -1175,7 +1175,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-viewer"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "encoding_rs",
  "jtf-core",
@@ -1185,7 +1185,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-workspace"
-version = "0.6.53"
+version = "0.6.54"
 dependencies = [
  "jtf-core",
  "serde",
@@ -1211,6 +1211,12 @@ dependencies = [
  "crypto-common",
  "rand_core",
 ]
+
+[[package]]
+name = "libbz2-rs-sys"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34b357333733e8260735ba5894eb928c02ecc69c78715f01a8019e7fa7f2db4c"
 
 [[package]]
 name = "libc"
@@ -2174,12 +2180,6 @@ dependencies = [
  "quote",
  "syn 3.0.4",
 ]
-
-[[package]]
-name = "tinyvec"
-version = "1.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb4ebadaa0af04fab11ae01eb5f9fdb5f9c5b875506e210e71c07873528baa7f"
 
 [[package]]
 name = "tokio"

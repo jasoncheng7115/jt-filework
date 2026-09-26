@@ -150,8 +150,29 @@ pub(crate) enum ArchiveOutcome {
 }
 
 enum ArchiveUpdate {
-    Progress { files: u64, bytes: u64 },
-    Done { refused: u64, error: Option<String> },
+    Progress {
+        files: u64,
+        bytes: u64,
+    },
+    /// `error` is a catalogue key, never the error's context: that is written
+    /// for a log, in English, and was being shown inside Chinese sentences.
+    Done {
+        refused: u64,
+        error: Option<&'static str>,
+    },
+}
+
+/// What to tell the user about an extraction or a compression that failed.
+fn archive_failure_key(error: &jtf_core::Error) -> &'static str {
+    use jtf_core::ErrorCode;
+    match error.code() {
+        // A decoder that met damaged or cut-short data - an unfinished
+        // download, most often - which is a fact about the file, not the disk.
+        ErrorCode::ParseFailed => "archive.error.damaged",
+        ErrorCode::LimitExceeded => "archive.error.too_large",
+        ErrorCode::Cancelled => "archive.error.cancelled",
+        other => other.message_key(),
+    }
 }
 
 /// A folder measurement running on a worker thread.
@@ -1073,7 +1094,7 @@ impl App {
                 },
                 Err(error) => ArchiveUpdate::Done {
                     refused: 0,
-                    error: Some(error.context().to_string()),
+                    error: Some(archive_failure_key(&error)),
                 },
             });
         });
@@ -1129,7 +1150,7 @@ impl App {
                 },
                 Err(error) => ArchiveUpdate::Done {
                     refused: 0,
-                    error: Some(error.context().to_string()),
+                    error: Some(archive_failure_key(&error)),
                 },
             });
         });
@@ -1168,7 +1189,7 @@ impl App {
                 },
                 Err(error) => ArchiveUpdate::Done {
                     refused: 0,
-                    error: Some(error.context().to_string()),
+                    error: Some(archive_failure_key(&error)),
                 },
             });
         });
@@ -1576,7 +1597,9 @@ impl App {
                 Ok(ArchiveUpdate::Done { refused, error }) => {
                     changed = true;
                     job.refused = refused;
-                    job.outcome = error.map_or(ArchiveOutcome::Succeeded, ArchiveOutcome::Failed);
+                    job.outcome = error.map_or(ArchiveOutcome::Succeeded, |key| {
+                        ArchiveOutcome::Failed(self.localizer.text_or_key(key))
+                    });
                 }
                 Err(std::sync::mpsc::TryRecvError::Empty) => break,
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => {
@@ -5367,6 +5390,47 @@ const fn listed_row(has_parent_row: bool, row: usize) -> Option<usize> {
 }
 
 #[cfg(test)]
+mod burn_failure_tests {
+    use super::burn_failure_key;
+    use jtf_core::{Error, ErrorCode};
+    use jtf_imaging::Stage;
+
+    /// The same error means different things at different stages, and the
+    /// message has to say which: a disk untouched, a disk half written, and a
+    /// disk written but not checked are three different situations to be in.
+    #[test]
+    fn a_failure_is_described_by_where_it_happened() {
+        let denied = Error::bare(ErrorCode::PermissionDenied);
+        assert_eq!(burn_failure_key(&denied, Stage::Writing), "imaging.denied");
+        assert_eq!(
+            burn_failure_key(&denied, Stage::Verifying),
+            "imaging.verify_denied"
+        );
+        assert_eq!(
+            burn_failure_key(&Error::bare(ErrorCode::Io), Stage::Unmounting),
+            "imaging.failed_unmount"
+        );
+        assert_eq!(
+            burn_failure_key(&Error::bare(ErrorCode::ParseFailed), Stage::Verifying),
+            "imaging.verify_mismatch"
+        );
+        assert_eq!(
+            burn_failure_key(&Error::bare(ErrorCode::Cancelled), Stage::Writing),
+            "imaging.failed_midway"
+        );
+        assert_eq!(
+            burn_failure_key(&Error::bare(ErrorCode::Cancelled), Stage::Verifying),
+            "imaging.verify_cancelled"
+        );
+        assert_ne!(
+            burn_failure_key(&denied, Stage::Writing),
+            "imaging.needs_elevation",
+            "the sentence shown before the prompt is not a way to report a failure"
+        );
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::{format_time, listed_row, session_write_target, stored_format_version};
     use jtf_core::ErrorCode;
@@ -5794,7 +5858,7 @@ impl App {
                     job.outcome = match *result {
                         Ok(report) => BurnOutcome::Done(report),
                         Err(error) => BurnOutcome::Failed {
-                            key: burn_failure_key(&error),
+                            key: burn_failure_key(&error, job.stage),
                             detail: error.to_string(),
                         },
                     };
@@ -5895,12 +5959,26 @@ impl App {
 }
 
 /// Turn an error from the write into something worth showing a person.
-fn burn_failure_key(error: &jtf_core::Error) -> &'static str {
-    match error.code() {
-        jtf_core::ErrorCode::PermissionDenied => "imaging.needs_elevation",
-        // Everything else means the disk was partly written: cancellation, an
-        // I/O failure, a read-back that did not match. The bytes that got there
-        // are there, and saying "cancelled" alone would imply otherwise.
+/// What to tell the user about a write that failed, from what failed and where.
+///
+/// The stage matters as much as the error. A refused password before the
+/// first byte means the disk is untouched; the same refusal while reading back
+/// means the image is on the disk and only the check is missing - and until
+/// 0.6.54 both were reported with the sentence shown *before* the prompt,
+/// "please confirm in the window that opens", which after the fact reads as
+/// an instruction and not as a failure.
+fn burn_failure_key(error: &jtf_core::Error, stage: jtf_imaging::Stage) -> &'static str {
+    use jtf_core::ErrorCode;
+    use jtf_imaging::Stage;
+    match (stage, error.code()) {
+        (Stage::Unmounting, _) => "imaging.failed_unmount",
+        (Stage::Writing, ErrorCode::PermissionDenied) => "imaging.denied",
+        (Stage::Verifying, ErrorCode::PermissionDenied) => "imaging.verify_denied",
+        (Stage::Verifying, ErrorCode::ParseFailed) => "imaging.verify_mismatch",
+        (Stage::Verifying, ErrorCode::Cancelled) => "imaging.verify_cancelled",
+        (Stage::Verifying, _) => "imaging.verify_failed",
+        // Writing or flushing, stopped part way for whatever reason: the bytes
+        // that got there are there, and "cancelled" alone would imply otherwise.
         _ => "imaging.failed_midway",
     }
 }

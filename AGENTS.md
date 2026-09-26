@@ -473,13 +473,13 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-09-26 · **Version:** 0.6.53 · **Branch:** `main` ·
+**Updated:** 2026-09-26 · **Version:** 0.6.54 · **Branch:** `main` ·
 **Phase:** 1 — usable build
 
 ### Gates
 
 ```text
-tests     780 passing, 0 failing, 0 ignored  (cargo test --workspace)
+tests     793 passing, 0 failing, 0 ignored  (cargo test --workspace)
 clippy    clean (-D warnings, --all-targets, workspace-wide)
 rustfmt   clean - and it was not, until 2026-09-16: 52 sites in the crates
           added since 0.6.9 had never been through it. Run it, do not assume it
@@ -543,12 +543,19 @@ JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
   it and this machine: a partial file is written under `.jtf-part` and only
   then named, a move that copied but could not remove the source says so in
   those words, and the same conflict questions are asked as locally.
-- **Disks** — removable devices listed with what is safe to write to, a disk
-  image written with progress, rate, elapsed time and a working cancel, and
+- **Disks** — removable devices listed with what is safe to write to, an image
+  shorter than its own GPT, MBR or ISO layout flagged before writing, a disk
+  image written with progress, rate, elapsed time and a working cancel, read
+  back on macOS through the one descriptor `authopen` hands over, each kind of
+  failure named for what it left the disk in, and
   eject, after which a pane that was showing the disk leaves rather than
   displaying a mount point that is gone.
 - **Archives** — zip, tar and ISO contents browsed like a folder, members
-  extracted, and a new archive created from the marked entries.
+  extracted, and a new archive created from the marked entries. A member is
+  written as `NAME.jtf-part` and renamed only when its stream ended cleanly;
+  a damaged archive is a failure, not a shorter extraction. bzip2 is the
+  `bzip2` crate on `libbz2-rs-sys` since 0.6.54 (ADR-0006, amended) - its
+  predecessor stopped a third of the way into an 8 GB image.
 - **Finding** — a filter over the current folder and a recursive search, both
   highlighting what matched; folder sizes and disk usage on demand; two panes
   compared.
@@ -636,6 +643,11 @@ Edit on Win/Linux File > Edit and E stay enabled and do nothing, which
                   UI_CONVENTIONS §1 forbids
 colour test       covers Rust only; the C++ has two literal colours, the
                   checkerboard behind transparent images and one shadow
+fuzz targets      docs/TESTING.md 9.1 lists one for every parser of untrusted
+                  input and none exists; the hostile-input tests stand in
+                  (ADR-0006 amendment, point 5)
+macOS read-back   the authopen descriptor exchange is tested against a
+                  stand-in helper, not yet against a real authorization
 ```
 
 Two documents have fallen behind the code and are debt, not history:

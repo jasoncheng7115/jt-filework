@@ -24,6 +24,13 @@
 //!   that Cancel means something.
 //! * Symlink and hard-link members are refused rather than created, and
 //!   anything that is not a plain file or a directory is skipped.
+//! * Nothing is written under its real name until it is whole. A member goes
+//!   to `NAME.jtf-part` and is renamed only when the stream has ended cleanly;
+//!   a decoder that fails half way, a cancel, or a bound that trips removes
+//!   the part. A damaged archive is a failure, reported as one, not a shorter
+//!   extraction reported as done - the bzip2 decoder this used before 0.6.54
+//!   stopped a third of the way into an 8 GB disk image, and the third it had
+//!   written stayed behind under the image's own name.
 
 use std::fs::{self, File};
 use std::io::{self, BufReader, Read, Write};
@@ -182,7 +189,10 @@ fn decompressor(file: File, compression: Compression) -> Result<Box<dyn Read>> {
     Ok(match compression {
         Compression::None => Box::new(buffered),
         Compression::Gzip => Box::new(flate2::read::MultiGzDecoder::new(buffered)),
-        Compression::Bzip2 => Box::new(bzip2_rs::DecoderReader::new(buffered)),
+        // Multi: a `.bz2` made by a parallel compressor is several streams one
+        // after another, and a decoder that stops at the end of the first
+        // reports a clean end of file after a fraction of the data.
+        Compression::Bzip2 => Box::new(bzip2::read::MultiBzDecoder::new(buffered)),
         Compression::Xz => {
             // `lzma-rs` decodes into a buffer rather than offering a streaming
             // reader, so this is the one place a whole stream is held. Bounded
@@ -345,9 +355,18 @@ pub fn extract_members(
         if cancel.is_cancelled() {
             return Err(Error::bare(ErrorCode::Cancelled));
         }
-        let Ok(mut entry) = entry else {
-            break; // a malformed member ends the walk; what was written stays
-        };
+        // A malformed member is a damaged archive, and saying "done" after
+        // the members before it would be reporting a shorter extraction as a
+        // whole one. What was written before it is complete and stays.
+        let mut entry = entry.map_err(|e| {
+            Error::new(
+                ErrorCode::ParseFailed,
+                format!(
+                    "the archive is damaged after {} members: {e}",
+                    done.files + done.folders
+                ),
+            )
+        })?;
         let name = entry
             .path()
             .map(|p| p.to_string_lossy().into_owned())
@@ -408,35 +427,61 @@ pub fn extract_members(
 ///
 /// The header's size is not consulted: a lying header is the whole point of a
 /// decompression bomb, so the ceiling is checked against bytes produced.
+///
+/// Written to a part file beside `target` and renamed over it only once the
+/// stream has ended cleanly. Anything that stops it first - a decoder error,
+/// a cancel, a bound, a full disk - removes the part, so a failed extraction
+/// never leaves something under the real name that looks extracted.
 fn copy_bounded(
     reader: &mut impl Read,
     target: &Path,
     cancel: &CancellationToken,
     done: &mut Extracted,
 ) -> Result<()> {
+    let part = part_path(target);
+    let copied = copy_into(reader, &part, cancel, done);
+    let finished = copied.and_then(|()| {
+        fs::rename(&part, target).map_err(|e| Error::new(ErrorCode::Io, format!("rename: {e}")))
+    });
+    if finished.is_err() {
+        let _ = fs::remove_file(&part);
+    }
+    finished
+}
+
+/// Where a member is written while it is still arriving.
+fn part_path(target: &Path) -> PathBuf {
+    let mut name = target
+        .file_name()
+        .map(std::ffi::OsStr::to_os_string)
+        .unwrap_or_default();
+    name.push(".jtf-part");
+    target.with_file_name(name)
+}
+
+fn copy_into(
+    reader: &mut impl Read,
+    part: &Path,
+    cancel: &CancellationToken,
+    done: &mut Extracted,
+) -> Result<()> {
     let mut out =
-        File::create(target).map_err(|e| Error::new(ErrorCode::Io, format!("create file: {e}")))?;
+        File::create(part).map_err(|e| Error::new(ErrorCode::Io, format!("create file: {e}")))?;
     let mut buffer = vec![0_u8; CHUNK];
     let mut written = 0_u64;
     loop {
         if cancel.is_cancelled() {
-            // The partial file goes: a cancelled extraction should not leave
-            // something that looks extracted.
-            drop(out);
-            let _ = fs::remove_file(target);
             return Err(Error::bare(ErrorCode::Cancelled));
         }
         let read = match reader.read(&mut buffer) {
             Ok(0) => break,
             Ok(n) => n,
             Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
-            Err(e) => return Err(Error::new(ErrorCode::Io, format!("read member: {e}"))),
+            Err(e) => return Err(read_error(&e)),
         };
         written += read as u64;
         done.bytes += read as u64;
         if written > MAX_MEMBER_BYTES || done.bytes > MAX_TOTAL_BYTES {
-            drop(out);
-            let _ = fs::remove_file(target);
             return Err(Error::new(
                 ErrorCode::LimitExceeded,
                 "the archive expands past what this will unpack",
@@ -445,7 +490,26 @@ fn copy_bounded(
         out.write_all(&buffer[..read])
             .map_err(|e| Error::new(ErrorCode::Io, format!("write: {e}")))?;
     }
-    Ok(())
+    // Where a full disk finally says so, rather than after the rename.
+    out.sync_all()
+        .map_err(|e| Error::new(ErrorCode::Io, format!("write: {e}")))
+}
+
+/// What a failed read from the decompressor means.
+///
+/// The decoders report damaged or cut-short data as invalid data or as an
+/// early end, and that is a fact about the archive rather than about the
+/// disk, so it is said as one. Anything else is the file system's.
+fn read_error(e: &io::Error) -> Error {
+    match e.kind() {
+        io::ErrorKind::InvalidData | io::ErrorKind::InvalidInput | io::ErrorKind::UnexpectedEof => {
+            Error::new(
+                ErrorCode::ParseFailed,
+                format!("the compressed data is damaged or cut short: {e}"),
+            )
+        }
+        _ => Error::new(ErrorCode::Io, format!("read member: {e}")),
+    }
 }
 
 /// Create a `.tar` or `.tar.gz` at `archive_path` holding `sources`.

@@ -20,7 +20,7 @@ jtf-viewer = { workspace = true }
 zip = { workspace = true }
 flate2 = { workspace = true }
 tar = { workspace = true }
-bzip2-rs = { workspace = true }
+bzip2 = { workspace = true }
 lzma-rs = { workspace = true }
 jtf-jobs = { workspace = true }
 dirs = { workspace = true }

@@ -19,6 +19,8 @@
 #include <QTimer>
 #include <QVBoxLayout>
 
+#include <cstring>
+
 namespace {
 
 // How often the UI asks the writing thread what it has done. Fast enough that
@@ -64,6 +66,26 @@ ImageWriterDialog::ImageWriterDialog(JtfApp *app, const QString &image, QWidget 
         QStringLiteral("color: %1; font-size: 12px;").arg(theme.textSecondary.name()));
     layout->addWidget(sourceCaption);
     layout->addWidget(m_source);
+
+    // An image shorter than its own partition table says it is: a download or
+    // a decompression that stopped. Written to a disk it gives one that does
+    // not start, and nothing at write time says so - a Steam Deck image cut to
+    // 324 MB of its 8.12 GB went onto a stick that way. Said here, before a
+    // disk is even chosen, in the same band as the warning about erasing.
+    // Read on the UI thread: two sectors and one ISO descriptor, 36 KB at most.
+    m_declared = jtf_image_declared_size(m_image.toUtf8().constData());
+    m_stageColour = theme.textSecondary;
+    m_errorColour = theme.error;
+    if (isShort()) {
+        m_short = new QLabel(shortText(), this);
+        m_short->setWordWrap(true);
+        m_short->setTextFormat(Qt::PlainText);
+        m_short->setStyleSheet(
+            QStringLiteral("color: %1; background: %2; border-left: 3px solid %1;"
+                           "border-radius: 4px; padding: 8px 10px;")
+                .arg(theme.error.name(), theme.rowHover.name()));
+        layout->addWidget(m_short);
+    }
 
     auto *targetCaption = new QLabel(tr_("imaging.target"), this);
     targetCaption->setStyleSheet(
@@ -122,6 +144,15 @@ ImageWriterDialog::ImageWriterDialog(JtfApp *app, const QString &image, QWidget 
     m_rate->setStyleSheet(QStringLiteral("color: %1;").arg(theme.textSecondary.name()));
     // Its width must not push the bar around as the numbers change.
     m_rate->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    // Ignored, the layout gave it no width at all beside a bar that stretches,
+    // and the elapsed time and the rate were never on screen. A fixed room,
+    // measured from the longest thing it says, keeps it both visible and still.
+    m_rate->setMinimumWidth(
+        m_rate->fontMetrics().horizontalAdvance(
+            QStringLiteral("%1   %2")
+                .arg(jtfFill(tr_("imaging.elapsed"), "time", QStringLiteral("00:00:00")),
+                     jtfFill(tr_("imaging.rate"), "rate", QStringLiteral("999.9 MB")))) +
+        8);
     auto *progressRow = new QHBoxLayout;
     progressRow->setContentsMargins(0, 0, 0, 0);
     progressRow->setSpacing(10);
@@ -300,6 +331,12 @@ void ImageWriterDialog::updateAffordances() {
     m_warning->setText(jtfFill(tr_("imaging.warning"), "device", name));
 }
 
+QString ImageWriterDialog::shortText() const {
+    QString text = tr_("imaging.image_short");
+    text = jtfFill(text, "needs", sizeText(m_declared));
+    return jtfFill(text, "size", sizeText(m_imageSize));
+}
+
 bool ImageWriterDialog::confirmTwice(const QListWidgetItem *row) {
     // Twice, and both times with the disk written out in full.
     //
@@ -334,7 +371,13 @@ bool ImageWriterDialog::confirmTwice(const QListWidgetItem *row) {
         // has to be read and the disk that has to be checked carried the same
         // weight - so neither was read.
         box.setText(fill(questionKey));
-        box.setInformativeText(fill(detailKey));
+        // An incomplete image is said again where the decision is made, above
+        // the disk, so agreeing to write it is agreeing to that as well.
+        QString informative = fill(detailKey);
+        if (isShort() && std::strcmp(questionKey, "imaging.confirm_first") == 0) {
+            informative = shortText() + QStringLiteral("\n\n") + informative;
+        }
+        box.setInformativeText(informative);
 
         // Cancel is the default on both. A dialog answered by pressing Return
         // without reading is answered "no" here.
@@ -381,6 +424,8 @@ void ImageWriterDialog::startWrite() {
     }
     m_running = true;
     m_cancelling = false;
+    // A second attempt after a failure starts in the ordinary colour again.
+    m_stage->setStyleSheet(QStringLiteral("color: %1;").arg(m_stageColour.name()));
     m_since.start();
     m_progress->setVisible(true);
     m_progress->setRange(0, 0);
@@ -473,8 +518,17 @@ void ImageWriterDialog::showOutcome() {
                           .toUpper());
     m_stage->setText(message);
 
-    m_progress->setRange(0, 1);
-    m_progress->setValue(1);
+    // A full bar says "done". Only a write that got to the end gets one; a
+    // failure leaves the bar where it stopped and says so in the error colour.
+    // Filled either way, a refused password looked like a finished write.
+    const bool succeeded =
+        key == QLatin1String("imaging.done") || key == QLatin1String("imaging.done_unchecked");
+    m_stage->setStyleSheet(QStringLiteral("color: %1;").arg(
+        (succeeded ? m_stageColour : m_errorColour).name()));
+    if (succeeded) {
+        m_progress->setRange(0, 1);
+        m_progress->setValue(1);
+    }
     m_progress->setFormat(QString());
     m_devices->setEnabled(true);
     updateAffordances();

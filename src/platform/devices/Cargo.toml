@@ -13,5 +13,11 @@ publish.workspace = true
 jtf-core = { workspace = true }
 serde = { workspace = true }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+# Receiving the descriptor `authopen -stdoutpipe` sends over a socket
+# (SCM_RIGHTS). Safe wrappers, so the unsafe budget (AGENTS.md 20.1) is
+# unaffected.
+rustix = { version = "1", features = ["fs", "net"] }
+
 [lints]
 workspace = true

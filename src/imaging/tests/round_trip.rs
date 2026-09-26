@@ -65,6 +65,7 @@ fn an_image_written_to_a_disk_reads_back_identical() {
         &mut source,
         &mut disk,
         bytes.len() as u64,
+        false,
         &mut nothing,
         &CancellationToken::never(),
     )
@@ -96,6 +97,7 @@ fn a_disk_that_corrupts_one_byte_is_caught_and_the_offset_is_named() {
         &mut source,
         &mut disk,
         bytes.len() as u64,
+        false,
         &mut nothing,
         &CancellationToken::never(),
     )
@@ -131,6 +133,7 @@ fn a_disk_smaller_than_it_claims_fails_verification_rather_than_the_write() {
             &mut source,
             &mut disk,
             bytes.len() as u64,
+            false,
             &mut nothing,
             &CancellationToken::never(),
         )

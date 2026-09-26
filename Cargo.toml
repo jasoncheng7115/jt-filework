@@ -37,7 +37,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.6.53"
+version = "0.6.54"
 edition = "2021"
 rust-version = "1.98"
 license = "GPL-3.0-or-later"
@@ -96,14 +96,18 @@ flate2 = { version = "1", default-features = false, features = ["rust_backend"] 
 # its own; the three decompressors below are what make `.tar.gz`, `.tar.bz2`
 # and `.tar.xz` readable.
 #
-# `bzip2-rs` and `lzma-rs` rather than `bzip2` and `xz2`: those two bind C
-# libraries, and a C parser of a downloaded file in this address space is a
-# memory-safety bug waiting to be someone's way in. These are safe Rust, so a
-# bug in them is a panic - and the defence that actually stops a decompression
-# bomb is the bound on what comes *out*, which holds whichever decoder made it.
-# The price is that neither compresses: `.tar.gz` is the only one we write.
+# No C decoder in this address space (ADR-0003 §3): a C parser of a downloaded
+# file is a memory-safety bug waiting to be someone's way in. `xz2` binds C, so
+# xz is `lzma-rs`, safe Rust. bzip2 is the `bzip2` crate on its default
+# backend, `libbz2-rs-sys` - the reference libbzip2 ported to Rust, not C - and
+# never its `bzip2-sys` feature, which is. It replaced `bzip2-rs` in 0.6.54:
+# that decoder stopped a third of the way into a real 8 GB SteamOS image with
+# "huffman bitstream truncated", a file the reference decoder reads to the end
+# (ADR-0006, amended). The defence that stops a decompression bomb is the bound
+# on what comes *out*, which holds whichever decoder made it. `.tar.gz` is
+# still the only one we write.
 tar = { version = "0.4", default-features = false }
-bzip2-rs = { version = "0.1", default-features = false }
+bzip2 = { version = "0.6" }
 lzma-rs = { version = "0.3", default-features = false }
 
 # Applied by every member via `[lints] workspace = true`.

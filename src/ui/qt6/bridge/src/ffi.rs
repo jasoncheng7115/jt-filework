@@ -4644,6 +4644,23 @@ pub unsafe extern "C" fn jtf_device_refusal_key(
     unsafe { write_str(text, buf, len) }
 }
 
+/// The length `image`'s own partition table or volume descriptor says it
+/// needs, or 0 when it says nothing recognisable or cannot be read. A value
+/// larger than the file means the file is not the whole image.
+///
+/// # Safety
+/// `image` must be a NUL-terminated UTF-8 string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_image_declared_size(image: *const c_char) -> u64 {
+    let Some(path) = (unsafe { read_str(image) }) else {
+        return 0;
+    };
+    jtf_imaging::declared_size(std::path::Path::new(path))
+        .ok()
+        .flatten()
+        .map_or(0, |declared| declared.needs)
+}
+
 /// Start writing `image` to the disk at `index`. Returns 1 if it started.
 ///
 /// # Safety

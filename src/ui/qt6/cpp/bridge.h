@@ -174,6 +174,9 @@ int jtf_write_failure_detail(const JtfApp *app, char *buf, int len);
 uint64_t jtf_write_bytes(const JtfApp *app);
 uint32_t jtf_write_checksum(const JtfApp *app);
 int jtf_write_needs_elevation(void);
+/// The length the image's own partition table or volume descriptor says it
+/// needs, or 0 when it says nothing recognisable.
+uint64_t jtf_image_declared_size(const char *image);
 int jtf_write_is_supported(void);
 void jtf_write_cancel(JtfApp *app);
 void jtf_write_close(JtfApp *app);

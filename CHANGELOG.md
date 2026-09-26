@@ -12,7 +12,43 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
-## [0.6.53] - 2026-09-26
+## [0.6.54] - 2026-09-26
+
+### Fixed
+
+- **A large `.bz2` is extracted to the end.** A Steam Deck repair image -
+  3.36 GB compressed, 8.12 GB inside - came out as 324 MB: the bzip2 decoder
+  stopped a third of the way in with an error, at the same byte every time,
+  on a file the system's own `bzip2` reads to the end. bzip2 is now read by
+  the `bzip2` crate on its Rust backend, a port of the reference libbzip2 -
+  still no C decoder in the program - and a file made by a parallel
+  compressor, several streams end to end, is read to the last of them.
+  ADR-0006 is amended to say so.
+- **A failed extraction leaves nothing that looks extracted.** The 324 MB
+  above was left in the download folder under the image's own name, and
+  was then written to a USB stick that would not start. A file now comes out
+  under a temporary `.jtf-part` name and takes its real name only when its
+  stream has ended cleanly; a damaged or cut-short archive is removed part
+  and all, and is reported as a failure - "the archive is damaged or
+  incomplete" - rather than as a shorter extraction that succeeded, and in
+  the window's language rather than in the English written for the log.
+- **Writing a disk image warns about an image that is not whole.** An image
+  carries its own map - a GPT, an MBR, an ISO 9660 descriptor - and the map
+  says how long it is. A file shorter than that is flagged when the dialog
+  opens, with both sizes, and again in the first confirmation.
+- **Verifying a written disk works on macOS.** The read-back opened the disk
+  itself, which on macOS belongs to root and the operator group, so every
+  verified write on a Mac ended in a refusal. The password is now asked for
+  once and the same access both writes and reads back.
+- **A failed write says what failed.** A refusal was reported with the
+  sentence shown *before* the password prompt - "confirm in the window that
+  opens" - which afterwards read as an instruction, under a full progress
+  bar. Refused before writing, stopped part way, written but not readable,
+  written but different, and a disk that would not unmount are now each said
+  in their own words, in the error colour, and the bar is full only after a
+  write that finished. The elapsed time and the rate, which never had room
+  beside the bar, are shown.
+
 
 ### Added
 

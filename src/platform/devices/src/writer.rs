@@ -6,9 +6,13 @@
 //! rather than inventing one:
 //!
 //! - **macOS** — `authopen`, a setuid tool that ships with the system. It shows
-//!   the standard authorization sheet, opens the file, and copies its standard
-//!   input into it. Nothing of ours ever runs as root, which is the strongest
-//!   version of this that exists on any of the three platforms.
+//!   the standard authorization sheet, opens the disk read-write, and hands the
+//!   open descriptor back over a socket (`-stdoutpipe`). Nothing of ours ever
+//!   runs as root, which is the strongest version of this that exists on any
+//!   of the three platforms - and the one descriptor both writes the image and
+//!   reads it back, so the password is asked for once. The disk's own node is
+//!   `root:operator 0640`; an ordinary user cannot open it to read back, which
+//!   is why verifying failed on every Mac until 0.6.54.
 //! - **Linux** — `pkexec` running `dd`. Polkit shows the desktop's own password
 //!   prompt, and `dd` is doing exactly what the user was told it would. Where
 //!   the caller already has access to the device — root, or a member of the
@@ -48,11 +52,11 @@ enum Inner {
     /// Not constructed on Windows, which has no way to pass a privileged
     /// descriptor down a pipe; the variant stays so the two paths are one type
     /// and the engine above never learns which platform it is on.
-    #[cfg_attr(target_os = "windows", allow(dead_code))]
+    #[cfg_attr(any(target_os = "windows", target_os = "macos"), allow(dead_code))]
     Piped { child: Child, what: &'static str },
-    /// Bytes go straight to the device.
-    #[cfg_attr(target_os = "macos", allow(dead_code))]
-    Direct(std::fs::File),
+    /// Bytes go straight to the device. `readable` when the descriptor was
+    /// opened read-write, so the same one can read the disk back.
+    Direct { file: std::fs::File, readable: bool },
 }
 
 impl Write for Sink {
@@ -62,7 +66,7 @@ impl Write for Sink {
                 Some(stdin) => stdin.write(buf),
                 None => Err(std::io::Error::other(format!("{what} has no input"))),
             },
-            Inner::Direct(file) => file.write(buf),
+            Inner::Direct { file, .. } => file.write(buf),
         }
     }
 
@@ -72,7 +76,7 @@ impl Write for Sink {
                 Some(stdin) => stdin.flush(),
                 None => Ok(()),
             },
-            Inner::Direct(file) => {
+            Inner::Direct { file, .. } => {
                 file.flush()?;
                 // A flush on a file handle empties this program's buffer. The
                 // kernel's own cache still holds the tail, and the user is
@@ -84,22 +88,27 @@ impl Write for Sink {
 }
 
 impl Sink {
-    /// Close the disk and wait for the helper to say it succeeded.
+    /// Finish the write and wait for the helper to say it succeeded.
     ///
     /// Must be called. Everything up to here can succeed while the write still
     /// failed: the helper reports its verdict on exit, and on the direct path
     /// the final sync is where a full or failing disk finally admits it.
+    ///
+    /// Returns the descriptor itself when it can also read, so the disk is
+    /// read back through the access the write already had rather than by
+    /// asking for it again - which on macOS is not something this process can
+    /// get any other way.
     ///
     /// # Errors
     ///
     /// [`ErrorCode::ProviderFailed`] if the helper exited non-zero — which is
     /// what a refused authorization looks like — and [`ErrorCode::Io`] if the
     /// final flush failed.
-    pub fn finish(mut self) -> Result<(), Error> {
+    pub fn finish(mut self) -> Result<Option<std::fs::File>, Error> {
         self.flush()
             .map_err(|e| Error::new(ErrorCode::Io, format!("finishing the write: {e}")))?;
         match self.inner {
-            Inner::Direct(_) => Ok(()),
+            Inner::Direct { file, readable } => Ok(readable.then_some(file)),
             Inner::Piped { mut child, what } => {
                 // Closing the pipe is what tells the helper there is no more
                 // input. Without this it waits for EOF that never comes and
@@ -109,7 +118,7 @@ impl Sink {
                     .wait()
                     .map_err(|e| Error::new(ErrorCode::ProviderFailed, format!("{what}: {e}")))?;
                 if status.success() {
-                    Ok(())
+                    Ok(None)
                 } else {
                     Err(Error::new(
                         ErrorCode::ProviderFailed,
@@ -152,18 +161,107 @@ const AUTHOPEN: &str = "/usr/libexec/authopen";
 
 #[cfg(target_os = "macos")]
 fn open_node(node: &str) -> Result<Sink, Error> {
-    // -w: open for writing. authopen then copies its stdin to the file it
-    // opened, so this process never holds the privileged descriptor.
-    spawn(AUTHOPEN, &["-w", node], "authopen")
+    Ok(Sink {
+        inner: Inner::Direct {
+            file: authopen_read_write(node)?,
+            readable: true,
+        },
+    })
+}
+
+/// Ask `authopen` for `node` open read-write, and take the descriptor it opens.
+///
+/// `-stdoutpipe` makes it send the descriptor back over its standard output,
+/// which is one end of a socket pair, rather than copying data through a pipe;
+/// `-o 2` is `O_RDWR`, numerically, as the flag wants it. This is how Apple
+/// intends `authopen` to be used from a program, and what Raspberry Pi Imager
+/// does. The previous way - `-w`, copying our output through its input - could
+/// write and never read, and the read-back then had to open the disk itself,
+/// which an ordinary user on macOS cannot.
+///
+/// A refused or cancelled authorization sends nothing and exits non-zero.
+#[cfg(target_os = "macos")]
+fn authopen_read_write(node: &str) -> Result<std::fs::File, Error> {
+    let flags = rustix::fs::OFlags::RDWR.bits().to_string();
+    receive_descriptor(AUTHOPEN, &["-stdoutpipe", "-o", flags.as_str(), node], node)
+}
+
+/// Run `program` with a socket as its standard output and take the one
+/// descriptor it sends back. Split from `authopen_read_write` so the exchange
+/// can be tested without an authorization prompt.
+#[cfg(target_os = "macos")]
+fn receive_descriptor(program: &str, args: &[&str], node: &str) -> Result<std::fs::File, Error> {
+    use rustix::net::{recvmsg, RecvAncillaryBuffer, RecvAncillaryMessage, RecvFlags};
+    use std::io::{IoSliceMut, Read as _};
+    use std::mem::MaybeUninit;
+    use std::os::fd::OwnedFd;
+    use std::os::unix::net::UnixStream;
+
+    let (ours, theirs) = UnixStream::pair()
+        .map_err(|e| Error::new(ErrorCode::Io, format!("socket pair for authopen: {e}")))?;
+    // Spawned from a temporary, so the command - and with it this process's
+    // copy of the child's end - is dropped before the receive below. Kept, it
+    // would hold the socket open and a refused authorization would never read
+    // as an end of file.
+    let mut child = Command::new(program)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(OwnedFd::from(theirs)))
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| {
+            Error::new(
+                ErrorCode::PermissionDenied,
+                format!("could not start authopen: {e}"),
+            )
+        })?;
+
+    let mut space = [MaybeUninit::uninit(); rustix::cmsg_space!(ScmRights(1))];
+    let mut control = RecvAncillaryBuffer::new(&mut space);
+    let mut byte = [0_u8; 1];
+    let received = recvmsg(
+        &ours,
+        &mut [IoSliceMut::new(&mut byte)],
+        &mut control,
+        RecvFlags::empty(),
+    );
+    let descriptor = received.ok().and_then(|_| {
+        control.drain().find_map(|message| match message {
+            RecvAncillaryMessage::ScmRights(mut fds) => fds.next(),
+            _ => None,
+        })
+    });
+
+    let status = child
+        .wait()
+        .map_err(|e| Error::new(ErrorCode::PermissionDenied, format!("authopen: {e}")))?;
+    match descriptor {
+        Some(fd) if status.success() => Ok(std::fs::File::from(fd)),
+        _ => {
+            let mut said = String::new();
+            if let Some(mut stderr) = child.stderr.take() {
+                let _ = stderr.read_to_string(&mut said);
+            }
+            Err(Error::new(
+                ErrorCode::PermissionDenied,
+                format!("authopen did not open {node} ({status}): {}", said.trim()),
+            ))
+        }
+    }
 }
 
 #[cfg(target_os = "linux")]
 fn open_node(node: &str) -> Result<Sink, Error> {
     // Already permitted - running as root, or a member of the disk group - so
     // there is nothing to ask anyone about.
+    // Write-only, and read back by reopening: a block device read through the
+    // descriptor that just wrote it can come from the page cache.
     if let Ok(file) = std::fs::OpenOptions::new().write(true).open(node) {
         return Ok(Sink {
-            inner: Inner::Direct(file),
+            inner: Inner::Direct {
+                file,
+                readable: false,
+            },
         });
     }
     // `conv=fsync` so dd's exit status reflects the data reaching the disk
@@ -186,7 +284,10 @@ fn open_node(node: &str) -> Result<Sink, Error> {
         .write(true)
         .open(node)
         .map(|file| Sink {
-            inner: Inner::Direct(file),
+            inner: Inner::Direct {
+                file,
+                readable: false,
+            },
         })
         .map_err(|e| {
             let code = if e.kind() == std::io::ErrorKind::PermissionDenied {
@@ -204,7 +305,7 @@ fn open_node(_node: &str) -> Result<Sink, Error> {
 }
 
 /// Start a helper with its standard input piped to us.
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(target_os = "linux")]
 fn spawn(program: &str, args: &[&str], what: &'static str) -> Result<Sink, Error> {
     let child = Command::new(program)
         .args(args)
@@ -317,6 +418,61 @@ mod tests {
         if !cfg!(target_os = "windows") {
             assert!(!needs_elevation());
         }
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod descriptor_tests {
+    use std::io::{Read, Seek, SeekFrom, Write};
+
+    /// A stand-in for `authopen -stdoutpipe`: opens the file named last,
+    /// read-write, and sends the descriptor down its standard output.
+    const SENDER: &str = "import os, socket, sys\n\
+                          s = socket.socket(fileno=1)\n\
+                          fd = os.open(sys.argv[-1], os.O_RDWR)\n\
+                          socket.send_fds(s, [b'x'], [fd])\n";
+
+    fn python() -> Option<&'static str> {
+        [
+            "/usr/bin/python3",
+            "/opt/homebrew/bin/python3",
+            "/usr/local/bin/python3",
+        ]
+        .into_iter()
+        .find(|p| std::path::Path::new(p).exists())
+    }
+
+    /// The descriptor that arrives is the file, open both ways: what is
+    /// written through it can be read back through it.
+    #[test]
+    fn the_descriptor_sent_back_reads_and_writes_the_file() {
+        let Some(python) = python() else { return };
+        let path = std::env::temp_dir().join(format!("jtf-fd-{}", std::process::id()));
+        std::fs::write(&path, b"before").unwrap();
+        let node = path.to_str().unwrap();
+        let mut file =
+            super::receive_descriptor(python, &["-c", SENDER, node], node).expect("a descriptor");
+        file.write_all(b"AFTER!").unwrap();
+        file.seek(SeekFrom::Start(0)).unwrap();
+        let mut back = String::new();
+        file.read_to_string(&mut back).unwrap();
+        assert_eq!(back, "AFTER!");
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// A refused authorization sends nothing and exits non-zero. That is a
+    /// refusal, said as one - not a hang waiting for a descriptor that is not
+    /// coming, and not a success with nothing to write to.
+    #[test]
+    fn a_helper_that_sends_nothing_is_a_refusal_not_a_hang() {
+        let Some(python) = python() else { return };
+        let error = super::receive_descriptor(
+            python,
+            &["-c", "import sys; sys.exit(1)", "/dev/null"],
+            "/dev/null",
+        )
+        .expect_err("nothing was sent");
+        assert_eq!(error.code(), jtf_core::ErrorCode::PermissionDenied);
     }
 }
 

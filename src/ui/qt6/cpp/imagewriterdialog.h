@@ -58,10 +58,20 @@ private:
     JtfApp *m_app = nullptr;
     QString m_image;
     quint64 m_imageSize = 0;
+    /// The length the image's own table says it needs; 0 when it says none.
+    quint64 m_declared = 0;
+    /// Whether the file is shorter than that, which means it is not the
+    /// whole image.
+    bool isShort() const { return m_declared > m_imageSize; }
+    QString shortText() const;
+    QColor m_stageColour;
+    QColor m_errorColour;
 
     QListWidget *m_devices = nullptr;
     QLabel *m_source = nullptr;
     QLabel *m_warning = nullptr;
+    /// Says the image is incomplete, when it is.
+    QLabel *m_short = nullptr;
     QLabel *m_stage = nullptr;
     QCheckBox *m_verify = nullptr;
     QProgressBar *m_progress = nullptr;

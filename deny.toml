@@ -60,6 +60,10 @@ allow = [
     "Unicode-3.0",
     "Unlicense",
     "MPL-2.0",  # file-level copyleft; we do not modify these files
+    # libbz2-rs-sys, the Rust port of the reference libbzip2 behind the
+    # `bzip2` crate (ADR-0006, amended in 0.6.54). The libbzip2 licence:
+    # BSD-style, permissive, and compatible with GPL-3.0-or-later.
+    "bzip2-1.0.6",
 ]
 # Below this, a licence has been guessed from a file rather than declared.
 confidence-threshold = 0.93
@@ -81,6 +85,11 @@ deny = [
     # We ship no telemetry. A dependency that phones home would do it without
     # the user's knowledge and without appearing in any of our own code.
     { name = "sentry", reason = "no telemetry: docs/SECURITY.md 7.4" },
+    # The C libraries behind the stream compressors. The `bzip2` crate is kept
+    # on its Rust backend; one feature flag would put C libbzip2 in the process
+    # instead, and this is what notices (ADR-0003 §3, ADR-0006).
+    { name = "bzip2-sys", reason = "no C decoder in the process: ADR-0003 3, ADR-0006" },
+    { name = "lzma-sys", reason = "no C decoder in the process: ADR-0003 3, ADR-0006" },
 ]
 
 [sources]

@@ -17,6 +17,7 @@
 //! and "verified" is minutes long on a real disk and an unexplained pause looks
 //! like a hang.
 
+use std::io::{Seek, SeekFrom};
 use std::path::Path;
 
 use jtf_core::{Error, ErrorCode};
@@ -109,19 +110,30 @@ pub fn run(
     )?;
 
     watcher.stage(Stage::Flushing);
-    sink.finish()?;
+    let reader = sink.finish()?;
 
     let verified = if plan.verify {
         watcher.stage(Stage::Verifying);
-        // Reopened rather than rewound: on the raw node a seek back to zero is
-        // not enough, and reopening is what makes the read come from the disk
-        // instead of from a cache that still holds what was just written.
         let mut source = open_image(&plan.image)?;
-        let mut written = devices::open_for_read(&plan.device)?;
+        // Through the descriptor the write used, where it can read. On macOS
+        // that is the only one this process can have - the disk's own node
+        // belongs to root and the operator group - and it is the raw device,
+        // so the read comes from the disk rather than from a cache. Elsewhere
+        // the disk is reopened for reading.
+        let mut written = match reader {
+            Some(mut file) => {
+                file.seek(SeekFrom::Start(0)).map_err(|e| {
+                    Error::new(ErrorCode::Io, format!("rewinding to read back: {e}"))
+                })?;
+                file
+            }
+            None => devices::open_for_read(&plan.device)?,
+        };
         Some(verify(
             &mut source,
             &mut written,
             plan.image_size,
+            true,
             &mut |p| watcher.progress(p),
             cancel,
         )?)
