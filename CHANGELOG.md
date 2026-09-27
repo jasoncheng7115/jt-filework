@@ -12,6 +12,36 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.57] - 2026-09-28
+
+### Changed
+
+- **Folders are watched, not polled.** A pane follows its folder through the
+  system's own change notifications - FSEvents on macOS, inotify on Linux,
+  `ReadDirectoryChangesW` on Windows - so a file another program adds,
+  removes, renames or grows shows within half a second rather than up to a
+  second, and rows scrolled off screen are right too. An idle pane now makes
+  no filesystem calls at all; it used to read every row on screen every
+  second. Folders on NFS, SMB, AFP, WebDAV, 9P and FUSE mounts, where those
+  notifications only hear this machine, are still checked once a second, as
+  is any folder whose filesystem will not say what it is. A large folder that
+  keeps changing - twenty thousand files being written into it - is re-read
+  less often the larger it is, up to every three seconds, so the window keeps
+  up. ADR-0007.
+
+### Fixed
+
+- **A size that grows no longer ends in 「…」.** The size and date columns
+  were measured when the folder was read; a file that grew from 2 B to
+  244.1 KB afterwards was drawn as 「244.1 …」. A column nobody has dragged now
+  widens to fit, and never narrows on its own.
+- **The Try Again button reads 「再試一次」 in Chinese.** It said 「重新連線」
+  (reconnect), which made no sense for a local folder that had gone.
+- **The feature inventory is up to date.** Breadcrumbs, thumbnails, folder
+  sizes, archives, search results you can act on and a dozen more still read
+  "planned" weeks after they shipped; each row was checked against the code,
+  and the ones only partly built say which part.
+
 ## [0.6.56] - 2026-09-28
 
 ### Added

@@ -222,9 +222,13 @@ int jtf_locale(const JtfApp *app, char *buf, int len);
 int jtf_tr(const JtfApp *app, const char *key, char *buf, int len);
 // The machine's UTC offset in seconds east. Without it the list shows UTC.
 void jtf_set_utc_offset(JtfApp *app, int seconds);
-// Re-list any pane whose folder changed underneath it. The caller chooses a
-// safe moment: never while a text field has the keyboard.
+// Take in what changed in the folders the panes show (ADR-0007). The caller
+// chooses a safe moment: never while a text field has the keyboard.
+enum { JTF_POLL_RELISTED = 1, JTF_POLL_ROWS = 2, JTF_POLL_VISIBLE = 4 };
 int jtf_poll_folders(JtfApp *app);
+// Whether nothing watches this pane's folder, so its rows on screen are
+// re-read by the window when jtf_poll_folders returns JTF_POLL_VISIBLE.
+int jtf_pane_is_polled(const JtfApp *app, int pane);
 // operations
 void jtf_set_selection(JtfApp *app, int pane, const int *rows, int count);
 int jtf_op_prepare(JtfApp *app, int pane, int kind); // 0 copy 1 move 2 trash 3 delete

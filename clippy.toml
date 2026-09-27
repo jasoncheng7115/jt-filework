@@ -7,5 +7,6 @@ doc-valid-idents = [
     "AppKit", "WinUI", "WebView", "LaunchServices", "QuickLook", "VoiceOver",
     "CView", "WinCV", "QSpace", "QDir", "TotalCommander",
     "OneDrive", "Nextcloud", "Dolphin", "Nautilus",
+    "FSEvents", "WebDAV", "macFUSE",
     "..",
 ]

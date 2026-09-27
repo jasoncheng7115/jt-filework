@@ -21,6 +21,7 @@ jtf-core = { workspace = true }
 dirs = { workspace = true }
 jtf-imaging = { workspace = true }
 jtf-platform-devices = { workspace = true }
+jtf-platform-watch = { workspace = true }
 jtf-jobs = { workspace = true }
 jtf-workspace = { workspace = true }
 jtf-commands = { workspace = true }

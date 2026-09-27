@@ -473,13 +473,13 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-09-28 · **Version:** 0.6.56 · **Branch:** `main` ·
+**Updated:** 2026-09-28 · **Version:** 0.6.57 · **Branch:** `main` ·
 **Phase:** 1 — usable build
 
 ### Gates
 
 ```text
-tests     802 passing, 0 failing, 0 ignored  (cargo test --workspace)
+tests     819 passing, 0 failing, 0 ignored  (cargo test --workspace)
 clippy    clean (-D warnings, --all-targets, workspace-wide)
 rustfmt   clean - and it was not, until 2026-09-16: 52 sites in the crates
           added since 0.6.9 had never been through it. Run it, do not assume it
@@ -566,9 +566,12 @@ JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
   hex with `??`, in text and as integers, go to an offset, copy as C, Rust,
   Python or Base64, and a save that says what it will change first and keeps
   the file's permissions.
-- **Staying current** — the visible rows are re-stat'd on a one-second timer,
-  so a size or a date that changes underneath is shown without navigating away
-  and back. Never while a text field has focus.
+- **Staying current** — each pane's folder is watched through FSEvents,
+  inotify or `ReadDirectoryChangesW` (ADR-0007): a file made, removed, renamed
+  or grown by another program shows within half a second, off-screen rows
+  included, and an idle pane costs nothing. Network and FUSE mounts, where a
+  watch hears only this machine, are polled once a second instead. Never while
+  a text field has focus.
 - **Keyboard** — two profiles, Single-Key and Native, switchable from the
   toolbar; a hint strip that changes with what the cursor is on and lights the
   key being held; a searchable shortcut reference read from the live keymap.
@@ -595,6 +598,7 @@ JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
 | `jtf-platform-devices` | which removable disks may be offered as a write target |
 | `jtf-platform-removal` | deleting a tree with directory-relative syscalls |
 | `jtf-platform-links` | the one file operation that cannot be written portably |
+| `jtf-platform-watch` | watching the folders the panes show, and knowing which cannot be watched |
 | `jtf-search` | query parsing, matching, bounded recursive walk |
 | `jtf-qt6-bridge` | C ABI over the core; the only `unsafe` in Rust |
 | `jtf-conformance` | architecture, locale parity, keymaps, pages, migration, hostile input |
@@ -603,14 +607,16 @@ JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
 | `src/ui/qt6/cpp` | Qt 6 Widgets front end, Objective-C++ for macOS |
 
 Also: `locales/{en,zh-TW}`, `keymaps/{native,single-key}.keymap`, Iconoir icons
-(MIT), the application icon, CI, ADR-0002 to ADR-0006, and the reference
+(MIT), the application icon, CI, ADR-0002 to ADR-0007, and the reference
 layouts and CView key table in `docs/design/`.
 
 ### Not built yet
 
 ```text
-file watching     a one-second timer, not inotify / FSEvents /
-                  ReadDirectoryChangesW. An interim, and named as one (§10.2)
+re-read cost      a watched folder that changes is re-read whole, and the
+                  window redraws every row: ~90 ms for 20,000 entries. Spaced
+                  by size while changes keep coming; applying them in place is
+                  the real fix (ADR-0007, Consequences)
 remote            one server at a time; a copy from one server to another is
                   refused rather than routed through this machine. A file on
                   a server cannot be viewed or previewed, and rename and new
@@ -647,16 +653,11 @@ Shift-arrow       bound to nothing, so Qt's list extends a highlight that
                   range, or does nothing: undecided (UI_TEST_PLAN MARK-027)
 ```
 
-One document has fallen behind the code and is debt, not history:
-
-```text
-FEATURE_INVENTORY  rows still read "planned" for things that shipped weeks ago
-                  - thumbnails, breadcrumb, invert, select by pattern, folder
-                  sizes. §10.3 says a stale row there is a bug in the document
-```
-
-UI_TEST_PLAN §6 was the other; it described the selection model §10 replaced
-until 2026-09-27.
+Two documents fell behind the code and were caught up: UI_TEST_PLAN §6
+described the selection model §10 replaced until 2026-09-27, and
+FEATURE_INVENTORY read "planned" for breadcrumbs, thumbnails, folder sizes,
+archives and a dozen more until 2026-09-28. Checked against the code, row by
+row; where only part is built the row says which part.
 
 The site was a third until 0.6.52: the full specification still described
 0.6.20, the selection model §10 replaced, SFTP as read-only and Quick Look as
@@ -684,10 +685,8 @@ for.
 
 ### Next
 
-1. Native file watching, replacing the timer.
-2. `docs/FEATURE_INVENTORY.md`, caught up.
-3. Windows and Linux platform adapters: trash, reveal, tags, Open With.
-4. Signing, so the installers stop warning.
+1. Windows and Linux platform adapters: trash, reveal, tags, Open With.
+2. Signing, so the installers stop warning.
    - **Windows / SignPath** — the MSI is already built in GitHub Actions
      (`.github/workflows/release.yml`), which is what SignPath requires (§B1
      condition 3); the signing step goes into its windows job. Still to do:

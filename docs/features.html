@@ -265,9 +265,9 @@
       <h1>完整功能規格</h1>
       <p class="lede">這一版有的功能、讀得懂的格式、每一道上限，數字都在這。這一頁是拿來查的，不是拿來讀完的。</p>
     </div>
-    <p class="status" data-lang="en"><strong>0.6.56</strong> — 802 tests pass. What is not built yet
+    <p class="status" data-lang="en"><strong>0.6.57</strong> — 819 tests pass. What is not built yet
       is named in the last section rather than left out.</p>
-    <p class="status" data-lang="zh-tw"><strong>0.6.56</strong> — 802 個測試通過。還沒做的功能不是略過不提，最後一節逐項列出。</p>
+    <p class="status" data-lang="zh-tw"><strong>0.6.57</strong> — 819 個測試通過。還沒做的功能不是略過不提，最後一節逐項列出。</p>
   </div>
 
   <nav class="toc">
@@ -293,7 +293,7 @@
   <h2 data-lang="zh-tw">1. 一覽</h2>
   <div class="scroller"><table class="spec">
     <tbody>
-      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.56</td></tr>
+      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.57</td></tr>
       <tr><th data-lang="en">Platforms</th><th data-lang="zh-tw">平台</th>
         <td data-lang="en">macOS 14 or later on Apple silicon; Windows 10/11 x64, as an MSI installer
           or a portable zip; Linux x86-64, as a <code>.deb</code> built on Ubuntu 22.04 — or from
@@ -307,8 +307,8 @@
         <td data-lang="zh-tw">只有兩者中間的 C ABI 橋接層，每一塊都寫了為什麼安全</td></tr>
       <tr><th data-lang="en">Licence</th><th data-lang="zh-tw">授權</th><td>GPL-3.0-or-later</td></tr>
       <tr><th data-lang="en">Tests</th><th data-lang="zh-tw">測試</th>
-        <td data-lang="en">802 automated, including architecture, migration and hostile-input levels</td>
-        <td data-lang="zh-tw">802 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
+        <td data-lang="en">819 automated, including architecture, migration and hostile-input levels</td>
+        <td data-lang="zh-tw">819 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
       <tr><th data-lang="en">Telemetry</th><th data-lang="zh-tw">遙測</th>
         <td data-lang="en"><span class="no">None.</span> The program makes no network connection you did not ask for</td>
         <td data-lang="zh-tw"><span class="no">沒有。</span>除了你自己要連的，程式不會連去別的地方</td></tr>
@@ -514,10 +514,12 @@
           and names sort naturally — <code>file2</code> before <code>file10</code></td>
         <td data-lang="zh-tw">詳細清單和圖示檢視用同一份資料。縮圖在背景執行緒解碼；欄位從標題列的右鍵選單挑；拖過的欄寬會記住；檔名照自然順序排，<code>file2</code> 在 <code>file10</code> 前面</td></tr>
       <tr><th data-lang="en">Staying current</th><th data-lang="zh-tw">保持最新</th>
-        <td data-lang="en">The rows on screen are read again every second, so a size or a date another
-          program changed shows without leaving the folder. An interim: the system's change
-          notifications are not used yet</td>
-        <td data-lang="zh-tw">畫面上的列每秒重新讀一次，別的程式改了大小或日期，不用離開資料夾就看得到。這是過渡做法，還沒用上系統的變更通知</td></tr>
+        <td data-lang="en">Each pane's folder is watched through the system's own change notifications —
+          FSEvents, inotify, ReadDirectoryChangesW — so a file another program adds, removes,
+          renames or grows shows within half a second, without leaving the folder. Network and FUSE
+          mounts, where those notifications only hear this machine, are checked once a second
+          instead</td>
+        <td data-lang="zh-tw">每個窗格的資料夾都透過系統本身的變更通知監看（FSEvents、inotify、ReadDirectoryChangesW），別的程式新增、刪除、改名或寫大了檔案，半秒內就會顯示，不用離開資料夾。網路磁碟和 FUSE 掛載上，系統通知只聽得到本機自己的變動，所以改成每秒檢查一次</td></tr>
       <tr><th data-lang="en">Restored</th><th data-lang="zh-tw">重啟還原</th>
         <td data-lang="en">The whole layout, every tab and every mark, unless you ask it not to</td>
         <td data-lang="zh-tw">整個版面、每個分頁、每個標記都會還原，除非你關掉這個設定</td></tr>
@@ -1135,10 +1137,6 @@
   <p data-lang="zh-tw">先講清楚，不要讓人自己踩到才知道。</p>
   <div class="scroller"><table class="spec">
     <tbody>
-      <tr><th data-lang="en">File watching</th><th data-lang="zh-tw">檔案監看</th>
-        <td data-lang="en">A one-second re-read of the rows on screen, not the system's change
-          notifications (inotify, FSEvents, ReadDirectoryChangesW)</td>
-        <td data-lang="zh-tw">目前是每秒重讀畫面上的列，還沒用系統的變更通知（inotify、FSEvents、ReadDirectoryChangesW）</td></tr>
       <tr><th data-lang="en">Remote</th><th data-lang="zh-tw">遠端</th>
         <td data-lang="en">Viewing or previewing a file on a server, renaming or making a folder
           there, server-to-server copies, and more than one server at a time. Copy, move and delete

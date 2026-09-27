@@ -25,3 +25,5 @@ update an ADR **first**.
 | [0003](0003-archive-extraction.md) | Archive extraction and creation | Accepted — built |
 | [0004](0004-sftp.md) | SFTP support | Accepted — stage one built |
 | [0005](0005-iso-images.md) | Browsing and extracting ISO images | Accepted — built |
+| [0006](0006-tar-and-stream-compressors.md) | tar, and the gzip/bzip2/xz stream compressors | Accepted — building; amended 2026-09-26 |
+| [0007](0007-file-watching.md) | Watching the folders the panes show | Accepted — building |

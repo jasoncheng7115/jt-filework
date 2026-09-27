@@ -20,11 +20,11 @@ Status: **done** · **partial** · **planned** · **later** (after Phase 2) ·
 | Editable path bar; paste a path and go | done |
 | Home | done |
 | Type-ahead jump | done |
-| Breadcrumb with clickable segments | planned |
-| Bookmarks / favourites sidebar | planned |
-| Recent locations | planned |
-| Volumes and mounts list | planned |
-| Go to a path by typing `~` or an environment variable | planned |
+| Breadcrumb with clickable segments | done — becomes an editable path when clicked |
+| Bookmarks / favourites sidebar | done |
+| Recent locations | done |
+| Volumes and mounts list | done — with removable devices and eject |
+| Go to a path by typing `~` or an environment variable | done — `~`, `$HOME`, `%USERPROFILE%`, `..` |
 | Follow a symlink to its target's folder | planned |
 
 ## 2. Seeing what is there
@@ -38,12 +38,13 @@ Status: **done** · **partial** · **planned** · **later** (after Phase 2) ·
 | Hidden files toggle | done |
 | Native per-file icons | done |
 | **Filter the current folder**, instantly, live | done |
+| The list follows changes other programs make, without a refresh | done — watched through FSEvents, inotify or `ReadDirectoryChangesW`; network and FUSE mounts polled once a second (ADR-0007) |
 | Item / selected / marked counts | done |
-| Column widths remembered per tab | partial |
-| Icon and grid views | planned |
-| Thumbnails for images and video | planned |
-| Folder sizes on demand | planned |
-| Free space on the current volume | planned |
+| Column widths remembered per tab | partial — remembered across folders and restarts, but one set for the window, not one per tab |
+| Icon and grid views | done |
+| Thumbnails for images and video | partial — images, decoded off the UI thread; no video frames |
+| Folder sizes on demand | done — and a disk usage view |
+| Free space on the current volume | partial — shown for each volume in the sidebar, not in the status line |
 | Tree view sidebar, resizable and toggleable | done |
 
 ## 3. Selecting and marking
@@ -55,8 +56,8 @@ Status: **done** · **partial** · **planned** · **later** (after Phase 2) ·
 | Persistent marked set, distinct from selection | done |
 | Mark all, none, invert | done |
 | Marks survive navigation, sort, filter, pane move | done |
-| Select by pattern (`*.log`) | planned |
-| Invert selection | planned |
+| Select by pattern (`*.log`) | done |
+| Invert selection | done |
 | Select by same extension / same date | later |
 
 ## 4. Doing things to files
@@ -74,14 +75,17 @@ Status: **done** · **partial** · **planned** · **later** (after Phase 2) ·
 | Duplicate in place | done |
 | Batch rename with a pattern and a preview | done |
 | Undo for move, rename and trash | done |
-| Per-item conflict prompt with apply-to-all | planned |
+| Per-item conflict prompt with apply-to-all | planned — conflicts are asked once, up front, with the full list (`src/ops/src/conflict.rs`) |
 | Create a file from a template | planned |
 | Copy path, copy name to the clipboard | done |
 | Clipboard cut / copy / paste of files | done |
-| Compare two folders | later |
+| Compare two folders | done — the two panes |
 | Checksums (hash a file, verify a list) | later |
-| Change permissions and ownership | later |
+| Change permissions and ownership | partial — Attributes sets the locked (read-only) flag; no mode bits or owner |
 | Set the modification time | later |
+| Create an archive from the marked entries: ZIP, tar, tar.gz | done |
+| Extract an archive, all of it or chosen members | done |
+| Write a disk image to a removable device, with verification | done |
 
 ## 5. Looking inside
 
@@ -98,19 +102,19 @@ Status: **done** · **partial** · **planned** · **later** (after Phase 2) ·
 | Follow / tail a growing log | planned |
 | Syntax highlighting | planned |
 | Image viewer with zoom and EXIF | planned |
-| Archive contents without extracting | planned |
+| Archive contents without extracting | done — zip, tar and its compressed kinds, ISO |
 | JSON / YAML / XML / CSV structured views | planned |
 | Diff two files | later |
-| Edit: delegate to the user's editor, then an internal one | planned |
+| Edit: delegate to the user's editor, then an internal one | partial — macOS hands the file to its editor; Windows and Linux grey the command out |
 
 ## 6. Finding things
 
 | | Status |
 |---|---|
 | Filter the current folder | done |
-| Search a tree by name, glob and regex | in progress |
-| Filter by size, date, kind, extension | in progress |
-| Results as a virtual folder you can act on | planned |
+| Search a tree by name, glob and regex | done |
+| Filter by size, date, kind, extension | done — `size:`, `modified:`, `kind:`, `ext:` |
+| Results as a virtual folder you can act on | done — results replace the listing and take every command |
 | Search inside file contents | planned |
 | Saved searches | planned |
 | Optional index for speed | later |
@@ -126,7 +130,7 @@ Status: **done** · **partial** · **planned** · **later** (after Phase 2) ·
 | Move a tab between panes with all its state | done |
 | Session restore, with an off switch that really forgets | done |
 | Named saved layouts | planned |
-| Detach a tab into a new window | later |
+| Detach a tab into a new window | done — and merge it back by dragging |
 | Synchronised browsing between two panes | later |
 
 ## 8. Keyboard and configuration
@@ -150,10 +154,11 @@ Status: **done** · **partial** · **planned** · **later** (after Phase 2) ·
 | Drag to and from the system file manager | done |
 | Quick Look | done |
 | Reveal in Finder / Explorer | done (macOS; other platforms disable the command) |
-| Native trash with Put Back metadata | planned |
-| Finder tags | planned |
-| Share / Services | planned |
+| Native trash with Put Back metadata | partial — macOS through the system, so Finder's Put Back works; Linux writes the freedesktop `.trashinfo`; Windows does not use the Recycle Bin yet |
+| Finder tags | partial — shown in a column and the inspector; not set |
+| Share / Services | partial — the macOS share menu; not on Windows or Linux |
 | Shell context-menu extensions (Windows) | later (Phase 4) |
+| SFTP in any pane, with copy, move and delete to and from it | done — one server at a time |
 | Network mounts, SMB/NFS/UNC | later |
 
 ## 10. Comfort

@@ -64,6 +64,10 @@ allow = [
     # `bzip2` crate (ADR-0006, amended in 0.6.54). The libbzip2 licence:
     # BSD-style, permissive, and compatible with GPL-3.0-or-later.
     "bzip2-1.0.6",
+    # xxhash-rust, which notify 9 depends on (ADR-0007). The Boost Software
+    # License: permissive, OSI approved, and listed by the FSF as compatible
+    # with the GPL. It asks only that the notice travel with source copies.
+    "BSL-1.0",
 ]
 # Below this, a licence has been guessed from a file rather than declared.
 confidence-threshold = 0.93

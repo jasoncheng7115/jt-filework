@@ -1,0 +1,26 @@
+[package]
+name = "jtf-platform-watch"
+description = "Being told when a folder a pane shows changes, and knowing when that cannot be trusted."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+# FSEvents, inotify and ReadDirectoryChangesW behind one interface (ADR-0007).
+# Pinned to the release candidate on purpose: 8.2's FSEvents callback panics
+# on a flag bit it does not know or a path that is not UTF-8, and a panic in
+# that callback aborts the process. 9.0 fixes both (notify #790). Move to
+# 9.0.0 when it is released.
+notify = { version = "=9.0.0-rc.5", default-features = false, features = ["macos_fsevent"] }
+
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+# statfs, to tell a network filesystem from a local one. Safe wrappers, so the
+# unsafe budget (AGENTS.md 20.1) is unaffected.
+rustix = { version = "1", features = ["fs"] }
+
+[lints]
+workspace = true

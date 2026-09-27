@@ -4886,8 +4886,9 @@ pub unsafe extern "C" fn jtf_refresh_rows(
     })
 }
 
-/// Re-list any pane whose folder has changed underneath it. Returns 1 if any
-/// pane was re-read.
+/// Take in what changed in the folders the panes show (ADR-0007). Returns bit
+/// flags: 1 a pane is being re-read, 2 rows changed in place, 4 the rows of
+/// every pane [`jtf_pane_is_polled`] names should be re-read now.
 ///
 /// The caller decides *when* it is safe to ask: never while someone is typing
 /// into a rename box, a filter or the path field, because re-listing under a
@@ -4897,7 +4898,22 @@ pub unsafe extern "C" fn jtf_refresh_rows(
 /// See [`jtf_app_free`].
 #[no_mangle]
 pub unsafe extern "C" fn jtf_poll_folders(app: *mut App) -> c_int {
-    unsafe { app_mut(app) }.map_or(0, |a| c_int::from(a.poll_folders()))
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        let outcome = a.poll_folders();
+        c_int::from(outcome.relisted)
+            | c_int::from(outcome.rows) << 1
+            | c_int::from(outcome.poll_rows) << 2
+    })
+}
+
+/// Whether nothing watches this pane's folder, so the window has to re-read
+/// its rows on screen itself when [`jtf_poll_folders`] says so.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_pane_is_polled(app: *const App, pane_id: c_int) -> c_int {
+    unsafe { app_ref(app) }.map_or(0, |a| c_int::from(a.pane_is_polled(pane(pane_id))))
 }
 
 /// Whether each pane's filter bar is always shown.

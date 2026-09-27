@@ -311,6 +311,13 @@ struct PaneView {
     /// program has added, removed or renamed a file. `None` for a location
     /// that cannot be stat'ed cheaply - a remote folder, or one that has gone.
     listed_stamp: Option<std::time::SystemTime>,
+    /// The watcher said this folder changed, and it has not been re-read yet:
+    /// the pane was busy, or the last read started too recently (ADR-0007).
+    relist_pending: bool,
+    /// When the current or last listing started, so a folder that keeps
+    /// changing is re-read every so often (`relist_gap`) rather than
+    /// continuously.
+    enumeration_started: Option<std::time::Instant>,
 }
 
 /// Apply what a running search has reported. Returns whether it ended, and
@@ -408,6 +415,8 @@ impl PaneView {
             listed_location: None,
             restore: None,
             listed_stamp: None,
+            relist_pending: false,
+            enumeration_started: None,
         }
     }
 }
@@ -448,6 +457,12 @@ pub struct App {
     viewer: Option<ViewerSession>,
     /// The file open in the hex editor, one at a time like the viewer.
     hex_edit: Option<crate::hexedit::HexEdit>,
+    /// Told which folders the panes show; says when one changes (ADR-0007).
+    /// Started on the first poll, so an `App` that never polls - every test
+    /// that does not ask about watching - never starts its thread.
+    watch: Option<jtf_platform_watch::Watcher>,
+    /// When the folders that cannot be watched were last polled.
+    last_polled: Option<std::time::Instant>,
     /// A second, independent read for the inspector's preview.
     ///
     /// Separate from `viewer` rather than shared with it: the inspector
@@ -538,21 +553,42 @@ impl App {
     /// Start the application, restoring the previous session if the user's
     /// preference allows it (`docs/PRODUCT_SPEC.md` §5.1).
     pub(crate) fn new(system_locale: &str) -> Self {
-        let repo_root = locate_repo_root();
         let session_path = session_path();
-        let home = home_location();
-
         let stored = fs::read_to_string(&session_path).ok();
+        let mut app = Self::with_session(system_locale, session_path, stored.as_deref());
+        // The user's own bindings are layered on after construction, because
+        // dropping one needs the registry the app now owns.
+        let overrides = apply_user_overrides(&mut app.keymap, &app.registry);
+        app.dropped_bindings = overrides;
+        app.refresh_all_panes();
+        app
+    }
+
+    /// An application with no session and no user files behind it: a fresh
+    /// workspace, the shipped keymap, and a session path nothing will read.
+    /// For tests that need a whole `App` without touching the account they
+    /// run under.
+    #[cfg(test)]
+    pub(crate) fn for_tests() -> Self {
+        let session_path = std::env::temp_dir()
+            .join(format!("jtf-test-session-{}", std::process::id()))
+            .join("session.json");
+        Self::with_session("en", session_path, None)
+    }
+
+    fn with_session(system_locale: &str, session_path: PathBuf, stored: Option<&str>) -> Self {
+        let repo_root = locate_repo_root();
+        let home = home_location();
 
         // Keep a copy of anything written by an older format before this run
         // can overwrite it. An upgrade that goes wrong is recoverable if the
         // previous file still exists and is not if it does not, and the cost
         // is one small file copied once per format change.
-        if let Some(text) = stored.as_deref() {
+        if let Some(text) = stored {
             back_up_before_migrating(&session_path, text);
         }
 
-        let restored = Session::restore(stored.as_deref(), &home);
+        let restored = Session::restore(stored, &home);
         let settings = restored.settings.clone();
         // A file this build cannot read is a file this build must not write
         // over. Recorded here because `save_session` runs on a timer and on
@@ -574,7 +610,7 @@ impl App {
         );
         let theme_mode = restored.workspace.theme_mode();
 
-        let mut app = Self {
+        Self {
             workspace: restored.workspace,
             views: BTreeMap::new(),
             provider: LocalProvider::new(),
@@ -593,6 +629,8 @@ impl App {
             queue: std::collections::VecDeque::new(),
             viewer: None,
             hex_edit: None,
+            watch: None,
+            last_polled: None,
             preview: None,
             last_summary: None,
             undo_stack: Vec::new(),
@@ -617,13 +655,7 @@ impl App {
             session_path,
             session_outcome,
             notice_taken: false,
-        };
-        // The user's own bindings are layered on after construction, because
-        // dropping one needs the registry the app now owns.
-        let overrides = apply_user_overrides(&mut app.keymap, &app.registry);
-        app.dropped_bindings = overrides;
-        app.refresh_all_panes();
-        app
+        }
     }
 
     // ---------------------------------------------------------------- layout
@@ -4820,6 +4852,8 @@ impl App {
         view.loading = true;
         view.listed_stamp = stamp;
         view.listed_location = Some(location.clone());
+        view.relist_pending = false;
+        view.enumeration_started = Some(std::time::Instant::now());
         view.restore = restore;
         view.generation += 1;
 
@@ -6133,27 +6167,38 @@ impl App {
 ///
 /// `None` for anything not on this machine. A remote folder would cost a round
 /// trip per tick to ask, which is a different design with a different interval.
+/// How long a folder that keeps changing waits between re-reads.
+///
+/// The first change after a quiet spell is read at once; this only spaces out
+/// the ones that follow while something is still writing. Re-reading costs
+/// the window time in proportion to the rows - about 100 ms to redraw twenty
+/// thousand, measured on the Linux test machine with the watchdog - so a large
+/// folder being filled is re-read less often: half a second up to five
+/// thousand entries, then a tenth of a millisecond per entry, up to three
+/// seconds.
+fn relist_gap(entries: usize) -> std::time::Duration {
+    let millis = u64::try_from(entries / 10).unwrap_or(u64::MAX);
+    std::time::Duration::from_millis(millis.clamp(500, 3_000))
+}
+
+/// What one [`App::poll_folders`] did, so the window knows what to redraw.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PollOutcome {
+    /// A folder is being read again: the list will be replaced.
+    pub(crate) relisted: bool,
+    /// Rows changed in place: redraw them.
+    pub(crate) rows: bool,
+    /// A polled folder's turn came round: the window re-reads the rows it
+    /// shows for every pane [`App::pane_is_polled`] names.
+    pub(crate) poll_rows: bool,
+}
+
 fn folder_stamp(location: &jtf_core::Location) -> Option<std::time::SystemTime> {
     let path = location.as_path()?;
     std::fs::metadata(path).ok()?.modified().ok()
 }
 
 impl App {
-    /// Re-list any pane whose folder has changed underneath it.
-    ///
-    /// Returns whether anything was started, so the caller can redraw.
-    ///
-    /// Polled rather than watched, and deliberately. `QFileSystemWatcher` costs
-    /// a descriptor per directory and on Linux `inotify` has a per-user watch
-    /// limit that a file manager with several panes and a folder tree reaches
-    /// on its own. This is one `stat` per pane per tick, needs no descriptors,
-    /// behaves identically on all three platforms, and re-reads only when the
-    /// folder actually changed. A watcher can replace it later if the stat is
-    /// ever shown to cost anything.
-    ///
-    /// A pane that is already loading, showing search results, or reporting an
-    /// error is left alone: it is either about to be replaced anyway or it is
-    /// not showing a directory.
     /// Re-read the rows the window is actually showing.
     ///
     /// The folder poll below notices entries appearing and disappearing,
@@ -6199,9 +6244,20 @@ impl App {
                 .collect()
         };
 
+        self.restat(pane, targets).0
+    }
+
+    /// Re-read the given entries of a pane's listing, by index and path.
+    ///
+    /// Returns whether any row changed, and whether any of them has gone - an
+    /// entry that cannot be read any more is one the listing should lose,
+    /// which only a re-read of the folder can do.
+    fn restat(&mut self, pane: PaneId, targets: Vec<(usize, PathBuf)>) -> (bool, bool) {
         let mut changed = false;
+        let mut gone = false;
         for (index, path) in targets {
             let Some(fresh) = jtf_fs::describe(&path) else {
+                gone = true;
                 continue;
             };
             let Some(view) = self.views.get_mut(&pane) else {
@@ -6234,43 +6290,189 @@ impl App {
                 Self::recompute_visible(view, &needle, show_hidden);
             }
         }
-        changed
+        (changed, gone)
     }
 
-    pub(crate) fn poll_folders(&mut self) -> bool {
-        let panes: Vec<PaneId> = self.views.keys().copied().collect();
-        let mut restarted = false;
-        for pane in panes {
-            let Some(location) = self
-                .workspace
-                .pane(pane)
-                .and_then(jtf_workspace::Pane::active_tab)
-                .map(|t| t.location().clone())
-            else {
-                continue;
-            };
-            let busy = self
-                .views
-                .get(&pane)
-                .is_some_and(|view| view.loading || view.search.is_some() || view.error.is_some());
-            if busy {
-                continue;
-            }
-            let Some(previous) = self.views.get(&pane).and_then(|view| view.listed_stamp) else {
-                continue; // never stamped: remote, or gone
-            };
-            let Some(current) = folder_stamp(&location) else {
-                continue;
-            };
-            if current != previous {
-                // The cursor and the marks are both stored as locations rather
-                // than as row numbers, so re-reading puts the cursor back on
-                // the same *file* even if something was inserted above it.
-                self.start_enumeration(pane);
-                restarted = true;
+    /// Notice what changed in the folders the panes show (ADR-0007).
+    ///
+    /// Called on every tick of the window's timer, four times a second. A
+    /// folder the watcher covers costs nothing here unless it changed: what
+    /// happened to it arrives through the watcher's channel, an entry that
+    /// appeared or went re-reads the folder - off this thread, as every
+    /// listing is, and spaced out while it keeps changing (`relist_gap`) - and a file that only
+    /// changed in place is re-read on its own.
+    ///
+    /// A folder the watcher does not cover - a network mount, one the backend
+    /// refused, every folder if there is no watcher - is polled as it always
+    /// was: once a second, its modification time compared with the one taken
+    /// when it was read, and [`PollOutcome::poll_rows`] asking the window to
+    /// re-read the rows on screen.
+    ///
+    /// A pane that is loading, showing search results or reporting an error is
+    /// not re-read, as before. A change the watcher reports for it meanwhile is
+    /// kept, and acted on once the pane is free.
+    pub(crate) fn poll_folders(&mut self) -> PollOutcome {
+        use jtf_platform_watch::Change;
+        use std::time::{Duration, Instant};
+        const POLL_GAP: Duration = Duration::from_secs(1);
+
+        let now = Instant::now();
+        let shown = self.shown_folders();
+        let watch = self
+            .watch
+            .get_or_insert_with(jtf_platform_watch::Watcher::start);
+        watch.set_folders(shown.iter().map(|(_, folder)| folder.clone()));
+        let drained = watch.drain();
+        let watched: Vec<PaneId> = shown
+            .iter()
+            .filter(|(_, folder)| watch.is_watched(folder))
+            .map(|(pane, _)| *pane)
+            .collect();
+
+        // A watch that went into place after the folder was read. Anything
+        // that changed in between was heard by nobody, and the folder's own
+        // time is what says whether something did.
+        for (folder, stamp) in &drained.watched {
+            for (pane, on_show) in &shown {
+                if on_show != folder {
+                    continue;
+                }
+                if let Some(view) = self.views.get_mut(pane) {
+                    if view.listed_stamp != *stamp {
+                        view.relist_pending = true;
+                    }
+                }
             }
         }
-        restarted
+        let mut touched: BTreeMap<PaneId, Vec<PathBuf>> = BTreeMap::new();
+        for change in drained.changes {
+            for (pane, on_show) in &shown {
+                match &change {
+                    Change::Listing(folder) if folder == on_show => {
+                        if let Some(view) = self.views.get_mut(pane) {
+                            view.relist_pending = true;
+                        }
+                    }
+                    Change::Entry(path) if path.parent() == Some(on_show.as_path()) => {
+                        touched.entry(*pane).or_default().push(path.clone());
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let poll_due = self
+            .last_polled
+            .is_none_or(|at| now.duration_since(at) >= POLL_GAP);
+        if poll_due {
+            self.last_polled = Some(now);
+        }
+
+        let mut outcome = PollOutcome::default();
+        for (pane, folder) in shown {
+            let Some(view) = self.views.get(&pane) else {
+                continue;
+            };
+            let busy = view.loading || view.search.is_some() || view.error.is_some();
+            if watched.contains(&pane) {
+                if let Some(paths) = touched.remove(&pane) {
+                    match (!busy).then(|| self.restat_changed(pane, &paths)).flatten() {
+                        Some(changed) => outcome.rows |= changed,
+                        None => {
+                            if let Some(view) = self.views.get_mut(&pane) {
+                                view.relist_pending = true;
+                            }
+                        }
+                    }
+                }
+                let Some(view) = self.views.get(&pane) else {
+                    continue;
+                };
+                let due = view
+                    .enumeration_started
+                    .is_none_or(|at| now.duration_since(at) >= relist_gap(view.entries.len()));
+                if view.relist_pending && !busy && due {
+                    // The cursor and the marks are both stored as locations
+                    // rather than as row numbers, so re-reading puts the
+                    // cursor back on the same *file* even if something was
+                    // inserted above it.
+                    self.start_enumeration(pane);
+                    outcome.relisted = true;
+                }
+            } else if poll_due && !busy {
+                outcome.poll_rows = true;
+                let previous = view.listed_stamp;
+                let current = std::fs::metadata(&folder)
+                    .and_then(|meta| meta.modified())
+                    .ok();
+                if current.is_some() && current != previous {
+                    self.start_enumeration(pane);
+                    outcome.relisted = true;
+                }
+            }
+        }
+        outcome
+    }
+
+    /// Each pane's folder, as long as it is on this machine and was there when
+    /// it was read - the ones a watch or a poll can say anything about.
+    fn shown_folders(&self) -> Vec<(PaneId, PathBuf)> {
+        self.views
+            .iter()
+            .filter_map(|(pane, view)| {
+                view.listed_stamp?;
+                let folder = view.listed_location.as_ref()?.as_path()?;
+                Some((*pane, folder.to_path_buf()))
+            })
+            .collect()
+    }
+
+    /// Whether the window should re-read this pane's rows on screen itself,
+    /// because nothing is watching its folder (ADR-0007).
+    pub(crate) fn pane_is_polled(&self, pane: PaneId) -> bool {
+        self.shown_folders()
+            .iter()
+            .find(|(shown, _)| *shown == pane)
+            .is_some_and(|(_, folder)| {
+                !self
+                    .watch
+                    .as_ref()
+                    .is_some_and(|watch| watch.is_watched(folder))
+            })
+    }
+
+    /// Re-read the entries the watcher says changed in place.
+    ///
+    /// `Some(changed)` when that was enough; `None` when the folder has to be
+    /// read again instead - too many at once, one the listing has not got (a
+    /// creation reported as a change, which FSEvents does), or one that has
+    /// gone.
+    fn restat_changed(&mut self, pane: PaneId, paths: &[PathBuf]) -> Option<bool> {
+        // Past a point, one listing off the UI thread is cheaper than a stat
+        // each on it.
+        const MAX_RESTAT: usize = 64;
+        if paths.len() > MAX_RESTAT {
+            return None;
+        }
+        let names: std::collections::HashSet<&std::ffi::OsStr> =
+            paths.iter().filter_map(|path| path.file_name()).collect();
+        let view = self.views.get(&pane)?;
+        let targets: Vec<(usize, PathBuf)> = view
+            .entries
+            .iter()
+            .enumerate()
+            .filter_map(|(index, entry)| {
+                let path = entry.location().as_path()?;
+                names
+                    .contains(path.file_name()?)
+                    .then(|| (index, path.to_path_buf()))
+            })
+            .collect();
+        if targets.len() < names.len() {
+            return None;
+        }
+        let (changed, gone) = self.restat(pane, targets);
+        (!gone).then_some(changed)
     }
 }
 
@@ -6423,5 +6625,110 @@ mod stopping_a_search {
             view.generation, generation,
             "the rows were rebuilt for nothing"
         );
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+mod file_watching_tests {
+    //! A pane following its folder through the watcher (ADR-0007), with the
+    //! real backend of whichever platform runs the tests.
+    use super::{App, COLUMN_NAME, COLUMN_SIZE};
+    use jtf_workspace::PaneId;
+    use std::path::{Path, PathBuf};
+    use std::time::{Duration, Instant};
+
+    const DEADLINE: Duration = Duration::from_secs(10);
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("jtf-pane-watch-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// Run the window's two loops - the pump that fills listings and the
+    /// tick that takes in changes - until `done`, or fail at the deadline.
+    fn until(app: &mut App, what: &str, mut done: impl FnMut(&App) -> bool) {
+        let start = Instant::now();
+        while start.elapsed() < DEADLINE {
+            app.pump();
+            let _ = app.poll_folders();
+            app.pump();
+            if done(app) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        panic!("{what} did not happen within {DEADLINE:?}");
+    }
+
+    fn row_of(app: &App, pane: PaneId, name: &str) -> Option<usize> {
+        (0..app.row_count(pane)).find(|&row| app.row_text(pane, row, COLUMN_NAME) == name)
+    }
+
+    fn showing(folder: &Path) -> (App, PaneId) {
+        let mut app = App::for_tests();
+        let pane = app.active_pane();
+        app.navigate(pane, &folder.to_string_lossy());
+        until(&mut app, "the folder being listed and watched", |app| {
+            !app.is_loading(pane) && !app.pane_is_polled(pane)
+        });
+        (app, pane)
+    }
+
+    #[test]
+    fn a_folder_that_keeps_changing_is_re_read_less_often_the_larger_it_is() {
+        use super::relist_gap;
+        assert_eq!(relist_gap(0), Duration::from_millis(500));
+        assert_eq!(relist_gap(5_000), Duration::from_millis(500));
+        assert_eq!(relist_gap(20_000), Duration::from_secs(2));
+        assert_eq!(relist_gap(1_000_000), Duration::from_secs(3));
+    }
+
+    #[test]
+    fn a_file_made_by_something_else_appears_in_the_pane() {
+        let folder = scratch("appear");
+        let (mut app, pane) = showing(&folder);
+        assert_eq!(row_of(&app, pane, "arrived.txt"), None);
+        std::fs::write(folder.join("arrived.txt"), b"hello").unwrap();
+        until(&mut app, "arrived.txt appearing", |app| {
+            row_of(app, pane, "arrived.txt").is_some()
+        });
+        let _ = std::fs::remove_dir_all(&folder);
+    }
+
+    #[test]
+    fn a_file_removed_by_something_else_leaves_the_pane() {
+        let folder = scratch("leave");
+        std::fs::write(folder.join("going.txt"), b"bye").unwrap();
+        let (mut app, pane) = showing(&folder);
+        assert!(row_of(&app, pane, "going.txt").is_some());
+        std::fs::remove_file(folder.join("going.txt")).unwrap();
+        until(&mut app, "going.txt leaving", |app| {
+            row_of(app, pane, "going.txt").is_none()
+        });
+        let _ = std::fs::remove_dir_all(&folder);
+    }
+
+    #[test]
+    fn a_file_that_grows_shows_its_new_size_off_screen_too() {
+        let folder = scratch("grow");
+        let file = folder.join("log.txt");
+        std::fs::write(&file, b"1").unwrap();
+        let (mut app, pane) = showing(&folder);
+        let size = |app: &App| {
+            row_of(app, pane, "log.txt").map(|row| app.row_text(pane, row, COLUMN_SIZE))
+        };
+        let before = size(&app).expect("log.txt is listed");
+        assert!(!before.is_empty());
+        std::fs::write(&file, vec![b'x'; 5000]).unwrap();
+        // No window, so no rows on screen: the old poll re-read nothing here,
+        // and only the watcher can move the size.
+        until(&mut app, "log.txt showing its new size", |app| {
+            size(app).is_some_and(|now| now != before)
+        });
+        let _ = std::fs::remove_dir_all(&folder);
     }
 }

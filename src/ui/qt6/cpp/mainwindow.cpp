@@ -128,13 +128,13 @@ static bool isTextEntry(const QWidget *widget) {
 }
 
 constexpr int kPumpIntervalMs = 16; // one frame at 60Hz
-// How often a pane asks whether its folder has changed underneath it.
+// How often the window takes in what the watcher heard (ADR-0007).
 //
-// One `stat` per pane, so the cost is small - but it is a real filesystem call
-// and this is the interval at which a sleeping disk gets woken and a network
-// mount gets a round trip. A second is far below the point where anyone reads
-// a stale list and well above the point where the polling itself is the load.
-constexpr int kWatchIntervalMs = 1000;
+// Draining a channel costs nothing when it is empty, so this is set by how
+// soon a change should show rather than by what asking costs. The folders the
+// watcher cannot cover are still polled once a second; that pacing is in
+// App::poll_folders, not here.
+constexpr int kWatchIntervalMs = 250;
 }
 
 QList<MainWindow *> &MainWindow::windows() {
@@ -581,10 +581,10 @@ MainWindow::MainWindow(JtfApp *app, quint64 windowId, QWidget *parent)
     // entered again, and the list quietly showed something that was no longer
     // true. Working out of a synced folder, that is most of the time.
     //
-    // On its own timer rather than on the pump's, and a slow one: the pump runs
-    // at frame rate for job progress, and asking the filesystem sixty times a
-    // second for an answer that changes every few minutes is a waste of a
-    // spinning disk and a network mount.
+    // On its own timer rather than on the pump's: the pump runs at frame rate
+    // for job progress, and a folder's changes need a quarter of a second, not
+    // a sixtieth. The kernel does the watching (ADR-0007); a folder it cannot
+    // watch, such as a network mount, is polled once a second instead.
     auto *watch = new QTimer(this);
     connect(watch, &QTimer::timeout, this, [this] {
         // Never while someone is typing. Re-listing under a rename box, a
@@ -595,19 +595,46 @@ MainWindow::MainWindow(JtfApp *app, quint64 windowId, QWidget *parent)
             || QApplication::activePopupWidget() != nullptr) {
             return;
         }
-        if (jtf_poll_folders(m_app) != 0) {
+        // Timed under the watchdog like the pump, so a slow tick says whether
+        // it was taking in the watcher's events or redrawing after them.
+        QElapsedTimer tick;
+        const bool timing = !qEnvironmentVariableIsEmpty("JTF_WATCHDOG");
+        if (timing) {
+            tick.start();
+        }
+        const int polled = jtf_poll_folders(m_app);
+        if (timing) {
+            const qint64 micros = tick.nsecsElapsed() / 1000;
+            if (micros > 16'000) {
+                qWarning("[jtf] watch poll %lldus", static_cast<long long>(micros));
+            }
+        }
+        if ((polled & JTF_POLL_RELISTED) != 0) {
             for (auto *pane : std::as_const(m_panes)) {
                 pane->refreshRows();
+                // A file that arrived may be wider than the folder's columns
+                // were measured for.
+                pane->remeasureAfterChange();
             }
             updateStatus();
             return;
         }
-        // The folder's own time only moves when an entry appears or goes.
-        // Writing to a file already in it changes that file's size and date
-        // and nothing else, so the rows on screen are asked about themselves.
-        bool moved = false;
-        for (auto *pane : std::as_const(m_panes)) {
-            moved = pane->refreshVisibleRows() || moved;
+        bool moved = (polled & JTF_POLL_ROWS) != 0;
+        if (moved) {
+            for (auto *pane : std::as_const(m_panes)) {
+                pane->rowsChangedInPlace();
+            }
+        }
+        // A folder nothing watches - a network mount - is polled. Its own time
+        // only moves when an entry appears or goes; writing to a file already
+        // in it changes that file's size and date and nothing else, so the
+        // rows on screen are asked about themselves.
+        if ((polled & JTF_POLL_VISIBLE) != 0) {
+            for (auto *pane : std::as_const(m_panes)) {
+                if (jtf_pane_is_polled(m_app, pane->paneId()) != 0) {
+                    moved = pane->refreshVisibleRows() || moved;
+                }
+            }
         }
         if (moved) {
             updateStatus();

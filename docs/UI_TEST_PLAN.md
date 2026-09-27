@@ -988,6 +988,12 @@ than *what the dialog says*, because the dialog is read after the decision.
 | LIVE-003 | A re-list keeps the marks, the scroll position and the sort order | H2 |
 | LIVE-004 | Nothing re-lists under a rename box, a filter box or a path being typed | H2 |
 | LIVE-005 | A remote pane does not poll on the same interval as a local one — each poll is a round trip | H1/H2 |
+| LIVE-006 | **A local folder is watched, not polled** (ADR-0007): a file made, removed or renamed by another program shows within half a second, and an idle pane makes no `stat` calls | H1/H5 |
+| LIVE-007 | A file that grows shows its new size **even when its row is off screen** — scroll down after the change and the size is already right | H1 |
+| LIVE-008 | A size that grows past the column's width widens the column (one nobody dragged) instead of drawing 「244.1 …」; a file shrinking does not narrow it | H2/H5 |
+| LIVE-009 | A folder on NFS, SMB, AFP, WebDAV, 9P or FUSE — or one whose filesystem will not say what it is, like the desktop's document portal — is polled once a second instead, because a watch there hears only this machine | H1/H5 |
+| LIVE-010 | A folder changed between being read and being watched is read again once the watch is in place | H1 |
+| LIVE-011 | A pane that leaves a folder and comes straight back is watched again, not left polled | H1 |
 | FILT-020 | **The filter bar can be set to stay.** With the setting on it is there in every pane from launch, and Escape clears the text without hiding the bar | H2 |
 | FILT-021 | With the setting off the bar behaves as it does today: `F` opens it, Escape closes it | H2 |
 | FILT-022 | The setting survives a restart, and a session written before the setting existed still loads | H1 |

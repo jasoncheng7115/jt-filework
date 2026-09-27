@@ -45,6 +45,12 @@ public:
     /// Re-read only the rows on screen, so a size or date that changed under
     /// the pane shows without re-listing the folder. True if anything moved.
     bool refreshVisibleRows();
+    /// Rows changed in place - a size, a date - without the listing changing:
+    /// redraw them, keeping the cursor, the selection and the scroll.
+    void rowsChangedInPlace();
+    /// Measure the columns again against rows that changed, widening any
+    /// column nobody dragged that no longer fits and narrowing none.
+    void remeasureAfterChange();
     // Row the keyboard is on, or -1. The window needs it for commands that
     // act on the focused entry.
     int currentRow() const;
@@ -76,6 +82,10 @@ public:
     // The folder whose contents the current column widths were measured from,
     // so a resize does not re-measure and make the columns crawl.
     QString m_measuredFor;
+    // Set when rows changed in place: the next measurement may widen a column
+    // to fit a size that grew, but never narrows one, so a file shrinking
+    // does not make the columns jump.
+    bool m_widenOnly = false;
     void advanceCurrentRow();
     /// Make the view's selection say what the mark set says.
     void syncSelectionFromMarks();

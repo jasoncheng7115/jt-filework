@@ -1049,7 +1049,8 @@ void PaneWidget::fitNameColumn() {
     // measurement stands in for the real one and is not written down.
     const QString here = m_shownPath;
     if (here != m_measuredFor) {
-        if (jtf_is_loading(m_app, m_pane) == 0) {
+        const bool settled = jtf_is_loading(m_app, m_pane) == 0;
+        if (settled) {
             m_measuredFor = here;
         }
         m_view->horizontalHeader()->setResizeContentsPrecision(64);
@@ -1067,10 +1068,19 @@ void PaneWidget::fitNameColumn() {
             }
             // `resizeColumnToContents` is the public way to ask; the width it
             // leaves behind is then read back and clamped.
+            const int before = m_view->columnWidth(column);
             m_view->resizeColumnToContents(column);
-            const int measured =
+            int measured =
                 qBound(kUseful, m_view->columnWidth(column) + kColumnPadding, kColumnCeiling);
+            if (m_widenOnly) {
+                measured = qMax(measured, before);
+            }
             applyColumnWidth(column, measured);
+        }
+        // Kept through a pass made while rows are still arriving, so the pass
+        // after them is still only allowed to widen.
+        if (settled) {
+            m_widenOnly = false;
         }
     }
     int used = 0;
@@ -2184,7 +2194,28 @@ bool PaneWidget::refreshVisibleRows() {
     // the selection and fight the cursor every second.
     emit m_model->dataChanged(m_model->index(from, 0),
                               m_model->index(from + count - 1, m_model->columnCount() - 1));
+    remeasureAfterChange();
     return true;
+}
+
+void PaneWidget::rowsChangedInPlace() {
+    // Every row, because the watcher can report a change to one that is off
+    // screen; a view only repaints what it shows, so this costs the same.
+    const int rows = m_model->rowCount();
+    if (rows > 0) {
+        emit m_model->dataChanged(m_model->index(0, 0),
+                                  m_model->index(rows - 1, m_model->columnCount() - 1));
+    }
+    remeasureAfterChange();
+}
+
+void PaneWidget::remeasureAfterChange() {
+    // The columns were measured against the folder as it was read. A log that
+    // grew from 2 B to 244.1 KB since then was drawn as 「244.1 …」 in a
+    // column sized for 「2 B」.
+    m_measuredFor.clear();
+    m_widenOnly = true;
+    scheduleFitNameColumn();
 }
 
 void PaneWidget::refreshRows() {
