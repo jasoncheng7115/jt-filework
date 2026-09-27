@@ -139,6 +139,13 @@ pub(crate) fn classify(bytes: &[u8]) -> ContentKind {
             return *kind;
         }
     }
+    // An uncompressed tar starts with a member's name, not a signature; what
+    // makes it a tar is `ustar` 257 bytes in. Without this a plain `.tar` was
+    // a binary file - Enter handed it to the system and Extract was greyed
+    // out - while every compressed spelling of the same tar opened.
+    if bytes.get(257..262) == Some(b"ustar".as_slice()) {
+        return ContentKind::Archive;
+    }
     if looks_like_text(bytes) {
         ContentKind::Text
     } else {
@@ -186,6 +193,19 @@ mod tests {
         assert_eq!(classify(b"%PDF-1.7 and then text"), ContentKind::Pdf);
         assert_eq!(classify(b"PK\x03\x04zip"), ContentKind::Archive);
         assert_eq!(classify(b"\x7fELF\x02\x01"), ContentKind::Binary);
+    }
+
+    #[test]
+    fn an_uncompressed_tar_is_an_archive() {
+        let mut header = vec![0_u8; 512];
+        header[..9].copy_from_slice(b"notes.txt");
+        header[257..263].copy_from_slice(b"ustar\0");
+        assert_eq!(classify(&header), ContentKind::Archive);
+        // The word alone, anywhere else, is not a tar.
+        assert_eq!(
+            classify(b"ustar is a word in this text\n"),
+            ContentKind::Text
+        );
     }
 
     #[test]

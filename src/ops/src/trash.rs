@@ -54,17 +54,36 @@ pub fn has_native_trash() -> bool {
 /// UI must offer permanent delete with a clear warning instead.
 pub fn trash_directory() -> Option<PathBuf> {
     let home = std::env::var_os("HOME").map(PathBuf::from)?;
+    let data = std::env::var_os("XDG_DATA_HOME").map(PathBuf::from);
+    trash_directory_in(&home, data.as_deref())
+}
 
+/// [`trash_directory`], with the home and data folders given rather than read
+/// from the environment, so its rules can be tested without changing either.
+fn trash_directory_in(home: &Path, data_home: Option<&Path>) -> Option<PathBuf> {
     let macos = home.join(".Trash");
     if macos.is_dir() {
         return Some(macos);
     }
 
-    let xdg = std::env::var_os("XDG_DATA_HOME")
-        .map_or_else(|| home.join(".local/share"), PathBuf::from)
-        .join("Trash/files");
-    if xdg.is_dir() {
-        return Some(xdg);
+    let data = data_home.map_or_else(|| home.join(".local/share"), Path::to_path_buf);
+    let trash = data.join("Trash");
+    let files = trash.join("files");
+    if files.is_dir() {
+        return Some(files);
+    }
+    // Created when it is not there yet - a new account, or one that has never
+    // trashed anything. The freedesktop specification says an implementation
+    // must create it "without any warnings or delays", and until 0.6.55 Move
+    // to Trash failed instead, the first time anyone used it. Only where the
+    // data folder itself exists, which is what a freedesktop desktop has: a
+    // system without one - Windows, where a shell may still set HOME - gets no
+    // trash invented for it. `info` too, or Restore has nothing to read.
+    if data.is_dir()
+        && jtf_platform_links::create_private_dir(&files).is_ok()
+        && jtf_platform_links::create_private_dir(&trash.join("info")).is_ok()
+    {
+        return Some(files);
     }
     None
 }
@@ -216,8 +235,43 @@ pub(crate) fn trash_entry(source: &Path) -> Result<PathBuf, Error> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
+
+    fn scratch_home(name: &str) -> PathBuf {
+        let home =
+            std::env::temp_dir().join(format!("jtf-trashhome-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        std::fs::create_dir_all(&home).unwrap();
+        home
+    }
+
+    /// A freedesktop desktop that has never trashed anything has a data folder
+    /// and no trash in it, and the first Move to Trash has to work anyway.
+    #[test]
+    fn a_missing_freedesktop_trash_is_created_with_its_info_folder() {
+        let home = scratch_home("fresh");
+        std::fs::create_dir_all(home.join(".local/share")).unwrap();
+        let files = trash_directory_in(&home, None).expect("created");
+        assert_eq!(files, home.join(".local/share/Trash/files"));
+        assert!(files.is_dir());
+        assert!(
+            home.join(".local/share/Trash/info").is_dir(),
+            "Restore reads this"
+        );
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    /// No data folder at all is not a freedesktop desktop, and nothing is
+    /// invented in someone's home to pretend it is.
+    #[test]
+    fn no_trash_is_invented_where_there_is_no_data_folder() {
+        let home = scratch_home("bare");
+        assert_eq!(trash_directory_in(&home, None), None);
+        assert!(!home.join(".local").exists(), "nothing was created");
+        let _ = std::fs::remove_dir_all(&home);
+    }
 
     #[test]
     fn a_trash_directory_is_found_on_this_platform_or_reported_as_absent() {

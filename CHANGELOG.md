@@ -12,7 +12,33 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
-## [0.6.54] - 2026-09-26
+## [0.6.55] - 2026-09-27
+
+### Added
+
+- **Compress makes tar.gz and tar as well as ZIP.** The save dialog offers all
+  three, and the name is made to match the type chosen. The core had written
+  tar since the archive work began; the window only ever asked for ZIP. The
+  command is now called Compress… rather than Compress to ZIP….
+
+### Fixed
+
+- **An uncompressed `.tar` opens.** It was taken for a binary file - only the
+  compressed kinds were recognised - so Enter handed it to the system and
+  Extract was greyed out. It is recognised by the `ustar` mark inside it, as
+  every other tool recognises it.
+- **The first Move to Trash on Linux works.** On an account that had never
+  trashed anything, `~/.local/share/Trash` did not exist and the move failed.
+  It is created now, readable only by its owner, as the freedesktop
+  specification asks.
+- **Edit and Reveal stay greyed out where they cannot work.** On Windows and
+  Linux there is no external editor and no reveal yet; both were greyed out
+  at start and switched back on by the next refresh, and then did nothing.
+  `E` is no longer offered on the key strip there either.
+- **The Linux disk writer starts `pkexec` and `dd` by their full paths**,
+  never by looking them up on the inherited PATH, where an earlier directory
+  could have supplied a `pkexec` of its own.
+
 
 ### Fixed
 

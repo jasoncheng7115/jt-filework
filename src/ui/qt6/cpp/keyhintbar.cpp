@@ -1,6 +1,7 @@
 #include "keyhintbar.h"
 
 #include "jtfstring.h"
+#include "platform/filetype.h"
 
 #include <QFontDatabase>
 #include <QFontMetrics>
@@ -327,6 +328,11 @@ void KeyHintBar::rebuild(Context context) {
         // Nothing to switch to: the key is inert with one pane, so naming it
         // would be a promise the strip cannot keep.
         if (!m_severalPanes && qstrcmp(*id, "workspace.pane.next") == 0) {
+            continue;
+        }
+        // No external editor on this platform yet, so E does nothing here, and
+        // the strip is a list of what can be pressed.
+        if (qstrcmp(*id, "file.edit") == 0 && !filetype::canOpenInEditor()) {
             continue;
         }
         const QString shortcut =

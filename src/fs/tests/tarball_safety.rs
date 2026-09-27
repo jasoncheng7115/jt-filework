@@ -487,3 +487,37 @@ fn a_tar_cut_short_keeps_whole_members_only_and_fails() {
     assert_eq!(files_in(&out), ["first.txt"], "only the whole member stays");
     assert_eq!(fs::read(out.join("first.txt")).unwrap(), first);
 }
+
+/// An uncompressed `.tar` opens and extracts through the same entry points
+/// the window uses. It used to be taken for a binary file - only the
+/// compressed spellings were recognised - so Enter handed it to the system
+/// and Extract was greyed out.
+#[test]
+fn an_uncompressed_tar_lists_and_extracts_like_the_others() {
+    let dir = temp_dir("plain-tar");
+    let archive = dir.join("plain.tar");
+    let mut builder = tar::Builder::new(fs::File::create(&archive).expect("create"));
+    let body = b"inside a plain tar";
+    let mut header = tar::Header::new_gnu();
+    header.set_size(body.len() as u64);
+    header.set_mode(0o644);
+    header.set_cksum();
+    builder
+        .append_data(&mut header, "inside.txt", &body[..])
+        .expect("append");
+    builder.finish().expect("finish");
+    drop(builder);
+
+    assert_eq!(
+        jtf_viewer::container_of(&archive),
+        Some(jtf_viewer::Container::Tar)
+    );
+    let listed = jtf_fs::list_container(&archive).expect("listed");
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].name, "inside.txt");
+
+    let out = dir.join("out");
+    jtf_fs::extract_container_members(&archive, &out, &[], &CancellationToken::never(), |_| {})
+        .expect("extracted");
+    assert_eq!(fs::read(out.join("inside.txt")).unwrap(), body);
+}

@@ -293,11 +293,11 @@
       <a class="btn ghost" href="#build" data-lang="zh-tw">開始建置</a>
     </div>
 
-    <p class="status" data-lang="en"><strong>0.6.54</strong> — runs on macOS, Windows and Linux.
+    <p class="status" data-lang="en"><strong>0.6.55</strong> — runs on macOS, Windows and Linux.
       Installers for all three are under <a href="#download">Download</a>. They are not signed yet,
       so macOS and Windows ask once before opening them; <a href="#install">the steps</a> are there too.
-      <code>793</code> tests pass.</p>
-    <p class="status" data-lang="zh-tw"><strong>0.6.54</strong>　macOS、Windows、Linux 三個平台都跑得起來。三個平台的安裝檔在<a href="#download">下載</a>。目前還沒有簽章，所以 macOS 和 Windows 第一次開啟前會先問一次，<a href="#install">步驟</a>也在那裡。<code>793</code> 個測試通過。</p>
+      <code>799</code> tests pass.</p>
+    <p class="status" data-lang="zh-tw"><strong>0.6.55</strong>　macOS、Windows、Linux 三個平台都跑得起來。三個平台的安裝檔在<a href="#download">下載</a>。目前還沒有簽章，所以 macOS 和 Windows 第一次開啟前會先問一次，<a href="#install">步驟</a>也在那裡。<code>799</code> 個測試通過。</p>
 
     <figure class="shot">
       <img src="site/lin-panes.png" alt="jt-filework 0.6.52 on Ubuntu, showing two panes side by side">
@@ -481,11 +481,10 @@
         </thead>
         <tbody>
           <tr><td>ZIP</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-          <tr><td><code>.tar.gz</code>, <code>.tgz</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
+          <tr><td><code>.tar</code>, <code>.tar.gz</code>, <code>.tgz</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
           <tr><td><code>.tar.bz2</code>, <code>.tar.xz</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
           <tr><td><code>.gz</code>, <code>.bz2</code>, <code>.xz</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
           <tr><td>ISO 9660 <span style="color:var(--dim)">(Joliet, Rock Ridge)</span></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
-          <tr><td data-lang="en"><code>.tar</code>, uncompressed — not recognised yet</td><td data-lang="zh-tw">沒壓縮的 <code>.tar</code>，目前還認不出來</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
           <tr><td><code>.7z</code>, <code>.rar</code></td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
         </tbody>
       </table>
@@ -555,7 +554,7 @@
       <div><kbd class="k">T</kbd> Tree</div>
       <div><kbd class="k">I</kbd> Inspector</div>
       <div><kbd class="k">Alt-R</kbd> Batch rename</div>
-      <div><kbd class="k">Alt-Z</kbd> Compress to ZIP</div>
+      <div><kbd class="k">Alt-Z</kbd> Compress — ZIP, tar.gz or tar</div>
       <div><kbd class="k">F5</kbd> Refresh</div>
     </div>
     <div class="keys" data-lang="zh-tw">
@@ -590,7 +589,7 @@
       <div><kbd class="k">T</kbd> 樹狀清單</div>
       <div><kbd class="k">I</kbd> 檢視面板</div>
       <div><kbd class="k">Alt-R</kbd> 批次更名</div>
-      <div><kbd class="k">Alt-Z</kbd> 壓縮為 ZIP</div>
+      <div><kbd class="k">Alt-Z</kbd> 壓縮（ZIP、tar.gz 或 tar）</div>
       <div><kbd class="k">F5</kbd> 重新整理</div>
     </div>
 
@@ -732,8 +731,7 @@
       <li>On a server: viewing or previewing a file, renaming, making a folder, copying from one
         server to another, and more than one server at a time. Copy, move and delete between a
         server and this machine work.</li>
-      <li>An uncompressed <code>.tar</code>, which is not recognised yet; making a tar rather than a
-        ZIP; <code>.7z</code> and <code>.rar</code>.</li>
+      <li><code>.7z</code> and <code>.rar</code>.</li>
       <li>Searching inside files. Search matches names, paths, types, sizes and dates.</li>
       <li>The Recycle Bin on Windows. <kbd>Shift-Del</kbd> deletes permanently instead.</li>
       <li>Reveal in file manager, eject, external editor, Open With and Share on Windows and Linux.
@@ -745,7 +743,7 @@
       <li>十六進位編輯器。核心已經寫好也測過了，但用到它的視窗還沒做。</li>
       <li>用系統的變更通知來監看資料夾。目前是每秒重讀一次畫面上的列。</li>
       <li>伺服器上的：檢視或預覽檔案、更名、新增資料夾、伺服器對伺服器的複製，以及同時連多台伺服器。伺服器跟本機之間的複製、移動、刪除已經可以用。</li>
-      <li>沒壓縮的 <code>.tar</code>，目前還認不出來；壓出 tar 而不是 ZIP；<code>.7z</code> 與 <code>.rar</code>。</li>
+      <li><code>.7z</code> 與 <code>.rar</code>。</li>
       <li>搜尋檔案內容。搜尋比對的是檔名、路徑、類型、大小和日期。</li>
       <li>Windows 的資源回收筒。請改用 <kbd>Shift-Del</kbd> 永久刪除。</li>
       <li>Windows 跟 Linux 上的「在檔案管理員中顯示」、退出磁碟、外部編輯器、「開啟檔案的應用程式」和分享。這些命令會呈灰色而不是隱藏；快速查看則改開內建檢視器。</li>

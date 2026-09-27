@@ -162,6 +162,29 @@ enum ArchiveUpdate {
     },
 }
 
+/// Which tar a new archive's name asks for, or `None` for a ZIP.
+///
+/// The format is the name's: `.tar.gz` or `.tgz` a gzipped tar, `.tar` a plain
+/// one, anything else a ZIP. The core has written tar since ADR-0006; the
+/// window offered only ZIP until 0.6.55.
+fn tar_format_of(target: &std::path::Path) -> Option<jtf_fs::Compression> {
+    let extension_of = |path: &std::path::Path| {
+        path.extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default()
+    };
+    let outer = extension_of(target);
+    let inner = target
+        .file_stem()
+        .map(|stem| extension_of(std::path::Path::new(stem)))
+        .unwrap_or_default();
+    match (inner.as_str(), outer.as_str()) {
+        ("tar", "gz") | (_, "tgz") => Some(jtf_fs::Compression::Gzip),
+        (_, "tar") => Some(jtf_fs::Compression::None),
+        _ => None,
+    }
+}
+
 /// What to tell the user about an extraction or a compression that failed.
 fn archive_failure_key(error: &jtf_core::Error) -> &'static str {
     use jtf_core::ErrorCode;
@@ -1177,11 +1200,18 @@ impl App {
         let target = PathBuf::from(archive);
         let (sender, updates) = std::sync::mpsc::channel();
         let (token, canceller) = CancellationToken::new();
+        let tar = tar_format_of(&target);
         std::thread::spawn(move || {
             let progress = sender.clone();
-            let outcome = jtf_fs::create_archive(&target, &sources, &token, |files| {
+            let report = |files| {
                 let _ = progress.send(ArchiveUpdate::Progress { files, bytes: 0 });
-            });
+            };
+            let outcome = match tar {
+                Some(compression) => {
+                    jtf_fs::create_tarball(&target, &sources, compression, &token, report)
+                }
+                None => jtf_fs::create_archive(&target, &sources, &token, report),
+            };
             let _ = sender.send(match outcome {
                 Ok(_) => ArchiveUpdate::Done {
                     refused: 0,
@@ -5386,6 +5416,35 @@ const fn listed_row(has_parent_row: bool, row: usize) -> Option<usize> {
         row.checked_sub(1)
     } else {
         Some(row)
+    }
+}
+
+#[cfg(test)]
+mod tar_format_tests {
+    use super::tar_format_of;
+    use jtf_fs::Compression;
+    use std::path::Path;
+
+    #[test]
+    fn the_name_decides_the_format() {
+        assert_eq!(
+            tar_format_of(Path::new("/x/a.tar.gz")),
+            Some(Compression::Gzip)
+        );
+        assert_eq!(
+            tar_format_of(Path::new("/x/A.TGZ")),
+            Some(Compression::Gzip)
+        );
+        assert_eq!(
+            tar_format_of(Path::new("/x/a.tar")),
+            Some(Compression::None)
+        );
+        assert_eq!(tar_format_of(Path::new("/x/a.zip")), None);
+        assert_eq!(
+            tar_format_of(Path::new("/x/notes.gz")),
+            None,
+            "a bare .gz is not a tar, and this does not write bare gzip"
+        );
     }
 }
 

@@ -266,12 +266,42 @@ fn open_node(node: &str) -> Result<Sink, Error> {
     }
     // `conv=fsync` so dd's exit status reflects the data reaching the disk
     // rather than reaching the kernel's cache.
+    //
+    // Both by absolute path (AGENTS.md 20.4). pkexec is the privileged one; a
+    // bare name was resolved through whatever PATH this process inherited, so
+    // a directory earlier on it could supply a pkexec of its own and receive
+    // the image and the device. dd is named in full for the same reason once
+    // it runs as root.
+    let pkexec = first_existing(PKEXEC).ok_or_else(|| {
+        Error::new(
+            ErrorCode::Unsupported,
+            "pkexec is not installed, so the disk cannot be opened for writing",
+        )
+    })?;
+    let dd = first_existing(DD)
+        .ok_or_else(|| Error::new(ErrorCode::Unsupported, "dd is not installed"))?;
     let of = format!("of={node}");
     spawn(
-        "pkexec",
-        &["dd", of.as_str(), "bs=4M", "conv=fsync"],
+        pkexec,
+        &[dd, of.as_str(), "bs=4M", "conv=fsync"],
         "pkexec dd",
     )
+}
+
+/// Where polkit's pkexec is installed. Distributions agree on this one.
+#[cfg(target_os = "linux")]
+const PKEXEC: &[&str] = &["/usr/bin/pkexec"];
+
+/// Where dd is: `/usr/bin` on a merged-usr system, `/bin` on an older one.
+#[cfg(target_os = "linux")]
+const DD: &[&str] = &["/usr/bin/dd", "/bin/dd"];
+
+#[cfg(target_os = "linux")]
+fn first_existing(candidates: &[&'static str]) -> Option<&'static str> {
+    candidates
+        .iter()
+        .copied()
+        .find(|path| std::path::Path::new(path).is_file())
 }
 
 #[cfg(target_os = "windows")]
@@ -478,6 +508,16 @@ mod descriptor_tests {
 
 #[cfg(test)]
 mod path_tests {
+    /// The privileged helper and the tool it runs are named in full, never
+    /// looked up on PATH (AGENTS.md 20.4).
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn pkexec_and_dd_are_named_by_absolute_path() {
+        for path in super::PKEXEC.iter().chain(super::DD) {
+            assert!(std::path::Path::new(path).is_absolute(), "{path}");
+        }
+    }
+
     /// The helper is named by absolute path and that path is the real one.
     ///
     /// A bare name is resolved against `PATH`, which a bundled application

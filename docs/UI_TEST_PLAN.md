@@ -195,11 +195,18 @@ used to catch clipping and truncation (`docs/UI_UX_SPEC.md` §14).
 
 ## 6. Marking — `UI-MARK`  *(AGENTS.md §10)*
 
-Selection **is** the mark. What is highlighted is what is ticked, and what is
-ticked is what an operation acts on, however the rows were picked. The section
-below used to describe the opposite — the two were separate states, and cases
-MARK-001/002/012 asserted that changing one left the other alone. The rule was
-changed on the project owner's decision; these cases are the current one.
+**The bar is where you are; marks are what you chose.** The bar follows the
+arrows and the mouse and never marks anything; marks are made with Space, a
+tick box, Ctrl- or Shift-click and the mark commands, and are drawn in the mark
+colour; a command acts on the marked set, and on the row under the bar when
+nothing is marked (AGENTS.md §10, since 2026-09-15). MARK-030 to MARK-036 state
+it most directly.
+
+This section has described three models in turn: selection and marks as
+separate states, then selection as the mark, now the bar and the marks. Cases
+written for the first two have been rewritten to the third - MARK-004, 007,
+011, 025 and 029 on 2026-09-27, after the specification page was found still
+describing the second.
 
 Every case here is about a state the user built up over several actions. That
 is the class of bug this section exists for: each action looks right on its own
@@ -210,14 +217,14 @@ and the set is wrong by the third one.
 | MARK-001 | Space marks the row under the cursor and moves to the next | H2 |
 | MARK-002 | **Space, Space, Space marks three rows.** Moving the cursor must not clear what the previous press marked | H2 |
 | MARK-003 | **Clicking one row's tick box and then another leaves both ticked.** A box adds one thing to a set; it is not the same gesture as choosing one row | H2 |
-| MARK-004 | Clicking a row (not its box) selects only that row, which by the rule above unmarks the rest — this is the one gesture that *does* replace the set | H2 |
+| MARK-004 | Clicking a row (not its box) moves the bar there and marks nothing; marks already made stay — MARK-035 from the other side | H2 |
 | MARK-005 | A row marked by its box and a row marked by Space look identical. Two appearances for one state is the rule not holding | H3 |
 | MARK-006 | Ctrl/Cmd-click adds a row without clearing the others | H2 |
-| MARK-007 | Shift-click and Shift-arrow extend the set | H2 |
+| MARK-007 | Shift-click marks or unmarks that one row without moving the bar, as Ctrl-click does; it does not mark a range | H2 |
 | MARK-008 | Mark all / none / invert, over the filtered set and over the full set, each explicit | H1 |
 | MARK-009 | The header's box marks everything, clears everything, and shows "some" when only part is marked | H2 |
 | MARK-010 | Clicking a row's own box updates the header's box | H2 |
-| MARK-011 | Clearing the header's box leaves no row highlighted — the boxes and the highlight cannot disagree | H2 |
+| MARK-011 | Clearing the header's box unmarks every row and leaves the bar where it was | H2 |
 | MARK-012 | Marks survive navigation away and back | H1 |
 | MARK-013 | Marks survive sort, filter and view-mode change | H1 |
 | MARK-014 | Marks survive a tab moving to another pane | H1 |
@@ -231,11 +238,11 @@ and the set is wrong by the third one.
 | MARK-022 | Unmarking makes room, and the message about the bound goes with it | H1 |
 | MARK-023 | **`Space`, `↓`, `Space`, `↓`, `Space` marks three rows.** Moving the cursor with an arrow key must not undo what Space marked | H2 |
 | MARK-024 | The same for Page Up/Down, Home and End | H2 |
-| MARK-025 | With **nothing** marked the arrows behave like any list — the highlight moves with the cursor. The rule above applies only while a set is being built | H2 |
+| MARK-025 | The arrows move the bar the same way with nothing marked and with rows marked (MARK-031) | H2 |
 | MARK-026 | The row the keyboard is on is visible even when it is not selected, and a row that is both cursor and marked reads as both | H3 |
-| MARK-027 | Shift-arrow still extends the selection; Ctrl/Cmd-arrow still moves without selecting | H2 |
+| MARK-027 | **Open.** Shift-arrow is bound to nothing, so Qt's own list extends a highlight that marks nothing - a third state §10 does not allow. To be decided: Shift-arrow marks the rows it passes, or does nothing | H2 |
 | MARK-028 | Click one row, then Down twice: the **highlight** lands two rows down, not only the thin cursor outline | H2 |
-| MARK-029 | Space, Down, Space marks two rows. The first Space starts the set; it does not toggle away the row the highlight is already on | H2 |
+| MARK-029 | Space, Down, Space marks two rows: the first Space marks the row the bar is on, whatever it looked like before | H2 |
 | MARK-030 | A bare click is not a set being built, so the arrows keep carrying the highlight; Ctrl-click, Shift-click, a tick box, Space, mark all and invert all are | H2 |
 | MARK-031 | The bar follows the arrows **always** - after Space, after a click, with anything marked. It is a position, never a choice | H2 |
 | MARK-032 | Marked rows are drawn in the mark colour, not by the bar, so a marked row and the row you are on are never confused | H3 |
@@ -623,6 +630,8 @@ Extends §11b to everything the current build reads and writes.
 | ARCX-016 | A `.bz2` or `.gz` damaged in the middle fails the same way, rather than producing a file with a hole in it | H1 |
 | ARCX-017 | A tar cut short inside a member keeps the members before it, which are whole, and reports a failure rather than a shorter extraction as done | H1 |
 | ARCX-018 | A failed extraction says the archive is damaged or cut short, in words, not as a disk error | H2 |
+| ARCX-019 | An uncompressed `.tar` is recognised by its `ustar` mark, lists, and extracts like the compressed ones — it was taken for a binary file until 0.6.55 | H1 |
+| ARCX-020 | Compress offers ZIP, tar.gz and tar; the name is made to match the type chosen, and the file written is the format its name says | H2 |
 
 ---
 
@@ -643,6 +652,7 @@ Extends §11b to everything the current build reads and writes.
 | HINT-011 | Typing into a text field lights nothing: the letter is going into the field, not running the strip's command | H2 |
 | HINT-012 | A key that changes the strip while it is held — Space marking a row — stays lit through the rebuild | H2 |
 | HINT-013 | A key held when the window loses the keyboard does not stay lit, and a key that opened a dialog goes out when it comes up in the dialog | H2 |
+| HINT-014 | A key that does nothing on this platform is not on the strip - `E` where there is no external editor | H2 |
 | STATUS-001 | Counts are per workspace, summed over every pane | H1 |
 | STATUS-002 | The selection count counts rows **in the folder on screen** | H1 |
 | STATUS-003 | A long message on the left elides in the middle and never pushes the counters off the end | H3 |
@@ -765,6 +775,9 @@ command that does nothing.
 | PLAT-008 | A dropped file from another application is copied or moved after asking which | H2 |
 | PLAT-009 | A file dragged out is accepted by the platform's own file manager | H5 |
 | PLAT-010 | The type icon for an entry is the platform's, and a row about a *kind* asks about the type rather than about a file | H3 |
+| PLAT-011 | Linux: a first Move to Trash on an account that has never trashed anything creates `~/.local/share/Trash/files` and `info`, mode 0700, and succeeds | H1 |
+| PLAT-012 | A command the platform cannot perform stays greyed out after every refresh - Edit and Reveal on Windows and Linux were switched back on by the local-pane check | H2 |
+| PLAT-013 | Linux: `pkexec` and `dd` are started by absolute path, never looked up on PATH (AGENTS.md §20.4) | H1 |
 
 ---
 

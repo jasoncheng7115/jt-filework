@@ -2295,10 +2295,40 @@ void MainWindow::compressSelection() {
 
     const QString here =
         jtfText([&](char *b, int l) { return jtf_current_path(m_app, paneId, b, l); });
-    const QString archive = QFileDialog::getSaveFileName(
+    // ZIP first, because it is what every system opens without asking. The
+    // format is decided by the name, so the name is made to match the type
+    // chosen: a dialog that kept "archive.zip" under the tar.gz type would
+    // write a ZIP the user did not ask for.
+    const QString zip = QStringLiteral("ZIP (*.zip)");
+    const QString tgz = QStringLiteral("tar.gz (*.tar.gz *.tgz)");
+    const QString tar = QStringLiteral("tar (*.tar)");
+    QString chosen = zip;
+    QString archive = QFileDialog::getSaveFileName(
         this, tr_("command.file.compress"), here + QStringLiteral("/archive.zip"),
-        QStringLiteral("ZIP (*.zip)"));
+        QStringList{zip, tgz, tar}.join(QStringLiteral(";;")), &chosen);
     if (archive.isEmpty()) { return; }
+    const auto withSuffix = [&archive](const QStringList &accepted, const QString &suffix) {
+        for (const QString &ending : accepted) {
+            if (archive.endsWith(ending, Qt::CaseInsensitive)) {
+                return;
+            }
+        }
+        for (const QString &other : {QStringLiteral(".zip"), QStringLiteral(".tar.gz"),
+                                     QStringLiteral(".tgz"), QStringLiteral(".tar")}) {
+            if (archive.endsWith(other, Qt::CaseInsensitive)) {
+                archive.chop(other.size());
+                break;
+            }
+        }
+        archive += suffix;
+    };
+    if (chosen == tgz) {
+        withSuffix({QStringLiteral(".tar.gz"), QStringLiteral(".tgz")}, QStringLiteral(".tar.gz"));
+    } else if (chosen == tar) {
+        withSuffix({QStringLiteral(".tar")}, QStringLiteral(".tar"));
+    } else {
+        withSuffix({QStringLiteral(".zip")}, QStringLiteral(".zip"));
+    }
 
     const QByteArray utf8 = archive.toUtf8();
     if (jtf_start_compress(m_app, paneId, utf8.constData()) == 0) {
@@ -2672,6 +2702,28 @@ const char *const kLocalOnlyCommands[] = {
     nullptr,
 };
 
+/// Whether this platform can do what a local-only command asks at all.
+///
+/// Asked alongside "is the pane local", because the loop below enables the
+/// local-only commands for a local pane - and it used to enable them outright,
+/// which switched Edit and Reveal back on on Windows and Linux after every
+/// refresh, where both did nothing (docs/UI_CONVENTIONS.md 1).
+bool platformCan(const char *id) {
+    if (qstrcmp(id, "file.edit") == 0) {
+        return filetype::canOpenInEditor();
+    }
+    if (qstrcmp(id, "file.reveal") == 0) {
+        return platform::canReveal();
+    }
+    if (qstrcmp(id, "file.share") == 0) {
+        return share::available();
+    }
+    if (qstrcmp(id, "file.terminal") == 0) {
+        return filetype::canOpenInTerminal();
+    }
+    return true;
+}
+
 } // namespace
 
 void MainWindow::syncToolbar() {
@@ -2685,7 +2737,7 @@ void MainWindow::syncToolbar() {
     for (const auto &entry : std::as_const(m_commandActions)) {
         for (const char *const *id = kLocalOnlyCommands; *id != nullptr; ++id) {
             if (qstrcmp(entry.second, *id) == 0) {
-                entry.first->setEnabled(!remote);
+                entry.first->setEnabled(!remote && platformCan(*id));
                 break;
             }
         }

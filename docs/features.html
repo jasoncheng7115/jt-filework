@@ -265,9 +265,9 @@
       <h1>完整功能規格</h1>
       <p class="lede">這一版有的功能、讀得懂的格式、每一道上限，數字都在這。這一頁是拿來查的，不是拿來讀完的。</p>
     </div>
-    <p class="status" data-lang="en"><strong>0.6.54</strong> — 793 tests pass. What is not built yet
+    <p class="status" data-lang="en"><strong>0.6.55</strong> — 799 tests pass. What is not built yet
       is named in the last section rather than left out.</p>
-    <p class="status" data-lang="zh-tw"><strong>0.6.54</strong> — 793 個測試通過。還沒做的功能不是略過不提，最後一節逐項列出。</p>
+    <p class="status" data-lang="zh-tw"><strong>0.6.55</strong> — 799 個測試通過。還沒做的功能不是略過不提，最後一節逐項列出。</p>
   </div>
 
   <nav class="toc">
@@ -293,7 +293,7 @@
   <h2 data-lang="zh-tw">1. 一覽</h2>
   <div class="scroller"><table class="spec">
     <tbody>
-      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.54</td></tr>
+      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.55</td></tr>
       <tr><th data-lang="en">Platforms</th><th data-lang="zh-tw">平台</th>
         <td data-lang="en">macOS 14 or later on Apple silicon; Windows 10/11 x64, as an MSI installer
           or a portable zip; Linux x86-64, as a <code>.deb</code> built on Ubuntu 22.04 — or from
@@ -307,8 +307,8 @@
         <td data-lang="zh-tw">只有兩者中間的 C ABI 橋接層，每一塊都寫了為什麼安全</td></tr>
       <tr><th data-lang="en">Licence</th><th data-lang="zh-tw">授權</th><td>GPL-3.0-or-later</td></tr>
       <tr><th data-lang="en">Tests</th><th data-lang="zh-tw">測試</th>
-        <td data-lang="en">793 automated, including architecture, migration and hostile-input levels</td>
-        <td data-lang="zh-tw">793 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
+        <td data-lang="en">799 automated, including architecture, migration and hostile-input levels</td>
+        <td data-lang="zh-tw">799 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
       <tr><th data-lang="en">Telemetry</th><th data-lang="zh-tw">遙測</th>
         <td data-lang="en"><span class="no">None.</span> The program makes no network connection you did not ask for</td>
         <td data-lang="zh-tw"><span class="no">沒有。</span>除了你自己要連的，程式不會連去別的地方</td></tr>
@@ -438,7 +438,7 @@
         <td data-lang="en">Every new name previewed first</td><td data-lang="zh-tw">先預覽全部的新名稱</td></tr>
       <tr><td><kbd>Alt-Z</kbd></td>
         <td data-lang="en">Compress</td><td data-lang="zh-tw">壓縮</td>
-        <td data-lang="en">Into a ZIP</td><td data-lang="zh-tw">壓成 ZIP</td></tr>
+        <td data-lang="en">ZIP, tar.gz or tar, chosen when saving</td><td data-lang="zh-tw">存檔時選 ZIP、tar.gz 或 tar</td></tr>
       <tr><td><kbd>Shift</kbd>+<span data-lang="en">letter</span><span data-lang="zh-tw">字母</span></td>
         <td data-lang="en">Jump</td><td data-lang="zh-tw">跳到</td>
         <td data-lang="en">To the first name starting with that letter, since the bare letters are commands</td>
@@ -689,13 +689,11 @@
     <tbody>
       <tr><td><code>.zip</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td>
         <td data-lang="en">Deflate and stored</td><td data-lang="zh-tw">Deflate 與未壓縮</td></tr>
-      <tr><td><code>.tar</code></td><td class="no">—</td><td class="no">—</td><td class="no">—</td>
-        <td data-lang="en"><strong>Not recognised yet</strong> when uncompressed: it is taken for an
-          ordinary file</td>
-        <td data-lang="zh-tw">沒壓縮的純 tar <strong>目前還認不出來</strong>，會被當成一般檔案</td></tr>
-      <tr><td><code>.tar.gz</code> · <code>.tgz</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td>
-        <td data-lang="en">Read only in the window; <kbd>Alt-Z</kbd> makes a ZIP</td>
-        <td data-lang="zh-tw">視窗裡只能讀；<kbd>Alt-Z</kbd> 壓出來的是 ZIP</td></tr>
+      <tr><td><code>.tar</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td>
+        <td data-lang="en">Uncompressed; recognised by the <code>ustar</code> mark inside it</td>
+        <td data-lang="zh-tw">未壓縮；靠檔案裡的 <code>ustar</code> 標記辨識</td></tr>
+      <tr><td><code>.tar.gz</code> · <code>.tgz</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td>
+        <td>—</td></tr>
       <tr><td><code>.tar.bz2</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td>
         <td data-lang="en">Read only</td><td data-lang="zh-tw">唯讀</td></tr>
       <tr><td><code>.tar.xz</code></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td>
@@ -1135,13 +1133,6 @@
           there, server-to-server copies, and more than one server at a time. Copy, move and delete
           between a server and this machine work</td>
         <td data-lang="zh-tw">檢視、預覽伺服器上的檔案，在伺服器上更名或新增資料夾，伺服器對伺服器的複製，以及同時連多台伺服器。伺服器跟本機之間的複製、移動、刪除已經可以用</td></tr>
-      <tr><th data-lang="en">Plain <code>.tar</code></th><th data-lang="zh-tw">純 <code>.tar</code></th>
-        <td data-lang="en">Not recognised when uncompressed; the compressed ones are</td>
-        <td data-lang="zh-tw">沒壓縮的認不出來，有壓縮的可以</td></tr>
-      <tr><th data-lang="en">Making a tar</th><th data-lang="zh-tw">建立 tar 壓縮檔</th>
-        <td data-lang="en">The core can write <code>.tar</code> and <code>.tar.gz</code>; the window
-          offers only ZIP</td>
-        <td data-lang="zh-tw">核心已經能寫 <code>.tar</code> 和 <code>.tar.gz</code>，但視窗裡只提供 ZIP</td></tr>
       <tr><th data-lang="en">Viewers</th><th data-lang="zh-tw">檢視器</th>
         <td data-lang="en">No image, JSON, CSV or syntax-highlighted view in the viewer window</td>
         <td data-lang="zh-tw">檢視視窗還不能看圖片，也沒有 JSON、CSV 或語法上色的檢視</td></tr>
