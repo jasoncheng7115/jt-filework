@@ -50,6 +50,11 @@ public:
     /// window never did.
     void applyTheme(const QColor &mark, const QColor &text);
 
+signals:
+    /// Edit the file being viewed as bytes. The viewer never changes a file
+    /// itself (AGENTS.md 14); this hands it to the hex editor.
+    void editHexRequested();
+
 protected:
     void keyPressEvent(QKeyEvent *event) override;
     void closeEvent(QCloseEvent *event) override;

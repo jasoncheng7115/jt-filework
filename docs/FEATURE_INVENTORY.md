@@ -92,6 +92,7 @@ Status: **done** · **partial** · **planned** · **later** (after Phase 2) ·
 | Encoding override including Big5, GB18030, Shift-JIS, EUC-KR | done |
 | Line endings shown, not normalized | done |
 | Hex viewer as the universal fallback | done |
+| Hex editor: overwrite and insert, undo, find and replace in hex, text and integers, go to offset, copy as C/Rust/Python/Base64 | done (0.6.56) |
 | Find within the file | done |
 | Go to line | planned |
 | Follow / tail a growing log | planned |

@@ -158,6 +158,8 @@ qt_add_executable(jt-filework
     cpp/commandpalette.h
     cpp/viewerwindow.cpp
     cpp/viewerwindow.h
+    cpp/hexeditorwindow.cpp
+    cpp/hexeditorwindow.h
     cpp/platform/quicklook.h
     cpp/platform/filetype.h
     cpp/bridge.h

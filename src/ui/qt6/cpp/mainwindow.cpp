@@ -26,6 +26,7 @@
 #include "settingsdialog.h"
 #include "shortcutsdialog.h"
 #include "viewerwindow.h"
+#include "hexeditorwindow.h"
 #include "theme.h"
 
 #include <QAction>
@@ -689,6 +690,8 @@ void MainWindow::buildMenus() {
             m_viewer->refresh();
         }
     });
+    // Editing a file as bytes, in a window of its own that opens read-only.
+    command(m_fileMenu, "file.edit_hex", [this] { openHexEditor(); });
     command(m_fileMenu, "file.edit", [this] { editSelection(); });
     command(m_fileMenu, "preview.quicklook", [this] { quickLookSelection(); });
     m_fileMenu->addSeparator();
@@ -1365,12 +1368,63 @@ void MainWindow::openViewer() {
         m_viewer->applyTheme(m_theme.mark, m_theme.textPrimary);
         m_viewer->setAttribute(Qt::WA_DeleteOnClose);
         connect(m_viewer, &QObject::destroyed, this, [this] { m_viewer = nullptr; });
+        connect(m_viewer, &ViewerWindow::editHexRequested, this,
+                &MainWindow::openHexEditorFromViewer);
     } else {
         m_viewer->refresh();
     }
     m_viewer->show();
     m_viewer->raise();
     m_viewer->activateWindow();
+}
+
+void MainWindow::openHexEditor() {
+    PaneWidget *pane = activePane();
+    if (!pane || pane->currentRow() < 0) {
+        return;
+    }
+    // The one already open is asked about first: opening another file must
+    // not throw away the edits in this one.
+    if (m_hexEditor != nullptr && !m_hexEditor->release()) {
+        return;
+    }
+    if (jtf_hex_open(m_app, pane->paneId(), pane->currentRow()) == 0) {
+        m_statusIsIdle = false;
+        m_statusMessage->setText(tr_("hex.cannot_open"));
+        return;
+    }
+    showHexEditor();
+}
+
+void MainWindow::openHexEditorFromViewer() {
+    if (m_hexEditor != nullptr && !m_hexEditor->release()) {
+        return;
+    }
+    if (jtf_hex_open_viewed(m_app) == 0) {
+        m_statusIsIdle = false;
+        m_statusMessage->setText(tr_("hex.cannot_open"));
+        return;
+    }
+    showHexEditor();
+}
+
+void MainWindow::showHexEditor() {
+    if (m_hexEditor == nullptr) {
+        m_hexEditor = new HexEditorWindow(m_app, this);
+        m_hexEditor->setAttribute(Qt::WA_DeleteOnClose);
+        connect(m_hexEditor, &QObject::destroyed, this, [this] { m_hexEditor = nullptr; });
+        // A saved file has a new size and date, and the list should say so
+        // now rather than at the next one-second look.
+        connect(m_hexEditor, &HexEditorWindow::saved, this, [this](const QString &) {
+            for (auto *pane : std::as_const(m_panes)) {
+                pane->refreshVisibleRows();
+            }
+        });
+    }
+    m_hexEditor->load();
+    m_hexEditor->show();
+    m_hexEditor->raise();
+    m_hexEditor->activateWindow();
 }
 
 void MainWindow::openPalette() {
@@ -1817,6 +1871,7 @@ void MainWindow::showEntryMenu(int paneId, const QPoint &global, bool onEntry) {
         }
 
         add("file.view", [this] { openViewer(); });
+        add("file.edit_hex", [this] { openHexEditor(); }, localTarget);
         add("preview.quicklook", [this] { quickLookSelection(); }, localTarget);
         menu.addSeparator();
         add("file.clipboard.cut", [this] { clipboardPut(true); });
@@ -2018,7 +2073,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
              {QKeySequence::Copy, QKeySequence::Cut, QKeySequence::Paste,
               QKeySequence::SelectAll, QKeySequence::Undo, QKeySequence::Redo,
               QKeySequence::Delete, QKeySequence::Backspace}) {
-            if (key->matches(standard) == QKeySequence::ExactMatch) {
+            if (key->matches(standard)) {
                 event->accept();
                 return true;
             }
@@ -2691,6 +2746,7 @@ const char *const kLocalOnlyCommands[] = {
     "file.reveal",
     "file.terminal",
     "file.edit",
+    "file.edit_hex",
     "file.share",
     // The clipboard carries `file://` URLs for other applications to paste;
     // a server path in one of those points at the wrong machine.

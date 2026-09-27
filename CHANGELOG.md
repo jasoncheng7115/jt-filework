@@ -12,6 +12,35 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.56] - 2026-09-28
+
+### Added
+
+- **A hex editor.** `Alt-X` on a file, Edit as Hex in the viewer, or the File
+  menu opens it in a window of its own. It opens read-only, so a stray
+  keystroke changes nothing; Overwrite keeps the length and Insert pushes the
+  rest along. Two hex digits make a byte, Tab moves typing to the text column,
+  and every changed byte is drawn in the mark colour until it is saved. Undo
+  and redo, find and replace in hex with `??` wildcards, in text and as 8- to
+  64-bit integers in either byte order, Go To with `0x1F4`, `500.`, `+0x200`
+  or `end-4`, and a selection that copies as hex, a C, Rust or Python literal,
+  or Base64. The file is never read whole. Saving first says how many bytes
+  change and whether the length does, and a window closed with changes asks
+  whether to keep them.
+
+### Fixed
+
+- **Saving an edited file keeps its permissions.** The new contents are
+  written to a temporary and renamed over the original; the temporary was
+  created with the default mode, so a script lost its execute bit.
+- **`Alt-T` (new tab) and `Alt-O` (Open With) work on Windows and Linux.**
+  The Tabs and Tools menus were underlined on those same letters, so Qt could
+  not tell which was meant and did neither. The menus are now T**a**bs and
+  Too**l**s, and a test keeps every `Alt` shortcut off the menu letters.
+  macOS has no menu underlines and was never affected.
+- **The buttons in the viewer's bar look like buttons.** Outside a dialog they
+  were drawn flat and grey, as if disabled.
+
 ## [0.6.55] - 2026-09-27
 
 ### Added

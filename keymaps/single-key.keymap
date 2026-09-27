@@ -82,6 +82,9 @@ primary+backspace    = file.trash
 q                    = preview.quicklook
 v                    = file.view                 # CV.HLP
 h                    = file.view_hex             # CV.HLP 以 HEX 16 進制方式觀看
+# The same bytes, editable: the hex editor opens read-only, and Overwrite or
+# Insert is chosen in it, so this key never changes a file by itself.
+alt+x                = file.edit_hex
 e                    = file.edit                 # wincv
 # CV.HLP: G 執行該檔案. Opening a file hands it to the platform, which runs an
 # executable and opens a document - the same thing CView's G did, since on DOS

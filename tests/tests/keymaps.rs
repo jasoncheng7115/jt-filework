@@ -397,3 +397,66 @@ fn every_bound_chord_reaches_a_handler_in_the_interface() {
         dead.join("\n  ")
     );
 }
+
+/// No Alt-letter binding is also a menu's mnemonic, in either language.
+///
+/// On Windows and Linux the menu bar claims Alt plus the underlined letter of
+/// each menu, and a keymap entry on the same chord makes both ambiguous: Qt
+/// fires neither, and says so only on the console. `Alt-T` (mark all, from
+/// CView) and `Alt-O` (new file) were dead that way for as long as Tabs and
+/// Tools were underlined T and O; it was found when `Alt-H` for the hex editor
+/// met Help. macOS has no mnemonics, which is why nobody using a Mac saw it.
+#[test]
+fn no_alt_binding_is_a_menu_mnemonic() {
+    let root = repo_root();
+    let mut mnemonics = std::collections::BTreeMap::new();
+    for locale in ["en", "zh-TW"] {
+        let path = root.join(format!("locales/{locale}/main.catalog"));
+        let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        for line in text.lines() {
+            let Some((key, value)) = line.split_once(" = ") else {
+                continue;
+            };
+            if !key.starts_with("menu.") {
+                continue;
+            }
+            if let Some(at) = value.find('&') {
+                if let Some(letter) = value[at + 1..].chars().next() {
+                    mnemonics.insert(
+                        letter.to_ascii_lowercase(),
+                        format!("{locale} {key} = {value}"),
+                    );
+                }
+            }
+        }
+    }
+    let mut clashes = Vec::new();
+    for keymap in shipped_keymaps() {
+        let text = fs::read_to_string(&keymap).unwrap();
+        for line in text.lines() {
+            let line = line.split('#').next().unwrap_or("").trim();
+            let Some((chord, command)) = line.split_once('=') else {
+                continue;
+            };
+            let chord = chord.trim();
+            let Some(letter) = chord.strip_prefix("alt+") else {
+                continue;
+            };
+            let mut chars = letter.chars();
+            if let (Some(c), None) = (chars.next(), chars.next()) {
+                if let Some(menu) = mnemonics.get(&c) {
+                    clashes.push(format!(
+                        "{}: {chord} = {} collides with {menu}",
+                        keymap.file_name().unwrap().to_string_lossy(),
+                        command.trim()
+                    ));
+                }
+            }
+        }
+    }
+    assert!(
+        clashes.is_empty(),
+        "Alt-letter bindings that a menu mnemonic makes ambiguous on Windows and Linux:\n{}",
+        clashes.join("\n")
+    );
+}

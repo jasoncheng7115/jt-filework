@@ -473,13 +473,13 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-09-27 · **Version:** 0.6.55 · **Branch:** `main` ·
+**Updated:** 2026-09-28 · **Version:** 0.6.56 · **Branch:** `main` ·
 **Phase:** 1 — usable build
 
 ### Gates
 
 ```text
-tests     799 passing, 0 failing, 0 ignored  (cargo test --workspace)
+tests     802 passing, 0 failing, 0 ignored  (cargo test --workspace)
 clippy    clean (-D warnings, --all-targets, workspace-wide)
 rustfmt   clean - and it was not, until 2026-09-16: 52 sites in the crates
           added since 0.6.9 had never been through it. Run it, do not assume it
@@ -561,6 +561,11 @@ JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
   compared.
 - **Reading** — text and hex viewers, an inspector with a preview and the
   file's facts, and Quick Look.
+- **Editing bytes** — a hex editor window (`Alt-X`, or Edit as Hex in the
+  viewer) that opens read-only: overwrite and insert, undo, find and replace in
+  hex with `??`, in text and as integers, go to an offset, copy as C, Rust,
+  Python or Base64, and a save that says what it will change first and keeps
+  the file's permissions.
 - **Staying current** — the visible rows are re-stat'd on a one-second timer,
   so a size or a date that changes underneath is shown without navigating away
   and back. Never while a text field has focus.
@@ -604,8 +609,6 @@ layouts and CView key table in `docs/design/`.
 ### Not built yet
 
 ```text
-hex editing       jtf-hexedit and its bridge module are written and tested;
-                  the window that would use them is not. Nothing calls it yet
 file watching     a one-second timer, not inotify / FSEvents /
                   ReadDirectoryChangesW. An interim, and named as one (§10.2)
 remote            one server at a time; a copy from one server to another is
@@ -681,11 +684,10 @@ for.
 
 ### Next
 
-1. The hex editor window: the core and the bridge are waiting for it.
-2. Native file watching, replacing the timer.
-3. `docs/FEATURE_INVENTORY.md`, caught up.
-4. Windows and Linux platform adapters: trash, reveal, tags, Open With.
-5. Signing, so the installers stop warning.
+1. Native file watching, replacing the timer.
+2. `docs/FEATURE_INVENTORY.md`, caught up.
+3. Windows and Linux platform adapters: trash, reveal, tags, Open With.
+4. Signing, so the installers stop warning.
    - **Windows / SignPath** — the MSI is already built in GitHub Actions
      (`.github/workflows/release.yml`), which is what SignPath requires (§B1
      condition 3); the signing step goes into its windows job. Still to do:

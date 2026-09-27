@@ -177,6 +177,7 @@ const QHash<QString, QString> &commandFiles() {
         {QStringLiteral("file.undo"), QStringLiteral("undo")},
         {QStringLiteral("file.view"), QStringLiteral("eye")},
         {QStringLiteral("file.view_hex"), QStringLiteral("terminal")},
+        {QStringLiteral("file.edit_hex"), QStringLiteral("hex-edit")},
         {QStringLiteral("file.edit"), QStringLiteral("page-edit")},
         {QStringLiteral("file.reveal"), QStringLiteral("open-new-window")},
         {QStringLiteral("file.folder_size"), QStringLiteral("sort")},

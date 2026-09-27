@@ -1096,6 +1096,34 @@ first two faults actually were, and where a passing library test saw nothing.
 
 ---
 
+## 19d. Hex Editor — `UI-HEXE`
+
+The window that changes a file as bytes (`file.edit_hex`, `Alt-H`, or the
+viewer's Edit as Hex). Its core is `jtf-hexedit`; these are the cases about the
+window around it.
+
+| ID | Case | Layer |
+|---|---|---|
+| HEXE-001 | It opens read-only. Typing changes nothing and says how to switch; a mode must be chosen to edit | H2 |
+| HEXE-002 | A file the account cannot write opens for looking only: the mode stays read-only and the window says why | H2 |
+| HEXE-003 | Two hex digits make a byte; after the first, the cell shows it and waits for the second | H2 |
+| HEXE-004 | Overwrite keeps the length; Insert pushes bytes along; `Insert` swaps the two but never leaves read-only | H2 |
+| HEXE-005 | Tab moves typing between the hex and text columns; the text column takes one byte per key, Latin-1 | H2 |
+| HEXE-006 | A changed byte is drawn in the mark colour in both columns, and an undone one goes back to plain | H2 |
+| HEXE-007 | Undo and redo move the cursor to the change | H1/H2 |
+| HEXE-008 | Go To takes `0x1F4`, `1F4`, `500.`, `+0x200`, `-512.` and `end-4`; anything else is refused with a reason and the cursor stays | H1/H2 |
+| HEXE-009 | Find in hex with `??` wildcards, in UTF-8, Latin-1, UTF-16 LE/BE, and as an integer of 8 to 64 bits in either byte order; the match is selected; it wraps once | H1/H2 |
+| HEXE-010 | Replace and Replace All read the replacement the way Find reads the search; a `??` in the replacement is refused; read-only refuses and says so | H1/H2 |
+| HEXE-011 | Copy As offers raw, hex, spaced hex, C, Rust, Python and Base64; a paste says what it was read as | H1/H2 |
+| HEXE-012 | Saving first says how many bytes change and, when the length changes, that everything after moves | H2 |
+| HEXE-013 | Saving writes through a temporary and a rename, and the file keeps its permissions - a script keeps its executable bit | H1 |
+| HEXE-014 | Closing, or opening another file, with unsaved changes asks: save, discard or cancel; Cancel keeps the window and the edits | H2 |
+| HEXE-015 | After a save the pane shows the file's new size and date without being refreshed by hand | H2 |
+| HEXE-016 | A file larger than memory opens instantly and scrolls to the end; nothing reads it whole | H1/H5 |
+| HEXE-017 | Errors are said in the window's language, never as the core's English context | H1 |
+
+---
+
 ## 20. Session and Recovery — `UI-SESS`
 
 | ID | Case | Layer |

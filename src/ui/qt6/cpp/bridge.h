@@ -511,6 +511,51 @@ int jtf_theme_token_name(int index, char *buf, int len);
 int jtf_column_count(void);
 int jtf_column_key(int column, char *buf, int len);
 
+// The hex editor. One file at a time; every edit is decided on the Rust side.
+int jtf_hex_open(JtfApp *app, int pane, int row);
+int jtf_hex_open_viewed(JtfApp *app);
+void jtf_hex_close(JtfApp *app);
+int jtf_hex_path(JtfApp *app, char *buf, int len);
+uint64_t jtf_hex_len(JtfApp *app);
+uint64_t jtf_hex_row_count(JtfApp *app);
+int jtf_hex_row_bytes(void);
+/// Up to `cap` bytes of row `row`, and 1 for each that was changed.
+int jtf_hex_row(JtfApp *app, uint64_t row, uint8_t *values, uint8_t *modified, int cap);
+uint64_t jtf_hex_cursor(JtfApp *app);
+int jtf_hex_selection(JtfApp *app, uint64_t *start, uint64_t *end);
+/// 0 hex, 1 text.
+int jtf_hex_column(JtfApp *app);
+void jtf_hex_set_column(JtfApp *app, int column);
+/// 0 read-only, 1 overwrite, 2 insert.
+int jtf_hex_mode(JtfApp *app);
+void jtf_hex_set_mode(JtfApp *app, int mode);
+/// The first digit of a half-typed byte, or -1.
+int jtf_hex_pending_nibble(JtfApp *app);
+void jtf_hex_move_to(JtfApp *app, uint64_t offset, int extend);
+void jtf_hex_select_all(JtfApp *app);
+int jtf_hex_type_hex_digit(JtfApp *app, uint32_t digit);
+int jtf_hex_type_byte(JtfApp *app, uint8_t byte);
+int jtf_hex_delete(JtfApp *app, int forward);
+int jtf_hex_can_undo(JtfApp *app);
+int jtf_hex_can_redo(JtfApp *app);
+void jtf_hex_undo(JtfApp *app);
+void jtf_hex_redo(JtfApp *app);
+int jtf_hex_goto(JtfApp *app, const char *text, int extend);
+/// kind: 0 hex, 1 UTF-8, 2 Latin-1, 3 UTF-16 LE, 4 UTF-16 BE, 5 integer.
+int jtf_hex_find(JtfApp *app, const char *text, int kind, int width, int little_endian,
+                 int forward);
+int jtf_hex_replace(JtfApp *app, const char *find, const char *replacement, int kind, int width,
+                    int little_endian);
+uint64_t jtf_hex_replace_all(JtfApp *app, const char *find, const char *replacement, int kind,
+                             int width, int little_endian);
+/// format: 0 raw, 1 hex, 2 spaced hex, 3 C, 4 Rust, 5 Python, 6 Base64.
+int jtf_hex_copy_as(JtfApp *app, int format, char *buf, int len);
+int jtf_hex_paste(JtfApp *app, const char *text);
+int jtf_hex_take_paste_kind(JtfApp *app, char *buf, int len);
+int jtf_hex_summary(JtfApp *app, uint64_t *changed, uint64_t *original_len, uint64_t *new_len);
+int jtf_hex_save(JtfApp *app);
+int jtf_hex_take_error(JtfApp *app, char *buf, int len);
+
 } // extern "C"
 
 // Token numbering must match ThemeToken::ALL in src/core/src/theme.rs.

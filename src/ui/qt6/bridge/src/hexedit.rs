@@ -6,13 +6,13 @@
 //! selection are — is answered from here, and every keystroke that means
 //! something is a call into `jtf_hexedit`.
 //!
-//! Nothing calls this yet: the C entry points and the window are the next
-//! commit. It is here rather than held back because it is tested on its own,
-//! and a tested piece landed early is easier to review than a large one
-//! landed whole.
+//! The window is `src/ui/qt6/cpp/hexeditorwindow.cpp`, and the C entry points
+//! are the `jtf_hex_*` functions in `ffi.rs`.
+//!
+//! Errors are kept as catalogue keys, never as the core's context: that is
+//! written for a log, in English (`jtf_core::Error`).
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
-#![allow(dead_code)]
 
 use std::path::Path;
 
@@ -28,9 +28,11 @@ pub(crate) const ROW_BYTES: u64 = 16;
 /// One open editor.
 pub(crate) struct HexEdit {
     session: Session,
-    /// The last error, for the window to show. Cleared as soon as it is read:
-    /// a stale message shown next to a successful action is worse than none.
-    error: Option<String>,
+    /// The last error, for the window to show: what failed, as a catalogue
+    /// key, and why, as the error code's own key. Cleared as soon as it is
+    /// read: a stale message shown next to a successful action is worse than
+    /// none.
+    error: Option<(&'static str, &'static str)>,
     /// What the last paste was read as, so the window can say so.
     last_paste_kind: Option<&'static str>,
 }
@@ -59,8 +61,8 @@ impl HexEdit {
         &mut self.session
     }
 
-    /// Take the last error message, if any.
-    pub(crate) fn take_error(&mut self) -> Option<String> {
+    /// Take the last error, if any: what failed and why, as catalogue keys.
+    pub(crate) fn take_error(&mut self) -> Option<(&'static str, &'static str)> {
         self.error.take()
     }
 
@@ -70,8 +72,21 @@ impl HexEdit {
     }
 
     /// Remember an error for the window to show.
-    fn fail(&mut self, error: &Error) {
-        self.error = Some(error.context().to_string());
+    fn fail(&mut self, what: &'static str, error: &Error) {
+        self.error = Some((what, error.code().message_key()));
+    }
+
+    /// Refuse a change while the file is open read-only, and say so.
+    ///
+    /// The session itself ignores a write in read-only mode, which is right
+    /// for a stray keystroke and wrong for a paste or a replace: those were
+    /// asked for, and doing nothing without a word looks like a bug.
+    fn refuse_read_only(&mut self) -> bool {
+        if self.session.mode() == Mode::ReadOnly {
+            self.error = Some(("hex.error.readonly", "error.permission_denied"));
+            return true;
+        }
+        false
     }
 
     /// How many rows the file occupies.
@@ -111,7 +126,7 @@ impl HexEdit {
                 true
             }
             Err(error) => {
-                self.fail(&error);
+                self.fail("hex.error.goto", &error);
                 false
             }
         }
@@ -126,7 +141,7 @@ impl HexEdit {
         let needle = match Needle::compile(text, kind) {
             Ok(needle) => needle,
             Err(error) => {
-                self.fail(&error);
+                self.fail("hex.error.find", &error);
                 return false;
             }
         };
@@ -167,6 +182,9 @@ impl HexEdit {
     ///
     /// Returns whether anything was replaced.
     pub(crate) fn replace(&mut self, find_text: &str, kind: Kind, with: &[u8]) -> bool {
+        if self.refuse_read_only() {
+            return false;
+        }
         let Some(selection) = self.session.selection() else {
             // Nothing selected means nothing has been found yet; find first,
             // so the first press of Replace does not silently do nothing.
@@ -176,7 +194,7 @@ impl HexEdit {
         self.session
             .move_to(selection.start() + selection.len(), true);
         if let Err(error) = self.session.write(with) {
-            self.fail(&error);
+            self.fail("hex.error.write", &error);
             return false;
         }
         self.find(find_text, kind, true);
@@ -185,10 +203,13 @@ impl HexEdit {
 
     /// Replace every match from the start of the file. Returns how many.
     pub(crate) fn replace_all(&mut self, find_text: &str, kind: Kind, with: &[u8]) -> u64 {
+        if self.refuse_read_only() {
+            return 0;
+        }
         let needle = match Needle::compile(find_text, kind) {
             Ok(needle) => needle,
             Err(error) => {
-                self.fail(&error);
+                self.fail("hex.error.find", &error);
                 return 0;
             }
         };
@@ -201,7 +222,7 @@ impl HexEdit {
             self.session.move_to(found, false);
             self.session.move_to(found + needle.len() as u64, true);
             if let Err(error) = self.session.write(with) {
-                self.fail(&error);
+                self.fail("hex.error.write", &error);
                 break;
             }
             count += 1;
@@ -220,7 +241,7 @@ impl HexEdit {
         match self.session.selected_bytes() {
             Ok(bytes) => clip::render(&bytes, format),
             Err(error) => {
-                self.fail(&error);
+                self.fail("hex.error.copy", &error);
                 String::new()
             }
         }
@@ -230,20 +251,48 @@ impl HexEdit {
     ///
     /// Returns whether anything went in.
     pub(crate) fn paste(&mut self, text: &str) -> bool {
+        if self.refuse_read_only() {
+            return false;
+        }
         match clip::parse_paste(text) {
             Ok(pasted) => {
                 self.last_paste_kind = Some(pasted.read_as);
                 if let Err(error) = self.session.write(&pasted.bytes) {
-                    self.fail(&error);
+                    self.fail("hex.error.write", &error);
                     return false;
                 }
                 true
             }
             Err(error) => {
-                self.fail(&error);
+                self.fail("hex.error.paste", &error);
                 false
             }
         }
+    }
+
+    /// The bytes a replacement box's text stands for, read as `kind`.
+    ///
+    /// `None`, with the reason kept, when it cannot be read or has wildcards:
+    /// a `??` in "replace with" has nothing to put in the hole.
+    pub(crate) fn replacement(&mut self, text: &str, kind: Kind) -> Option<Vec<u8>> {
+        match Needle::compile(text, kind) {
+            Ok(needle) => {
+                let bytes = needle.literal();
+                if bytes.is_none() {
+                    self.error = Some(("hex.error.wildcard", "error.invalid_path"));
+                }
+                bytes
+            }
+            Err(error) => {
+                self.fail("hex.error.replacement", &error);
+                None
+            }
+        }
+    }
+
+    /// Record a failed keystroke's error, for the window to show.
+    pub(crate) fn note(&mut self, what: &'static str, error: &Error) {
+        self.fail(what, error);
     }
 
     /// What would be written if it were saved now.
@@ -258,7 +307,7 @@ impl HexEdit {
         match self.session.save() {
             Ok(()) => true,
             Err(error) => {
-                self.fail(&error);
+                self.fail("hex.error.save", &error);
                 false
             }
         }
@@ -422,14 +471,34 @@ mod tests {
     }
 
     #[test]
-    fn a_read_only_session_ignores_a_paste_rather_than_writing() {
+    fn a_read_only_session_refuses_a_paste_and_says_so() {
         let mut e = editor("ro", b"abcd");
-        assert!(e.paste("FF"));
+        assert!(
+            !e.paste("FF"),
+            "a paste into a read-only file reported success"
+        );
         assert_eq!(
             e.session_mut().buffer_mut().read_bytes(0, 4).unwrap(),
             b"abcd".to_vec(),
             "a paste changed a read-only buffer"
         );
+        assert_eq!(
+            e.take_error().map(|(what, _)| what),
+            Some("hex.error.readonly"),
+            "refused without saying why - it looked like the paste had simply not happened"
+        );
+    }
+
+    #[test]
+    fn a_replacement_with_a_wildcard_is_refused_with_a_reason() {
+        let mut e = editor("wild", b"abcd");
+        assert!(e.replacement("41 ??", Kind::Hex).is_none());
+        assert_eq!(
+            e.take_error().map(|(what, _)| what),
+            Some("hex.error.wildcard")
+        );
+        assert_eq!(e.replacement("41 42", Kind::Hex), Some(b"AB".to_vec()));
+        assert_eq!(e.replacement("hi", Kind::Utf8), Some(b"hi".to_vec()));
     }
 
     #[test]

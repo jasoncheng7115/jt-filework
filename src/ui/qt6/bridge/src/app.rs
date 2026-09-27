@@ -446,6 +446,8 @@ pub struct App {
     /// Operations waiting for the running one to finish.
     queue: std::collections::VecDeque<(Plan, ConflictPolicy)>,
     viewer: Option<ViewerSession>,
+    /// The file open in the hex editor, one at a time like the viewer.
+    hex_edit: Option<crate::hexedit::HexEdit>,
     /// A second, independent read for the inspector's preview.
     ///
     /// Separate from `viewer` rather than shared with it: the inspector
@@ -590,6 +592,7 @@ impl App {
             last_transfer_summary: None,
             queue: std::collections::VecDeque::new(),
             viewer: None,
+            hex_edit: None,
             preview: None,
             last_summary: None,
             undo_stack: Vec::new(),
@@ -3784,6 +3787,62 @@ impl App {
     /// Close the viewer, releasing its file handle.
     pub(crate) fn close_viewer(&mut self) {
         self.viewer = None;
+    }
+
+    /// Open the file under the cursor in the hex editor.
+    ///
+    /// A file on this machine only: the editor reads the file a window at a
+    /// time and writes it back through a rename beside it, and neither is
+    /// something a server path can do yet.
+    pub(crate) fn open_hex(&mut self, pane: PaneId, row: usize) -> bool {
+        let Some(path) = self
+            .entry_at(pane, row)
+            .and_then(|entry| entry.location().as_path())
+            .map(std::path::Path::to_path_buf)
+        else {
+            return false;
+        };
+        self.open_hex_path(&path)
+    }
+
+    /// Open `path` in the hex editor, replacing whatever was open.
+    pub(crate) fn open_hex_path(&mut self, path: &std::path::Path) -> bool {
+        if !path.is_file() {
+            return false;
+        }
+        match crate::hexedit::HexEdit::open(path) {
+            Ok(edit) => {
+                self.hex_edit = Some(edit);
+                true
+            }
+            Err(_) => false,
+        }
+    }
+
+    /// The file the viewer is showing, so the hex editor can open the same one.
+    pub(crate) fn viewer_path(&self) -> Option<&std::path::Path> {
+        self.viewer.as_ref().map(|session| session.path.as_path())
+    }
+
+    /// Close the hex editor, discarding anything not saved.
+    pub(crate) fn close_hex(&mut self) {
+        self.hex_edit = None;
+    }
+
+    /// The open hex editor.
+    pub(crate) const fn hex_edit(&mut self) -> Option<&mut crate::hexedit::HexEdit> {
+        self.hex_edit.as_mut()
+    }
+
+    /// The hex editor's last error, worded for the user.
+    ///
+    /// What failed, and - where the sentence has room for one - why: the
+    /// error code's own message, which for a failed save is the file system's
+    /// reason and for a mistyped offset would be noise.
+    pub(crate) fn take_hex_error(&mut self) -> Option<String> {
+        let (what, why) = self.hex_edit.as_mut()?.take_error()?;
+        let text = self.localizer.text_or_key(what);
+        Some(text.replace("{reason}", &self.localizer.text_or_key(why)))
     }
 
     /// Open `path` for the inspector's preview. Returns whether it is text.

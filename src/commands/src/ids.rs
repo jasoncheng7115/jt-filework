@@ -286,6 +286,7 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("file.open", C::File, "command.file.open"),
     ("file.view", C::File, "command.file.view"),
     ("file.view_hex", C::File, "command.file.view_hex"),
+    ("file.edit_hex", C::File, "command.file.edit_hex"),
     ("file.edit", C::File, "command.file.edit"),
     ("file.rename", C::File, "command.file.rename"),
     ("file.undo", C::File, "command.file.undo"),

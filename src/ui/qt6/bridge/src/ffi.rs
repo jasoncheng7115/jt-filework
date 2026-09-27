@@ -4942,3 +4942,507 @@ pub unsafe extern "C" fn jtf_set_column_width(app: *mut App, column: c_int, widt
         a.set_column_width(column, width);
     }
 }
+
+// ------------------------------------------------------------- hex editor
+//
+// One file at a time, like the viewer. The window asks for rows as it paints
+// them and forwards every keystroke that means something; everything about
+// bytes, offsets and history is decided on this side (src/ui/qt6/bridge/src/
+// hexedit.rs over jtf-hexedit).
+
+/// # Safety
+/// See [`jtf_app_free`].
+unsafe fn hex_mut<'a>(app: *mut App) -> Option<&'a mut crate::hexedit::HexEdit> {
+    unsafe { app_mut(app) }.and_then(App::hex_edit)
+}
+
+/// Open the file under the cursor for editing. Returns 1 if it opened.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_open(app: *mut App, pane_id: c_int, row: c_int) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        c_int::from(a.open_hex(pane(pane_id), usize::try_from(row).unwrap_or(0)))
+    })
+}
+
+/// Open the file the viewer is showing. Returns 1 if it opened.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_open_viewed(app: *mut App) -> c_int {
+    unsafe { app_mut(app) }.map_or(0, |a| {
+        let Some(path) = a.viewer_path().map(std::path::Path::to_path_buf) else {
+            return 0;
+        };
+        c_int::from(a.open_hex_path(&path))
+    })
+}
+
+/// Close the editor, discarding anything not saved.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_close(app: *mut App) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.close_hex();
+    }
+}
+
+/// The path of the file being edited.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `buf` as in [`write_str`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_path(app: *mut App, buf: *mut c_char, len: c_int) -> c_int {
+    let text = unsafe { hex_mut(app) }
+        .map(|h| h.session().path().display().to_string())
+        .unwrap_or_default();
+    unsafe { write_str(&text, buf, len) }
+}
+
+/// Length of the file as edited so far.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_len(app: *mut App) -> u64 {
+    unsafe { hex_mut(app) }.map_or(0, |h| h.session().len())
+}
+
+/// How many rows the editor has, including one to stand on past the end.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_row_count(app: *mut App) -> u64 {
+    unsafe { hex_mut(app) }.map_or(0, |h| h.row_count())
+}
+
+/// Bytes per row.
+#[no_mangle]
+pub extern "C" fn jtf_hex_row_bytes() -> c_int {
+    c_int::try_from(crate::hexedit::ROW_BYTES).unwrap_or(16)
+}
+
+/// One row's bytes, and for each whether it was changed this session.
+///
+/// Writes up to `cap` entries into `values` and `modified` (1 or 0) and
+/// returns how many were written; -1 if the row could not be read.
+///
+/// # Safety
+/// See [`jtf_app_free`]. `values` and `modified` must each be null or
+/// writable for `cap` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_row(
+    app: *mut App,
+    row: u64,
+    values: *mut u8,
+    modified: *mut u8,
+    cap: c_int,
+) -> c_int {
+    let Some(h) = (unsafe { hex_mut(app) }) else {
+        return -1;
+    };
+    let Ok(bytes) = h.row(row) else {
+        return -1;
+    };
+    let cap = usize::try_from(cap).unwrap_or(0);
+    let count = bytes.len().min(cap);
+    for (i, byte) in bytes.iter().take(count).enumerate() {
+        // SAFETY: `i < count <= cap`, and both buffers are writable for `cap`
+        // bytes by the caller contract.
+        unsafe {
+            if !values.is_null() {
+                *values.add(i) = byte.value;
+            }
+            if !modified.is_null() {
+                *modified.add(i) = u8::from(byte.modified);
+            }
+        }
+    }
+    c_int::try_from(count).unwrap_or(0)
+}
+
+/// The cursor's offset.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_cursor(app: *mut App) -> u64 {
+    unsafe { hex_mut(app) }.map_or(0, |h| h.session().cursor())
+}
+
+/// The selection as `[start, end)`. Returns 1 if there is one.
+///
+/// # Safety
+/// See [`jtf_app_free`]. `start` and `end` must each be null or writable.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_selection(app: *mut App, start: *mut u64, end: *mut u64) -> c_int {
+    let Some(selection) = (unsafe { hex_mut(app) }).and_then(|h| h.session().selection()) else {
+        return 0;
+    };
+    // SAFETY: each pointer is null or writable, by the caller contract.
+    unsafe {
+        if !start.is_null() {
+            *start = selection.start();
+        }
+        if !end.is_null() {
+            *end = selection.end();
+        }
+    }
+    1
+}
+
+/// Which column the cursor is in: 0 hex, 1 text.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_column(app: *mut App) -> c_int {
+    unsafe { hex_mut(app) }.map_or(0, |h| {
+        c_int::from(h.session().column() == jtf_hexedit::session::Column::Text)
+    })
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_set_column(app: *mut App, column: c_int) {
+    if let Some(h) = unsafe { hex_mut(app) } {
+        h.session_mut()
+            .set_column(crate::hexedit::column_of(column));
+    }
+}
+
+/// The typing mode: 0 read-only, 1 overwrite, 2 insert.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_mode(app: *mut App) -> c_int {
+    unsafe { hex_mut(app) }.map_or(0, |h| crate::hexedit::mode_code(h.session().mode()))
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_set_mode(app: *mut App, mode: c_int) {
+    if let Some(h) = unsafe { hex_mut(app) } {
+        h.session_mut().set_mode(crate::hexedit::mode_of(mode));
+    }
+}
+
+/// The first digit of a half-typed byte, or -1 when none is waiting.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_pending_nibble(app: *mut App) -> c_int {
+    unsafe { hex_mut(app) }
+        .and_then(|h| h.session().pending_nibble())
+        .map_or(-1, c_int::from)
+}
+
+/// Move the cursor, extending the selection when `extend` is non-zero.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_move_to(app: *mut App, offset: u64, extend: c_int) {
+    if let Some(h) = unsafe { hex_mut(app) } {
+        h.session_mut().move_to(offset, extend != 0);
+    }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_select_all(app: *mut App) {
+    if let Some(h) = unsafe { hex_mut(app) } {
+        h.session_mut().select_all();
+    }
+}
+
+/// Type a hex digit in the hex column. Returns 1 if it was taken, 0 if it was
+/// not a digit or typing is off, -1 on an error (see `jtf_hex_take_error`).
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_type_hex_digit(app: *mut App, digit: u32) -> c_int {
+    let Some(h) = (unsafe { hex_mut(app) }) else {
+        return 0;
+    };
+    let Some(digit) = char::from_u32(digit) else {
+        return 0;
+    };
+    match h.session_mut().type_hex_digit(digit) {
+        Ok(taken) => c_int::from(taken),
+        Err(error) => {
+            h.note("hex.error.write", &error);
+            -1
+        }
+    }
+}
+
+/// Type one byte in the text column. Returns as `jtf_hex_type_hex_digit`.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_type_byte(app: *mut App, byte: u8) -> c_int {
+    let Some(h) = (unsafe { hex_mut(app) }) else {
+        return 0;
+    };
+    match h.session_mut().type_byte(byte) {
+        Ok(taken) => c_int::from(taken),
+        Err(error) => {
+            h.note("hex.error.write", &error);
+            -1
+        }
+    }
+}
+
+/// Delete forward (Delete) or backward (Backspace). Returns 1, or -1 on an
+/// error.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_delete(app: *mut App, forward: c_int) -> c_int {
+    let Some(h) = (unsafe { hex_mut(app) }) else {
+        return 0;
+    };
+    let session = h.session_mut();
+    if !session.mode().edits() {
+        return 0;
+    }
+    let done = if forward != 0 {
+        session.delete_forward()
+    } else {
+        session.delete_backward()
+    };
+    match done {
+        Ok(()) => 1,
+        Err(error) => {
+            h.note("hex.error.write", &error);
+            -1
+        }
+    }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_can_undo(app: *mut App) -> c_int {
+    unsafe { hex_mut(app) }.map_or(0, |h| c_int::from(h.session().can_undo()))
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_can_redo(app: *mut App) -> c_int {
+    unsafe { hex_mut(app) }.map_or(0, |h| c_int::from(h.session().can_redo()))
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_undo(app: *mut App) {
+    if let Some(h) = unsafe { hex_mut(app) } {
+        h.session_mut().undo();
+    }
+}
+
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_redo(app: *mut App) {
+    if let Some(h) = unsafe { hex_mut(app) } {
+        h.session_mut().redo();
+    }
+}
+
+/// Go to an offset typed as text: `0x1F4`, `500.`, `+0x200`, `end-4`.
+/// Returns 1 if it was understood.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `text` must be null or a NUL-terminated string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_goto(app: *mut App, text: *const c_char, extend: c_int) -> c_int {
+    let text = unsafe { read_str(text) }.unwrap_or("");
+    unsafe { hex_mut(app) }.map_or(0, |h| c_int::from(h.goto(text, extend != 0)))
+}
+
+/// Find the next (or previous) match and select it. `kind`: 0 hex, 1 UTF-8,
+/// 2 Latin-1, 3 UTF-16 LE, 4 UTF-16 BE, 5 an integer of `width` bytes.
+/// Returns 1 if found.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `text` must be null or a NUL-terminated string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_find(
+    app: *mut App,
+    text: *const c_char,
+    kind: c_int,
+    width: c_int,
+    little_endian: c_int,
+    forward: c_int,
+) -> c_int {
+    let text = unsafe { read_str(text) }.unwrap_or("");
+    let kind = crate::hexedit::kind_of(kind, width, little_endian != 0);
+    unsafe { hex_mut(app) }.map_or(0, |h| c_int::from(h.find(text, kind, forward != 0)))
+}
+
+/// Replace the selected match with `replacement`, read the same way as `find`, and
+/// find the next. Returns 1 if something was replaced.
+///
+/// # Safety
+/// See [`jtf_app_free`]; the strings must be null or NUL-terminated.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_replace(
+    app: *mut App,
+    find: *const c_char,
+    replacement: *const c_char,
+    kind: c_int,
+    width: c_int,
+    little_endian: c_int,
+) -> c_int {
+    let find = unsafe { read_str(find) }.unwrap_or("");
+    let replacement = unsafe { read_str(replacement) }.unwrap_or("");
+    let kind = crate::hexedit::kind_of(kind, width, little_endian != 0);
+    let Some(h) = (unsafe { hex_mut(app) }) else {
+        return 0;
+    };
+    let Some(bytes) = h.replacement(replacement, kind) else {
+        return 0;
+    };
+    c_int::from(h.replace(find, kind, &bytes))
+}
+
+/// Replace every match. Returns how many were replaced.
+///
+/// # Safety
+/// See [`jtf_app_free`]; the strings must be null or NUL-terminated.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_replace_all(
+    app: *mut App,
+    find: *const c_char,
+    replacement: *const c_char,
+    kind: c_int,
+    width: c_int,
+    little_endian: c_int,
+) -> u64 {
+    let find = unsafe { read_str(find) }.unwrap_or("");
+    let replacement = unsafe { read_str(replacement) }.unwrap_or("");
+    let kind = crate::hexedit::kind_of(kind, width, little_endian != 0);
+    let Some(h) = (unsafe { hex_mut(app) }) else {
+        return 0;
+    };
+    let Some(bytes) = h.replacement(replacement, kind) else {
+        return 0;
+    };
+    h.replace_all(find, kind, &bytes)
+}
+
+/// The selection rendered in a copy format: 0 raw, 1 hex, 2 spaced hex,
+/// 3 C, 4 Rust, 5 Python, 6 Base64.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `buf` as in [`write_str`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_copy_as(
+    app: *mut App,
+    format: c_int,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let text = unsafe { hex_mut(app) }
+        .map(|h| h.copy_as(crate::hexedit::format_of(format)))
+        .unwrap_or_default();
+    unsafe { write_str(&text, buf, len) }
+}
+
+/// Paste text, working out whether it is hex, an array literal, Base64 or
+/// plain text. Returns 1 if anything went in.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `text` must be null or a NUL-terminated string.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_paste(app: *mut App, text: *const c_char) -> c_int {
+    let text = unsafe { read_str(text) }.unwrap_or("");
+    unsafe { hex_mut(app) }.map_or(0, |h| c_int::from(h.paste(text)))
+}
+
+/// How the last paste was read, as a catalogue key; empty if none.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `buf` as in [`write_str`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_take_paste_kind(
+    app: *mut App,
+    buf: *mut c_char,
+    len: c_int,
+) -> c_int {
+    let key = unsafe { hex_mut(app) }
+        .and_then(crate::hexedit::HexEdit::take_paste_kind)
+        .unwrap_or("");
+    unsafe { write_str(key, buf, len) }
+}
+
+/// What saving would do: bytes changed, and the length before and after.
+/// Returns 1 if there is anything to save.
+///
+/// # Safety
+/// See [`jtf_app_free`]. The out-pointers must each be null or writable.
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_summary(
+    app: *mut App,
+    changed: *mut u64,
+    original_len: *mut u64,
+    new_len: *mut u64,
+) -> c_int {
+    let Some(h) = (unsafe { hex_mut(app) }) else {
+        return 0;
+    };
+    let summary = h.summary();
+    // SAFETY: each pointer is null or writable, by the caller contract.
+    unsafe {
+        if !changed.is_null() {
+            *changed = summary.changed_bytes();
+        }
+        if !original_len.is_null() {
+            *original_len = summary.original_len;
+        }
+        if !new_len.is_null() {
+            *new_len = summary.new_len;
+        }
+    }
+    c_int::from(h.session().is_modified())
+}
+
+/// Write the file back. Returns 1 if it was saved.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_save(app: *mut App) -> c_int {
+    unsafe { hex_mut(app) }.map_or(0, |h| c_int::from(h.save()))
+}
+
+/// The last error, worded for the user; empty when there is none. Reading it
+/// clears it.
+///
+/// # Safety
+/// See [`jtf_app_free`]; `buf` as in [`write_str`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_hex_take_error(app: *mut App, buf: *mut c_char, len: c_int) -> c_int {
+    let text = unsafe { app_mut(app) }
+        .and_then(App::take_hex_error)
+        .unwrap_or_default();
+    unsafe { write_str(&text, buf, len) }
+}

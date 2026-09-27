@@ -293,11 +293,11 @@
       <a class="btn ghost" href="#build" data-lang="zh-tw">開始建置</a>
     </div>
 
-    <p class="status" data-lang="en"><strong>0.6.55</strong> — runs on macOS, Windows and Linux.
+    <p class="status" data-lang="en"><strong>0.6.56</strong> — runs on macOS, Windows and Linux.
       Installers for all three are under <a href="#download">Download</a>. They are not signed yet,
       so macOS and Windows ask once before opening them; <a href="#install">the steps</a> are there too.
-      <code>799</code> tests pass.</p>
-    <p class="status" data-lang="zh-tw"><strong>0.6.55</strong>　macOS、Windows、Linux 三個平台都跑得起來。三個平台的安裝檔在<a href="#download">下載</a>。目前還沒有簽章，所以 macOS 和 Windows 第一次開啟前會先問一次，<a href="#install">步驟</a>也在那裡。<code>799</code> 個測試通過。</p>
+      <code>802</code> tests pass.</p>
+    <p class="status" data-lang="zh-tw"><strong>0.6.56</strong>　macOS、Windows、Linux 三個平台都跑得起來。三個平台的安裝檔在<a href="#download">下載</a>。目前還沒有簽章，所以 macOS 和 Windows 第一次開啟前會先問一次，<a href="#install">步驟</a>也在那裡。<code>802</code> 個測試通過。</p>
 
     <figure class="shot">
       <img src="site/lin-panes.png" alt="jt-filework 0.6.52 on Ubuntu, showing two panes side by side">
@@ -528,6 +528,7 @@
       <div><kbd class="k">G</kbd> Open — the same as Enter</div>
       <div><kbd class="k">V</kbd> View</div>
       <div><kbd class="k">H</kbd> View as hex</div>
+      <div><kbd class="k">Alt-X</kbd> Edit as hex</div>
       <div><kbd class="k">Q</kbd> Quick Look</div>
       <div><kbd class="k">E</kbd> Edit</div>
       <div><kbd class="k">C</kbd> Copy to…</div>
@@ -563,6 +564,7 @@
       <div><kbd class="k">G</kbd> 開啟（同 Enter）</div>
       <div><kbd class="k">V</kbd> 檢視</div>
       <div><kbd class="k">H</kbd> 以十六進位檢視</div>
+      <div><kbd class="k">Alt-X</kbd> 以十六進位編輯</div>
       <div><kbd class="k">Q</kbd> 快速查看</div>
       <div><kbd class="k">E</kbd> 編輯</div>
       <div><kbd class="k">C</kbd> 複製到…</div>
@@ -725,7 +727,6 @@
     <p class="sub" data-lang="en">Named here rather than left to be discovered.</p>
     <p class="sub" data-lang="zh-tw">先講清楚，不要讓人自己踩到才知道。</p>
     <ul class="plain" data-lang="en">
-      <li>The hex editor. Its core is written and tested; the window that would use it is not.</li>
       <li>Watching folders through the system's own change notifications. The rows on screen are
         read again every second instead.</li>
       <li>On a server: viewing or previewing a file, renaming, making a folder, copying from one
@@ -740,7 +741,6 @@
       <li>Running a typed command over every marked file.</li>
     </ul>
     <ul class="plain" data-lang="zh-tw">
-      <li>十六進位編輯器。核心已經寫好也測過了，但用到它的視窗還沒做。</li>
       <li>用系統的變更通知來監看資料夾。目前是每秒重讀一次畫面上的列。</li>
       <li>伺服器上的：檢視或預覽檔案、更名、新增資料夾、伺服器對伺服器的複製，以及同時連多台伺服器。伺服器跟本機之間的複製、移動、刪除已經可以用。</li>
       <li><code>.7z</code> 與 <code>.rar</code>。</li>

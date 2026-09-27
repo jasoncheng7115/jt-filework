@@ -425,6 +425,20 @@ impl Buffer {
                 .map_err(|e| Error::new(ErrorCode::Io, e.to_string()))?;
         }
 
+        // The temporary was created with this process's default permissions,
+        // and it is about to become the file. Without this a script saved from
+        // here lost its executable bit and a private file became readable by
+        // everyone - the bytes were right and the file was not the same file.
+        if let Ok(meta) = std::fs::metadata(&self.path) {
+            if let Err(e) = std::fs::set_permissions(&temporary, meta.permissions()) {
+                let _ = std::fs::remove_file(&temporary);
+                return Err(Error::new(
+                    ErrorCode::Io,
+                    format!("{}: {e}", temporary.display()),
+                ));
+            }
+        }
+
         std::fs::rename(&temporary, &self.path).map_err(|e| {
             let _ = std::fs::remove_file(&temporary);
             Error::new(ErrorCode::Io, format!("{}: {e}", self.path.display()))

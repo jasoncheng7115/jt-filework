@@ -16,6 +16,7 @@
 #include <QLineEdit>
 #include <QAction>
 #include <QListView>
+#include <QPushButton>
 #include <QScreen>
 #include <QStyle>
 #include <QVBoxLayout>
@@ -100,6 +101,11 @@ ViewerWindow::ViewerWindow(JtfApp *app, QWidget *parent)
         refresh();
     });
     barLayout->addWidget(hex);
+
+    // From looking to changing, without going back to the list for it.
+    auto *editHex = new QPushButton(tr_("hex.open_from_viewer"), bar);
+    connect(editHex, &QPushButton::clicked, this, &ViewerWindow::editHexRequested);
+    barLayout->addWidget(editHex);
 
     m_find = new QLineEdit(bar);
     m_find->setPlaceholderText(tr_("viewer.find_placeholder"));

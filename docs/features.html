@@ -265,9 +265,9 @@
       <h1>完整功能規格</h1>
       <p class="lede">這一版有的功能、讀得懂的格式、每一道上限，數字都在這。這一頁是拿來查的，不是拿來讀完的。</p>
     </div>
-    <p class="status" data-lang="en"><strong>0.6.55</strong> — 799 tests pass. What is not built yet
+    <p class="status" data-lang="en"><strong>0.6.56</strong> — 802 tests pass. What is not built yet
       is named in the last section rather than left out.</p>
-    <p class="status" data-lang="zh-tw"><strong>0.6.55</strong> — 799 個測試通過。還沒做的功能不是略過不提，最後一節逐項列出。</p>
+    <p class="status" data-lang="zh-tw"><strong>0.6.56</strong> — 802 個測試通過。還沒做的功能不是略過不提，最後一節逐項列出。</p>
   </div>
 
   <nav class="toc">
@@ -293,7 +293,7 @@
   <h2 data-lang="zh-tw">1. 一覽</h2>
   <div class="scroller"><table class="spec">
     <tbody>
-      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.55</td></tr>
+      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.56</td></tr>
       <tr><th data-lang="en">Platforms</th><th data-lang="zh-tw">平台</th>
         <td data-lang="en">macOS 14 or later on Apple silicon; Windows 10/11 x64, as an MSI installer
           or a portable zip; Linux x86-64, as a <code>.deb</code> built on Ubuntu 22.04 — or from
@@ -307,8 +307,8 @@
         <td data-lang="zh-tw">只有兩者中間的 C ABI 橋接層，每一塊都寫了為什麼安全</td></tr>
       <tr><th data-lang="en">Licence</th><th data-lang="zh-tw">授權</th><td>GPL-3.0-or-later</td></tr>
       <tr><th data-lang="en">Tests</th><th data-lang="zh-tw">測試</th>
-        <td data-lang="en">799 automated, including architecture, migration and hostile-input levels</td>
-        <td data-lang="zh-tw">799 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
+        <td data-lang="en">802 automated, including architecture, migration and hostile-input levels</td>
+        <td data-lang="zh-tw">802 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
       <tr><th data-lang="en">Telemetry</th><th data-lang="zh-tw">遙測</th>
         <td data-lang="en"><span class="no">None.</span> The program makes no network connection you did not ask for</td>
         <td data-lang="zh-tw"><span class="no">沒有。</span>除了你自己要連的，程式不會連去別的地方</td></tr>
@@ -352,6 +352,10 @@
         <td data-lang="en">View as hex</td><td data-lang="zh-tw">以十六進位檢視</td>
         <td data-lang="en">Always available, never wrong about what a file contains</td>
         <td data-lang="zh-tw">永遠可用，對檔案內容的呈現永遠不會錯</td></tr>
+      <tr><td><kbd>Alt-X</kbd></td>
+        <td data-lang="en">Edit as hex</td><td data-lang="zh-tw">以十六進位編輯</td>
+        <td data-lang="en">A window of its own that opens read-only; Overwrite or Insert is chosen in it</td>
+        <td data-lang="zh-tw">獨立的視窗，開啟時是唯讀，要在視窗裡選「覆寫」或「插入」才會修改</td></tr>
       <tr><td><kbd>E</kbd></td>
         <td data-lang="en">Edit</td><td data-lang="zh-tw">編輯</td>
         <td data-lang="en">The external editor — macOS only for now</td>
@@ -667,6 +671,17 @@
     same one Finder shows. Windows and Linux have nothing wired up yet, so there the same key opens
     the built-in viewer: it still means "show me this file without leaving the list".</p>
   <p data-lang="zh-tw"><strong>快速查看</strong>（<kbd>Q</kbd>）在 macOS 上是真的系統面板，跟 Finder 開的是同一個。Windows 跟 Linux 還沒接上對應的東西，所以同一個鍵改開內建檢視器，意思不變：不離開清單，直接看這個檔案。</p>
+  <p data-lang="en"><strong>The hex editor</strong> (<kbd>Alt-X</kbd>, or Edit as Hex in the viewer)
+    changes a file as bytes. It opens read-only, so a stray keystroke never changes anything;
+    Overwrite keeps the length and Insert pushes bytes along. Two hex digits make a byte, Tab
+    moves typing to the text column, and changed bytes are drawn in the mark colour until saved.
+    Find and replace work in hex with <code>??</code> wildcards, in UTF-8, Latin-1 and UTF-16, and
+    as integers of 8 to 64 bits in either byte order; Go To takes <code>0x1F4</code>,
+    <code>500.</code>, <code>+0x200</code> or <code>end-4</code>; a selection copies as raw
+    bytes, hex, a C, Rust or Python literal, or Base64. The file is never read whole - a
+    piece table over it - and saving first says how many bytes change and whether the length does,
+    then writes through a temporary and a rename that keeps the file's permissions.</p>
+  <p data-lang="zh-tw"><strong>十六進位編輯器</strong>（<kbd>Alt-X</kbd>，或在檢視器裡按「以十六進位編輯」）用位元組的方式修改檔案。開啟時是唯讀，不小心按到鍵也不會改到任何東西；「覆寫」保持長度不變，「插入」會把後面的位元組往後推。兩個十六進位數字組成一個位元組，Tab 切換到文字欄打字，改過的位元組會用標記色顯示，直到儲存為止。尋找與取代可以用十六進位（支援 <code>??</code> 萬用字元）、UTF-8、Latin-1、UTF-16，也可以找 8 到 64 位元、任一種位元組順序的整數；跳到位址接受 <code>0x1F4</code>、<code>500.</code>、<code>+0x200</code>、<code>end-4</code>；選取的內容可以複製成原始位元組、十六進位、C／Rust／Python 的寫法或 Base64。檔案從不整個讀進記憶體，而是用 piece table 處理；儲存前會先說明有幾個位元組改變、長度是否改變，再透過暫存檔改名寫回，並保留原檔的權限。</p>
   <div class="anchor" id="formats"></div>
   <h2 data-lang="en">7. Formats</h2>
   <h2 data-lang="zh-tw">7. 支援格式</h2>
@@ -1120,10 +1135,6 @@
   <p data-lang="zh-tw">先講清楚，不要讓人自己踩到才知道。</p>
   <div class="scroller"><table class="spec">
     <tbody>
-      <tr><th data-lang="en">Hex editing</th><th data-lang="zh-tw">十六進位編輯</th>
-        <td data-lang="en">The editing core and its bridge are written and tested; the window that
-          would use them is not</td>
-        <td data-lang="zh-tw">編輯核心跟橋接層都寫好也測過了，但用到它們的視窗還沒做</td></tr>
       <tr><th data-lang="en">File watching</th><th data-lang="zh-tw">檔案監看</th>
         <td data-lang="en">A one-second re-read of the rows on screen, not the system's change
           notifications (inotify, FSEvents, ReadDirectoryChangesW)</td>

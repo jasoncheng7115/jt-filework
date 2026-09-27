@@ -116,6 +116,12 @@ private:
     void showInspectorTarget();
     class QTimer *m_inspectorSettle = nullptr;
     void openViewer();
+    /// Open the file under the cursor in the hex editor.
+    void openHexEditor();
+    /// Open the file the viewer is showing in the hex editor.
+    void openHexEditorFromViewer();
+    /// Show the hex editor on the file the bridge has just opened.
+    void showHexEditor();
     void quickLookSelection();
     void openBatchRename();
     void openPalette();
@@ -233,6 +239,8 @@ private:
     class QPushButton *m_cancelButton = nullptr;
     class QAction *m_undoAction = nullptr;
     class ViewerWindow *m_viewer = nullptr;
+    /// One hex editor, because the bridge holds one editing session.
+    class HexEditorWindow *m_hexEditor = nullptr;
     // Whether the last clipboard put was a cut. Remembered here because
     // there is no portable convention for it in the clipboard itself.
     bool m_clipboardIsCut = false;

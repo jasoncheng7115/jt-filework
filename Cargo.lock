@@ -1006,7 +1006,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-bench"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "jtf-core",
  "jtf-fs",
@@ -1016,7 +1016,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-cli"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "jtf-commands",
  "jtf-core",
@@ -1026,7 +1026,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-commands"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "jtf-core",
  "serde",
@@ -1035,7 +1035,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-conformance"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "jtf-commands",
  "jtf-core",
@@ -1049,7 +1049,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-core"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "serde",
  "serde_json",
@@ -1057,7 +1057,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-fs"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "bzip2",
  "dirs",
@@ -1075,14 +1075,14 @@ dependencies = [
 
 [[package]]
 name = "jtf-hexedit"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "jtf-core",
 ]
 
 [[package]]
 name = "jtf-imaging"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "jtf-core",
  "jtf-jobs",
@@ -1092,7 +1092,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-jobs"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "jtf-core",
  "serde",
@@ -1101,7 +1101,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-ops"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "jtf-core",
  "jtf-jobs",
@@ -1113,7 +1113,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-platform-devices"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "jtf-core",
  "rustix",
@@ -1122,14 +1122,14 @@ dependencies = [
 
 [[package]]
 name = "jtf-platform-links"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "jtf-core",
 ]
 
 [[package]]
 name = "jtf-platform-removal"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "jtf-core",
  "rustix",
@@ -1137,7 +1137,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-qt6-bridge"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "dirs",
  "jtf-commands",
@@ -1156,7 +1156,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-search"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "jtf-core",
  "jtf-fs",
@@ -1166,7 +1166,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-transfer"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "jtf-core",
  "jtf-fs",
@@ -1175,7 +1175,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-viewer"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "encoding_rs",
  "jtf-core",
@@ -1185,7 +1185,7 @@ dependencies = [
 
 [[package]]
 name = "jtf-workspace"
-version = "0.6.55"
+version = "0.6.56"
 dependencies = [
  "jtf-core",
  "serde",

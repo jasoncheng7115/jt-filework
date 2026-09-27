@@ -791,14 +791,18 @@ QLabel[jtfFactLabel="true"] { color: %DIM%; }
    file list draws its own tick in a delegate because it has one; a checkbox
    does not, so it keeps the system's. */
 QCheckBox { color: %TEXT%; spacing: 7px; padding: 2px 0; }
-QDialog QPushButton {
+/* And the bars of the viewer and the hex editor, which are windows rather
+   than dialogs: without it their buttons fell back to the platform's light
+   button under this theme's light text, and read as disabled while they were
+   not. */
+QDialog QPushButton, QWidget#JtfViewerBar QPushButton {
     color: %TEXT%;
     background: %HEADER%;
     border: 1px solid %BORDER%;
     border-radius: 6px;
     padding: 5px 14px;
 }
-QDialog QPushButton:hover { background: %HOVER%; border-color: %DIM%; }
+QDialog QPushButton:hover, QWidget#JtfViewerBar QPushButton:hover { background: %HOVER%; border-color: %DIM%; }
 QDialog QPushButton:default { background: %SEL%; color: %ONSEL%; border-color: %SEL%; }
 QDialog QPushButton:default:hover { background: %FOCUS%; }
 /* Disabled, and looking it. There was no rule here at all, so a disabled
@@ -808,7 +812,7 @@ QDialog QPushButton:default:hover { background: %FOCUS%; }
    chosen, and it was the most inviting control on the screen while it did
    nothing. The `:default:disabled` rule has to come after `:default` to win,
    since the two have the same specificity and Qt takes the last. */
-QDialog QPushButton:disabled {
+QDialog QPushButton:disabled, QWidget#JtfViewerBar QPushButton:disabled {
     color: %DIM%;
     background: %WINDOW%;
     border-color: %BORDER%;

@@ -236,6 +236,9 @@ const UNTRANSLATABLE: &[&str] = &[
     // A product name and a number. "Qt 6.11.1" is what a bug report needs to
     // say and is spelled that way in every language.
     "about.qt",
+    // The name of an encoding, spelled the same in every language, as UTF-8
+    // and ISO 9660 are.
+    "hex.copy.base64",
     // What is printed on the key. A hint strip that said 「空白鍵」 while the
     // keyboard says `Space` would be naming a different key.
     "key.space",

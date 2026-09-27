@@ -139,6 +139,11 @@ impl Session {
         })
     }
 
+    /// The file being edited.
+    pub fn path(&self) -> &std::path::Path {
+        self.history.buffer().path()
+    }
+
     /// The buffer, for reading rows.
     pub const fn buffer_mut(&mut self) -> &mut Buffer {
         self.history.buffer_mut()
@@ -174,7 +179,13 @@ impl Session {
         self.mode
     }
 
-    /// Whether a half-typed byte is waiting for its second digit.
+    /// The first digit of a byte typed half way, for the window to show in
+    /// the cell it will land in.
+    pub const fn pending_nibble(&self) -> Option<u8> {
+        self.pending_nibble
+    }
+
+    /// Whether half a byte has been typed and the second digit is awaited.
     pub const fn has_pending_nibble(&self) -> bool {
         self.pending_nibble.is_some()
     }
