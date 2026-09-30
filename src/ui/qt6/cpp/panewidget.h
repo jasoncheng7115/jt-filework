@@ -58,6 +58,16 @@ public:
     QList<int> selectedRows() const;
     /// Add or remove the cursor's row from the selection, then step down.
     void toggleCurrentInSelection();
+    /// Mark the row under the bar and step `step` rows on - Space with a
+    /// direction. Marks and never unmarks, so passing back over a marked row
+    /// keeps it (Native Shift-arrow, MARK-027).
+    void markAndMove(int step);
+    /// Marks changed by something other than a row's own gesture - mark
+    /// all, none, invert, by pattern: repaint every row and the counts.
+    void marksChanged();
+    /// Put the bar on the first or the last entry that is not a folder
+    /// (CV.HLP Shift-Up and Shift-Down).
+    void moveToFile(bool last);
     /// Put the keyboard in the file list.
     void focusList();
     void openCurrentRow();
@@ -87,8 +97,6 @@ public:
     // does not make the columns jump.
     bool m_widenOnly = false;
     void advanceCurrentRow();
-    /// Make the view's selection say what the mark set says.
-    void syncSelectionFromMarks();
     /// Whether a press at `at` landed on the row's tick box.
     bool onCheckBox(const QModelIndex &index, const QPoint &at) const;
     void retranslate();
@@ -190,8 +198,11 @@ private:
     class JtfHeaderView *m_header = nullptr;
     class QListView *m_grid = nullptr;
     class MatchDelegate *m_matches = nullptr;
-    /// Guards the selection/mark round trip against itself.
-    bool m_syncingSelection = false;
+    // Whether the context menu about to open was asked for with the pointer
+    // rather than the keyboard. A pointer's menu is about the row it is on; a
+    // keyboard's follows the rule every command does (AGENTS.md 10).
+    bool m_menuFromPointer = true;
+    void pointAt(const QModelIndex &index);
     class RowDelegate *m_rows = nullptr;
     /// True only between a press on the column header and its release.
     /// Every column width this widget has applied itself, so a width it did

@@ -64,7 +64,14 @@ primary+shift+c      = file.copy_name
 
 # --- marking
 insert               = file.mark.toggle
+# Shift-arrow marks the rows it passes, as in Total Commander. Qt's own would
+# extend a highlight that marks nothing - a third state (AGENTS.md 10).
+shift+down           = file.mark.down
+shift+up             = file.mark.up
 primary+shift+a      = file.mark.all
+# The platform's select-all. Unbound, it reached the list, which lit every
+# row and marked none - and C then copied the one file under the bar.
+primary+a            = file.mark.all
 primary+shift+z      = file.mark.none
 primary+shift+i      = file.mark.invert
 

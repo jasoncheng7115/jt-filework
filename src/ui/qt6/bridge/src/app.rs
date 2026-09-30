@@ -463,6 +463,14 @@ pub struct App {
     watch: Option<jtf_platform_watch::Watcher>,
     /// When the folders that cannot be watched were last polled.
     last_polled: Option<std::time::Instant>,
+    /// The row a pointer gesture is on, while it is on a row nobody marked.
+    ///
+    /// A right-click menu opened on an unmarked row acts on that row alone and
+    /// leaves the marks where they are, as dragging one does
+    /// (`UI_TEST_PLAN` MARK-019, MARK-037): the pointer was not on the
+    /// others. Without it, 「移到回收筒」 chosen on a file nobody ticked went
+    /// to the seven that were ticked. Set only while such a menu is up.
+    pointer_row: Option<(PaneId, Location)>,
     /// A second, independent read for the inspector's preview.
     ///
     /// Separate from `viewer` rather than shared with it: the inspector
@@ -631,6 +639,7 @@ impl App {
             hex_edit: None,
             watch: None,
             last_polled: None,
+            pointer_row: None,
             preview: None,
             last_summary: None,
             undo_stack: Vec::new(),
@@ -2565,7 +2574,14 @@ impl App {
         // there is not - the same rule the local operations follow, so C on a
         // server behaves the way C on a local folder does.
         let marked = self.marked_rows(pane);
-        let entries: Vec<&FileEntry> = if marked.is_empty() {
+        let pointed = self.pointed_at(pane);
+        let entries: Vec<&FileEntry> = if let Some(location) = pointed {
+            (0..self.row_count(pane))
+                .filter_map(|row| self.entry_at(pane, row))
+                .find(|entry| entry.location() == location)
+                .into_iter()
+                .collect()
+        } else if marked.is_empty() {
             self.workspace
                 .pane(pane)
                 .and_then(jtf_workspace::Pane::active_tab)
@@ -2688,6 +2704,13 @@ impl App {
     }
 
     fn operation_sources(&self, pane: PaneId) -> Vec<PathBuf> {
+        if let Some(location) = self.pointed_at(pane) {
+            return location
+                .as_path()
+                .map(std::path::Path::to_path_buf)
+                .into_iter()
+                .collect();
+        }
         let listed: Vec<PathBuf> = self
             .marked_rows(pane)
             .into_iter()
@@ -2704,6 +2727,27 @@ impl App {
             .and_then(|location| location.as_path().map(std::path::Path::to_path_buf))
             .into_iter()
             .collect()
+    }
+
+    /// Point at `row` for the length of a pointer gesture, or stop pointing
+    /// with `None`.
+    ///
+    /// A row that is marked is not recorded: a gesture on one of the marked
+    /// rows acts on the marked set, as a command does. Only a row outside it
+    /// narrows the target to itself.
+    pub(crate) fn set_pointer_row(&mut self, pane: PaneId, row: Option<usize>) {
+        self.pointer_row = row
+            .filter(|row| !self.row_is_marked(pane, *row))
+            .and_then(|row| self.entry_at(pane, row))
+            .map(|entry| (pane, entry.location().clone()));
+    }
+
+    /// The row a pointer gesture in `pane` is on, if it narrows the target.
+    fn pointed_at(&self, pane: PaneId) -> Option<&Location> {
+        self.pointer_row
+            .as_ref()
+            .filter(|(on, _)| *on == pane)
+            .map(|(_, location)| location)
     }
 
     /// The one entry the cursor is on, ignoring marks.
@@ -4333,21 +4377,18 @@ impl App {
         count
     }
 
-    /// Total size of what an operation started here would act on.
+    /// Total size of the marked rows in view: the figure beside the marked
+    /// count.
     ///
-    /// Files only: a directory's size needs a recursive scan, which is a job
-    /// rather than a number the status bar can produce while painting.
-    pub(crate) fn target_size(&self, pane: PaneId) -> u64 {
-        let targets: std::collections::HashSet<Location> = self
-            .workspace
-            .pane(pane)
-            .and_then(jtf_workspace::Pane::active_tab)
-            .map(|tab| tab.operation_target().locations().into_iter().collect())
-            .unwrap_or_default();
-
-        (0..self.row_count(pane))
+    /// It used to be the size of whatever an operation would act on, which
+    /// with nothing marked is the row under the bar - so the window's line,
+    /// adding every pane together, read 「已選取 7 個 (1.0 GB)」 when the
+    /// gigabyte was the file under the other pane's bar and the seven came
+    /// to half a megabyte.
+    pub(crate) fn marked_size(&self, pane: PaneId) -> u64 {
+        self.marked_rows(pane)
+            .into_iter()
             .filter_map(|row| self.entry_at(pane, row))
-            .filter(|entry| targets.contains(entry.location()))
             .filter_map(jtf_core::FileEntry::size)
             .sum()
     }
@@ -6730,5 +6771,91 @@ mod file_watching_tests {
             size(app).is_some_and(|now| now != before)
         });
         let _ = std::fs::remove_dir_all(&folder);
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+mod pointer_tests {
+    //! What a right-click menu acts on (`AGENTS.md` §10, `UI_TEST_PLAN` MARK-037 to MARK-039).
+    use super::{App, COLUMN_NAME};
+    use jtf_workspace::PaneId;
+    use std::time::{Duration, Instant};
+
+    fn folder_with(files: &[&str]) -> (App, PaneId, std::path::PathBuf) {
+        let dir = std::env::temp_dir().join(format!(
+            "jtf-pointer-{}-{}",
+            files.len(),
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        for name in files {
+            std::fs::write(dir.join(name), name.as_bytes()).unwrap();
+        }
+        let mut app = App::for_tests();
+        let pane = app.active_pane();
+        app.navigate(pane, &dir.to_string_lossy());
+        let start = Instant::now();
+        while app.is_loading(pane) && start.elapsed() < Duration::from_secs(10) {
+            app.pump();
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        (app, pane, dir)
+    }
+
+    fn row_of(app: &App, pane: PaneId, name: &str) -> usize {
+        (0..app.row_count(pane))
+            .find(|&row| app.row_text(pane, row, COLUMN_NAME) == name)
+            .unwrap_or_else(|| panic!("{name} is not listed"))
+    }
+
+    fn targets(app: &App, pane: PaneId) -> Vec<String> {
+        let mut names: Vec<String> = app.target_names(pane).lines().map(str::to_owned).collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn a_menu_on_a_row_nobody_marked_acts_on_that_row_and_keeps_the_marks() {
+        let (mut app, pane, dir) = folder_with(&["a.txt", "b.txt", "c.txt"]);
+        app.toggle_mark(pane, row_of(&app, pane, "a.txt"));
+        app.toggle_mark(pane, row_of(&app, pane, "b.txt"));
+        assert_eq!(targets(&app, pane), ["a.txt", "b.txt"]);
+
+        app.set_pointer_row(pane, Some(row_of(&app, pane, "c.txt")));
+        assert_eq!(
+            targets(&app, pane),
+            ["c.txt"],
+            "the menu was opened on c.txt"
+        );
+        assert_eq!(app.marked_count(pane), 2, "and a and b are still marked");
+
+        app.set_pointer_row(pane, None);
+        assert_eq!(
+            targets(&app, pane),
+            ["a.txt", "b.txt"],
+            "the menu has closed"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_menu_on_a_marked_row_acts_on_the_marked_set() {
+        let (mut app, pane, dir) = folder_with(&["a.txt", "b.txt", "c.txt", "d.txt"]);
+        app.toggle_mark(pane, row_of(&app, pane, "a.txt"));
+        app.toggle_mark(pane, row_of(&app, pane, "b.txt"));
+        app.set_pointer_row(pane, Some(row_of(&app, pane, "b.txt")));
+        assert_eq!(targets(&app, pane), ["a.txt", "b.txt"]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn pointing_in_one_pane_does_not_narrow_another() {
+        let (mut app, pane, dir) = folder_with(&["a.txt", "b.txt"]);
+        app.set_pointer_row(pane, Some(row_of(&app, pane, "a.txt")));
+        let other = jtf_workspace::PaneId::new(pane.get() + 1_000);
+        assert!(app.pointed_at(other).is_none());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

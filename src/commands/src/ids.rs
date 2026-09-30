@@ -283,6 +283,10 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
     ("nav.forward", C::Navigation, "command.nav.forward"),
     ("nav.home", C::Navigation, "command.nav.home"),
     ("nav.goto", C::Navigation, "command.nav.goto"),
+    // CV.HLP: Shift-Up and Shift-Down take the bar to the first and the last
+    // *file*, passing over the folders.
+    ("nav.first_file", C::Navigation, "command.nav.first_file"),
+    ("nav.last_file", C::Navigation, "command.nav.last_file"),
     ("file.open", C::File, "command.file.open"),
     ("file.view", C::File, "command.file.view"),
     ("file.view_hex", C::File, "command.file.view_hex"),
@@ -334,6 +338,15 @@ const BASELINE_COMMANDS: &[(&str, CommandCategory, &str)] = &[
         C::SelectionAndMarks,
         "command.file.mark.toggle",
     ),
+    // Mark the row under the bar and step on: Space with a direction. What
+    // Shift-arrow does in the Native profile, as it does in Total Commander,
+    // rather than Qt's highlight that marks nothing (AGENTS.md 10).
+    (
+        "file.mark.down",
+        C::SelectionAndMarks,
+        "command.file.mark.down",
+    ),
+    ("file.mark.up", C::SelectionAndMarks, "command.file.mark.up"),
     (
         "file.mark.all",
         C::SelectionAndMarks,
@@ -534,10 +547,12 @@ mod tests {
             marks,
             [
                 "file.mark.all",
+                "file.mark.down",
                 "file.mark.invert",
                 "file.mark.none",
                 "file.mark.pattern",
                 "file.mark.toggle",
+                "file.mark.up",
                 "file.unmark.pattern",
             ],
             "listed by id, not by menu order; a new mark command shows up \

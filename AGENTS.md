@@ -473,13 +473,13 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-09-30 · **Version:** 0.6.58 · **Branch:** `main` ·
+**Updated:** 2026-09-30 · **Version:** 0.6.59 · **Branch:** `main` ·
 **Phase:** 1 — usable build
 
 ### Gates
 
 ```text
-tests     819 passing, 0 failing, 0 ignored  (cargo test --workspace)
+tests     822 passing, 0 failing, 0 ignored  (cargo test --workspace)
 clippy    clean (-D warnings, --all-targets, workspace-wide)
 rustfmt   clean - and it was not, until 2026-09-16: 52 sites in the crates
           added since 0.6.9 had never been through it. Run it, do not assume it
@@ -538,7 +538,12 @@ JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
   rename, queued rather than refused, with conflict resolution (overwrite,
   keep both, skip, abort), progress, cancellation and undo. Trashing goes
   through the platform, so Finder's Put Back works.
-- **Marks** — space, all, none, invert, and by wildcard. §10 is the model.
+- **Marks** — space, all (also Ctrl/⌘-A), none, invert, and by wildcard. §10 is
+  the model, and neither view can hold more than the one selected row that is
+  the bar. A drag or a right-click menu that starts on a marked row acts on
+  the marked set; on an unmarked row, on that row alone, marks left alone.
+  Shift-arrow: CView's first and last file in Single-Key, mark-and-step in
+  Native.
 - **Remote** — an SFTP location in any pane, with copy, move and delete between
   it and this machine: a partial file is written under `.jtf-part` and only
   then named, a move that copied but could not remove the source says so in
@@ -648,9 +653,6 @@ fuzz targets      docs/TESTING.md 9.1 lists one for every parser of untrusted
                   (ADR-0006 amendment, point 5)
 macOS read-back   the authopen descriptor exchange is tested against a
                   stand-in helper, not yet against a real authorization
-Shift-arrow       bound to nothing, so Qt's list extends a highlight that
-                  marks nothing - a third state §10 does not allow. Marks a
-                  range, or does nothing: undecided (UI_TEST_PLAN MARK-027)
 ```
 
 Two documents fell behind the code and were caught up: UI_TEST_PLAN §6

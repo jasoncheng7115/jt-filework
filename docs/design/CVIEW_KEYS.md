@@ -59,7 +59,7 @@ Verbatim from the help file, with our command id where one exists.
 | `Alt-M` / `Alt-C` / `K` / `Alt-K` | 25/30 行模式 · 月曆 · 計算機 · 進制換算 | out of scope |
 | `Shift-A`–`Z` `0`–`9` | 光棒移到第一個以該字母開頭的檔名 | built — see below |
 | `Ctrl-A`–`Z` | 切換磁碟機 | not built |
-| `Shift-↑` / `Shift-↓` | 光棒移到第一個 / 最後一個檔案(不含目錄) | not built |
+| `Shift-↑` / `Shift-↓` | 光棒移到第一個 / 最後一個檔案(不含目錄) | `nav.first_file` / `nav.last_file`, since 0.6.59 |
 | `Ctrl-ENTER` | 執行 DOS 指令 | `file.terminal`, on `primary+Enter` |
 
 ## Viewer — `CV.HLP` §三, 觀看檔案時

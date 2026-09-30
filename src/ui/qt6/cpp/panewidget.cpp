@@ -34,6 +34,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QHBoxLayout>
+#include <QContextMenuEvent>
 #include <QDrag>
 #include <QListView>
 #include <QStyle>
@@ -255,7 +256,12 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // sideways - and a bar that appears on hover would change the list's
     // height as the pointer crossed the pane's edge.
     m_view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_view->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    // One row at most, and that row is the bar. A view allowed to hold more
+    // shows rows as chosen that no command acts on - Ctrl-A lit the whole
+    // list and C then copied the one file under the bar - which is the third
+    // state AGENTS.md 10 rules out. What is chosen is the marks, and they are
+    // made by the mark gestures, not by Qt's selection.
+    m_view->setSelectionMode(QAbstractItemView::SingleSelection);
     m_view->setAlternatingRowColors(true);
     m_view->setMouseTracking(true); // so :hover in the stylesheet applies
     m_view->setShowGrid(false);
@@ -278,12 +284,13 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // A mark made by clicking a row's own box has to move the header's box
     // too. `markChanged` was emitted and nobody was listening.
     connect(m_model, &FileListModel::markChanged, this, [this] {
-        // And the selection follows, because selection *is* the mark
-        // (`AGENTS.md` §10). Ticking a box marked the row in the model and
-        // left it out of the view's selection, so a row marked by its box was
-        // drawn one way and a row marked by being selected another - two
-        // appearances for one state, in the same column, three rows apart.
-        syncSelectionFromMarks();
+        // The selection is not touched. It used to be set to the marked rows,
+        // from when selecting and marking were one state; since AGENTS.md 10
+        // made the selection the bar alone, that lit every marked row as the
+        // bar and left no way to tell where the bar was. Marks are drawn in
+        // the mark colour by the model, so a repaint is all they need.
+        m_view->viewport()->update();
+        m_grid->viewport()->update();
         syncMarkAll();
         emit stateChanged();
     });
@@ -291,11 +298,10 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
         // 0 marks every listed entry, 1 clears them - the same two actions the
         // Edit menu offers, so there is one implementation of "all".
         jtf_mark_listed(m_app, m_pane, wanted ? 0 : 1);
-        // refreshRows puts the highlight back from the marks, so the rows go
-        // dark with their boxes. Clearing the header box used to leave every
-        // row still lit, which said the rows were selected while their boxes
-        // said they were not - the two halves of one thing disagreeing.
-        refreshRows();
+        // Every row repainted, so each one's colour agrees with its box. A
+        // listing refresh does not do it: the rows themselves are unchanged,
+        // and the model rightly leaves the view alone when they are.
+        marksChanged();
         emit stateChanged();
     });
     // Only the name column: highlighting a date because the query happens to
@@ -343,6 +349,9 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_view->setDropIndicatorShown(true);
     m_view->setDragDropMode(QAbstractItemView::DragDrop);
     m_view->setDefaultDropAction(Qt::MoveAction);
+    // So the window can tell the file list from every other list: the
+    // commands on shifted arrows belong to this one (MainWindow::eventFilter).
+    m_view->setProperty("jtfFileList", true);
     layout->addWidget(m_view, 1);
 
     // The status line, and beside it the one thing worth doing about a
@@ -403,9 +412,12 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     m_grid->setUniformItemSizes(true);
     m_grid->setWordWrap(true);
     m_grid->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_grid->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    // The same one-row rule as the list, which also takes away the grid's
+    // rubber band: a box dragged over icons lit them and marked none.
+    m_grid->setSelectionMode(QAbstractItemView::SingleSelection);
     m_grid->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_grid->setDragEnabled(true);
+    m_grid->setProperty("jtfFileList", true);
     m_grid->setAcceptDrops(true);
     m_grid->setDropIndicatorShown(true);
     m_grid->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -421,8 +433,9 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     layout->addWidget(m_grid, 1);
     connect(m_grid, &QWidget::customContextMenuRequested, this, [this](const QPoint &at) {
         jtf_focus_pane(m_app, m_pane);
-        emit contextMenuRequested(m_grid->viewport()->mapToGlobal(at),
-                                  m_grid->indexAt(at).isValid());
+        const QModelIndex index = m_grid->indexAt(at);
+        pointAt(index);
+        emit contextMenuRequested(m_grid->viewport()->mapToGlobal(at), index.isValid());
     });
 
     m_view->installEventFilter(this);
@@ -852,8 +865,23 @@ void PaneWidget::showContextMenu(const QPoint &position) {
         m_view->selectionModel()->select(
             index, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
     }
+    pointAt(index);
     emit focusRequested(m_pane);
     emit contextMenuRequested(m_view->viewport()->mapToGlobal(position), index.isValid());
+}
+
+void PaneWidget::pointAt(const QModelIndex &index) {
+    // What the menu will act on. Right-clicking a file nobody ticked, with
+    // seven others ticked, and choosing 移到回收筒 sent the seven to the
+    // trash: the menu followed the rule for commands - the marked set first -
+    // while the pointer was plainly on something else. A pointer's menu on an
+    // unmarked row now acts on that row and leaves the marks alone, as a drag
+    // from one does (MARK-019) and as Total Commander does; on a marked row it
+    // acts on the marked set. A menu opened from the keyboard is left to the
+    // command rule, which is what the CView keys expect.
+    const bool pointed = m_menuFromPointer && index.isValid();
+    jtf_set_pointer_row(m_app, m_pane, pointed ? index.row() : -1);
+    m_menuFromPointer = true;
 }
 
 void PaneWidget::showHeaderMenu(const QPoint &position) {
@@ -1180,48 +1208,51 @@ int PaneWidget::currentRow() const {
     return current.isValid() ? current.row() : -1;
 }
 
-void PaneWidget::syncSelectionFromMarks() {
-    // Guarded, because setting the selection is what emits `selectionChanged`,
-    // which writes the selection back as the mark set - and a mark made here
-    // would arrive there as a mark to make, forever.
-    if (m_syncingSelection) {
-        return;
-    }
-    m_syncingSelection = true;
-
-    QVector<int> rows(m_model->rowCount());
-    const int count = jtf_marked_rows(m_app, m_pane, rows.data(), rows.size());
-    // Only ever *clears* the flag. It cannot set it.
-    //
-    // This runs whenever the model's marks change, which includes a re-listing
-    // restoring the marks that were already there - and the folder poll
-    // re-lists a second after any change on disk. So a plain click, which
-    // marks the row it lands on because selection is the mark, came back
-    // through here a moment later looking like a set built on purpose, and
-    // the arrow keys quietly stopped carrying the highlight again.
-    //
-    // Being deliberate is a property of the gesture, so it is set at the
-    // gestures - Space, a tick box, Ctrl- or Shift-click, mark all, invert,
-    // by pattern - and never inferred from the marks existing.
-    if (count == 0) {
-    }
-    QItemSelection wanted;
-    const int columns = m_model->columnCount();
-    for (int i = 0; i < count; ++i) {
-        const int row = rows.at(i);
-        wanted.select(m_model->index(row, 0), m_model->index(row, columns - 1));
-    }
-    currentView()->selectionModel()->select(wanted, QItemSelectionModel::ClearAndSelect
-                                                        | QItemSelectionModel::Rows);
-    m_syncingSelection = false;
-}
-
 /// How far Page Up and Page Down move when the cursor is walking on its own.
 ///
 /// A fixed step rather than a measured screenful: the two are the same for any
 /// list tall enough to page through, and asking the viewport mid-event brings
 /// in a geometry that is being scrolled at the same time.
 static constexpr int kPageStep = 20;
+
+void PaneWidget::markAndMove(int step) {
+    const int row = currentRow();
+    if (row < 0) {
+        return;
+    }
+    if (jtf_row_is_parent(m_app, m_pane, row) == 0 && jtf_row_is_marked(m_app, m_pane, row) == 0) {
+        jtf_toggle_mark(m_app, m_pane, row);
+        syncMarkAll();
+        repaintRow(m_model->index(row, 0));
+    }
+    const int next = qBound(0, row + step, m_model->rowCount() - 1);
+    setCurrentRow(next, QAbstractItemView::EnsureVisible);
+    // The same narrow update as Space, for the same reason: held down, a full
+    // refresh per row queued behind the key (see toggleCurrentInSelection).
+    retranslate();
+    emit selectionChanged();
+}
+
+void PaneWidget::marksChanged() {
+    m_view->viewport()->update();
+    m_grid->viewport()->update();
+    syncMarkAll();
+    retranslate();
+    emit selectionChanged();
+}
+
+void PaneWidget::moveToFile(bool last) {
+    const int rows = m_model->rowCount();
+    for (int i = 0; i < rows; ++i) {
+        const int row = last ? rows - 1 - i : i;
+        if (jtf_row_is_parent(m_app, m_pane, row) == 0
+            && jtf_row_is_directory(m_app, m_pane, row) == 0) {
+            setCurrentRow(row, QAbstractItemView::EnsureVisible);
+            return;
+        }
+    }
+    // A folder of folders: nothing to go to, and the bar stays where it was.
+}
 
 void PaneWidget::advanceCurrentRow() {
     const int next = qMin(currentRow() + 1, m_model->rowCount() - 1);
@@ -1318,6 +1349,12 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     if (event->type() == QEvent::FocusIn || event->type() == QEvent::MouseButtonPress) {
         emit focusRequested(m_pane);
     }
+    // Seen here before the view turns it into `customContextMenuRequested`,
+    // which does not say who asked.
+    if (event->type() == QEvent::ContextMenu) {
+        m_menuFromPointer =
+            static_cast<QContextMenuEvent *>(event)->reason() != QContextMenuEvent::Keyboard;
+    }
 
     // A drag carries what the bar is on, not what happens to be selected.
     //
@@ -1328,6 +1365,26 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     // On the viewport, not on the view: an item view delivers mouse events to
     // its viewport and sees only what the viewport declines, so a branch
     // guarded on the view never ran for an ordinary click.
+    // The grid gets the same two gestures as the list: a plain click moves the
+    // bar, Ctrl- or Shift-click marks. Left to Qt they added to its own
+    // selection, which marks nothing.
+    if (m_grid != nullptr && watched == m_grid->viewport()
+        && event->type() == QEvent::MouseButtonPress) {
+        auto *mouse = static_cast<QMouseEvent *>(event);
+        const QModelIndex under = m_grid->indexAt(mouse->pos());
+        const bool modified =
+            (mouse->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier | Qt::MetaModifier))
+            != Qt::NoModifier;
+        if (mouse->button() == Qt::LeftButton && modified && under.isValid()
+            && jtf_row_is_parent(m_app, m_pane, under.row()) == 0) {
+            jtf_toggle_mark(m_app, m_pane, under.row());
+            syncMarkAll();
+            m_grid->viewport()->update();
+            emit stateChanged();
+            return true;
+        }
+    }
+
     if (watched == m_view->viewport() && event->type() == QEvent::MouseButtonPress) {
         auto *mouse = static_cast<QMouseEvent *>(event);
         const bool modified =
@@ -1378,7 +1435,7 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     //
     // `ShortcutOverride` is the mechanism for exactly this: accepting it says
     // "this key is mine", and the key then arrives as an ordinary press below.
-    if (event->type() == QEvent::ShortcutOverride && watched == m_view
+    if (event->type() == QEvent::ShortcutOverride && (watched == m_view || watched == m_grid)
         && !jtf_type_ahead(m_app)) {
         auto *key = static_cast<QKeyEvent *>(event);
         const int code = key->key();
@@ -1567,199 +1624,40 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
     // their own that is not needed, and the cost of it was the complaint that
     // came back three times: the bar sitting still while the keyboard moved.
 
-    // Claim Shift+letter before the shortcut system does.
-    //
-    // Qt matches a one-letter QKeySequence against Shift+letter as well as the
-    // bare letter, because the text both produce is the same capital. Shortcuts
-    // are also delivered *before* the focus widget sees a key press. Together
-    // that meant `Shift-H` ran `file.view_hex`, `Shift-C` would have copied and
-    // `Shift-M` moved - every bare-letter command swallowing its own shifted
-    // form, and CV.HLP §二's Shift+letter jump never reaching the code that
-    // implements it.
-    //
-    // `ShortcutOverride` is the mechanism for exactly this: accepting it says
-    // "this key is mine", and the key then arrives as an ordinary press below.
-    if (event->type() == QEvent::ShortcutOverride && watched == m_view
-        && !jtf_type_ahead(m_app)) {
+    // A shifted move that reaches the list as a key press is one nothing is
+    // bound to: a bound chord arrives as a shortcut and is gone by now. Qt
+    // would extend its highlight with it - rows shown as chosen that no
+    // command acts on, the third state AGENTS.md 10 rules out. It moves the
+    // bar as the plain key does instead. Shift-Left and Shift-Right in the
+    // detail list do nothing: plain Left and Right leave and enter folders,
+    // and a stray Shift is not a request to walk the tree.
+    if (event->type() == QEvent::KeyPress && (watched == m_view || watched == m_grid)) {
         auto *key = static_cast<QKeyEvent *>(event);
-        const int code = key->key();
-        const bool jumpable = (code >= Qt::Key_A && code <= Qt::Key_Z)
-                              || (code >= Qt::Key_0 && code <= Qt::Key_9);
         const Qt::KeyboardModifiers mods = key->modifiers();
-        if (jumpable && mods.testFlag(Qt::ShiftModifier)
-            && !mods.testFlag(Qt::ControlModifier) && !mods.testFlag(Qt::AltModifier)
-            && !mods.testFlag(Qt::MetaModifier)) {
-            event->accept();
-            return true;
-        }
-    }
-
-    // The name column is fitted here rather than in the pane's resizeEvent.
-    // The pane learns its new size before the view inside it does, so fitting
-    // there computed the surplus from the *previous* viewport width - which on
-    // the very first show is the width the view had before any layout ran, and
-    // no later resize arrives to correct it. That is why the columns came up
-    // filling half the window and stayed there. The viewport's own resize
-    // always carries the width the rows are actually drawn at.
-    if (watched == m_view->viewport() && event->type() == QEvent::Resize) {
-        scheduleFitNameColumn();
-    }
-    if (watched == m_view->viewport() && event->type() == QEvent::Leave) {
-        // Otherwise the last row the pointer touched stays lit after the
-        // pointer has gone somewhere else entirely.
-        setHoveredRow(-1);
-    }
-
-    switch (event->type()) {
-    case QEvent::DragEnter:
-    case QEvent::DragMove: {
-        auto *drag = static_cast<QDragMoveEvent *>(event);
-        // A tab dragged onto this pane at all, not only onto its tab strip.
-        // The strip is a thin target, and "put this tab over there" means the
-        // pane, not the two-centimetre band along its top.
-        if (drag->mimeData()->hasFormat(kTabMimeType)) {
-            drag->setDropAction(Qt::MoveAction);
-            drag->accept();
-            return true;
-        }
-        if (drag->mimeData()->hasUrls()) {
-            drag->acceptProposedAction();
-            return true;
-        }
-        return false;
-    }
-    case QEvent::Drop: {
-        auto *drop = static_cast<QDropEvent *>(event);
-        if (drop->mimeData()->hasFormat(kTabMimeType)) {
-            const QList<QByteArray> parts = drop->mimeData()->data(kTabMimeType).split(':');
-            if (parts.size() == 2) {
-                drop->setDropAction(Qt::MoveAction);
-                drop->accept();
-                emit tabMergeRequested(parts.at(0).toInt(), parts.at(1).toInt(), m_pane);
+        const bool shiftOnly = mods.testFlag(Qt::ShiftModifier)
+                               && (mods & (Qt::ControlModifier | Qt::AltModifier
+                                           | Qt::MetaModifier)) == Qt::NoModifier;
+        const int code = key->key();
+        const bool vertical = code == Qt::Key_Up || code == Qt::Key_Down
+                              || code == Qt::Key_PageUp || code == Qt::Key_PageDown
+                              || code == Qt::Key_Home || code == Qt::Key_End;
+        const bool sideways = code == Qt::Key_Left || code == Qt::Key_Right;
+        if (shiftOnly && (vertical || sideways)) {
+            if (sideways && watched == m_view) {
                 return true;
             }
-            return false;
-        }
-        if (handleDrop(drop)) {
-            drop->acceptProposedAction();
+            QKeyEvent plain(QEvent::KeyPress, code, mods & ~Qt::ShiftModifier, QString(),
+                            key->isAutoRepeat(), key->count());
+            QCoreApplication::sendEvent(watched, &plain);
             return true;
-        }
-        return false;
-    }
-    default:
-        break;
-    }
-
-    // Typing a filter narrows the list; the next thing anyone wants is to act
-    // on what is left. Tab, Enter and Down all hand the keyboard to the list
-    // rather than leaving it in a box whose work is done.
-    if (watched == m_tabs) {
-        switch (event->type()) {
-        case QEvent::MouseButtonPress: {
-            auto *mouse = static_cast<QMouseEvent *>(event);
-            if (mouse->button() == Qt::LeftButton) {
-                m_dragTab = m_tabs->tabAt(mouse->position().toPoint());
-                m_dragOrigin = mouse->globalPosition().toPoint();
-            }
-            break;
-        }
-        case QEvent::MouseMove: {
-            auto *mouse = static_cast<QMouseEvent *>(event);
-            if (m_dragTab < 0 || !(mouse->buttons() & Qt::LeftButton)) {
-                break;
-            }
-            // Vertical distance, not any distance: dragging sideways along
-            // the strip is Qt reordering the tabs, which is a different and
-            // equally wanted gesture. Only leaving the strip means "out".
-            const int dy = qAbs(mouse->globalPosition().toPoint().y() - m_dragOrigin.y());
-            if (dy > m_tabs->height() + kTearOffDistance) {
-                const int index = m_dragTab;
-                m_dragTab = -1;
-
-                // Offered to other strips first. Only if nobody takes it does
-                // the tab become its own window - so dragging onto another
-                // window merges, and dragging into empty space tears off,
-                // from one gesture.
-                auto *mime = new QMimeData;
-                mime->setData(kTabMimeType,
-                              QStringLiteral("%1:%2").arg(m_pane).arg(index).toUtf8());
-                auto *drag = new QDrag(this);
-                drag->setMimeData(mime);
-                if (drag->exec(Qt::MoveAction) == Qt::MoveAction) {
-                    return true; // another strip took it
-                }
-                // Released first, or the new window opens under a pointer
-                // that Qt still believes is dragging a tab in the old one.
-                QMouseEvent release(QEvent::MouseButtonRelease, mouse->position(),
-                                    mouse->globalPosition(), Qt::LeftButton, Qt::NoButton,
-                                    Qt::NoModifier);
-                QApplication::sendEvent(m_tabs, &release);
-                emit tearOffRequested(index);
-                return true;
-            }
-            break;
-        }
-        case QEvent::MouseButtonRelease:
-            m_dragTab = -1;
-            break;
-
-        case QEvent::DragEnter:
-        case QEvent::DragMove: {
-            auto *drag = static_cast<QDragMoveEvent *>(event);
-            if (drag->mimeData()->hasFormat(kTabMimeType)) {
-                drag->setDropAction(Qt::MoveAction);
-                drag->accept();
-                return true;
-            }
-            break;
-        }
-        case QEvent::Drop: {
-            auto *drop = static_cast<QDropEvent *>(event);
-            const QByteArray payload = drop->mimeData()->data(kTabMimeType);
-            const QList<QByteArray> parts = payload.split(':');
-            if (parts.size() != 2) {
-                break;
-            }
-            const int fromPane = parts.at(0).toInt();
-            const int tabIndex = parts.at(1).toInt();
-            drop->setDropAction(Qt::MoveAction);
-            drop->accept();
-            emit tabMergeRequested(fromPane, tabIndex, m_pane);
-            return true;
-        }
-        default:
-            break;
         }
     }
 
-    if (event->type() == QEvent::KeyPress && watched == m_filter) {
-        auto *key = static_cast<QKeyEvent *>(event);
-        switch (key->key()) {
-        case Qt::Key_Tab:
-        case Qt::Key_Return:
-        case Qt::Key_Enter:
-        case Qt::Key_Down:
-            // Tab, Enter and Down all mean "I have typed enough, take me to
-            // the results". The filter itself stays in force - the list is
-            // narrowed and the box still shows why.
-            focusList();
-            if (m_view->currentIndex().isValid()) {
-                return true;
-            }
-            ensureCurrentRow();
-            return true;
-        case Qt::Key_Escape:
-            // Escape ends the filter and empties it. Leaving the text behind
-            // would mean the next `F` reopened a box already narrowing the
-            // list, which is a mode the user thought they had left.
-            clearFilter();
-            return true;
-        default:
-            break;
-        }
-    }
-
-    if (event->type() == QEvent::KeyPress && watched == m_view) {
+    // The keys the list resolves through the keymap itself. The grid too: a
+    // command has one shortcut on its menu entry, and every other chord bound
+    // to it - CView's `P`, `INS`, Ctrl-A beside Alt-T - is looked up here. In
+    // the grid it was not, so those keys did nothing there, or Qt's own thing.
+    if (event->type() == QEvent::KeyPress && (watched == m_view || watched == m_grid)) {
         auto *key = static_cast<QKeyEvent *>(event);
         switch (key->key()) {
         case Qt::Key_Return:
@@ -1824,6 +1722,11 @@ bool PaneWidget::eventFilter(QObject *watched, QEvent *event) {
 
         case Qt::Key_Left:
         case Qt::Key_Right: {
+            // In the grid the icons run sideways, and Left and Right are how
+            // you get to the one beside this; Qt's own movement is right.
+            if (watched == m_grid) {
+                break;
+            }
             // The list has columns, so Qt would move the current cell
             // sideways. In a file manager the horizontal axis is the folder
             // hierarchy, not the column list, and both CView and every
@@ -2460,16 +2363,18 @@ void PaneWidget::retranslate() {
         // 已標記 10 個」, the same fact twice under two names, because
         // AGENTS.md 10 makes selecting a row and marking it the same act. The
         // marks are the set an operation acts on, so that is the one counted.
+        //
+        // With their size, which is the number people are looking for before
+        // they copy something. Only the marked rows' size: with nothing marked
+        // it was the size of the row under the bar, labelled 「已選」, which
+        // the row itself already shows.
         if (marked > 0) {
-            status += QStringLiteral("   ") +
-                      jtfFill(tr_("status.marked"), "count", QString::number(marked));
-        }
-        // The size of what an operation would act on, which is the number
-        // people are actually looking for before they copy something.
-        const quint64 bytes = jtf_target_size(m_app, m_pane);
-        if (bytes > 0) {
-            status += QStringLiteral("   ") +
-                      jtfFill(tr_("status.size"), "size", formatSize(bytes));
+            const QString count = QString::number(marked);
+            const quint64 bytes = jtf_marked_size(m_app, m_pane);
+            status += QStringLiteral("   ")
+                      + (bytes > 0 ? jtfFill(jtfFill(tr_("status.marked_size"), "count", count),
+                                             "size", formatSize(bytes))
+                                   : jtfFill(tr_("status.marked"), "count", count));
         }
         // No free-space figure here. It is a property of the disk, not of the
         // folder being looked at, so it said the same thing in every pane on

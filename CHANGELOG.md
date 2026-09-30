@@ -12,6 +12,46 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.59] - 2026-09-30
+
+A pass over everything that could choose files other than the ones marked, or
+show rows as chosen that no command acts on, keeping the CView keys as they
+are.
+
+### Fixed
+
+- **A right-click menu on a file nobody ticked acts on that file.** With seven
+  ticked, right-clicking an eighth and choosing Move to Trash sent the seven:
+  the menu followed the rule for commands while the pointer was plainly on
+  something else. It now acts on the row it was opened on, leaves the ticks as
+  they are, and acts on the ticked set only when opened on one of them - as a
+  drag does, and as Total Commander does. A menu opened from the keyboard
+  follows the command rule, so the CView keys are unaffected.
+- **Ctrl-A (⌘-A) marks everything.** It was bound to nothing, so the list lit
+  every row, marked none, and C then copied the one file under the bar.
+- **The list never shows rows as chosen that are not.** It could hold several
+  highlighted rows alongside the marks - after Ctrl-A, a box dragged in the
+  grid, a Ctrl-click in the grid - and no command acted on them. Both views
+  now hold one selected row, the bar; choosing is marking.
+- **Mark all, none, invert and by pattern repaint every row at once.** The
+  count changed and some rows stayed drawn as they were until the pointer
+  passed over them.
+- **The grid answers every key the list does.** A command's second binding -
+  CView's `P`, `INS`, Ctrl-A, Shift+letter - did nothing in the icon view; Left
+  and Right there move between icons.
+- **The status bar says 「已標記」, and counts only what is marked.** It said
+  「已選取」 for the same rows the pane called marked, and added in the size
+  of the file under the other pane's bar.
+
+### Added
+
+- **Shift-↑ and Shift-↓.** In the Single-Key layout they take the bar to the
+  first and the last file, passing over folders, as CView does. In the Native
+  layout they mark the row under the bar and step on, as Total Commander does.
+  Shifted Page Up, Page Down, Home and End move the bar as the plain keys do.
+  Outside the file list - a text field, the folder tree - they keep their own
+  meaning.
+
 ## [0.6.58] - 2026-09-30
 
 ### Fixed

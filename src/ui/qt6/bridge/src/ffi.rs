@@ -3428,13 +3428,13 @@ pub unsafe extern "C" fn jtf_mark_pattern(
     })
 }
 
-/// Total size of what an operation started here would act on.
+/// Total size of the marked rows in view.
 ///
 /// # Safety
 /// See [`jtf_app_free`].
 #[no_mangle]
-pub unsafe extern "C" fn jtf_target_size(app: *const App, pane_id: c_int) -> u64 {
-    unsafe { app_ref(app) }.map_or(0, |a| a.target_size(pane(pane_id)))
+pub unsafe extern "C" fn jtf_marked_size(app: *const App, pane_id: c_int) -> u64 {
+    unsafe { app_ref(app) }.map_or(0, |a| a.marked_size(pane(pane_id)))
 }
 
 /// The paths an operation started in this pane would act on.
@@ -4904,6 +4904,19 @@ pub unsafe extern "C" fn jtf_poll_folders(app: *mut App) -> c_int {
             | c_int::from(outcome.rows) << 1
             | c_int::from(outcome.poll_rows) << 2
     })
+}
+
+/// Point at a row for the length of a pointer gesture - a right-click menu -
+/// so that what the menu does acts on that row alone when it is not marked.
+/// `row` below zero stops pointing.
+///
+/// # Safety
+/// See [`jtf_app_free`].
+#[no_mangle]
+pub unsafe extern "C" fn jtf_set_pointer_row(app: *mut App, pane_id: c_int, row: c_int) {
+    if let Some(a) = unsafe { app_mut(app) } {
+        a.set_pointer_row(pane(pane_id), usize::try_from(row).ok());
+    }
 }
 
 /// Whether nothing watches this pane's folder, so the window has to re-read

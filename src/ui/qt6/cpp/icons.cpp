@@ -161,6 +161,8 @@ const QHash<QString, QString> &commandFiles() {
         {QStringLiteral("nav.forward"), QStringLiteral("nav-arrow-right")},
         {QStringLiteral("nav.up"), QStringLiteral("nav-arrow-up")},
         {QStringLiteral("nav.home"), QStringLiteral("home-simple")},
+        {QStringLiteral("nav.first_file"), QStringLiteral("nav-arrow-up")},
+        {QStringLiteral("nav.last_file"), QStringLiteral("nav-arrow-down")},
         {QStringLiteral("nav.goto"), QStringLiteral("terminal")},
         {QStringLiteral("file.bookmark"), QStringLiteral("bookmark")},
         // Files
@@ -207,6 +209,8 @@ const QHash<QString, QString> &commandFiles() {
         {QStringLiteral("file.copy_name"), QStringLiteral("text-size")},
         // Marks
         {QStringLiteral("file.mark.toggle"), QStringLiteral("check")},
+        {QStringLiteral("file.mark.down"), QStringLiteral("check")},
+        {QStringLiteral("file.mark.up"), QStringLiteral("check")},
         {QStringLiteral("file.mark.all"), QStringLiteral("frame-select")},
         {QStringLiteral("file.mark.none"), QStringLiteral("square-dashed")},
         {QStringLiteral("file.mark.invert"), QStringLiteral("xmark-circle")},

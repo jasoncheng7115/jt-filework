@@ -265,9 +265,9 @@
       <h1>完整功能規格</h1>
       <p class="lede">這一版有的功能、讀得懂的格式、每一道上限，數字都在這。這一頁是拿來查的，不是拿來讀完的。</p>
     </div>
-    <p class="status" data-lang="en"><strong>0.6.58</strong> — 819 tests pass. What is not built yet
+    <p class="status" data-lang="en"><strong>0.6.59</strong> — 822 tests pass. What is not built yet
       is named in the last section rather than left out.</p>
-    <p class="status" data-lang="zh-tw"><strong>0.6.58</strong> — 819 個測試通過。還沒做的功能不是略過不提，最後一節逐項列出。</p>
+    <p class="status" data-lang="zh-tw"><strong>0.6.59</strong> — 822 個測試通過。還沒做的功能不是略過不提，最後一節逐項列出。</p>
   </div>
 
   <nav class="toc">
@@ -293,7 +293,7 @@
   <h2 data-lang="zh-tw">1. 一覽</h2>
   <div class="scroller"><table class="spec">
     <tbody>
-      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.58</td></tr>
+      <tr><th data-lang="en">Version</th><th data-lang="zh-tw">版本</th><td>0.6.59</td></tr>
       <tr><th data-lang="en">Platforms</th><th data-lang="zh-tw">平台</th>
         <td data-lang="en">macOS 14 or later on Apple silicon; Windows 10/11 x64, as an MSI installer
           or a portable zip; Linux x86-64, as a <code>.deb</code> built on Ubuntu 22.04 — or from
@@ -307,8 +307,8 @@
         <td data-lang="zh-tw">只有兩者中間的 C ABI 橋接層，每一塊都寫了為什麼安全</td></tr>
       <tr><th data-lang="en">Licence</th><th data-lang="zh-tw">授權</th><td>GPL-3.0-or-later</td></tr>
       <tr><th data-lang="en">Tests</th><th data-lang="zh-tw">測試</th>
-        <td data-lang="en">819 automated, including architecture, migration and hostile-input levels</td>
-        <td data-lang="zh-tw">819 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
+        <td data-lang="en">822 automated, including architecture, migration and hostile-input levels</td>
+        <td data-lang="zh-tw">822 個自動化測試，架構、遷移、惡意輸入都有</td></tr>
       <tr><th data-lang="en">Telemetry</th><th data-lang="zh-tw">遙測</th>
         <td data-lang="en"><span class="no">None.</span> The program makes no network connection you did not ask for</td>
         <td data-lang="zh-tw"><span class="no">沒有。</span>除了你自己要連的，程式不會連去別的地方</td></tr>
@@ -384,7 +384,13 @@
         <td data-lang="zh-tw">標記會累積，光棒怎麼移動都不會清掉它們</td></tr>
       <tr><td><kbd>Alt-T</kbd> · <kbd>Alt-U</kbd> · <kbd>*</kbd></td>
         <td data-lang="en">Mark all · none · invert</td><td data-lang="zh-tw">全部標記・清除標記・反轉標記</td>
-        <td>—</td></tr>
+        <td data-lang="en"><kbd>Ctrl/⌘-A</kbd> marks all as well</td>
+        <td data-lang="zh-tw"><kbd>Ctrl/⌘-A</kbd> 也是全部標記</td></tr>
+      <tr><td><kbd>Shift-↑</kbd> · <kbd>Shift-↓</kbd></td>
+        <td data-lang="en">Bar to the first · last file</td><td data-lang="zh-tw">光棒移到第一個・最後一個檔案</td>
+        <td data-lang="en">Folders are passed over, as in CView. In the Native layout the same keys mark the
+          row under the bar and step on, as Total Commander does</td>
+        <td data-lang="zh-tw">跳過資料夾，跟 CView 一樣。原生模式下同樣的鍵是「標記目前這一列並往下／往上」，跟 Total Commander 一樣</td></tr>
       <tr><td><kbd>+</kbd> · <kbd>-</kbd></td>
         <td data-lang="en">Mark · unmark by pattern</td><td data-lang="zh-tw">依樣式標記・取消標記</td>
         <td data-lang="en">A wildcard such as <code>*.log</code>; <kbd>F9</kbd> also marks</td>

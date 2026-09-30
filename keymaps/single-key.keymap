@@ -40,8 +40,13 @@ space                = file.mark.toggle          # CV.HLP, confirmed
 # bare T; `T` here is the folder tree instead, asked for directly by the
 # project owner - and since Alt-T is the original chord, nothing is lost.
 alt+t                = file.mark.all             # CV.HLP
+# The platform's select-all. Unbound, it reached the list, which lit every
+# row and marked none - and C then copied the one file under the bar.
+primary+a            = file.mark.all
 alt+u                = file.mark.none            # CV.HLP
 asterisk             = file.mark.invert          # CV.HLP, confirmed
+shift+up             = nav.first_file            # CV.HLP
+shift+down           = nav.last_file             # CV.HLP
 plus                 = file.mark.pattern         # CV.HLP
 f9                   = file.mark.pattern         # CV.HLP
 minus                = file.unmark.pattern       # CV.HLP

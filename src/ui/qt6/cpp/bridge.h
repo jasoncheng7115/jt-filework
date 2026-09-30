@@ -229,6 +229,9 @@ int jtf_poll_folders(JtfApp *app);
 // Whether nothing watches this pane's folder, so its rows on screen are
 // re-read by the window when jtf_poll_folders returns JTF_POLL_VISIBLE.
 int jtf_pane_is_polled(const JtfApp *app, int pane);
+// Point at a row while a right-click menu is up: if it is not marked, what
+// the menu does acts on it alone, and the marks are left as they are. -1 stops.
+void jtf_set_pointer_row(JtfApp *app, int pane, int row);
 // operations
 void jtf_set_selection(JtfApp *app, int pane, const int *rows, int count);
 int jtf_op_prepare(JtfApp *app, int pane, int kind); // 0 copy 1 move 2 trash 3 delete
@@ -401,7 +404,7 @@ void jtf_set_collapsed_sections(JtfApp *app, const char *ids);
 int jtf_recent_limit(const JtfApp *app);
 void jtf_set_recent_limit(JtfApp *app, int limit);
 int jtf_mark_pattern(JtfApp *app, int pane, const char *pattern, int mark);
-uint64_t jtf_target_size(const JtfApp *app, int pane);
+uint64_t jtf_marked_size(const JtfApp *app, int pane);
 int jtf_target_paths(const JtfApp *app, int pane, char *buf, int len);
 int jtf_target_names(const JtfApp *app, int pane, char *buf, int len);
 // The entry the cursor is on, ignoring marks. What rename opens with, because

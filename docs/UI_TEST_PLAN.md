@@ -240,7 +240,7 @@ and the set is wrong by the third one.
 | MARK-024 | The same for Page Up/Down, Home and End | H2 |
 | MARK-025 | The arrows move the bar the same way with nothing marked and with rows marked (MARK-031) | H2 |
 | MARK-026 | The row the keyboard is on is visible even when it is not selected, and a row that is both cursor and marked reads as both | H3 |
-| MARK-027 | **Open.** Shift-arrow is bound to nothing, so Qt's own list extends a highlight that marks nothing - a third state §10 does not allow. To be decided: Shift-arrow marks the rows it passes, or does nothing | H2 |
+| MARK-027 | **Shift-arrow never leaves a highlight that marks nothing.** Decided 2026-09-30, keeping the CView keys as they are: in Single-Key, Shift-↑ and Shift-↓ put the bar on the first and the last *file* (CV.HLP); in Native they mark the row under the bar and step on, as Total Commander does, and passing back over a marked row keeps it marked. Shift with Page Up/Down, Home and End moves the bar as the plain key does | H2 |
 | MARK-028 | Click one row, then Down twice: the **highlight** lands two rows down, not only the thin cursor outline | H2 |
 | MARK-029 | Space, Down, Space marks two rows: the first Space marks the row the bar is on, whatever it looked like before | H2 |
 | MARK-030 | A bare click is not a set being built, so the arrows keep carrying the highlight; Ctrl-click, Shift-click, a tick box, Space, mark all and invert all are | H2 |
@@ -250,6 +250,15 @@ and the set is wrong by the third one.
 | MARK-034 | Space on a row that is already marked unmarks it - it toggles, and the bar still moves on | H2 |
 | MARK-035 | A plain click moves the bar and marks nothing; the tick box, Ctrl-click and Shift-click mark without moving the bar | H2 |
 | MARK-036 | A command acts on the marked set, and on the row under the bar when nothing is marked | H1 |
+| MARK-037 | **Right-click a file nobody ticked, with seven others ticked, and choose 移到回收筒: that one file goes, and the seven stay ticked.** Until 0.6.59 the seven went - the menu followed the command rule while the pointer was plainly on something else | H1/H2 |
+| MARK-038 | Right-click one of the ticked files: the menu acts on all the ticked files in view | H1/H2 |
+| MARK-039 | A menu opened from the keyboard (Menu key, Shift-F10) follows the command rule, MARK-036 - the CView keys are unaffected | H2 |
+| MARK-040 | Shift-arrows in the path field, the filter and the folder tree do what they do there - select text, move in the tree - and never mark rows in the list | H2 |
+| MARK-041 | The window's line and the pane's line both say 「已標記 7 個（513.8 KB）」 for the same rows; neither says 「已選取」, and the size is the marked rows' only - never the row under another pane's bar | H2/H3 |
+| MARK-042 | **Ctrl-A (⌘-A) marks every row in view**, in both keyboard layouts. Unbound, it reached the list, which lit every row and marked none - and C then copied the one file under the bar | H2 |
+| MARK-043 | In the grid, Ctrl- and Shift-click mark the icon and leave the bar; a box dragged across icons lights nothing - neither view can hold more than one selected row, the bar | H2 |
+| MARK-044 | After mark all, none, invert, by pattern, or the header's box, every row's colour agrees with the count at once - none is left drawn as it was until the pointer passes over it | H2/H3 |
+| MARK-045 | In the grid, every chord the keymap binds works as it does in the list - `P`, `INS`, Ctrl-A, Shift+letter - and Left and Right move between icons | H2 |
 | TAB-020 | A tab can be pinned from its context menu and from the File menu, and shows a mark when it is | H2 |
 | TAB-021 | A pinned tab refuses to close and cannot be dragged out of the leading block | H1 |
 

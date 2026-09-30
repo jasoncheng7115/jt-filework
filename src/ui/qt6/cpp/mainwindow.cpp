@@ -759,12 +759,17 @@ void MainWindow::buildMenus() {
     // back out of step.
     command(m_editMenu, "file.mark.toggle",
             paneAction([](PaneWidget *pane) { pane->toggleCurrentInSelection(); }));
-    // Each of these is somebody building a set on purpose, which is what
-    // stops the arrow keys dragging the highlight through it. "None" is not:
-    // it empties the set, and an empty set is not one being built.
+    command(m_editMenu, "file.mark.down", paneAction([](PaneWidget *pane) { pane->markAndMove(1); }));
+    command(m_editMenu, "file.mark.up", paneAction([](PaneWidget *pane) { pane->markAndMove(-1); }));
+    // Mark all, none and invert. The rows are repainted by name: nothing
+    // else asks for it, and the list went on drawing the old marks - 「已標記
+    // 6 個」 on the status line over two rows still drawn unmarked.
     const auto markListed = [this](int how) {
         const int pane = jtf_active_pane(m_app);
         jtf_mark_listed(m_app, pane, how);
+        if (PaneWidget *widget = activePane()) {
+            widget->marksChanged();
+        }
     };
     command(m_editMenu, "file.mark.all", [markListed] { markListed(0); });
     command(m_editMenu, "file.mark.none", [markListed] { markListed(1); });
@@ -935,6 +940,8 @@ void MainWindow::buildMenus() {
     command(m_goMenu, "nav.back", [this] { jtf_go_back(m_app, jtf_active_pane(m_app)); });
     command(m_goMenu, "nav.forward", [this] { jtf_go_forward(m_app, jtf_active_pane(m_app)); });
     command(m_goMenu, "nav.up", [this] { jtf_navigate_up(m_app, jtf_active_pane(m_app)); });
+    command(m_goMenu, "nav.first_file", paneAction([](PaneWidget *pane) { pane->moveToFile(false); }));
+    command(m_goMenu, "nav.last_file", paneAction([](PaneWidget *pane) { pane->moveToFile(true); }));
     m_goMenu->addSeparator();
     command(m_goMenu, "remote.connect", [this] { connectToServer(); });
     command(m_goMenu, "remote.disconnect", [this] {
@@ -1070,7 +1077,9 @@ void MainWindow::markByPattern(bool mark) {
     const QByteArray utf8 = pattern.toUtf8();
     const int pane = jtf_active_pane(m_app);
     const int count = jtf_mark_pattern(m_app, pane, utf8.constData(), mark ? 1 : 0);
-    // Marking by pattern is building a set on purpose; unmarking is taking
+    if (PaneWidget *widget = activePane()) {
+        widget->marksChanged();
+    }
     // Say how many matched: a pattern that matched nothing looks identical to
     // one that was ignored, and the difference matters.
     statusBar()->showMessage(jtfFill(tr_("status.marked_count"), "count", QString::number(count)),
@@ -1997,6 +2006,9 @@ void MainWindow::showEntryMenu(int paneId, const QPoint &global, bool onEntry) {
     }
 
     menu.exec(global);
+    // The chosen entry has run by now - `exec` returns after it - so the row
+    // the pointer opened the menu on stops narrowing what commands act on.
+    jtf_set_pointer_row(m_app, paneId, -1);
 }
 
 void MainWindow::runOperationTo(int kindCode) {
@@ -2068,6 +2080,29 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
             break;
         default:
             break;
+        }
+    }
+    // Shifted arrows, Home, End and the page keys are bound for the file list
+    // - marking as the bar passes, or CView's first and last file - and mean
+    // something else everywhere else: selecting text in a field, moving in
+    // the folder tree. A window-wide shortcut would take them from all of
+    // those, so anywhere but a file list the focused widget keeps them.
+    if (event->type() == QEvent::ShortcutOverride) {
+        auto *key = static_cast<QKeyEvent *>(event);
+        const Qt::KeyboardModifiers mods = key->modifiers();
+        const bool shiftOnly = mods.testFlag(Qt::ShiftModifier)
+                               && (mods & (Qt::ControlModifier | Qt::AltModifier
+                                           | Qt::MetaModifier)) == Qt::NoModifier;
+        const int code = key->key();
+        const bool move = code == Qt::Key_Up || code == Qt::Key_Down || code == Qt::Key_Left
+                          || code == Qt::Key_Right || code == Qt::Key_PageUp
+                          || code == Qt::Key_PageDown || code == Qt::Key_Home
+                          || code == Qt::Key_End;
+        const QWidget *focus = QApplication::focusWidget();
+        if (shiftOnly && move
+            && (focus == nullptr || !focus->property("jtfFileList").toBool())) {
+            event->accept();
+            return true;
         }
     }
     if (event->type() == QEvent::ShortcutOverride && typingSomewhere) {
@@ -3676,7 +3711,7 @@ void MainWindow::updateStatusSummary() {
         // Commander all leave it out of the count, and the pane's own status
         // line already did - so the two lines disagreed by one.
         items += jtf_listed_count(m_app, id);
-        bytes += jtf_target_size(m_app, id);
+        bytes += jtf_marked_size(m_app, id);
     }
 
     m_statusPanes->setText(panes == 1
@@ -3685,11 +3720,13 @@ void MainWindow::updateStatusSummary() {
     // Zero of something is not worth a slot on the bar; the label goes away
     // rather than sitting there saying nothing.
     if (marked > 0) {
-        QString text = jtfFill(tr_("status.selected"), "count", QString::number(marked));
-        if (bytes > 0) {
-            text += QStringLiteral(" (") + PaneWidget::formatSize(bytes) + QLatin1Char(')');
-        }
-        m_statusSelection->setText(text);
+        // Marked, not selected: the bar selects nothing (AGENTS.md 10), and the
+        // pane's own line beside it already said 「已標記」 for the same rows.
+        const QString count = QString::number(marked);
+        m_statusSelection->setText(
+            bytes > 0 ? jtfFill(jtfFill(tr_("status.marked_size"), "count", count), "size",
+                                PaneWidget::formatSize(bytes))
+                      : jtfFill(tr_("status.marked"), "count", count));
     } else {
         m_statusSelection->clear();
     }
