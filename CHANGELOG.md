@@ -12,6 +12,19 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.58] - 2026-09-30
+
+### Fixed
+
+- **Dragging a ticked file carries every ticked file.** With seven ticked,
+  dragging one of them into another application delivered one: the drag was
+  built from Qt's selection, which in this list is only the row under the bar,
+  not from the marks. A drag that starts on a marked row now carries the
+  marked set - the ones in view, as Copy and Move take them - and one that
+  starts on a row nobody ticked carries that row alone, as dragging an
+  unselected file does in Finder and Explorer. The drag image says how many
+  are going.
+
 ## [0.6.57] - 2026-09-28
 
 ### Changed

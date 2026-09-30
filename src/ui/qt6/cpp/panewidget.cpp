@@ -1,4 +1,5 @@
 #include "panewidget.h"
+#include "dragview.h"
 
 #include <algorithm>
 
@@ -246,7 +247,7 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // so: conflating them would make one of the two feel wrong
     // (docs/SEARCH_AI.md 1).
 
-    m_view = new QTableView(this);
+    m_view = new JtfTableView(this);
     m_model = new FileListModel(app, paneId, this);
     m_view->setModel(m_model);
     m_view->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -390,7 +391,7 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
     // The grid is a second view onto the *same* model and the same selection,
     // so switching between them keeps the cursor, the marks and the sort. Two
     // models would be two answers to "what is in this folder".
-    m_grid = new QListView(this);
+    m_grid = new JtfListView(this);
     m_grid->setObjectName(QStringLiteral("JtfGrid"));
     // The model is attached only while the grid is showing. A hidden view
     // still receives every model reset and still lays out every item, so in a

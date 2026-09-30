@@ -296,6 +296,8 @@ case above names a **sequence** and the state after it.
 | DND-013 | Auto-scroll while dragging near a list edge | H2 |
 | DND-014 | Spring-loaded folder open on hover, where the platform expects it | H4 |
 | DND-015 | Drag over a stalled mount does not freeze the drag session | H4 |
+| DND-016 | **Seven ticked, drag one of them to another application: all seven arrive.** Qt's own drag took the selection, which is only the bar; until 0.6.58 one file went. Verified by dropping into the other pane, whose question names the count | H2/H5 |
+| DND-017 | The drag image names the first file and shows how many are going in a badge; one file shows no badge | H2/H3 |
 
 ---
 

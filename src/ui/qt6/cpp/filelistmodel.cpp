@@ -365,15 +365,37 @@ QStringList FileListModel::mimeTypes() const {
 }
 
 QMimeData *FileListModel::mimeData(const QModelIndexList &indexes) const {
-    QList<QUrl> urls;
+    // Which rows. `indexes` is the view's selection, which is only ever the
+    // row under the bar (AGENTS.md 10), so on its own a drag carried one file
+    // whatever was ticked. A drag that starts on a marked row carries the
+    // marked set - what was chosen, and what every other command acts on
+    // (UI_TEST_PLAN DND-005). One that starts on a row nobody marked carries
+    // that row alone, as dragging an unselected file does in Finder and
+    // Explorer (MARK-019): the pointer was not on the others.
+    QList<int> rows;
     QSet<int> seen;
+    bool fromMarked = false;
     for (const QModelIndex &index : indexes) {
         if (!index.isValid() || seen.contains(index.row())) {
             continue; // one URL per row, not one per selected cell
         }
         seen.insert(index.row());
+        rows.append(index.row());
+        fromMarked = fromMarked || jtf_row_is_marked(m_app, m_pane, index.row()) != 0;
+    }
+    if (fromMarked) {
+        // The marked rows on screen, as the operations take them: a mark a
+        // filter is hiding, or one left in another folder, is not dragged.
+        QVector<int> marked(m_rows);
+        const int count = jtf_marked_rows(m_app, m_pane, marked.data(), marked.size());
+        marked.resize(qBound(0, count, int(marked.size())));
+        rows = QList<int>(marked.cbegin(), marked.cend());
+    }
+
+    QList<QUrl> urls;
+    for (const int row : std::as_const(rows)) {
         const QString path = jtfText([&](char *buf, int len) {
-            return jtf_row_path(m_app, m_pane, index.row(), buf, len);
+            return jtf_row_path(m_app, m_pane, row, buf, len);
         });
         if (!path.isEmpty()) {
             urls.append(QUrl::fromLocalFile(path));
