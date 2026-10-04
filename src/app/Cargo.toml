@@ -1,6 +1,6 @@
 [package]
-name = "jtf-qt6-bridge"
-description = "C ABI over the jt-filework core, for the Qt 6 Widgets front end."
+name = "jtf-app"
+description = "The application layer both front ends share: panes, marks, what a command acts on, operations, viewers (ADR-0008)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,16 +9,10 @@ repository.workspace = true
 authors.workspace = true
 publish.workspace = true
 
-[lib]
-name = "jtf_qt6_bridge"
-# staticlib so CMake links one archive; rlib so the Rust tests can run.
-crate-type = ["staticlib", "rlib"]
-
-# No Qt here, and none anywhere in Rust. Qt exists only on the C++ side of
-# this boundary, which is what keeps AGENTS.md 4 true.
+# No GUI toolkit and no desktop service, here or below (ADR-0008). Both the Qt
+# window and the terminal front end are built on this crate, and the terminal
+# one has to install on a machine with no desktop at all.
 [dependencies]
-# The application layer this crate is a C ABI over (ADR-0008).
-jtf-app = { workspace = true }
 jtf-core = { workspace = true }
 dirs = { workspace = true }
 jtf-imaging = { workspace = true }

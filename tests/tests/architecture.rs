@@ -611,3 +611,85 @@ fn every_named_glyph_is_a_real_svg() {
     let unused: Vec<&String> = on_disk.difference(&named).collect();
     assert!(unused.is_empty(), "vendored but never used: {unused:?}");
 }
+
+/// ADR-0008: the application layer both front ends share needs no GUI toolkit
+/// and no desktop service - not directly, and not through anything it pulls
+/// in. The terminal front end is built on it and has to install on a Linux
+/// machine with no desktop at all, so a crate three levels down that wants
+/// D-Bus or an X connection breaks that as surely as one named in the
+/// manifest. Read from `Cargo.lock`, which records every level.
+#[test]
+fn the_shared_application_layer_needs_no_desktop() {
+    const DESKTOP: &[&str] = &[
+        "dbus",
+        "zbus",
+        "gio",
+        "glib",
+        "gtk",
+        "gdk",
+        "x11",
+        "x11rb",
+        "x11-dl",
+        "xcb",
+        "wayland-client",
+        "wayland-sys",
+        "winit",
+        "cocoa",
+        "cxx-qt",
+        "qmetaobject",
+    ];
+    let lock = fs::read_to_string(repo_root().join("Cargo.lock")).unwrap();
+
+    // Package name to the names it depends on. Two versions of one crate are
+    // merged, which can only make the check stricter.
+    let mut graph: std::collections::BTreeMap<String, Vec<String>> =
+        std::collections::BTreeMap::new();
+    for block in lock.split("[[package]]").skip(1) {
+        let mut name = None;
+        let mut deps = Vec::new();
+        let mut in_deps = false;
+        for line in block.lines() {
+            let line = line.trim();
+            if let Some(rest) = line.strip_prefix("name = \"") {
+                name = rest.strip_suffix('"').map(str::to_string);
+            } else if line.starts_with("dependencies = [") {
+                in_deps = true;
+            } else if in_deps && line.starts_with(']') {
+                in_deps = false;
+            } else if in_deps {
+                // `"name"`, `"name 1.2.3"` or `"name 1.2.3 (source)"`.
+                if let Some(dep) = line
+                    .trim_matches(|c| c == '"' || c == ',')
+                    .split(' ')
+                    .next()
+                {
+                    deps.push(dep.to_string());
+                }
+            }
+        }
+        if let Some(name) = name {
+            graph.entry(name).or_default().extend(deps);
+        }
+    }
+
+    let mut seen = std::collections::BTreeSet::new();
+    let mut queue = vec!["jtf-app".to_string()];
+    while let Some(next) = queue.pop() {
+        if !seen.insert(next.clone()) {
+            continue;
+        }
+        if let Some(deps) = graph.get(&next) {
+            queue.extend(deps.iter().cloned());
+        }
+    }
+    assert!(
+        seen.contains("jtf-core") && seen.contains("jtf-fs"),
+        "the walk from jtf-app did not reach the core; the lock file reader is broken"
+    );
+    let found: Vec<&&str> = DESKTOP.iter().filter(|d| seen.contains(**d)).collect();
+    assert!(
+        found.is_empty(),
+        "jtf-app pulls in {found:?}, which need a desktop. ADR-0008: the shared \
+         layer, and the terminal front end on it, must run with none."
+    );
+}

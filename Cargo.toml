@@ -33,12 +33,13 @@ members = [
     "src/commands",
     "src/cli",
     "src/bench",
+    "src/app",
     "src/ui/qt6/bridge",
     "tests",
 ]
 
 [workspace.package]
-version = "0.6.61"
+version = "0.6.62"
 edition = "2021"
 rust-version = "1.98"
 license = "GPL-3.0-or-later"
@@ -66,6 +67,7 @@ jtf-commands = { path = "src/commands" }
 jtf-search = { path = "src/search" }
 jtf-ai = { path = "src/ai" }
 jtf-platform = { path = "src/platform" }
+jtf-app = { path = "src/app" }
 jtf-cli = { path = "src/cli" }
 
 serde = { version = "1", features = ["derive"] }

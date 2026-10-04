@@ -1,6 +1,6 @@
 # ADR-0008: A terminal front end, and the application layer it shares
 
-- **Status:** Accepted — step 1 next
+- **Status:** Accepted — step 1 under way: the layer moved in 0.6.62
 - **Date:** 2026-10-04
 - **Deciders:** project owner
 - **Asked for:** 2026-10-04, as "the modern CView for the Linux command line":

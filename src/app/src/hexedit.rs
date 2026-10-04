@@ -23,10 +23,10 @@ use jtf_hexedit::{clip, goto};
 
 /// Bytes shown per row. The window draws this many columns and the offsets
 /// step by it, so it lives on this side and the window asks.
-pub(crate) const ROW_BYTES: u64 = 16;
+pub const ROW_BYTES: u64 = 16;
 
 /// One open editor.
-pub(crate) struct HexEdit {
+pub struct HexEdit {
     session: Session,
     /// The last error, for the window to show: what failed, as a catalogue
     /// key, and why, as the error code's own key. Cleared as soon as it is
@@ -43,7 +43,7 @@ impl HexEdit {
     /// # Errors
     ///
     /// Whatever opening reports.
-    pub(crate) fn open(path: &Path) -> Result<Self, Error> {
+    pub fn open(path: &Path) -> Result<Self, Error> {
         Ok(Self {
             session: Session::open(path)?,
             error: None,
@@ -52,22 +52,22 @@ impl HexEdit {
     }
 
     /// The session, for the calls that are pure pass-through.
-    pub(crate) const fn session(&self) -> &Session {
+    pub const fn session(&self) -> &Session {
         &self.session
     }
 
     /// The session, mutably.
-    pub(crate) const fn session_mut(&mut self) -> &mut Session {
+    pub const fn session_mut(&mut self) -> &mut Session {
         &mut self.session
     }
 
     /// Take the last error, if any: what failed and why, as catalogue keys.
-    pub(crate) fn take_error(&mut self) -> Option<(&'static str, &'static str)> {
+    pub fn take_error(&mut self) -> Option<(&'static str, &'static str)> {
         self.error.take()
     }
 
     /// Take the catalogue key naming how the last paste was read.
-    pub(crate) fn take_paste_kind(&mut self) -> Option<&'static str> {
+    pub fn take_paste_kind(&mut self) -> Option<&'static str> {
         self.last_paste_kind.take()
     }
 
@@ -94,7 +94,7 @@ impl HexEdit {
     /// One more than the bytes need when the cursor can sit at the very end,
     /// which in insert mode it must — otherwise there is nowhere to stand to
     /// append to a file whose length is a multiple of the row width.
-    pub(crate) fn row_count(&self) -> u64 {
+    pub fn row_count(&self) -> u64 {
         let len = self.session.len();
         let rows = len.div_ceil(ROW_BYTES);
         if len.is_multiple_of(ROW_BYTES) {
@@ -109,7 +109,7 @@ impl HexEdit {
     /// # Errors
     ///
     /// Whatever reading reports.
-    pub(crate) fn row(&mut self, row: u64) -> Result<Vec<jtf_hexedit::Byte>, Error> {
+    pub fn row(&mut self, row: u64) -> Result<Vec<jtf_hexedit::Byte>, Error> {
         let offset = row.saturating_mul(ROW_BYTES);
         self.session
             .buffer_mut()
@@ -119,7 +119,7 @@ impl HexEdit {
     /// Move the cursor to a position given as text.
     ///
     /// Returns whether it was understood; the error is kept for the window.
-    pub(crate) fn goto(&mut self, text: &str, extend: bool) -> bool {
+    pub fn goto(&mut self, text: &str, extend: bool) -> bool {
         match goto::resolve(text, self.session.cursor(), self.session.len()) {
             Ok(offset) => {
                 self.session.move_to(offset, extend);
@@ -137,7 +137,7 @@ impl HexEdit {
     /// Returns whether something was found. Wraps once, because a search that
     /// stops at the end of the file and says "not found" when the match is
     /// three rows above is answering a different question than the one asked.
-    pub(crate) fn find(&mut self, text: &str, kind: Kind, forwards: bool) -> bool {
+    pub fn find(&mut self, text: &str, kind: Kind, forwards: bool) -> bool {
         let needle = match Needle::compile(text, kind) {
             Ok(needle) => needle,
             Err(error) => {
@@ -181,7 +181,7 @@ impl HexEdit {
     /// Replace the current selection, then find the next match.
     ///
     /// Returns whether anything was replaced.
-    pub(crate) fn replace(&mut self, find_text: &str, kind: Kind, with: &[u8]) -> bool {
+    pub fn replace(&mut self, find_text: &str, kind: Kind, with: &[u8]) -> bool {
         if self.refuse_read_only() {
             return false;
         }
@@ -202,7 +202,7 @@ impl HexEdit {
     }
 
     /// Replace every match from the start of the file. Returns how many.
-    pub(crate) fn replace_all(&mut self, find_text: &str, kind: Kind, with: &[u8]) -> u64 {
+    pub fn replace_all(&mut self, find_text: &str, kind: Kind, with: &[u8]) -> u64 {
         if self.refuse_read_only() {
             return 0;
         }
@@ -237,7 +237,7 @@ impl HexEdit {
     }
 
     /// The selected bytes rendered in a copy format.
-    pub(crate) fn copy_as(&mut self, format: clip::Format) -> String {
+    pub fn copy_as(&mut self, format: clip::Format) -> String {
         match self.session.selected_bytes() {
             Ok(bytes) => clip::render(&bytes, format),
             Err(error) => {
@@ -250,7 +250,7 @@ impl HexEdit {
     /// Work out what pasted text is and write it in.
     ///
     /// Returns whether anything went in.
-    pub(crate) fn paste(&mut self, text: &str) -> bool {
+    pub fn paste(&mut self, text: &str) -> bool {
         if self.refuse_read_only() {
             return false;
         }
@@ -274,7 +274,7 @@ impl HexEdit {
     ///
     /// `None`, with the reason kept, when it cannot be read or has wildcards:
     /// a `??` in "replace with" has nothing to put in the hole.
-    pub(crate) fn replacement(&mut self, text: &str, kind: Kind) -> Option<Vec<u8>> {
+    pub fn replacement(&mut self, text: &str, kind: Kind) -> Option<Vec<u8>> {
         match Needle::compile(text, kind) {
             Ok(needle) => {
                 let bytes = needle.literal();
@@ -291,19 +291,19 @@ impl HexEdit {
     }
 
     /// Record a failed keystroke's error, for the window to show.
-    pub(crate) fn note(&mut self, what: &'static str, error: &Error) {
+    pub fn note(&mut self, what: &'static str, error: &Error) {
         self.fail(what, error);
     }
 
     /// What would be written if it were saved now.
-    pub(crate) fn summary(&self) -> Summary {
+    pub fn summary(&self) -> Summary {
         self.session.summary()
     }
 
     /// Write the file back.
     ///
     /// Returns whether it worked.
-    pub(crate) fn save(&mut self) -> bool {
+    pub fn save(&mut self) -> bool {
         match self.session.save() {
             Ok(()) => true,
             Err(error) => {
@@ -315,7 +315,7 @@ impl HexEdit {
 }
 
 /// Turn the window's integer choice into a search kind.
-pub(crate) const fn kind_of(code: i32, width: i32, little_endian: bool) -> Kind {
+pub const fn kind_of(code: i32, width: i32, little_endian: bool) -> Kind {
     match code {
         1 => Kind::Utf8,
         2 => Kind::Latin1,
@@ -335,7 +335,7 @@ pub(crate) const fn kind_of(code: i32, width: i32, little_endian: bool) -> Kind 
 }
 
 /// Turn the window's integer choice into a copy format.
-pub(crate) const fn format_of(code: i32) -> clip::Format {
+pub const fn format_of(code: i32) -> clip::Format {
     match code {
         1 => clip::Format::HexString,
         2 => clip::Format::HexSpaced,
@@ -348,7 +348,7 @@ pub(crate) const fn format_of(code: i32) -> clip::Format {
 }
 
 /// Turn the window's integer choice into a typing mode.
-pub(crate) const fn mode_of(code: i32) -> Mode {
+pub const fn mode_of(code: i32) -> Mode {
     match code {
         1 => Mode::Overwrite,
         2 => Mode::Insert,
@@ -357,7 +357,7 @@ pub(crate) const fn mode_of(code: i32) -> Mode {
 }
 
 /// And back, for the window to read the current one.
-pub(crate) const fn mode_code(mode: Mode) -> i32 {
+pub const fn mode_code(mode: Mode) -> i32 {
     match mode {
         Mode::ReadOnly => 0,
         Mode::Overwrite => 1,
@@ -366,7 +366,7 @@ pub(crate) const fn mode_code(mode: Mode) -> i32 {
 }
 
 /// Which column, as the window numbers them.
-pub(crate) const fn column_of(code: i32) -> Column {
+pub const fn column_of(code: i32) -> Column {
     if code == 1 {
         Column::Text
     } else {

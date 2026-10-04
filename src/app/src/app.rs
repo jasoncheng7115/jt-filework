@@ -28,7 +28,7 @@ use jtf_workspace::{
 /// someone has to remember. The first four are visible by default; the rest
 /// are offered in the header's menu.
 /// The column at display position `index`, from the model's default layout.
-pub(crate) fn column_at(index: i32) -> Option<jtf_workspace::Column> {
+pub fn column_at(index: i32) -> Option<jtf_workspace::Column> {
     usize::try_from(index).ok().and_then(|i| {
         jtf_workspace::default_columns()
             .get(i)
@@ -36,14 +36,18 @@ pub(crate) fn column_at(index: i32) -> Option<jtf_workspace::Column> {
     })
 }
 
-pub(crate) const COLUMN_NAME: i32 = 0;
-pub(crate) const COLUMN_SIZE: i32 = 1;
-pub(crate) const COLUMN_MODIFIED: i32 = 2;
-pub(crate) const COLUMN_KIND: i32 = 3;
+/// The name column, as the front ends number columns.
+pub const COLUMN_NAME: i32 = 0;
+/// The size column.
+pub const COLUMN_SIZE: i32 = 1;
+/// The modified-date column.
+pub const COLUMN_MODIFIED: i32 = 2;
+/// The kind column.
+pub const COLUMN_KIND: i32 = 3;
 
 /// How many columns exist.
 #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
-pub(crate) const COLUMN_COUNT: i32 = jtf_workspace::Column::ALL.len() as i32;
+pub const COLUMN_COUNT: i32 = jtf_workspace::Column::ALL.len() as i32;
 
 /// How many operations may wait behind the running one.
 ///
@@ -102,7 +106,7 @@ enum CompareUpdate {
 }
 
 /// How far a `Comparing` has got.
-pub(crate) enum CompareOutcome {
+pub enum CompareOutcome {
     /// Still walking.
     Running,
     /// Finished, with the answer.
@@ -132,7 +136,7 @@ enum UsageUpdate {
 }
 
 /// How far an `Analysing` has got.
-pub(crate) enum UsageOutcome {
+pub enum UsageOutcome {
     /// Still walking.
     Running,
     /// Finished, with the breakdown.
@@ -140,7 +144,7 @@ pub(crate) enum UsageOutcome {
 }
 
 /// How far an `Archiving` has got.
-pub(crate) enum ArchiveOutcome {
+pub enum ArchiveOutcome {
     /// Still working.
     Running,
     /// Finished, with everything it was asked to do.
@@ -235,9 +239,12 @@ struct ViewerSession {
 
 /// Which way [`App::mark_listed`] moves.
 #[derive(Clone, Copy)]
-pub(crate) enum MarkAction {
+pub enum MarkAction {
+    /// Mark every listed entry.
     All,
+    /// Unmark every listed entry.
     None,
+    /// Mark what was not marked and unmark what was.
     Invert,
 }
 
@@ -560,7 +567,7 @@ const fn transfer_kind(kind: crate::operations::OperationKind) -> jtf_transfer::
 impl App {
     /// Start the application, restoring the previous session if the user's
     /// preference allows it (`docs/PRODUCT_SPEC.md` §5.1).
-    pub(crate) fn new(system_locale: &str) -> Self {
+    pub fn new(system_locale: &str) -> Self {
         let session_path = session_path();
         let stored = fs::read_to_string(&session_path).ok();
         let mut app = Self::with_session(system_locale, session_path, stored.as_deref());
@@ -577,7 +584,7 @@ impl App {
     /// For tests that need a whole `App` without touching the account they
     /// run under.
     #[cfg(test)]
-    pub(crate) fn for_tests() -> Self {
+    pub fn for_tests() -> Self {
         let session_path = std::env::temp_dir()
             .join(format!("jtf-test-session-{}", std::process::id()))
             .join("session.json");
@@ -675,7 +682,7 @@ impl App {
     /// going through text is irrelevant and the alternative — a second
     /// hand-written tree ABI — would be worse.
     /// Every window id, in creation order.
-    pub(crate) fn window_ids(&self) -> Vec<u64> {
+    pub fn window_ids(&self) -> Vec<u64> {
         self.workspace
             .window_ids()
             .into_iter()
@@ -684,7 +691,7 @@ impl App {
     }
 
     /// Move a tab into a window of its own. Returns the new window id, or 0.
-    pub(crate) fn tear_off_tab(&mut self, pane: PaneId, tab_index: usize) -> u64 {
+    pub fn tear_off_tab(&mut self, pane: PaneId, tab_index: usize) -> u64 {
         let Some(tab) = self
             .workspace
             .pane(pane)
@@ -698,7 +705,7 @@ impl App {
     }
 
     /// Move a tab from one pane into another, which may be another window.
-    pub(crate) fn merge_tab_into(&mut self, from: PaneId, tab_index: usize, into: PaneId) -> bool {
+    pub fn merge_tab_into(&mut self, from: PaneId, tab_index: usize, into: PaneId) -> bool {
         let Some(tab) = self
             .workspace
             .pane(from)
@@ -709,7 +716,9 @@ impl App {
         self.workspace.merge_tab_into(from, tab, into).is_ok()
     }
 
-    pub(crate) fn layout_json_for(&self, window: u64) -> String {
+    /// One window's split tree as JSON, for the front end to build its splitters
+    /// from; empty if there is no such window.
+    pub fn layout_json_for(&self, window: u64) -> String {
         self.workspace
             .root_of(jtf_workspace::WindowId::new(window))
             .map_or_else(String::new, Self::node_json)
@@ -719,7 +728,8 @@ impl App {
         Self::layout_node(n)
     }
 
-    pub(crate) fn layout_json(&self) -> String {
+    /// The first window's split tree as JSON.
+    pub fn layout_json(&self) -> String {
         fn node(n: &jtf_workspace::WorkspaceNode) -> String {
             match n {
                 jtf_workspace::WorkspaceNode::Pane { id } => {
@@ -769,23 +779,28 @@ impl App {
         }
     }
 
-    pub(crate) fn pane_ids(&self) -> Vec<PaneId> {
+    /// Every pane, in layout order.
+    pub fn pane_ids(&self) -> Vec<PaneId> {
         self.workspace.pane_order()
     }
 
-    pub(crate) const fn active_pane(&self) -> PaneId {
+    /// The pane that has the keyboard.
+    pub const fn active_pane(&self) -> PaneId {
         self.workspace.active_pane_id()
     }
 
-    pub(crate) fn focus_pane(&mut self, pane: PaneId) {
+    /// Give the keyboard to `pane`.
+    pub fn focus_pane(&mut self, pane: PaneId) {
         self.workspace.focus_pane(pane);
     }
 
-    pub(crate) fn focus_next_pane(&mut self) {
+    /// Give the keyboard to the next pane in layout order.
+    pub fn focus_next_pane(&mut self) {
         self.workspace.focus_next_pane();
     }
 
-    pub(crate) fn split_active(&mut self, vertical: bool) {
+    /// Split the active pane in two and start listing the new pane's folder.
+    pub fn split_active(&mut self, vertical: bool) {
         let orientation = if vertical {
             Orientation::Vertical
         } else {
@@ -802,15 +817,17 @@ impl App {
     /// boundary takes and returns a `PaneId` value, and returning an index
     /// from this one meant the UI compared an index against an id and matched
     /// the wrong pane - or none.
-    pub(crate) fn target_pane(&self) -> Option<PaneId> {
+    pub fn target_pane(&self) -> Option<PaneId> {
         self.workspace.target_pane_id()
     }
 
-    pub(crate) fn can_close_pane(&self, pane: PaneId) -> bool {
+    /// Whether `pane` may be closed - the last pane of a window may not.
+    pub fn can_close_pane(&self, pane: PaneId) -> bool {
         self.workspace.can_close_pane(pane)
     }
 
-    pub(crate) fn close_active_pane(&mut self) -> bool {
+    /// Close the active pane. False if it was the last one and stayed.
+    pub fn close_active_pane(&mut self) -> bool {
         let pane = self.workspace.active_pane_id();
         if self.workspace.close_pane(pane).is_ok() {
             self.views.remove(&pane);
@@ -827,7 +844,7 @@ impl App {
     /// records it, and the next launch opens it again. `close_pane` already
     /// drops a torn-off window when its last pane goes; nothing was calling it
     /// when the window itself was dismissed.
-    pub(crate) fn close_pane(&mut self, pane: PaneId) -> bool {
+    pub fn close_pane(&mut self, pane: PaneId) -> bool {
         if self.workspace.close_pane(pane).is_ok() {
             self.views.remove(&pane);
             true
@@ -836,33 +853,39 @@ impl App {
         }
     }
 
-    pub(crate) fn apply_preset(&mut self, preset: LayoutPreset) {
+    /// Replace the layout with one of the presets - one pane, two side by side
+    /// or stacked, four, and the three-pane arrangements.
+    pub fn apply_preset(&mut self, preset: LayoutPreset) {
         self.workspace.apply_preset(preset);
         self.refresh_all_panes();
     }
 
     // ------------------------------------------------------------------ tabs
 
-    pub(crate) fn tab_count(&self, pane: PaneId) -> usize {
+    /// How many tabs `pane` has.
+    pub fn tab_count(&self, pane: PaneId) -> usize {
         self.workspace
             .pane(pane)
             .map_or(0, jtf_workspace::Pane::tab_count)
     }
 
-    pub(crate) fn active_tab_index(&self, pane: PaneId) -> usize {
+    /// Which of `pane`'s tabs is showing.
+    pub fn active_tab_index(&self, pane: PaneId) -> usize {
         self.workspace
             .pane(pane)
             .map_or(0, jtf_workspace::Pane::active_index)
     }
 
-    pub(crate) fn tab_title(&self, pane: PaneId, index: usize) -> String {
+    /// The title of one of `pane`'s tabs.
+    pub fn tab_title(&self, pane: PaneId, index: usize) -> String {
         self.workspace
             .pane(pane)
             .and_then(|p| p.tabs().get(index))
             .map_or_else(String::new, |t| display_name_of(t.location()))
     }
 
-    pub(crate) fn new_tab(&mut self) {
+    /// Open a tab in the active pane.
+    pub fn new_tab(&mut self) {
         let at = self
             .workspace
             .active_tab()
@@ -879,7 +902,7 @@ impl App {
     /// what makes a window here - there is no other way to make one - so
     /// reusing it means a window opened this way and a window made by dragging
     /// a tab out are the same kind of thing, with the same session entry.
-    pub(crate) fn open_in_new_window(&mut self, pane: PaneId, path: &str) -> u64 {
+    pub fn open_in_new_window(&mut self, pane: PaneId, path: &str) -> u64 {
         if path.is_empty() {
             return 0;
         }
@@ -899,7 +922,7 @@ impl App {
     /// a server duplicates to the same server - reading a path out and
     /// navigating to it cannot, because a remote location has no local path
     /// to read.
-    pub(crate) fn duplicate_tab(&mut self, pane: PaneId, index: usize) {
+    pub fn duplicate_tab(&mut self, pane: PaneId, index: usize) {
         let Some(id) = self
             .workspace
             .pane(pane)
@@ -918,7 +941,7 @@ impl App {
     /// Pinning is fully modelled - a pinned tab keeps a leading place in the
     /// strip, cannot be reordered out of it, and refuses to close without
     /// force - and the interface had no way to reach any of it.
-    pub(crate) fn toggle_tab_pinned(&mut self, pane: PaneId, index: usize) -> bool {
+    pub fn toggle_tab_pinned(&mut self, pane: PaneId, index: usize) -> bool {
         let Some(tab) = self
             .workspace
             .pane_mut(pane)
@@ -932,14 +955,15 @@ impl App {
     }
 
     /// Whether the tab at `index` is pinned.
-    pub(crate) fn tab_is_pinned(&self, pane: PaneId, index: usize) -> bool {
+    pub fn tab_is_pinned(&self, pane: PaneId, index: usize) -> bool {
         self.workspace
             .pane(pane)
             .and_then(|p| p.tabs().get(index))
             .is_some_and(jtf_workspace::Tab::is_pinned)
     }
 
-    pub(crate) fn close_tab(&mut self, pane: PaneId, index: usize) {
+    /// Close one of `pane`'s tabs.
+    pub fn close_tab(&mut self, pane: PaneId, index: usize) {
         let Some(id) = self
             .workspace
             .pane(pane)
@@ -973,7 +997,8 @@ impl App {
         self.start_enumeration(pane);
     }
 
-    pub(crate) fn activate_tab(&mut self, pane: PaneId, index: usize) {
+    /// Show one of `pane`'s tabs.
+    pub fn activate_tab(&mut self, pane: PaneId, index: usize) {
         let Some(id) = self
             .workspace
             .pane(pane)
@@ -996,7 +1021,7 @@ impl App {
     /// both about the local filesystem, and an empty answer is how they
     /// decline a server. Anything meant for a person to read wants
     /// [`Self::display_path`] instead.
-    pub(crate) fn current_path(&self, pane: PaneId) -> String {
+    pub fn current_path(&self, pane: PaneId) -> String {
         self.workspace
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
@@ -1006,7 +1031,7 @@ impl App {
 
     /// The pane's folder as something to show: the path bar, the folder tree,
     /// the preview panel's heading.
-    pub(crate) fn display_path(&self, pane: PaneId) -> String {
+    pub fn display_path(&self, pane: PaneId) -> String {
         self.workspace
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
@@ -1019,7 +1044,7 @@ impl App {
     /// path first. A remote location has no such text form here - it is
     /// assembled from a host, a port, a user and a path that the connection
     /// dialog has already separated - so it goes straight in.
-    pub(crate) fn navigate_to_location(&mut self, pane: PaneId, location: Location) {
+    pub fn navigate_to_location(&mut self, pane: PaneId, location: Location) {
         if let Some(p) = self.workspace.pane_mut(pane) {
             if let Some(tab) = p.active_tab_mut() {
                 tab.navigate_to(location);
@@ -1028,7 +1053,9 @@ impl App {
         self.start_enumeration(pane);
     }
 
-    pub(crate) fn navigate(&mut self, pane: PaneId, path: &str) {
+    /// Go to what a person typed: a path, `~`, `$HOME`, `..`, a relative name or an
+    /// `sftp://` location.
+    pub fn navigate(&mut self, pane: PaneId, path: &str) {
         // A server URL is a location, not a path, and must not go through the
         // expansion below. It used to: `sftp://user@host/srv` was read as a
         // relative name and joined to the current folder, which produced
@@ -1081,7 +1108,7 @@ impl App {
     /// files - the folder under the cursor is what was meant, and asking the
     /// user to select it first is asking them to repeat something they have
     /// already said by putting the cursor there.
-    pub(crate) fn measure_folder_sizes(&mut self, pane: PaneId) -> usize {
+    pub fn measure_folder_sizes(&mut self, pane: PaneId) -> usize {
         let mut folders: Vec<PathBuf> = self
             .operation_sources(pane)
             .into_iter()
@@ -1138,7 +1165,7 @@ impl App {
     /// Returns whether there was an archive to extract. `Z` on an archive is
     /// CView's key for this; the destination is asked for first, exactly as
     /// `CV.HLP` §二 describes.
-    pub(crate) fn start_extract(&mut self, pane: PaneId, destination: &str) -> bool {
+    pub fn start_extract(&mut self, pane: PaneId, destination: &str) -> bool {
         let Some(archive) = self.archive_under_cursor(pane) else {
             return false;
         };
@@ -1183,7 +1210,7 @@ impl App {
     /// Takes the archive by path rather than from the cursor, because the
     /// archive window acts on the archive it is showing and the cursor has
     /// long since moved on.
-    pub(crate) fn start_extract_from(
+    pub fn start_extract_from(
         &mut self,
         archive: &str,
         destination: &str,
@@ -1235,7 +1262,7 @@ impl App {
 
     /// Start compressing the marked entries, or the one under the cursor,
     /// into `archive`.
-    pub(crate) fn start_compress(&mut self, pane: PaneId, archive: &str) -> bool {
+    pub fn start_compress(&mut self, pane: PaneId, archive: &str) -> bool {
         let mut sources = self.operation_sources(pane);
         if sources.is_empty() {
             return false;
@@ -1285,7 +1312,7 @@ impl App {
     ///
     /// Returns whether it started: it will not compare a pane against itself,
     /// and it will not start a second comparison over a running one.
-    pub(crate) fn start_compare(&mut self, left: PaneId, right: PaneId, recursive: bool) -> bool {
+    pub fn start_compare(&mut self, left: PaneId, right: PaneId, recursive: bool) -> bool {
         if left == right {
             return false;
         }
@@ -1348,7 +1375,7 @@ impl App {
 
     /// Take whatever the comparison thread has said. Returns whether anything
     /// changed.
-    pub(crate) fn pump_compare(&mut self) -> bool {
+    pub fn pump_compare(&mut self) -> bool {
         let Some(job) = self.comparing.as_mut() else {
             return false;
         };
@@ -1387,7 +1414,7 @@ impl App {
     }
 
     /// The running totals of the comparison: folders read, rows, differences.
-    pub(crate) fn compare_progress(&self) -> (u64, u64, u64) {
+    pub fn compare_progress(&self) -> (u64, u64, u64) {
         self.comparing.as_ref().map_or((0, 0, 0), |job| {
             (
                 job.progress.folders,
@@ -1398,19 +1425,19 @@ impl App {
     }
 
     /// Stop a running comparison, leaving whatever it had.
-    pub(crate) fn cancel_compare(&mut self) {
+    pub fn cancel_compare(&mut self) {
         if let Some(job) = self.comparing.as_ref() {
             job.canceller.cancel();
         }
     }
 
     /// Where the comparison has got to.
-    pub(crate) fn compare_outcome(&self) -> Option<&CompareOutcome> {
+    pub fn compare_outcome(&self) -> Option<&CompareOutcome> {
         self.comparing.as_ref().map(|job| &job.outcome)
     }
 
     /// The finished comparison, if there is one.
-    pub(crate) fn comparison(&self) -> Option<&jtf_fs::Comparison> {
+    pub fn comparison(&self) -> Option<&jtf_fs::Comparison> {
         match self.comparing.as_ref().map(|job| &job.outcome) {
             Some(CompareOutcome::Done(comparison)) => Some(comparison),
             _ => None,
@@ -1418,19 +1445,19 @@ impl App {
     }
 
     /// One row of the finished comparison.
-    pub(crate) fn comparison_row(&self, index: usize) -> Option<&jtf_fs::ComparisonRow> {
+    pub fn comparison_row(&self, index: usize) -> Option<&jtf_fs::ComparisonRow> {
         self.comparison().and_then(|c| c.rows.get(index))
     }
 
     /// What was compared, for the window's heading.
-    pub(crate) fn compare_sides(&self) -> (&str, &str) {
+    pub fn compare_sides(&self) -> (&str, &str) {
         self.comparing
             .as_ref()
             .map_or(("", ""), |job| (job.left.as_str(), job.right.as_str()))
     }
 
     /// Whether the running comparison was asked to walk subfolders.
-    pub(crate) fn compare_is_recursive(&self) -> bool {
+    pub fn compare_is_recursive(&self) -> bool {
         self.comparing.as_ref().is_some_and(|job| job.recursive)
     }
 
@@ -1439,7 +1466,7 @@ impl App {
     /// Cancelled rather than merely dropped: the worker checks the token
     /// between folders, so a walk over a large tree stops rather than running
     /// on into a channel nobody is reading.
-    pub(crate) fn close_compare(&mut self) {
+    pub fn close_compare(&mut self) {
         if let Some(job) = self.comparing.take() {
             job.canceller.cancel();
         }
@@ -1452,7 +1479,7 @@ impl App {
     /// Returns whether it started: it will not start a second analysis over a
     /// running one, and it will not analyse a location with no path on this
     /// machine - a server's disc is not ours to walk.
-    pub(crate) fn start_usage(&mut self, path: &str) -> bool {
+    pub fn start_usage(&mut self, path: &str) -> bool {
         if path.is_empty() {
             return false;
         }
@@ -1505,7 +1532,7 @@ impl App {
 
     /// Take whatever the analysis thread has said. Returns whether anything
     /// changed.
-    pub(crate) fn pump_usage(&mut self) -> bool {
+    pub fn pump_usage(&mut self) -> bool {
         let Some(job) = self.analysing.as_mut() else {
             return false;
         };
@@ -1553,7 +1580,7 @@ impl App {
     }
 
     /// Whether the analysis has finished.
-    pub(crate) fn usage_is_done(&self) -> bool {
+    pub fn usage_is_done(&self) -> bool {
         matches!(
             self.analysing.as_ref().map(|job| &job.outcome),
             Some(UsageOutcome::Done(_))
@@ -1561,7 +1588,7 @@ impl App {
     }
 
     /// The finished breakdown, if there is one.
-    pub(crate) fn usage(&self) -> Option<&jtf_fs::Usage> {
+    pub fn usage(&self) -> Option<&jtf_fs::Usage> {
         match self.analysing.as_ref().map(|job| &job.outcome) {
             Some(UsageOutcome::Done(usage)) => Some(usage),
             _ => None,
@@ -1569,14 +1596,14 @@ impl App {
     }
 
     /// The running totals: bytes, files, folders.
-    pub(crate) fn usage_progress(&self) -> (u64, u64, u64) {
+    pub fn usage_progress(&self) -> (u64, u64, u64) {
         self.analysing.as_ref().map_or((0, 0, 0), |job| {
             (job.progress.bytes, job.progress.files, job.progress.folders)
         })
     }
 
     /// The folder the walk is in, or empty when it is not running.
-    pub(crate) fn usage_in(&self) -> String {
+    pub fn usage_in(&self) -> String {
         self.analysing.as_ref().map_or_else(String::new, |job| {
             if matches!(job.outcome, UsageOutcome::Running) {
                 job.progress.directory.to_string_lossy().into_owned()
@@ -1587,20 +1614,20 @@ impl App {
     }
 
     /// What is being analysed.
-    pub(crate) fn usage_root(&self) -> &str {
+    pub fn usage_root(&self) -> &str {
         self.analysing.as_ref().map_or("", |job| job.root.as_str())
     }
 
     /// Stop the walk, keeping nothing: a half-counted breakdown would read as
     /// a complete one.
-    pub(crate) fn cancel_usage(&mut self) {
+    pub fn cancel_usage(&mut self) {
         if let Some(job) = self.analysing.as_ref() {
             job.canceller.cancel();
         }
     }
 
     /// Stop the analysis and forget it.
-    pub(crate) fn close_usage(&mut self) {
+    pub fn close_usage(&mut self) {
         if let Some(job) = self.analysing.take() {
             job.canceller.cancel();
         }
@@ -1622,7 +1649,7 @@ impl App {
     /// empty. Anything that asked "what is the cursor on" got no answer:
     /// pressing Enter on an archive did nothing, and `Z` could not find the
     /// folder under the cursor.
-    pub(crate) fn set_current_row(&mut self, pane: PaneId, row: Option<usize>) {
+    pub fn set_current_row(&mut self, pane: PaneId, row: Option<usize>) {
         let entry = row.and_then(|row| self.entry_at(pane, row).map(|e| e.location().clone()));
         if let Some(tab) = self
             .workspace
@@ -1650,13 +1677,13 @@ impl App {
     }
 
     /// Whether the cursor is on something this build can extract.
-    pub(crate) fn cursor_is_archive(&self, pane: PaneId) -> bool {
+    pub fn cursor_is_archive(&self, pane: PaneId) -> bool {
         self.archive_under_cursor(pane).is_some()
     }
 
     /// Take whatever the archive thread has said. Returns whether anything
     /// changed.
-    pub(crate) fn pump_archive(&mut self) -> bool {
+    pub fn pump_archive(&mut self) -> bool {
         let Some(job) = self.archiving.as_mut() else {
             return false;
         };
@@ -1692,14 +1719,14 @@ impl App {
     }
 
     /// Whether an extraction or compression is still running.
-    pub(crate) fn is_archiving(&self) -> bool {
+    pub fn is_archiving(&self) -> bool {
         self.archiving
             .as_ref()
             .is_some_and(|job| matches!(job.outcome, ArchiveOutcome::Running))
     }
 
     /// Files, bytes, members refused, and whether this was a compression.
-    pub(crate) fn archive_progress(&self) -> (u64, u64, u64, bool) {
+    pub fn archive_progress(&self) -> (u64, u64, u64, bool) {
         self.archiving.as_ref().map_or((0, 0, 0, false), |job| {
             (job.files, job.bytes, job.refused, job.compressing)
         })
@@ -1708,7 +1735,7 @@ impl App {
     /// The verdict once finished, and `None` while still running.
     ///
     /// Clears the job, so it is asked for once.
-    pub(crate) fn take_archive_result(&mut self) -> Option<ArchiveOutcome> {
+    pub fn take_archive_result(&mut self) -> Option<ArchiveOutcome> {
         if matches!(self.archiving.as_ref()?.outcome, ArchiveOutcome::Running) {
             return None;
         }
@@ -1716,7 +1743,7 @@ impl App {
     }
 
     /// Stop the extraction or compression.
-    pub(crate) fn cancel_archive(&mut self) {
+    pub fn cancel_archive(&mut self) {
         if let Some(job) = self.archiving.take() {
             job.canceller.cancel();
         }
@@ -1726,7 +1753,7 @@ impl App {
     ///
     /// Returns whether anything changed, so the UI redraws only when there is
     /// something new to draw.
-    pub(crate) fn pump_measure(&mut self) -> bool {
+    pub fn pump_measure(&mut self) -> bool {
         let Some(job) = self.measuring.as_mut() else {
             return false;
         };
@@ -1766,31 +1793,31 @@ impl App {
     }
 
     /// Whether a measurement is running, for the progress bar.
-    pub(crate) const fn is_measuring(&self) -> bool {
+    pub const fn is_measuring(&self) -> bool {
         self.measuring.is_some()
     }
 
     /// Files and bytes counted so far.
-    pub(crate) fn measure_progress(&self) -> (u64, u64) {
+    pub fn measure_progress(&self) -> (u64, u64) {
         self.measuring
             .as_ref()
             .map_or((0, 0), |job| (job.files, job.bytes))
     }
 
     /// Stop the measurement. The totals already stored stay.
-    pub(crate) fn cancel_measure(&mut self) {
+    pub fn cancel_measure(&mut self) {
         if let Some(job) = self.measuring.take() {
             job.canceller.cancel();
         }
     }
 
     /// The remembered size of a folder, or None if it has not been measured.
-    pub(crate) fn folder_size(&self, path: &Path) -> Option<u64> {
+    pub fn folder_size(&self, path: &Path) -> Option<u64> {
         self.folder_sizes.get(path).map(|size| size.bytes)
     }
 
     /// Forget every measurement, so the next request re-measures.
-    pub(crate) fn clear_folder_sizes(&mut self) {
+    pub fn clear_folder_sizes(&mut self) {
         self.folder_sizes.clear();
     }
 
@@ -1799,7 +1826,7 @@ impl App {
     /// Returned as a row rather than a name so the scan happens here, over
     /// the entries we already hold, instead of the UI asking for every row's
     /// text across the boundary to find one of them.
-    pub(crate) fn take_focus_row(&mut self, pane: PaneId) -> isize {
+    pub fn take_focus_row(&mut self, pane: PaneId) -> isize {
         let parent_row = isize::from(self.has_parent_row(pane));
         let Some(view) = self.views.get_mut(&pane) else {
             return -1;
@@ -1845,7 +1872,8 @@ impl App {
         isize::try_from(row).unwrap_or(0).saturating_add(parent_row)
     }
 
-    pub(crate) fn navigate_up(&mut self, pane: PaneId) {
+    /// Go to the parent of `pane`'s folder.
+    pub fn navigate_up(&mut self, pane: PaneId) {
         let parent = self
             .workspace
             .pane(pane)
@@ -1877,7 +1905,8 @@ impl App {
         }
     }
 
-    pub(crate) fn go_back(&mut self, pane: PaneId) {
+    /// Go back in the active tab's history.
+    pub fn go_back(&mut self, pane: PaneId) {
         let moved = self
             .workspace
             .pane_mut(pane)
@@ -1888,7 +1917,8 @@ impl App {
         }
     }
 
-    pub(crate) fn go_forward(&mut self, pane: PaneId) {
+    /// Go forward in the active tab's history.
+    pub fn go_forward(&mut self, pane: PaneId) {
         let moved = self
             .workspace
             .pane_mut(pane)
@@ -1900,7 +1930,7 @@ impl App {
     }
 
     /// Enter a row if it is a directory. Returns whether it navigated.
-    pub(crate) fn open_row(&mut self, pane: PaneId, row: usize) -> bool {
+    pub fn open_row(&mut self, pane: PaneId, row: usize) -> bool {
         if self.has_parent_row(pane) && row == 0 {
             self.navigate_up(pane);
             return true;
@@ -1948,11 +1978,12 @@ impl App {
     // ---------------------------------------------------------------- rows
 
     /// Identity of the current row set. See [`PaneView::generation`].
-    pub(crate) fn row_generation(&self, pane: PaneId) -> u64 {
+    pub fn row_generation(&self, pane: PaneId) -> u64 {
         self.views.get(&pane).map_or(0, |v| v.generation)
     }
 
-    pub(crate) fn row_count(&self, pane: PaneId) -> usize {
+    /// How many rows `pane` shows, including the `..` row when it is on.
+    pub fn row_count(&self, pane: PaneId) -> usize {
         let listed = self.views.get(&pane).map_or(0, |v| v.visible.len());
         listed + usize::from(self.has_parent_row(pane))
     }
@@ -1963,7 +1994,7 @@ impl App {
     /// search results, where there is no single folder to be the parent of,
     /// and not while a filter is narrowing the list, where a row that matches
     /// nothing the user typed would be the one exception on screen.
-    pub(crate) fn has_parent_row(&self, pane: PaneId) -> bool {
+    pub fn has_parent_row(&self, pane: PaneId) -> bool {
         if !self.settings.parent_row {
             return false;
         }
@@ -1992,13 +2023,13 @@ impl App {
     ///
     /// The status line counts items; the parent row is a way out of the
     /// folder, not a thing in it.
-    pub(crate) fn listed_count(&self, pane: PaneId) -> usize {
+    pub fn listed_count(&self, pane: PaneId) -> usize {
         self.views.get(&pane).map_or(0, |v| v.visible.len())
     }
 
     /// How many entries the directory has before filtering, so the UI can say
     /// "12 of 3400" rather than pretending the rest are not there.
-    pub(crate) fn unfiltered_count(&self, pane: PaneId) -> usize {
+    pub fn unfiltered_count(&self, pane: PaneId) -> usize {
         self.views.get(&pane).map_or(0, |v| v.entries.len())
     }
 
@@ -2021,7 +2052,7 @@ impl App {
     }
 
     /// The pane's filter text.
-    pub(crate) fn filter_text(&self, pane: PaneId) -> String {
+    pub fn filter_text(&self, pane: PaneId) -> String {
         self.workspace
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
@@ -2034,7 +2065,7 @@ impl App {
     /// touch the disk. Search — which walks a tree — is a different feature
     /// with a different cost, and conflating them would make a filter feel
     /// slow (`docs/SEARCH_AI.md` §1).
-    pub(crate) fn set_filter(&mut self, pane: PaneId, text: &str) {
+    pub fn set_filter(&mut self, pane: PaneId, text: &str) {
         if let Some(p) = self.workspace.pane_mut(pane) {
             if let Some(tab) = p.active_tab_mut() {
                 tab.filter_mut().text = text.to_string();
@@ -2078,16 +2109,17 @@ impl App {
     }
 
     /// How many of the shown rows are folders.
-    pub(crate) fn folder_count(&self, pane: PaneId) -> usize {
+    pub fn folder_count(&self, pane: PaneId) -> usize {
         self.views.get(&pane).map_or(0, |v| v.folder_count)
     }
 
     /// The size of the shown files, folders excluded.
-    pub(crate) fn visible_bytes(&self, pane: PaneId) -> u64 {
+    pub fn visible_bytes(&self, pane: PaneId) -> u64 {
         self.views.get(&pane).map_or(0, |v| v.visible_bytes)
     }
 
-    pub(crate) fn is_loading(&self, pane: PaneId) -> bool {
+    /// Whether `pane`'s listing is still being read.
+    pub fn is_loading(&self, pane: PaneId) -> bool {
         self.views.get(&pane).is_some_and(|v| v.loading)
     }
 
@@ -2099,7 +2131,7 @@ impl App {
     /// ~/.ssh". Showing only the category turned every distinct SFTP failure
     /// into the same sentence, and one that pointed at the wrong thing: the
     /// folder was readable, the sign-in was not.
-    pub(crate) fn error_detail(&self, pane: PaneId) -> String {
+    pub fn error_detail(&self, pane: PaneId) -> String {
         self.views
             .get(&pane)
             .and_then(|v| v.error.as_ref())
@@ -2111,7 +2143,7 @@ impl App {
     /// Takes the pane rather than a host and a user, so the interface never
     /// has to take apart a displayed path to work out which server it is
     /// talking about.
-    pub(crate) fn set_pane_password(&mut self, pane: PaneId, password: &str) -> bool {
+    pub fn set_pane_password(&mut self, pane: PaneId, password: &str) -> bool {
         let Some(location) = self
             .workspace
             .pane(pane)
@@ -2135,7 +2167,7 @@ impl App {
     /// re-enter one there would be noise. This is the case where the server
     /// refused *the sign-in* - no key accepted, or the password rejected - and
     /// the answer is to ask for a password and try again.
-    pub(crate) fn pane_needs_credentials(&self, pane: PaneId) -> bool {
+    pub fn pane_needs_credentials(&self, pane: PaneId) -> bool {
         let remote = self
             .workspace
             .pane(pane)
@@ -2154,14 +2186,16 @@ impl App {
             })
     }
 
-    pub(crate) fn error_key(&self, pane: PaneId) -> Option<&'static str> {
+    /// The message key of why `pane`'s folder could not be listed, if it could not.
+    pub fn error_key(&self, pane: PaneId) -> Option<&'static str> {
         self.views
             .get(&pane)
             .and_then(|v| v.error.as_ref())
             .map(jtf_core::Error::message_key)
     }
 
-    pub(crate) fn row_text(&self, pane: PaneId, row: usize, column: i32) -> String {
+    /// The text of one cell, formatted for display.
+    pub fn row_text(&self, pane: PaneId, row: usize, column: i32) -> String {
         if self.has_parent_row(pane) && row == 0 {
             // Two dots, not a translated phrase: `..` is what the shell calls
             // it and what every file manager shows, and a localized "Parent
@@ -2249,7 +2283,7 @@ impl App {
     /// The icon itself is the toolkit's business: `AGENTS.md` §8 says use
     /// native behaviour where users expect it, and a file's icon is the most
     /// visible instance of that.
-    pub(crate) fn row_path(&self, pane: PaneId, row: usize) -> String {
+    pub fn row_path(&self, pane: PaneId, row: usize) -> String {
         if self.has_parent_row(pane) && row == 0 {
             return self
                 .workspace
@@ -2280,7 +2314,7 @@ impl App {
     }
 
     /// Whether the row lives on a server rather than on this machine.
-    pub(crate) fn row_is_remote(&self, pane: PaneId, row: usize) -> bool {
+    pub fn row_is_remote(&self, pane: PaneId, row: usize) -> bool {
         if self.has_parent_row(pane) && row == 0 {
             return self.pane_is_remote(pane);
         }
@@ -2306,7 +2340,7 @@ impl App {
     /// where its replacement will appear.
     ///
     /// Returns whether anything moved.
-    pub(crate) fn volume_left(&mut self, mount_point: &Path) -> bool {
+    pub fn volume_left(&mut self, mount_point: &Path) -> bool {
         let landing = nearest_existing(mount_point);
         let mut moved = Vec::new();
         for pane in self.workspace.pane_order() {
@@ -2334,7 +2368,8 @@ impl App {
         !moved.is_empty()
     }
 
-    pub(crate) fn pane_is_remote(&self, pane: PaneId) -> bool {
+    /// Whether `pane` is showing a folder on a server.
+    pub fn pane_is_remote(&self, pane: PaneId) -> bool {
         self.workspace
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
@@ -2346,7 +2381,7 @@ impl App {
     /// Directories are traversable, which is the same permission bit, so they
     /// are excluded: colouring every folder as executable would tell nobody
     /// anything.
-    pub(crate) fn row_is_executable(&self, pane: PaneId, row: usize) -> bool {
+    pub fn row_is_executable(&self, pane: PaneId, row: usize) -> bool {
         self.entry_at(pane, row).is_some_and(|entry| {
             !entry.kind().is_directory_on_disk() && entry.permissions().executable
         })
@@ -2358,7 +2393,7 @@ impl App {
     /// a listing with hidden entries shown still reads as "these are the
     /// ordinary files, and those are the others". The model has carried the
     /// flag all along; nothing was asking for it.
-    pub(crate) fn row_is_hidden(&self, pane: PaneId, row: usize) -> bool {
+    pub fn row_is_hidden(&self, pane: PaneId, row: usize) -> bool {
         if self.has_parent_row(pane) && row == 0 {
             return false;
         }
@@ -2366,7 +2401,8 @@ impl App {
             .is_some_and(|entry| entry.attributes().hidden)
     }
 
-    pub(crate) fn row_is_directory(&self, pane: PaneId, row: usize) -> bool {
+    /// Whether the entry on `row` is a folder.
+    pub fn row_is_directory(&self, pane: PaneId, row: usize) -> bool {
         if self.has_parent_row(pane) && row == 0 {
             return true;
         }
@@ -2374,7 +2410,8 @@ impl App {
             .is_some_and(|e| e.kind().is_directory_on_disk())
     }
 
-    pub(crate) fn row_is_marked(&self, pane: PaneId, row: usize) -> bool {
+    /// Whether the entry on `row` is marked.
+    pub fn row_is_marked(&self, pane: PaneId, row: usize) -> bool {
         let Some(entry) = self.entry_at(pane, row) else {
             return false;
         };
@@ -2384,7 +2421,8 @@ impl App {
             .is_some_and(|t| t.marks().contains(entry.location()))
     }
 
-    pub(crate) fn toggle_mark(&mut self, pane: PaneId, row: usize) {
+    /// Mark the entry on `row`, or unmark it if it was marked.
+    pub fn toggle_mark(&mut self, pane: PaneId, row: usize) {
         // Through `entry_at`, not `entries[row]`: a display row is an index
         // into what is *shown*, and with a filter active the two lists differ.
         // Indexing the unfiltered list marked whichever file happened to sit
@@ -2404,7 +2442,7 @@ impl App {
     /// Scope is explicit: this acts on what the pane is showing, not on the
     /// whole filesystem and not on some remembered set
     /// (`docs/UI_TEST_PLAN.md` MARK-003).
-    pub(crate) fn mark_listed(&mut self, pane: PaneId, action: MarkAction) {
+    pub fn mark_listed(&mut self, pane: PaneId, action: MarkAction) {
         // "All" means what the pane is showing, filter included: marking
         // three thousand hidden entries the user cannot see would be a
         // surprise (docs/UI_TEST_PLAN.md MARK-003).
@@ -2431,7 +2469,7 @@ impl App {
     /// will act on. Syncing one into the other is what lets
     /// `OperationTarget` resolve marked-then-selection-then-active without
     /// the C++ side deciding anything (`docs/UI_UX_SPEC.md` §6).
-    pub(crate) fn set_selection(&mut self, pane: PaneId, rows: &[usize]) {
+    pub fn set_selection(&mut self, pane: PaneId, rows: &[usize]) {
         let locations: Vec<Location> = rows
             .iter()
             .filter_map(|row| self.entry_at(pane, *row))
@@ -2459,7 +2497,7 @@ impl App {
     /// A single row is deliberately not included: moving the cursor is a
     /// selection of one, and marking as you move would make marks impossible
     /// to keep.
-    pub(crate) fn mark_selected_rows(&mut self, pane: PaneId, rows: &[usize]) {
+    pub fn mark_selected_rows(&mut self, pane: PaneId, rows: &[usize]) {
         if rows.len() < 2 {
             return;
         }
@@ -2498,7 +2536,7 @@ impl App {
     /// what an operation reads - and the selection is restored from it on
     /// arriving in a folder, so marks still survive navigating away and back
     /// (`docs/UI_TEST_PLAN.md` MARK-004).
-    pub(crate) fn set_marks_from_selection(&mut self, pane: PaneId, rows: &[usize]) {
+    pub fn set_marks_from_selection(&mut self, pane: PaneId, rows: &[usize]) {
         let listed: Vec<Location> = (0..self.row_count(pane))
             .filter_map(|row| self.entry_at(pane, row))
             .map(|entry| entry.location().clone())
@@ -2522,7 +2560,7 @@ impl App {
     }
 
     /// The rows that are marked, as display rows, for restoring the selection.
-    pub(crate) fn marked_rows(&self, pane: PaneId) -> Vec<usize> {
+    pub fn marked_rows(&self, pane: PaneId) -> Vec<usize> {
         let Some(tab) = self
             .workspace
             .pane(pane)
@@ -2619,7 +2657,7 @@ impl App {
     /// Returns false and sets `plan_error` when it cannot be built. The
     /// conflicts are filled from one listing of the destination folder - see
     /// `jtf_transfer::Plan::note_conflicts` for why only the top level.
-    pub(crate) fn prepare_transfer(
+    pub fn prepare_transfer(
         &mut self,
         pane: PaneId,
         kind: jtf_transfer::Kind,
@@ -2674,7 +2712,7 @@ impl App {
     }
 
     /// Start the pending transfer.
-    pub(crate) fn start_transfer(&mut self, policy: i32) -> bool {
+    pub fn start_transfer(&mut self, policy: i32) -> bool {
         let Some(plan) = self.pending_transfer.take() else {
             return false;
         };
@@ -2694,12 +2732,12 @@ impl App {
     }
 
     /// The summary of the last finished transfer, if it has not been read.
-    pub(crate) const fn last_transfer_summary(&self) -> Option<&crate::transfer::Summary> {
+    pub const fn last_transfer_summary(&self) -> Option<&crate::transfer::Summary> {
         self.last_transfer_summary.as_ref()
     }
 
     /// Clear it once the window has shown it.
-    pub(crate) fn take_transfer_summary(&mut self) {
+    pub fn take_transfer_summary(&mut self) {
         self.last_transfer_summary = None;
     }
 
@@ -2735,7 +2773,7 @@ impl App {
     /// A row that is marked is not recorded: a gesture on one of the marked
     /// rows acts on the marked set, as a command does. Only a row outside it
     /// narrows the target to itself.
-    pub(crate) fn set_pointer_row(&mut self, pane: PaneId, row: Option<usize>) {
+    pub fn set_pointer_row(&mut self, pane: PaneId, row: Option<usize>) {
         self.pointer_row = row
             .filter(|row| !self.row_is_marked(pane, *row))
             .and_then(|row| self.entry_at(pane, row))
@@ -2770,7 +2808,7 @@ impl App {
     }
 
     /// The name shown in the rename box: the entry the cursor is on.
-    pub(crate) fn cursor_name(&self, pane: PaneId) -> String {
+    pub fn cursor_name(&self, pane: PaneId) -> String {
         self.cursor_source(pane)
             .and_then(|path| {
                 path.file_name()
@@ -2785,7 +2823,7 @@ impl App {
     ///
     /// Returns whether there is anything to do. The plan is held until the UI
     /// either starts it or abandons it.
-    pub(crate) fn prepare_operation(
+    pub fn prepare_operation(
         &mut self,
         pane: PaneId,
         kind: crate::operations::OperationKind,
@@ -2841,7 +2879,7 @@ impl App {
     /// The two-pane keys are the fast path; this is the one that works when
     /// there is one pane, or when the place you want is a tab that is open
     /// somewhere else, or a folder that is not open at all.
-    pub(crate) fn prepare_operation_to(
+    pub fn prepare_operation_to(
         &mut self,
         pane: PaneId,
         kind: crate::operations::OperationKind,
@@ -2925,7 +2963,7 @@ impl App {
 
     /// The location of one tab, so the UI can offer every open tab as a
     /// destination rather than only the pane beside this one.
-    pub(crate) fn tab_path(&self, pane: PaneId, index: usize) -> String {
+    pub fn tab_path(&self, pane: PaneId, index: usize) -> String {
         self.workspace
             .pane(pane)
             .and_then(|p| p.tabs().get(index))
@@ -2946,7 +2984,7 @@ impl App {
     /// the `sftp://` form `display_text` writes, so it is parsed rather than
     /// assumed local: the tree follows whichever pane has focus, and a pane
     /// can be on a server.
-    pub(crate) fn child_directories(&self, path: &str) -> String {
+    pub fn child_directories(&self, path: &str) -> String {
         let location = Location::parse_display(path);
         // The tree asks on the interface thread, so it may only ever ask a
         // question that is already answered locally. Listing a server we have
@@ -2994,13 +3032,13 @@ impl App {
     }
 
     /// Whether folders sort ahead of files.
-    pub(crate) const fn folders_first(&self) -> bool {
+    pub const fn folders_first(&self) -> bool {
         self.settings.folders_first
     }
 
     /// Set it, and re-sort every pane so the change is visible immediately
     /// rather than at the next navigation.
-    pub(crate) fn set_folders_first(&mut self, folders_first: bool) {
+    pub fn set_folders_first(&mut self, folders_first: bool) {
         if self.settings.folders_first == folders_first {
             return;
         }
@@ -3019,23 +3057,23 @@ impl App {
     }
 
     /// Whether the sidebar is shown, and how wide.
-    pub(crate) const fn tree_state(&self) -> (bool, u16) {
+    pub const fn tree_state(&self) -> (bool, u16) {
         (self.settings.tree_visible, self.settings.tree_width)
     }
 
     /// Remember the sidebar's state.
-    pub(crate) fn set_tree_state(&mut self, visible: bool, width: u16) {
+    pub fn set_tree_state(&mut self, visible: bool, width: u16) {
         self.settings.tree_visible = visible;
         self.settings.tree_width = width;
     }
 
     /// Sidebar sections the user has folded away, newline-separated.
-    pub(crate) fn collapsed_sections(&self) -> String {
+    pub fn collapsed_sections(&self) -> String {
         self.settings.collapsed_sections.join("\n")
     }
 
     /// Remember which sections are folded, so they are still folded next time.
-    pub(crate) fn set_collapsed_sections(&mut self, ids: &str) {
+    pub fn set_collapsed_sections(&mut self, ids: &str) {
         self.settings.collapsed_sections = ids
             .split('\n')
             .filter(|id| !id.is_empty())
@@ -3044,27 +3082,28 @@ impl App {
     }
 
     /// How many recent folders the sidebar should show.
-    pub(crate) fn recent_limit(&self) -> u16 {
+    pub fn recent_limit(&self) -> u16 {
         self.settings.recent_limit
     }
 
-    pub(crate) fn set_recent_limit(&mut self, limit: u16) {
+    /// Remember how many recent locations to keep.
+    pub fn set_recent_limit(&mut self, limit: u16) {
         self.settings.recent_limit = limit;
     }
 
     /// The user's bookmarks.
-    pub(crate) fn bookmarks(&self) -> &[Bookmark] {
+    pub fn bookmarks(&self) -> &[Bookmark] {
         self.places.bookmarks()
     }
 
     /// Whether the pane's folder is bookmarked.
-    pub(crate) fn is_bookmarked(&self, pane: PaneId) -> bool {
+    pub fn is_bookmarked(&self, pane: PaneId) -> bool {
         let path = self.current_path(pane);
         !path.is_empty() && self.places.is_bookmarked(Path::new(&path))
     }
 
     /// Bookmark the pane's folder, or remove it. Returns the state afterwards.
-    pub(crate) fn toggle_bookmark(&mut self, pane: PaneId) -> bool {
+    pub fn toggle_bookmark(&mut self, pane: PaneId) -> bool {
         let path = self.current_path(pane);
         if path.is_empty() {
             return false;
@@ -3077,7 +3116,7 @@ impl App {
     /// By path, not by pane: the tab strip, the folder tree and a folder row
     /// in the list all offer this, and each of them is pointing at a folder
     /// that may not be the one the pane is currently showing.
-    pub(crate) fn toggle_bookmark_path(&mut self, path: &str) -> bool {
+    pub fn toggle_bookmark_path(&mut self, path: &str) -> bool {
         if path.is_empty() {
             return false;
         }
@@ -3085,7 +3124,7 @@ impl App {
     }
 
     /// Whether `path` is bookmarked.
-    pub(crate) fn path_is_bookmarked(&self, path: &str) -> bool {
+    pub fn path_is_bookmarked(&self, path: &str) -> bool {
         let path = std::path::Path::new(path);
         self.places
             .bookmarks()
@@ -3094,17 +3133,17 @@ impl App {
     }
 
     /// Remove the bookmark at `index`.
-    pub(crate) fn remove_bookmark(&mut self, index: usize) {
+    pub fn remove_bookmark(&mut self, index: usize) {
         self.places.remove_bookmark(index);
     }
 
     /// Rename the bookmark at `index`; an empty name restores the default.
-    pub(crate) fn rename_bookmark(&mut self, index: usize, name: &str) {
+    pub fn rename_bookmark(&mut self, index: usize, name: &str) {
         self.places.rename_bookmark(index, name);
     }
 
     /// Reorder a bookmark, for drag reordering in the sidebar.
-    pub(crate) fn move_bookmark(&mut self, from: usize, to: usize) {
+    pub fn move_bookmark(&mut self, from: usize, to: usize) {
         self.places.move_bookmark(from, to);
     }
 
@@ -3113,7 +3152,7 @@ impl App {
     /// Trimmed here rather than when they are recorded: the setting decides
     /// how many to *show*, and lowering it should not throw away history that
     /// raising it again would want back.
-    pub(crate) fn recent(&self) -> Vec<String> {
+    pub fn recent(&self) -> Vec<String> {
         let limit = if self.settings.recent_limit == 0 {
             DEFAULT_RECENT_SHOWN
         } else {
@@ -3127,12 +3166,12 @@ impl App {
     }
 
     /// Forget where the user has been.
-    pub(crate) fn clear_recent(&mut self) {
+    pub fn clear_recent(&mut self) {
         self.places.clear_recent();
     }
 
     /// The command a chord runs, if any. Empty when nothing is bound.
-    pub(crate) fn command_for_chord(&self, chord: &str) -> String {
+    pub fn command_for_chord(&self, chord: &str) -> String {
         KeyChord::parse(chord).ok().map_or_else(String::new, |c| {
             self.keymap
                 .command_for(&c)
@@ -3146,7 +3185,7 @@ impl App {
     /// command in both of them, which is the whole reason the switch is
     /// usable: a toggle that exists in only one mode is a door that locks
     /// behind you.
-    pub(crate) fn toggle_keymap(&mut self) -> String {
+    pub fn toggle_keymap(&mut self) -> String {
         let current = self.keymap.name().to_string();
         let next = if current == KEYMAP_PRESETS[0] {
             KEYMAP_PRESETS[1]
@@ -3158,77 +3197,85 @@ impl App {
     }
 
     /// Whether a bare printable key jumps to a file name in this keymap.
-    pub(crate) const fn type_ahead(&self) -> bool {
+    pub const fn type_ahead(&self) -> bool {
         self.keymap.type_ahead()
     }
 
     /// Whether the key hint strip is shown.
-    pub(crate) const fn key_hints_visible(&self) -> bool {
+    pub const fn key_hints_visible(&self) -> bool {
         self.settings.key_hints_visible
     }
 
     /// Remember the key hint strip's state.
-    pub(crate) fn set_key_hints_visible(&mut self, visible: bool) {
+    pub fn set_key_hints_visible(&mut self, visible: bool) {
         self.settings.key_hints_visible = visible;
     }
 
-    pub(crate) const fn parent_row(&self) -> bool {
+    /// Whether lists start with a `..` row.
+    pub const fn parent_row(&self) -> bool {
         self.settings.parent_row
     }
 
-    pub(crate) fn set_parent_row(&mut self, shown: bool) {
+    /// Remember whether lists start with a `..` row.
+    pub fn set_parent_row(&mut self, shown: bool) {
         self.settings.parent_row = shown;
     }
 
-    pub(crate) const fn inspector_position(&self) -> u8 {
+    /// Where the preview panel sits: 0 beside the panes, 1 below them.
+    pub const fn inspector_position(&self) -> u8 {
         self.settings.inspector_position
     }
 
     /// Remember which side the preview panel is on. Anything past the last
     /// position falls back to beside the panes.
-    pub(crate) fn set_inspector_position(&mut self, position: u8) {
+    pub fn set_inspector_position(&mut self, position: u8) {
         self.settings.inspector_position = if position > 1 { 0 } else { position };
     }
 
-    pub(crate) const fn preview_background(&self) -> u8 {
+    /// What the preview area is drawn on: 0 the theme's surface, 1 a checkerboard,
+    /// 2 the colour from [`Self::preview_background_colour`].
+    pub const fn preview_background(&self) -> u8 {
         self.settings.preview_background
     }
 
-    pub(crate) fn preview_background_colour(&self) -> &str {
+    /// The colour behind previews in mode 2, as `#rrggbb`.
+    pub fn preview_background_colour(&self) -> &str {
         &self.settings.preview_background_colour
     }
 
     /// Remember what the preview area is drawn on. A mode past the last one
     /// falls back to the theme's own surface rather than to nothing.
-    pub(crate) fn set_preview_background(&mut self, mode: u8, colour: &str) {
+    pub fn set_preview_background(&mut self, mode: u8, colour: &str) {
         self.settings.preview_background = if mode > 2 { 0 } else { mode };
         colour.clone_into(&mut self.settings.preview_background_colour);
     }
 
-    pub(crate) const fn key_hints_density(&self) -> u8 {
+    /// How much the key strip says: 0 full, 1 compact, 2 out of the way while the
+    /// list is being worked.
+    pub const fn key_hints_density(&self) -> u8 {
         self.settings.key_hints_density
     }
 
     /// Remember how much the strip should say. Values above the last mode
     /// fall back to full rather than showing nothing.
-    pub(crate) fn set_key_hints_density(&mut self, density: u8) {
+    pub fn set_key_hints_density(&mut self, density: u8) {
         self.settings.key_hints_density = if density > 2 { 0 } else { density };
     }
 
     /// How much room each row of the list gets: 0 compact, 1 standard,
     /// 2 comfortable.
-    pub(crate) const fn row_density(&self) -> u8 {
+    pub const fn row_density(&self) -> u8 {
         self.settings.row_density.index()
     }
 
     /// A value past the last step is the default rather than the tightest,
     /// so a stray number can never make the list harder to read.
-    pub(crate) fn set_row_density(&mut self, density: u8) {
+    pub fn set_row_density(&mut self, density: u8) {
         self.settings.row_density = jtf_workspace::RowDensity::from_index(density);
     }
 
     /// The pane's view mode: 0 list, 1 grid.
-    pub(crate) fn view_mode(&self, pane: PaneId) -> i32 {
+    pub fn view_mode(&self, pane: PaneId) -> i32 {
         self.workspace
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
@@ -3244,7 +3291,7 @@ impl App {
     }
 
     /// Switch the pane between the list and the grid.
-    pub(crate) fn set_view_mode(&mut self, pane: PaneId, grid: bool) {
+    pub fn set_view_mode(&mut self, pane: PaneId, grid: bool) {
         let mode = if grid { ViewMode::Grid } else { ViewMode::List };
         if let Some(p) = self.workspace.pane_mut(pane) {
             if let Some(tab) = p.active_tab_mut() {
@@ -3254,17 +3301,17 @@ impl App {
     }
 
     /// Whether image files show a thumbnail.
-    pub(crate) const fn thumbnails(&self) -> bool {
+    pub const fn thumbnails(&self) -> bool {
         self.settings.thumbnails
     }
 
     /// Turn thumbnails on or off.
-    pub(crate) fn set_thumbnails(&mut self, on: bool) {
+    pub fn set_thumbnails(&mut self, on: bool) {
         self.settings.thumbnails = on;
     }
 
     /// Whether the inspector is shown, and how wide.
-    pub(crate) const fn inspector_state(&self) -> (bool, u16) {
+    pub const fn inspector_state(&self) -> (bool, u16) {
         (
             self.settings.inspector_visible,
             self.settings.inspector_width,
@@ -3272,7 +3319,7 @@ impl App {
     }
 
     /// Remember the inspector's state.
-    pub(crate) fn set_inspector_state(&mut self, visible: bool, width: u16) {
+    pub fn set_inspector_state(&mut self, visible: bool, width: u16) {
         self.settings.inspector_visible = visible;
         self.settings.inspector_width = width;
     }
@@ -3282,7 +3329,7 @@ impl App {
     /// Used for the clipboard and for "copy path": the same
     /// marked-then-selection-then-active resolution as everything else, so
     /// copying and deleting never disagree about what is targeted.
-    pub(crate) fn target_paths(&self, pane: PaneId) -> String {
+    pub fn target_paths(&self, pane: PaneId) -> String {
         self.operation_sources(pane)
             .iter()
             .map(|path| path.display().to_string())
@@ -3291,7 +3338,7 @@ impl App {
     }
 
     /// The names of the targeted entries, newline-separated.
-    pub(crate) fn target_names(&self, pane: PaneId) -> String {
+    pub fn target_names(&self, pane: PaneId) -> String {
         self.operation_sources(pane)
             .iter()
             .filter_map(|path| path.file_name())
@@ -3304,7 +3351,7 @@ impl App {
     ///
     /// Always "keep both": a duplicate that overwrote the original would be a
     /// contradiction in terms.
-    pub(crate) fn prepare_duplicate(&mut self, pane: PaneId) -> bool {
+    pub fn prepare_duplicate(&mut self, pane: PaneId) -> bool {
         self.plan_error = None;
         self.clear_pending();
 
@@ -3329,7 +3376,7 @@ impl App {
     ///
     /// The preview is the same computation the apply uses, so what the user
     /// sees is what happens (`jtf_ops::batch`).
-    pub(crate) fn preview_batch(
+    pub fn preview_batch(
         &mut self,
         pane: PaneId,
         template: &str,
@@ -3353,14 +3400,14 @@ impl App {
     }
 
     /// One row of the current preview: original name, new name, issue key.
-    pub(crate) fn batch_row(&self, index: usize) -> Option<(String, String, &'static str)> {
+    pub fn batch_row(&self, index: usize) -> Option<(String, String, &'static str)> {
         let preview = self.batch_preview.as_ref()?;
         let row = preview.rows.get(index)?;
         Some((row.from.clone(), row.to.clone(), row.issue.label_key()))
     }
 
     /// Whether the preview can be applied, and how many rows would change.
-    pub(crate) fn batch_state(&self) -> (bool, usize) {
+    pub fn batch_state(&self) -> (bool, usize) {
         self.batch_preview.as_ref().map_or((false, 0), |preview| {
             (
                 !preview.is_blocked() && preview.has_changes(),
@@ -3370,7 +3417,7 @@ impl App {
     }
 
     /// Apply the preview. Returns how many entries were renamed.
-    pub(crate) fn apply_batch(&mut self) -> usize {
+    pub fn apply_batch(&mut self) -> usize {
         let Some(preview) = self.batch_preview.take() else {
             return 0;
         };
@@ -3411,7 +3458,7 @@ impl App {
     }
 
     /// Discard the preview.
-    pub(crate) fn clear_batch(&mut self) {
+    pub fn clear_batch(&mut self) {
         self.batch_preview = None;
     }
 
@@ -3420,7 +3467,7 @@ impl App {
     ///
     /// The destination is the pane being dropped **on**, which is the only
     /// reading of a drop that matches what the user pointed at.
-    pub(crate) fn prepare_drop(
+    pub fn prepare_drop(
         &mut self,
         pane: PaneId,
         kind: crate::operations::OperationKind,
@@ -3468,7 +3515,7 @@ impl App {
     /// The disc usage window works this way: it is a report about a folder
     /// rather than a pane showing one, so the thing to act on is the row the
     /// cursor is on and there is no selection behind the boundary to read.
-    pub(crate) fn prepare_paths(
+    pub fn prepare_paths(
         &mut self,
         kind: crate::operations::OperationKind,
         sources: Vec<PathBuf>,
@@ -3484,7 +3531,7 @@ impl App {
     }
 
     /// Build a rename plan.
-    pub(crate) fn prepare_rename(&mut self, pane: PaneId, new_name: &str) -> bool {
+    pub fn prepare_rename(&mut self, pane: PaneId, new_name: &str) -> bool {
         self.plan_error = None;
         self.clear_pending();
         // The cursor's row, not the marked set: see `cursor_source`.
@@ -3500,7 +3547,7 @@ impl App {
 
     /// Build a new-folder plan.
     /// Prepare setting or clearing read-only on the pane's targets.
-    pub(crate) fn prepare_set_read_only(&mut self, pane: PaneId, read_only: bool) -> bool {
+    pub fn prepare_set_read_only(&mut self, pane: PaneId, read_only: bool) -> bool {
         let sources = self.operation_sources(pane);
         if sources.is_empty() {
             self.plan_error = Some(PlanError::NothingToDo);
@@ -3511,7 +3558,7 @@ impl App {
 
     /// Whether every target is already read-only, so the dialog opens showing
     /// what is true rather than a guess.
-    pub(crate) fn targets_are_read_only(&self, pane: PaneId) -> bool {
+    pub fn targets_are_read_only(&self, pane: PaneId) -> bool {
         let sources = self.operation_sources(pane);
         !sources.is_empty()
             && sources
@@ -3519,7 +3566,9 @@ impl App {
                 .all(|path| std::fs::metadata(path).is_ok_and(|meta| meta.permissions().readonly()))
     }
 
-    pub(crate) fn prepare_new_file(&mut self, pane: PaneId, name: &str) -> bool {
+    /// Plan an empty file called `name` in `pane`'s folder. False, with the reason
+    /// kept, if there is nothing to plan.
+    pub fn prepare_new_file(&mut self, pane: PaneId, name: &str) -> bool {
         let Some(parent) = self
             .workspace
             .pane(pane)
@@ -3536,7 +3585,8 @@ impl App {
         })
     }
 
-    pub(crate) fn prepare_new_folder(&mut self, pane: PaneId, name: &str) -> bool {
+    /// Plan a folder called `name` in `pane`'s folder.
+    pub fn prepare_new_folder(&mut self, pane: PaneId, name: &str) -> bool {
         self.plan_error = None;
         self.clear_pending();
         let Some(parent) = self
@@ -3567,13 +3617,13 @@ impl App {
     }
 
     /// Whether a plan is still being built.
-    pub(crate) const fn is_planning(&self) -> bool {
+    pub const fn is_planning(&self) -> bool {
         self.planning.is_some()
     }
 
     /// Collect a finished plan. Returns 1 when ready, 0 on failure, -1 while
     /// still counting.
-    pub(crate) fn poll_planning(&mut self) -> i32 {
+    pub fn poll_planning(&mut self) -> i32 {
         let Some(planning) = self.planning.as_mut() else {
             // A transfer counts. It is built on the calling thread - there is
             // no tree to walk, which is the whole point - so by the time this
@@ -3598,7 +3648,7 @@ impl App {
     }
 
     /// Stop counting and discard the half-built plan.
-    pub(crate) fn cancel_planning(&mut self) {
+    pub fn cancel_planning(&mut self) {
         if let Some(planning) = self.planning.take() {
             planning.cancel();
         }
@@ -3606,7 +3656,7 @@ impl App {
     }
 
     /// The plan waiting for confirmation.
-    pub(crate) const fn pending_plan(&self) -> Option<&Plan> {
+    pub const fn pending_plan(&self) -> Option<&Plan> {
         self.pending_plan.as_ref()
     }
 
@@ -3621,7 +3671,7 @@ impl App {
     }
 
     /// Why the last prepare failed, as a localization key.
-    pub(crate) fn plan_error_key(&self) -> Option<&'static str> {
+    pub fn plan_error_key(&self) -> Option<&'static str> {
         self.plan_error.as_ref().map(|error| match error {
             PlanError::DestinationInsideSource(_) => "plan.destination_inside_source",
             PlanError::SourceIsDestination(_) => "plan.source_is_destination",
@@ -3636,7 +3686,7 @@ impl App {
     }
 
     /// Run the pending plan.
-    pub(crate) fn start_operation(&mut self, policy: ConflictPolicy) -> bool {
+    pub fn start_operation(&mut self, policy: ConflictPolicy) -> bool {
         let Some(plan) = self.pending_plan.take() else {
             return false;
         };
@@ -3663,12 +3713,12 @@ impl App {
     /// enough to know something is happening and not enough to know what -
     /// which of two copies is running, how big the one behind it is, or
     /// whether the thing still queued is the one that should be dropped.
-    pub(crate) fn job_count(&self) -> usize {
+    pub fn job_count(&self) -> usize {
         usize::from(self.running.is_some()) + self.queue.len()
     }
 
     /// The localization key for job `index`'s label.
-    pub(crate) fn job_label_key(&self, index: usize) -> &'static str {
+    pub fn job_label_key(&self, index: usize) -> &'static str {
         if self.running.is_some() {
             if index == 0 {
                 return self.operation_label_key().unwrap_or("");
@@ -3684,7 +3734,7 @@ impl App {
     }
 
     /// How many entries job `index` will touch, and how many bytes.
-    pub(crate) fn job_size(&self, index: usize) -> (u64, u64) {
+    pub fn job_size(&self, index: usize) -> (u64, u64) {
         let queued = if self.running.is_some() {
             index.checked_sub(1).and_then(|i| self.queue.get(i))
         } else {
@@ -3694,13 +3744,13 @@ impl App {
     }
 
     /// Whether job `index` is the one currently running.
-    pub(crate) fn job_is_running(&self, index: usize) -> bool {
+    pub fn job_is_running(&self, index: usize) -> bool {
         self.running.is_some() && index == 0
     }
 
     /// Drop job `index`. The running one is cancelled; a waiting one is simply
     /// removed, which is not the same decision and does not touch any file.
-    pub(crate) fn cancel_job(&mut self, index: usize) {
+    pub fn cancel_job(&mut self, index: usize) {
         if self.job_is_running(index) {
             self.cancel_operation();
             return;
@@ -3716,28 +3766,28 @@ impl App {
     }
 
     /// How many operations are waiting behind the running one.
-    pub(crate) fn queued_count(&self) -> usize {
+    pub fn queued_count(&self) -> usize {
         self.queue.len()
     }
 
     /// Drop everything waiting. The running one is not touched: stopping it
     /// is cancellation, which is a different decision.
-    pub(crate) fn clear_queue(&mut self) {
+    pub fn clear_queue(&mut self) {
         self.queue.clear();
     }
 
     /// Whether there is anything to undo.
-    pub(crate) fn can_undo(&self) -> bool {
+    pub fn can_undo(&self) -> bool {
         !self.undo_stack.is_empty() && self.running.is_none()
     }
 
     /// Localization key naming what undo would reverse.
-    pub(crate) fn undo_label_key(&self) -> &'static str {
+    pub fn undo_label_key(&self) -> &'static str {
         self.undo_stack.last().map_or("", UndoRecord::label_key)
     }
 
     /// Undo the most recent reversible operation.
-    pub(crate) fn undo_last(&mut self) -> bool {
+    pub fn undo_last(&mut self) -> bool {
         if self.running.is_some() {
             return false;
         }
@@ -3750,17 +3800,17 @@ impl App {
     }
 
     /// Whether an operation is in flight.
-    pub(crate) const fn operation_running(&self) -> bool {
+    pub const fn operation_running(&self) -> bool {
         self.running.is_some() || self.running_transfer.is_some()
     }
 
     /// The transfer waiting for a policy, if the pending work is one.
-    pub(crate) const fn pending_transfer(&self) -> Option<&jtf_transfer::Plan> {
+    pub const fn pending_transfer(&self) -> Option<&jtf_transfer::Plan> {
         self.pending_transfer.as_ref()
     }
 
     /// Percent complete, or `None` when the total is not yet known.
-    pub(crate) fn operation_percent(&self) -> Option<u8> {
+    pub fn operation_percent(&self) -> Option<u8> {
         self.running
             .as_ref()
             .and_then(crate::operations::Running::percent)
@@ -3772,7 +3822,7 @@ impl App {
     }
 
     /// Localization key for the running operation's label.
-    pub(crate) fn operation_label_key(&self) -> Option<&'static str> {
+    pub fn operation_label_key(&self) -> Option<&'static str> {
         self.running
             .as_ref()
             .map(|running| running.kind().label_key())
@@ -3784,7 +3834,7 @@ impl App {
     }
 
     /// The entry being worked on.
-    pub(crate) fn operation_current(&self) -> Option<PathBuf> {
+    pub fn operation_current(&self) -> Option<PathBuf> {
         self.running
             .as_ref()
             .and_then(crate::operations::Running::current)
@@ -3797,7 +3847,7 @@ impl App {
     }
 
     /// Ask the running operation to stop.
-    pub(crate) fn cancel_operation(&self) {
+    pub fn cancel_operation(&self) {
         if let Some(running) = &self.running {
             running.cancel();
         }
@@ -3807,12 +3857,12 @@ impl App {
     }
 
     /// The summary of the last finished operation, if it has not been read.
-    pub(crate) const fn last_summary(&self) -> Option<&crate::operations::Summary> {
+    pub const fn last_summary(&self) -> Option<&crate::operations::Summary> {
         self.last_summary.as_ref()
     }
 
     /// Clear the summary once the UI has shown it.
-    pub(crate) fn take_summary(&mut self) {
+    pub fn take_summary(&mut self) {
         self.last_summary = None;
     }
 
@@ -3823,7 +3873,7 @@ impl App {
     /// The kind comes from the file's own bytes, never its name
     /// (`docs/VIEWER_PREVIEW.md` §1), and anything that is not textual opens
     /// as hex — which is always available and never wrong.
-    pub(crate) fn open_viewer(&mut self, pane: PaneId, row: usize) -> bool {
+    pub fn open_viewer(&mut self, pane: PaneId, row: usize) -> bool {
         let Some(path) = self
             .entry_at(pane, row)
             .and_then(|entry| entry.location().as_path())
@@ -3861,7 +3911,7 @@ impl App {
     }
 
     /// Close the viewer, releasing its file handle.
-    pub(crate) fn close_viewer(&mut self) {
+    pub fn close_viewer(&mut self) {
         self.viewer = None;
     }
 
@@ -3870,7 +3920,7 @@ impl App {
     /// A file on this machine only: the editor reads the file a window at a
     /// time and writes it back through a rename beside it, and neither is
     /// something a server path can do yet.
-    pub(crate) fn open_hex(&mut self, pane: PaneId, row: usize) -> bool {
+    pub fn open_hex(&mut self, pane: PaneId, row: usize) -> bool {
         let Some(path) = self
             .entry_at(pane, row)
             .and_then(|entry| entry.location().as_path())
@@ -3882,7 +3932,7 @@ impl App {
     }
 
     /// Open `path` in the hex editor, replacing whatever was open.
-    pub(crate) fn open_hex_path(&mut self, path: &std::path::Path) -> bool {
+    pub fn open_hex_path(&mut self, path: &std::path::Path) -> bool {
         if !path.is_file() {
             return false;
         }
@@ -3896,17 +3946,17 @@ impl App {
     }
 
     /// The file the viewer is showing, so the hex editor can open the same one.
-    pub(crate) fn viewer_path(&self) -> Option<&std::path::Path> {
+    pub fn viewer_path(&self) -> Option<&std::path::Path> {
         self.viewer.as_ref().map(|session| session.path.as_path())
     }
 
     /// Close the hex editor, discarding anything not saved.
-    pub(crate) fn close_hex(&mut self) {
+    pub fn close_hex(&mut self) {
         self.hex_edit = None;
     }
 
     /// The open hex editor.
-    pub(crate) const fn hex_edit(&mut self) -> Option<&mut crate::hexedit::HexEdit> {
+    pub const fn hex_edit(&mut self) -> Option<&mut crate::hexedit::HexEdit> {
         self.hex_edit.as_mut()
     }
 
@@ -3915,7 +3965,7 @@ impl App {
     /// What failed, and - where the sentence has room for one - why: the
     /// error code's own message, which for a failed save is the file system's
     /// reason and for a mistyped offset would be noise.
-    pub(crate) fn take_hex_error(&mut self) -> Option<String> {
+    pub fn take_hex_error(&mut self) -> Option<String> {
         let (what, why) = self.hex_edit.as_mut()?.take_error()?;
         let text = self.localizer.text_or_key(what);
         Some(text.replace("{reason}", &self.localizer.text_or_key(why)))
@@ -3926,7 +3976,7 @@ impl App {
     /// Reopening the same path is a no-op, because the inspector is refreshed
     /// on a frame boundary and re-indexing a log file sixty times a second is
     /// not a preview, it is a spin loop.
-    pub(crate) fn preview_open(&mut self, path: &str) -> bool {
+    pub fn preview_open(&mut self, path: &str) -> bool {
         let path = PathBuf::from(path);
         if self
             .preview
@@ -3992,14 +4042,14 @@ impl App {
     /// Returns how many entries there are. Held rather than re-read per row:
     /// the central directory is one read, and asking for it once per visible
     /// row would re-parse the archive on every scroll.
-    pub(crate) fn open_archive_listing(&mut self, path: &str) -> usize {
+    pub fn open_archive_listing(&mut self, path: &str) -> usize {
         self.archive_entries = jtf_fs::list_container(Path::new(path)).unwrap_or_default();
         self.archive_entries.len()
     }
 
     /// One entry: its stored name, size, whether it is a directory, and
     /// whether extracting it would escape the destination.
-    pub(crate) fn archive_entry(&self, index: usize) -> Option<(&str, u64, bool, bool)> {
+    pub fn archive_entry(&self, index: usize) -> Option<(&str, u64, bool, bool)> {
         self.archive_entries.get(index).map(|entry| {
             (
                 entry.name.as_str(),
@@ -4011,14 +4061,14 @@ impl App {
     }
 
     /// Forget the listing when the window closes.
-    pub(crate) fn close_archive_listing(&mut self) {
+    pub fn close_archive_listing(&mut self) {
         self.archive_entries = Vec::new();
     }
 
     /// A whole archive listing rendered as one block of text, for the preview
     /// panel. Takes no state - the archive is read fresh each time, which is
     /// what a preview of an arbitrary file has to do.
-    pub(crate) fn archive_listing(path: &str) -> String {
+    pub fn archive_listing(path: &str) -> String {
         use std::fmt::Write as _;
 
         // Bounded: the parser already caps entries, and this caps what is
@@ -4047,19 +4097,19 @@ impl App {
     }
 
     /// Release the preview's file handle.
-    pub(crate) fn preview_close(&mut self) {
+    pub fn preview_close(&mut self) {
         self.preview = None;
     }
 
     /// Whether the preview is showing text.
-    pub(crate) fn preview_is_text(&self) -> bool {
+    pub fn preview_is_text(&self) -> bool {
         self.preview
             .as_ref()
             .is_some_and(|session| session.text.is_some())
     }
 
     /// How many lines the previewed file has.
-    pub(crate) fn preview_line_count(&self) -> u64 {
+    pub fn preview_line_count(&self) -> u64 {
         self.preview
             .as_ref()
             .and_then(|s| s.text.as_ref())
@@ -4067,7 +4117,7 @@ impl App {
     }
 
     /// One line of the preview, decoded.
-    pub(crate) fn preview_row(&mut self, row: u64) -> String {
+    pub fn preview_row(&mut self, row: u64) -> String {
         let Some(text) = self.preview.as_mut().and_then(|s| s.text.as_mut()) else {
             return String::new();
         };
@@ -4078,7 +4128,7 @@ impl App {
     }
 
     /// The preview's encoding, line ending and size, as label keys and bytes.
-    pub(crate) fn preview_status(&self) -> (&'static str, &'static str, u64) {
+    pub fn preview_status(&self) -> (&'static str, &'static str, u64) {
         self.preview.as_ref().and_then(|s| s.text.as_ref()).map_or(
             ("encoding.utf_8", "line_ending.lf", 0),
             |text| {
@@ -4092,14 +4142,14 @@ impl App {
     }
 
     /// Whether the viewer is showing text rather than hex.
-    pub(crate) fn viewer_is_text(&self) -> bool {
+    pub fn viewer_is_text(&self) -> bool {
         self.viewer
             .as_ref()
             .is_some_and(|session| session.text.is_some())
     }
 
     /// Switch between text and hex, where the file allows it.
-    pub(crate) fn viewer_toggle_hex(&mut self) {
+    pub fn viewer_toggle_hex(&mut self) {
         let Some(mut session) = self.viewer.take() else {
             return;
         };
@@ -4110,7 +4160,7 @@ impl App {
 
     /// Rows the viewer can scroll through: lines for text, 16-byte rows for
     /// hex.
-    pub(crate) fn viewer_row_count(&self) -> u64 {
+    pub fn viewer_row_count(&self) -> u64 {
         self.viewer.as_ref().map_or(0, |session| {
             session.text.as_ref().map_or_else(
                 || session.hex.as_ref().map_or(0, HexView::row_count),
@@ -4120,7 +4170,7 @@ impl App {
     }
 
     /// A window of rendered rows.
-    pub(crate) fn viewer_rows(&mut self, first: u64, count: usize) -> Vec<String> {
+    pub fn viewer_rows(&mut self, first: u64, count: usize) -> Vec<String> {
         let Some(session) = self.viewer.as_mut() else {
             return Vec::new();
         };
@@ -4140,7 +4190,7 @@ impl App {
     }
 
     /// Set the text encoding. Ignored while showing hex.
-    pub(crate) fn viewer_set_encoding(&mut self, index: usize) {
+    pub fn viewer_set_encoding(&mut self, index: usize) {
         let Some(session) = self.viewer.as_mut() else {
             return;
         };
@@ -4153,7 +4203,7 @@ impl App {
     }
 
     /// The encoding in use, as an index into `Encoding::ALL`.
-    pub(crate) fn viewer_encoding(&self) -> usize {
+    pub fn viewer_encoding(&self) -> usize {
         self.viewer
             .as_ref()
             .and_then(|session| session.text.as_ref())
@@ -4169,7 +4219,7 @@ impl App {
     ///
     /// Assembled from localization keys by the UI, which is handed the parts
     /// rather than a sentence (`AGENTS.md` §11).
-    pub(crate) fn viewer_status(&self) -> (String, &'static str, u64, &'static str, &'static str) {
+    pub fn viewer_status(&self) -> (String, &'static str, u64, &'static str, &'static str) {
         let Some(session) = self.viewer.as_ref() else {
             return (
                 String::new(),
@@ -4203,7 +4253,7 @@ impl App {
     ///
     /// Searches the rendered rows a window at a time, so a 10 GB file costs a
     /// scan rather than a load.
-    pub(crate) fn viewer_find(&mut self, needle: &str, from_row: u64) -> Option<u64> {
+    pub fn viewer_find(&mut self, needle: &str, from_row: u64) -> Option<u64> {
         /// Rows fetched per scan step. Large enough that a scan is not a
         /// million round trips, small enough that it is never a load.
         const CHUNK: usize = 512;
@@ -4250,7 +4300,7 @@ impl App {
     ///
     /// Returns the localization key of a parse error, or an empty string on
     /// success.
-    pub(crate) fn start_search(&mut self, pane: PaneId, query: &str) -> &'static str {
+    pub fn start_search(&mut self, pane: PaneId, query: &str) -> &'static str {
         let parsed = match jtf_search::parse(query) {
             Ok(parsed) => parsed,
             Err(error) => return error.message_key(),
@@ -4295,7 +4345,7 @@ impl App {
     }
 
     /// The folder a running search is in, or empty when none is running.
-    pub(crate) fn search_in(&self, pane: PaneId) -> &str {
+    pub fn search_in(&self, pane: PaneId) -> &str {
         self.views
             .get(&pane)
             .filter(|view| view.search.is_some())
@@ -4303,14 +4353,14 @@ impl App {
     }
 
     /// Whether the pane is showing search results.
-    pub(crate) fn is_searching(&self, pane: PaneId) -> bool {
+    pub fn is_searching(&self, pane: PaneId) -> bool {
         self.views
             .get(&pane)
             .is_some_and(|view| !view.query.is_empty())
     }
 
     /// The query the pane's results came from.
-    pub(crate) fn search_query(&self, pane: PaneId) -> String {
+    pub fn search_query(&self, pane: PaneId) -> String {
         self.views
             .get(&pane)
             .map_or_else(String::new, |view| view.query.clone())
@@ -4319,7 +4369,7 @@ impl App {
     /// Stop the pane's search and keep the results it has so far.
     ///
     /// Returns whether a search was running.
-    pub(crate) fn stop_search(&mut self, pane: PaneId) -> bool {
+    pub fn stop_search(&mut self, pane: PaneId) -> bool {
         let filter = self.filter_text(pane).to_lowercase();
         let show_hidden = self.show_hidden;
         let folders_first = self.settings.folders_first;
@@ -4330,14 +4380,14 @@ impl App {
 
     /// Whether the results on show are from a search that was stopped before
     /// it finished.
-    pub(crate) fn search_stopped(&self, pane: PaneId) -> bool {
+    pub fn search_stopped(&self, pane: PaneId) -> bool {
         self.views
             .get(&pane)
             .is_some_and(|view| view.stopped && !view.query.is_empty())
     }
 
     /// Abandon the results and go back to showing the directory.
-    pub(crate) fn clear_search(&mut self, pane: PaneId) {
+    pub fn clear_search(&mut self, pane: PaneId) {
         if let Some(view) = self.views.get_mut(&pane) {
             view.search = None;
             view.query.clear();
@@ -4352,7 +4402,7 @@ impl App {
     /// marking entries the user cannot see would be a surprise.
     ///
     /// Returns how many entries changed.
-    pub(crate) fn mark_pattern(&mut self, pane: PaneId, pattern: &str, mark: bool) -> usize {
+    pub fn mark_pattern(&mut self, pane: PaneId, pattern: &str, mark: bool) -> usize {
         let Ok(query) = jtf_search::parse(&format!("glob:{pattern}")) else {
             return 0;
         };
@@ -4385,7 +4435,7 @@ impl App {
     /// adding every pane together, read 「已選取 7 個 (1.0 GB)」 when the
     /// gigabyte was the file under the other pane's bar and the seven came
     /// to half a megabyte.
-    pub(crate) fn marked_size(&self, pane: PaneId) -> u64 {
+    pub fn marked_size(&self, pane: PaneId) -> u64 {
         self.marked_rows(pane)
             .into_iter()
             .filter_map(|row| self.entry_at(pane, row))
@@ -4394,7 +4444,7 @@ impl App {
     }
 
     /// Re-read the current location.
-    pub(crate) fn refresh(&mut self, pane: PaneId) {
+    pub fn refresh(&mut self, pane: PaneId) {
         self.start_enumeration(pane);
     }
 
@@ -4404,7 +4454,7 @@ impl App {
     /// after a failure that is exactly the thing that did not work - a session
     /// the far end has closed, or half of one. Dropping it first means the
     /// retry is a real retry, not a second look at the same broken socket.
-    pub(crate) fn reconnect(&mut self, pane: PaneId) {
+    pub fn reconnect(&mut self, pane: PaneId) {
         let location = self
             .workspace
             .pane(pane)
@@ -4427,7 +4477,7 @@ impl App {
     /// entries from folders the tab has left - and counting those said「已選取
     /// 6 個」over a folder with nothing ticked in it. A count of things you
     /// cannot see or clear is worse than no count.
-    pub(crate) fn marked_count(&self, pane: PaneId) -> usize {
+    pub fn marked_count(&self, pane: PaneId) -> usize {
         self.marked_rows(pane).len()
     }
 
@@ -4438,14 +4488,15 @@ impl App {
     /// files that were not marked will not be copied, and「some of them were
     /// silently left out」is not something anyone should have to discover
     /// afterwards.
-    pub(crate) fn marks_refused(&self, pane: PaneId) -> usize {
+    pub fn marks_refused(&self, pane: PaneId) -> usize {
         self.workspace
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
             .map_or(0, |tab| tab.marks().refused())
     }
 
-    pub(crate) fn sort_by(&mut self, pane: PaneId, column: i32) {
+    /// Sort `pane`'s active tab by a column; the same column again reverses it.
+    pub fn sort_by(&mut self, pane: PaneId, column: i32) {
         let key = match column {
             COLUMN_SIZE => SortKey::Size,
             COLUMN_KIND => SortKey::Kind,
@@ -4485,7 +4536,7 @@ impl App {
     ///
     /// A navigation button that is always enabled teaches people that
     /// pressing it does nothing.
-    pub(crate) fn can_go_back(&self, pane: PaneId) -> bool {
+    pub fn can_go_back(&self, pane: PaneId) -> bool {
         self.workspace
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
@@ -4493,7 +4544,7 @@ impl App {
     }
 
     /// Whether the pane's tab has anywhere to go forward to.
-    pub(crate) fn can_go_forward(&self, pane: PaneId) -> bool {
+    pub fn can_go_forward(&self, pane: PaneId) -> bool {
         self.workspace
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
@@ -4511,12 +4562,12 @@ impl App {
     }
 
     /// The saved servers, so the sidebar can list them.
-    pub(crate) fn server_count(&self) -> usize {
+    pub fn server_count(&self) -> usize {
         self.places.servers().len()
     }
 
     /// One saved server's label, or empty.
-    pub(crate) fn server_name(&self, index: usize) -> String {
+    pub fn server_name(&self, index: usize) -> String {
         self.places
             .servers()
             .get(index)
@@ -4525,7 +4576,7 @@ impl App {
     }
 
     /// One saved server's host, port, user and folder.
-    pub(crate) fn server_at(&self, index: usize) -> Option<(String, u16, String, String)> {
+    pub fn server_at(&self, index: usize) -> Option<(String, u16, String, String)> {
         self.places.servers().get(index).map(|s| {
             (
                 s.host.clone(),
@@ -4541,7 +4592,7 @@ impl App {
     }
 
     /// Remember a server, or update the matching one.
-    pub(crate) fn add_server(&mut self, host: &str, port: u16, user: &str, path: &str) {
+    pub fn add_server(&mut self, host: &str, port: u16, user: &str, path: &str) {
         self.places.add_server(jtf_workspace::Server {
             host: host.to_owned(),
             port,
@@ -4552,7 +4603,7 @@ impl App {
     }
 
     /// Whether saved server `index` has a live connection.
-    pub(crate) fn server_is_connected(&self, index: usize) -> bool {
+    pub fn server_is_connected(&self, index: usize) -> bool {
         self.places.servers().get(index).is_some_and(|server| {
             self.sftp.is_connected(&jtf_fs::sftp::Endpoint {
                 host: server.host.clone(),
@@ -4563,7 +4614,7 @@ impl App {
     }
 
     /// Close the connection to saved server `index`.
-    pub(crate) fn disconnect_server(&self, index: usize) {
+    pub fn disconnect_server(&self, index: usize) {
         if let Some(server) = self.places.servers().get(index) {
             self.sftp.disconnect(&jtf_fs::sftp::Endpoint {
                 host: server.host.clone(),
@@ -4574,13 +4625,13 @@ impl App {
     }
 
     /// Forget the server at `index`.
-    pub(crate) fn remove_server(&mut self, index: usize) {
+    pub fn remove_server(&mut self, index: usize) {
         self.places.remove_server(index);
     }
 
     /// Hold a password for the next connection to this endpoint, and no
     /// longer. Never written to the session file.
-    pub(crate) fn set_remote_password(&self, host: &str, port: u16, user: &str, password: &str) {
+    pub fn set_remote_password(&self, host: &str, port: u16, user: &str, password: &str) {
         self.sftp.set_password(
             jtf_fs::sftp::Endpoint {
                 host: host.to_owned(),
@@ -4592,7 +4643,7 @@ impl App {
     }
 
     /// Let the SFTP provider know the user accepted a host's key.
-    pub(crate) fn accept_remote_host(&self, host: &str, port: u16, user: &str) {
+    pub fn accept_remote_host(&self, host: &str, port: u16, user: &str) {
         self.sftp.accept_host(jtf_fs::sftp::Endpoint {
             host: host.to_owned(),
             port,
@@ -4601,11 +4652,12 @@ impl App {
     }
 
     /// Close every remote connection.
-    pub(crate) fn disconnect_remote(&self) {
+    pub fn disconnect_remote(&self) {
         self.sftp.disconnect_all();
     }
 
-    pub(crate) fn can_go_up(&self, pane: PaneId) -> bool {
+    /// Whether `pane`'s folder has a parent.
+    pub fn can_go_up(&self, pane: PaneId) -> bool {
         self.workspace
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
@@ -4614,7 +4666,7 @@ impl App {
     }
 
     /// How many entries are selected in the pane.
-    pub(crate) fn selection_count(&self, pane: PaneId) -> usize {
+    pub fn selection_count(&self, pane: PaneId) -> usize {
         self.workspace
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
@@ -4622,7 +4674,7 @@ impl App {
     }
 
     /// The name of the pane's current folder, for the window title.
-    pub(crate) fn current_name(&self, pane: PaneId) -> String {
+    pub fn current_name(&self, pane: PaneId) -> String {
         self.workspace
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
@@ -4630,7 +4682,7 @@ impl App {
     }
 
     /// Whether a column is shown in this pane's active tab.
-    pub(crate) fn column_visible(&self, pane: PaneId, column: i32) -> bool {
+    pub fn column_visible(&self, pane: PaneId, column: i32) -> bool {
         self.workspace
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
@@ -4640,7 +4692,7 @@ impl App {
 
     /// Show or hide a column. Name is always shown: a list of blank rows is
     /// not a view of anything.
-    pub(crate) fn set_column_visible(&mut self, pane: PaneId, column: i32, visible: bool) {
+    pub fn set_column_visible(&mut self, pane: PaneId, column: i32, visible: bool) {
         if column == COLUMN_NAME {
             return;
         }
@@ -4657,7 +4709,7 @@ impl App {
     ///
     /// The header needs this to draw its indicator: sorting is done here, not
     /// by the view, so the view has to be told what it is showing.
-    pub(crate) fn sort_column(&self, pane: PaneId) -> i32 {
+    pub fn sort_column(&self, pane: PaneId) -> i32 {
         let sort = self
             .workspace
             .pane(pane)
@@ -4672,18 +4724,20 @@ impl App {
     }
 
     /// Whether the pane's sort is ascending.
-    pub(crate) fn sort_ascending(&self, pane: PaneId) -> bool {
+    pub fn sort_ascending(&self, pane: PaneId) -> bool {
         self.workspace
             .pane(pane)
             .and_then(jtf_workspace::Pane::active_tab)
             .is_none_or(|tab| tab.sort().ascending)
     }
 
-    pub(crate) const fn show_hidden(&self) -> bool {
+    /// Whether hidden entries are listed.
+    pub const fn show_hidden(&self) -> bool {
         self.show_hidden
     }
 
-    pub(crate) fn set_show_hidden(&mut self, show: bool) {
+    /// List hidden entries, or stop.
+    pub fn set_show_hidden(&mut self, show: bool) {
         if self.show_hidden != show {
             self.show_hidden = show;
             self.refresh_all_panes();
@@ -4723,7 +4777,7 @@ impl App {
     ///
     /// Never blocks: this is called from the Qt event loop
     /// (`AGENTS.md` §3).
-    pub(crate) fn pump(&mut self) -> bool {
+    pub fn pump(&mut self) -> bool {
         let mut changed = false;
 
         // A finished operation is joined here, on the UI's own tick, rather
@@ -4940,7 +4994,7 @@ impl App {
     /// An empty string is how the settings screen says "follow the system":
     /// it clears the stored choice rather than storing today's answer, so the
     /// setting keeps meaning "follow" tomorrow.
-    pub(crate) fn set_locale(&mut self, locale: &str) {
+    pub fn set_locale(&mut self, locale: &str) {
         let id = if locale.is_empty() {
             LocaleId::best_match_of(self.system_locale.split(','))
         } else {
@@ -4954,26 +5008,29 @@ impl App {
     }
 
     /// The user's stored choice, empty when following the system.
-    pub(crate) fn locale_preference(&self) -> String {
+    pub fn locale_preference(&self) -> String {
         self.settings.locale.clone()
     }
 
-    pub(crate) fn locale(&self) -> String {
+    /// The locale the interface is in, such as `zh-TW`.
+    pub fn locale(&self) -> String {
         self.locale.as_str().to_string()
     }
 
-    pub(crate) fn tr(&self, key: &str) -> String {
+    /// The text for a catalogue key in the current locale, or the key itself if no
+    /// catalogue has it.
+    pub fn tr(&self, key: &str) -> String {
         self.localizer.text_or_key(key)
     }
 
     /// The active keymap's name.
-    pub(crate) fn keymap_name(&self) -> String {
+    pub fn keymap_name(&self) -> String {
         self.keymap.name().to_string()
     }
 
     /// Switch keymap preset. An unknown name falls back to the platform one
     /// rather than leaving the application with no shortcuts at all.
-    pub(crate) fn set_keymap(&mut self, name: &str) {
+    pub fn set_keymap(&mut self, name: &str) {
         self.keymap = load_keymap(&self.repo_root, name);
         self.dropped_bindings = apply_user_overrides(&mut self.keymap, &self.registry);
         self.settings.keymap = self.keymap.name().to_string();
@@ -4984,17 +5041,17 @@ impl App {
     /// Surfaced so an upgrade that drops a binding says something changed,
     /// rather than leaving the user with a dead key
     /// (`docs/UPGRADE.md` §4.2).
-    pub(crate) const fn dropped_bindings(&self) -> usize {
+    pub const fn dropped_bindings(&self) -> usize {
         self.dropped_bindings
     }
 
     /// Commands, in registry order, for a settings list.
-    pub(crate) fn command_count(&self) -> usize {
+    pub fn command_count(&self) -> usize {
         self.registry.len()
     }
 
     /// One command's id, label key and category key.
-    pub(crate) fn command_at(&self, index: usize) -> Option<(String, &'static str, &'static str)> {
+    pub fn command_at(&self, index: usize) -> Option<(String, &'static str, &'static str)> {
         self.registry.iter().nth(index).map(|command| {
             (
                 command.id().as_str().to_string(),
@@ -5005,7 +5062,7 @@ impl App {
     }
 
     /// Whether a command can destroy data, so the settings list can mark it.
-    pub(crate) fn command_is_destructive(&self, index: usize) -> bool {
+    pub fn command_is_destructive(&self, index: usize) -> bool {
         self.registry
             .iter()
             .nth(index)
@@ -5017,7 +5074,13 @@ impl App {
     /// Returns `Ok(())`, or the id of the command that already owns the
     /// chord. `docs/UI_TEST_PLAN.md` KEY-005 wants the conflict named, not
     /// merely refused.
-    pub(crate) fn bind_shortcut(&mut self, command: &str, chord: &str) -> Result<(), String> {
+    ///
+    /// # Errors
+    ///
+    /// The id of the command the chord is already bound to; an empty string
+    /// when the command is unknown, the chord does not parse, or the keymap
+    /// refuses it for another reason.
+    pub fn bind_shortcut(&mut self, command: &str, chord: &str) -> Result<(), String> {
         let id = CommandId::new(command);
         if !self.registry.contains(&id) {
             return Err(String::new());
@@ -5035,13 +5098,13 @@ impl App {
     }
 
     /// Remove a command's shortcut.
-    pub(crate) fn clear_shortcut(&mut self, command: &str) {
+    pub fn clear_shortcut(&mut self, command: &str) {
         self.keymap.unbind_command(&CommandId::new(command));
         self.save_user_keymap();
     }
 
     /// Forget every customisation and go back to the preset.
-    pub(crate) fn reset_shortcuts(&mut self) {
+    pub fn reset_shortcuts(&mut self) {
         let _ = fs::remove_file(user_keymap_path());
         let name = self.settings.keymap.clone();
         self.keymap = load_keymap(&self.repo_root, &name);
@@ -5072,7 +5135,7 @@ impl App {
     // ------------------------------------------------------------- settings
 
     /// Startup behaviour: 0 last session, 1 home, 2 a fixed location.
-    pub(crate) const fn startup_mode(&self) -> i32 {
+    pub const fn startup_mode(&self) -> i32 {
         match self.settings.restore_on_launch {
             jtf_workspace::RestoreOnLaunch::LastSession => 0,
             jtf_workspace::RestoreOnLaunch::HomeLocation => 1,
@@ -5081,7 +5144,7 @@ impl App {
     }
 
     /// The fixed start location, when there is one.
-    pub(crate) fn startup_location(&self) -> String {
+    pub fn startup_location(&self) -> String {
         match &self.settings.restore_on_launch {
             jtf_workspace::RestoreOnLaunch::FixedLocation { location } => location
                 .as_path()
@@ -5095,7 +5158,7 @@ impl App {
     /// Switching away from remembering the last session **erases** what was
     /// stored, immediately: an off switch that leaves yesterday's paths on
     /// disk is not an off switch (`docs/UI_UX_SPEC.md` §16.2).
-    pub(crate) fn set_startup(&mut self, mode: i32, location: &str) {
+    pub fn set_startup(&mut self, mode: i32, location: &str) {
         self.settings.restore_on_launch = match mode {
             1 => jtf_workspace::RestoreOnLaunch::HomeLocation,
             2 => jtf_workspace::RestoreOnLaunch::FixedLocation {
@@ -5107,17 +5170,17 @@ impl App {
     }
 
     /// Whether closed tabs are remembered between runs.
-    pub(crate) const fn remember_closed_tabs(&self) -> bool {
+    pub const fn remember_closed_tabs(&self) -> bool {
         self.settings.remember_closed_tabs
     }
 
     /// Whether marks are remembered between runs.
-    pub(crate) const fn remember_marks(&self) -> bool {
+    pub const fn remember_marks(&self) -> bool {
         self.settings.remember_marks
     }
 
     /// Set the two finer memory switches.
-    pub(crate) fn set_remember(&mut self, closed_tabs: bool, marks: bool) {
+    pub fn set_remember(&mut self, closed_tabs: bool, marks: bool) {
         self.settings.remember_closed_tabs = closed_tabs;
         self.settings.remember_marks = marks;
         self.save_session();
@@ -5127,7 +5190,7 @@ impl App {
     ///
     /// Empty when the command is unbound, which is a normal state: a preset
     /// binds what its users expect and leaves the rest alone.
-    pub(crate) fn shortcut_for(&self, command: &str) -> String {
+    pub fn shortcut_for(&self, command: &str) -> String {
         let id = CommandId::new(command);
         self.keymap
             .chords_for(&id)
@@ -5137,18 +5200,18 @@ impl App {
 
     /// Whether a command exists at all, so the UI can refuse to build a menu
     /// item for something nothing implements.
-    pub(crate) fn has_command(&self, command: &str) -> bool {
+    pub fn has_command(&self, command: &str) -> bool {
         self.registry.contains(&CommandId::new(command))
     }
 
     /// How the list should be drawn.
-    pub(crate) const fn font(&self) -> &FontSettings {
+    pub const fn font(&self) -> &FontSettings {
         &self.settings.font
     }
 
     /// Change the list font. An empty family means the platform's own fixed
     /// font; a zero size means the platform default.
-    pub(crate) fn set_font(&mut self, family: &str, point_size: u16, monospace: bool) {
+    pub fn set_font(&mut self, family: &str, point_size: u16, monospace: bool) {
         // The scope is a separate preference and is not part of what this
         // call sets, so it is carried over rather than reset to its default
         // every time the size changes.
@@ -5161,22 +5224,25 @@ impl App {
         };
     }
 
-    pub(crate) const fn set_monospace_everywhere(&mut self, everywhere: bool) {
+    /// Use the fixed-width font for the whole list, or only for sizes and dates.
+    pub const fn set_monospace_everywhere(&mut self, everywhere: bool) {
         self.settings.font.monospace_everywhere = everywhere;
     }
 
-    pub(crate) const fn theme_mode(&self) -> ThemeMode {
+    /// Light, dark, or following the system.
+    pub const fn theme_mode(&self) -> ThemeMode {
         self.theme_mode
     }
 
-    pub(crate) fn set_theme_mode(&mut self, mode: ThemeMode) {
+    /// Switch between light, dark and following the system.
+    pub fn set_theme_mode(&mut self, mode: ThemeMode) {
         self.theme_mode = mode;
         self.workspace.set_theme_mode(mode);
     }
 
     /// Resolve a token to `0xAARRGGBB`, which is what `QColor::fromRgba`
     /// takes.
-    pub(crate) fn theme_color(&self, system_is_dark: bool, token: ThemeToken) -> u32 {
+    pub fn theme_color(&self, system_is_dark: bool, token: ThemeToken) -> u32 {
         let system = if system_is_dark {
             SystemAppearance::Dark
         } else {
@@ -5193,7 +5259,7 @@ impl App {
     ///
     /// Written to a temporary file and renamed, so a crash mid-write leaves
     /// the previous session loadable (`docs/UI_TEST_PLAN.md` SESS-005).
-    pub(crate) fn save_session(&self) {
+    pub fn save_session(&self) {
         let session = Session::capture(&self.workspace, self.settings.clone())
             .with_places(self.places.clone());
         let Ok(json) = session.to_json() else { return };
@@ -5226,7 +5292,7 @@ impl App {
     /// Taken rather than read: it is said once, at the launch it applies to,
     /// and a message that comes back on every refresh is a message people
     /// learn to ignore.
-    pub(crate) fn take_session_notice(&mut self) -> Option<&'static str> {
+    pub fn take_session_notice(&mut self) -> Option<&'static str> {
         if self.notice_taken || !self.session_outcome.needs_notice() {
             return None;
         }
@@ -5492,10 +5558,10 @@ fn apply_user_overrides(keymap: &mut Keymap, registry: &CommandRegistry) -> usiz
 /// people who have that workflow in their fingers, and Native is one
 /// keystroke away for everyone else (`AGENTS.md` §10.2,
 /// `docs/KEYBOARD_PROFILE.md`).
-pub(crate) const DEFAULT_KEYMAP: &str = "single-key";
+pub const DEFAULT_KEYMAP: &str = "single-key";
 
 /// The two presets the mode toggle switches between.
-pub(crate) const KEYMAP_PRESETS: [&str; 2] = ["single-key", "native"];
+pub const KEYMAP_PRESETS: [&str; 2] = ["single-key", "native"];
 
 fn load_keymap(repo_root: &std::path::Path, name: &str) -> Keymap {
     let wanted = if name.is_empty() {
@@ -5868,7 +5934,7 @@ enum BurnUpdate {
 }
 
 /// How the write ended.
-pub(crate) enum BurnOutcome {
+pub enum BurnOutcome {
     /// Still going.
     Running,
     /// Every byte written, and checked if checking was asked for.
@@ -5883,7 +5949,7 @@ pub(crate) enum BurnOutcome {
 }
 
 /// A write in flight.
-pub(crate) struct Burning {
+pub struct Burning {
     updates: std::sync::mpsc::Receiver<BurnUpdate>,
     canceller: Canceller,
     target: String,
@@ -5908,13 +5974,13 @@ impl App {
     /// Ask the system what removable disks it has, and remember the answer.
     ///
     /// Returns how many there are. Zero is the normal answer.
-    pub(crate) fn refresh_devices(&mut self) -> usize {
+    pub fn refresh_devices(&mut self) -> usize {
         self.devices = jtf_platform_devices::list().unwrap_or_default();
         self.devices.len()
     }
 
     /// How many disks the last refresh found.
-    pub(crate) fn device_count(&self) -> usize {
+    pub fn device_count(&self) -> usize {
         self.devices.len()
     }
 
@@ -5923,26 +5989,26 @@ impl App {
     }
 
     /// The node to write to.
-    pub(crate) fn device_node(&self, index: usize) -> String {
+    pub fn device_node(&self, index: usize) -> String {
         self.device(index)
             .map(|d| d.node.to_string_lossy().into_owned())
             .unwrap_or_default()
     }
 
     /// What to show in the list.
-    pub(crate) fn device_name(&self, index: usize) -> String {
+    pub fn device_name(&self, index: usize) -> String {
         self.device(index)
             .map(|d| d.display_name().to_string())
             .unwrap_or_default()
     }
 
     /// Capacity in bytes.
-    pub(crate) fn device_size(&self, index: usize) -> u64 {
+    pub fn device_size(&self, index: usize) -> u64 {
         self.device(index).map_or(0, |d| d.size)
     }
 
     /// Localization key for how the disk is attached.
-    pub(crate) fn device_bus_key(&self, index: usize) -> &'static str {
+    pub fn device_bus_key(&self, index: usize) -> &'static str {
         self.device(index).map_or("", |d| d.bus.label_key())
     }
 
@@ -5950,7 +6016,7 @@ impl App {
     ///
     /// This is what tells two identical sticks apart, so it is worth showing
     /// even though it is not part of the decision.
-    pub(crate) fn device_volumes(&self, index: usize) -> String {
+    pub fn device_volumes(&self, index: usize) -> String {
         self.device(index).map_or_else(String::new, |d| {
             d.volumes
                 .iter()
@@ -5970,7 +6036,7 @@ impl App {
     ///
     /// Empty when it can. The UI shows the reason next to the disk rather than
     /// hiding it, so that a disk someone expected to see is explained.
-    pub(crate) fn device_refusal_key(&self, index: usize, image: &str) -> &'static str {
+    pub fn device_refusal_key(&self, index: usize, image: &str) -> &'static str {
         let Some(device) = self.device(index) else {
             return "device.refuse.unknown";
         };
@@ -5990,7 +6056,7 @@ impl App {
     /// have known from [`Self::device_refusal_key`] - this is the second check,
     /// on the values as they are now rather than as they were when the dialog
     /// was drawn.
-    pub(crate) fn start_write(&mut self, index: usize, image: &str, verify: bool) -> bool {
+    pub fn start_write(&mut self, index: usize, image: &str, verify: bool) -> bool {
         if matches!(
             self.burning.as_ref().map(|b| &b.outcome),
             Some(BurnOutcome::Running)
@@ -6026,7 +6092,7 @@ impl App {
 
     /// Take whatever the writing thread has said. Returns whether anything
     /// changed.
-    pub(crate) fn pump_write(&mut self) -> bool {
+    pub fn pump_write(&mut self) -> bool {
         let Some(job) = self.burning.as_mut() else {
             return false;
         };
@@ -6063,7 +6129,7 @@ impl App {
     }
 
     /// Whether a write is running.
-    pub(crate) fn write_is_running(&self) -> bool {
+    pub fn write_is_running(&self) -> bool {
         matches!(
             self.burning.as_ref().map(|b| &b.outcome),
             Some(BurnOutcome::Running)
@@ -6071,7 +6137,7 @@ impl App {
     }
 
     /// Whether a write has finished, successfully or not.
-    pub(crate) fn write_is_done(&self) -> bool {
+    pub fn write_is_done(&self) -> bool {
         matches!(
             self.burning.as_ref().map(|b| &b.outcome),
             Some(BurnOutcome::Done(_) | BurnOutcome::Failed { .. })
@@ -6079,12 +6145,12 @@ impl App {
     }
 
     /// The name of the phase now running.
-    pub(crate) fn write_stage_key(&self) -> &'static str {
+    pub fn write_stage_key(&self) -> &'static str {
         self.burning.as_ref().map_or("", |b| b.stage.label_key())
     }
 
     /// Progress within the current phase: 0 = done, 1 = total.
-    pub(crate) fn write_progress(&self, which: i32) -> u64 {
+    pub fn write_progress(&self, which: i32) -> u64 {
         self.burning.as_ref().map_or(0, |b| match which {
             0 => b.progress.completed(),
             _ => b.progress.total().unwrap_or(0),
@@ -6092,12 +6158,12 @@ impl App {
     }
 
     /// The disk being written to.
-    pub(crate) fn write_target(&self) -> &str {
+    pub fn write_target(&self) -> &str {
         self.burning.as_ref().map_or("", |b| b.target.as_str())
     }
 
     /// The message key for how it ended. Empty while it is still running.
-    pub(crate) fn write_outcome_key(&self) -> &'static str {
+    pub fn write_outcome_key(&self) -> &'static str {
         match self.burning.as_ref().map(|b| &b.outcome) {
             Some(BurnOutcome::Done(report)) => {
                 if report.verified.is_some() {
@@ -6112,7 +6178,7 @@ impl App {
     }
 
     /// Developer-facing detail of a failure, for the log.
-    pub(crate) fn write_failure_detail(&self) -> &str {
+    pub fn write_failure_detail(&self) -> &str {
         match self.burning.as_ref().map(|b| &b.outcome) {
             Some(BurnOutcome::Failed { detail, .. }) => detail.as_str(),
             _ => "",
@@ -6120,7 +6186,7 @@ impl App {
     }
 
     /// Bytes written, on success.
-    pub(crate) fn write_bytes(&self) -> u64 {
+    pub fn write_bytes(&self) -> u64 {
         match self.burning.as_ref().map(|b| &b.outcome) {
             Some(BurnOutcome::Done(report)) => report.written,
             _ => 0,
@@ -6128,7 +6194,7 @@ impl App {
     }
 
     /// The image's CRC-32, on success.
-    pub(crate) fn write_checksum(&self) -> u32 {
+    pub fn write_checksum(&self) -> u32 {
         match self.burning.as_ref().map(|b| &b.outcome) {
             Some(BurnOutcome::Done(report)) => report.checksum,
             _ => 0,
@@ -6139,14 +6205,14 @@ impl App {
     ///
     /// The disk is left holding part of an image, which cannot be undone; the
     /// UI says so rather than implying the disk went back to how it was.
-    pub(crate) fn cancel_write(&mut self) {
+    pub fn cancel_write(&mut self) {
         if let Some(job) = self.burning.as_ref() {
             job.canceller.cancel();
         }
     }
 
     /// Forget the finished write.
-    pub(crate) fn close_write(&mut self) {
+    pub fn close_write(&mut self) {
         self.burning = None;
     }
 }
@@ -6182,7 +6248,7 @@ impl App {
     /// Returns whether anything moved, which is false with fewer than three
     /// panes - with two there is only one other pane and it is already the
     /// target.
-    pub(crate) fn cycle_target_pane(&mut self) -> bool {
+    pub fn cycle_target_pane(&mut self) -> bool {
         let before = self.workspace.target_pane_id();
         let after = self.workspace.cycle_target();
         after.is_some() && after != before
@@ -6194,7 +6260,7 @@ impl App {
     ///
     /// Asked of the platform rather than worked out here: the timezone
     /// database is the platform's job and it already has it.
-    pub(crate) fn set_utc_offset(&mut self, seconds: i32) {
+    pub fn set_utc_offset(&mut self, seconds: i32) {
         self.utc_offset = seconds;
     }
 }
@@ -6224,14 +6290,14 @@ fn relist_gap(entries: usize) -> std::time::Duration {
 
 /// What one [`App::poll_folders`] did, so the window knows what to redraw.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct PollOutcome {
+pub struct PollOutcome {
     /// A folder is being read again: the list will be replaced.
-    pub(crate) relisted: bool,
+    pub relisted: bool,
     /// Rows changed in place: redraw them.
-    pub(crate) rows: bool,
+    pub rows: bool,
     /// A polled folder's turn came round: the window re-reads the rows it
     /// shows for every pane [`App::pane_is_polled`] names.
-    pub(crate) poll_rows: bool,
+    pub poll_rows: bool,
 }
 
 fn folder_stamp(location: &jtf_core::Location) -> Option<std::time::SystemTime> {
@@ -6256,7 +6322,7 @@ impl App {
     ///
     /// Returns whether any row actually changed, so the window redraws only
     /// when there is something different to draw.
-    pub(crate) fn refresh_rows(&mut self, pane: PaneId, first: usize, count: usize) -> bool {
+    pub fn refresh_rows(&mut self, pane: PaneId, first: usize, count: usize) -> bool {
         if count == 0 {
             return false;
         }
@@ -6352,7 +6418,7 @@ impl App {
     /// A pane that is loading, showing search results or reporting an error is
     /// not re-read, as before. A change the watcher reports for it meanwhile is
     /// kept, and acted on once the pane is free.
-    pub(crate) fn poll_folders(&mut self) -> PollOutcome {
+    pub fn poll_folders(&mut self) -> PollOutcome {
         use jtf_platform_watch::Change;
         use std::time::{Duration, Instant};
         const POLL_GAP: Duration = Duration::from_secs(1);
@@ -6470,7 +6536,7 @@ impl App {
 
     /// Whether the window should re-read this pane's rows on screen itself,
     /// because nothing is watching its folder (ADR-0007).
-    pub(crate) fn pane_is_polled(&self, pane: PaneId) -> bool {
+    pub fn pane_is_polled(&self, pane: PaneId) -> bool {
         self.shown_folders()
             .iter()
             .find(|(shown, _)| *shown == pane)
@@ -6519,19 +6585,19 @@ impl App {
 
 impl App {
     /// Whether each pane's filter bar stays on screen.
-    pub(crate) const fn filter_bar_always(&self) -> bool {
+    pub const fn filter_bar_always(&self) -> bool {
         self.settings.filter_bar_always
     }
 
     /// Remember whether the filter bar stays on screen.
-    pub(crate) fn set_filter_bar_always(&mut self, always: bool) {
+    pub fn set_filter_bar_always(&mut self, always: bool) {
         self.settings.filter_bar_always = always;
     }
 }
 
 impl App {
     /// The width the user set for `column`, or 0 if they never set one.
-    pub(crate) fn column_width(&self, column: u32) -> u32 {
+    pub fn column_width(&self, column: u32) -> u32 {
         self.settings
             .column_widths
             .iter()
@@ -6543,7 +6609,7 @@ impl App {
     ///
     /// Zero forgets it, so a column can go back to measuring itself against
     /// its contents.
-    pub(crate) fn set_column_width(&mut self, column: u32, width: u32) {
+    pub fn set_column_width(&mut self, column: u32, width: u32) {
         self.settings.column_widths.retain(|(at, _)| *at != column);
         if width > 0 {
             self.settings.column_widths.push((column, width));

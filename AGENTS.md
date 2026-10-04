@@ -477,13 +477,13 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-10-04 · **Version:** 0.6.61 · **Branch:** `main` ·
+**Updated:** 2026-10-04 · **Version:** 0.6.62 · **Branch:** `main` ·
 **Phase:** 1 — usable build
 
 ### Gates
 
 ```text
-tests     822 passing, 0 failing, 0 ignored  (cargo test --workspace)
+tests     823 passing, 0 failing, 0 ignored  (cargo test --workspace)
 clippy    clean (-D warnings, --all-targets, workspace-wide)
 rustfmt   clean - and it was not, until 2026-09-16: 52 sites in the crates
           added since 0.6.9 had never been through it. Run it, do not assume it
@@ -609,7 +609,8 @@ JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
 | `jtf-platform-links` | the one file operation that cannot be written portably |
 | `jtf-platform-watch` | watching the folders the panes show, and knowing which cannot be watched |
 | `jtf-search` | query parsing, matching, bounded recursive walk |
-| `jtf-qt6-bridge` | C ABI over the core; the only `unsafe` in Rust |
+| `jtf-app` | the application layer both front ends share: panes, marks, what a command acts on, operations, sessions (ADR-0008) |
+| `jtf-qt6-bridge` | C ABI over `jtf-app`; the only `unsafe` in Rust outside the platform adapters |
 | `jtf-conformance` | architecture, locale parity, keymaps, pages, migration, hostile input |
 | `jtf-cli` | headless walkthrough |
 | `jtf-bench` | performance budgets |
@@ -695,9 +696,11 @@ for.
 
 ### Next
 
-1. **`jtf-app`** (ADR-0008 step 1): the bridge's `App` into a crate of its
-   own, with the key routing, the key strip's choice and command availability
-   moved down from C++. Nothing visible changes.
+1. **`jtf-app`** (ADR-0008 step 1). The bridge's `App` is in a crate of its
+   own since 0.6.62, unchanged, with an architecture test that nothing it
+   pulls in needs a desktop. Still to move down from C++: the key routing,
+   the key strip's choice of keys, command availability, and the catalogues
+   and keymaps compiled in.
 2. Windows and Linux platform adapters: trash, reveal, tags, Open With.
 3. **`jtf-tui`** (ADR-0008 step 2): the terminal front end.
 4. Signing, so the installers stop warning. It moves when the external parts

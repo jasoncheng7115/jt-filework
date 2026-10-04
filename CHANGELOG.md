@@ -12,6 +12,19 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.62] - 2026-10-04
+
+### Changed
+
+- **The application layer is a crate of its own, `jtf-app`.** The first step
+  of ADR-0008, and nothing about the window changes: the 8,000 lines that
+  decide what each pane shows, what the marks are and what a command acts on
+  moved out of the Qt bridge unchanged, and the bridge is now only the C
+  interface over them. A new architecture test reads the whole dependency
+  tree and fails if anything the layer pulls in needs a desktop - the
+  terminal front end will be built on it and has to run on machines with
+  none.
+
 ## [0.6.61] - 2026-10-04
 
 ### Changed

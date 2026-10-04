@@ -27,4 +27,4 @@ update an ADR **first**.
 | [0005](0005-iso-images.md) | Browsing and extracting ISO images | Accepted — built |
 | [0006](0006-tar-and-stream-compressors.md) | tar, and the gzip/bzip2/xz stream compressors | Accepted — building; amended 2026-09-26 |
 | [0007](0007-file-watching.md) | Watching the folders the panes show | Accepted — built |
-| [0008](0008-terminal-front-end.md) | A terminal front end, and the application layer it shares | Accepted — step 1 next |
+| [0008](0008-terminal-front-end.md) | A terminal front end, and the application layer it shares | Accepted — step 1 under way |

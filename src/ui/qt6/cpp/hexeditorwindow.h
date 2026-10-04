@@ -7,7 +7,7 @@
 // would make every look a risk. It opens read-only for the same reason.
 //
 // Everything about bytes, offsets, undo and search is decided on the Rust side
-// (src/ui/qt6/bridge/src/hexedit.rs over jtf-hexedit). This file draws what it
+// (src/app/src/hexedit.rs over jtf-hexedit). This file draws what it
 // is told and forwards keystrokes.
 #pragma once
 

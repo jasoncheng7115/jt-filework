@@ -22,8 +22,8 @@ use std::ffi::{c_char, c_int, CStr};
 use jtf_core::theme::{ThemeMode, ThemeToken};
 use jtf_workspace::{LayoutPreset, PaneId};
 
-use crate::app::{App, CompareOutcome, MarkAction};
-use crate::operations::OperationKind;
+use jtf_app::app::{App, CompareOutcome, MarkAction};
+use jtf_app::operations::OperationKind;
 
 /// Borrow the app, or do nothing.
 ///
@@ -3131,12 +3131,12 @@ pub unsafe extern "C" fn jtf_take_archive_result(
         // Still running, and the same answer either way: nothing to report
         // yet. `take_archive_result` already returns `None` while running, so
         // the second spelling is unreachable and named only for exhaustiveness.
-        None | Some(crate::app::ArchiveOutcome::Running) => 0,
-        Some(crate::app::ArchiveOutcome::Succeeded) => {
+        None | Some(jtf_app::app::ArchiveOutcome::Running) => 0,
+        Some(jtf_app::app::ArchiveOutcome::Succeeded) => {
             unsafe { write_str("", buf, len) };
             1
         }
-        Some(crate::app::ArchiveOutcome::Failed(reason)) => {
+        Some(jtf_app::app::ArchiveOutcome::Failed(reason)) => {
             unsafe { write_str(&reason, buf, len) };
             1
         }
@@ -4506,7 +4506,7 @@ pub unsafe extern "C" fn jtf_theme_token_name(index: c_int, buf: *mut c_char, le
 /// Number of list columns.
 #[no_mangle]
 pub extern "C" fn jtf_column_count() -> c_int {
-    crate::app::COLUMN_COUNT
+    jtf_app::app::COLUMN_COUNT
 }
 
 /// Localization key for a column header.
@@ -4517,7 +4517,7 @@ pub extern "C" fn jtf_column_count() -> c_int {
 pub unsafe extern "C" fn jtf_column_key(column: c_int, buf: *mut c_char, len: c_int) -> c_int {
     // Straight from the model's own list, so a column added there appears in
     // the header and its menu without a second table to keep in step.
-    let key = crate::app::column_at(column).map_or("column.name", |c| c.label_key());
+    let key = jtf_app::app::column_at(column).map_or("column.name", |c| c.label_key());
     unsafe { write_str(key, buf, len) }
 }
 
@@ -4981,7 +4981,7 @@ pub unsafe extern "C" fn jtf_set_column_width(app: *mut App, column: c_int, widt
 
 /// # Safety
 /// See [`jtf_app_free`].
-unsafe fn hex_mut<'a>(app: *mut App) -> Option<&'a mut crate::hexedit::HexEdit> {
+unsafe fn hex_mut<'a>(app: *mut App) -> Option<&'a mut jtf_app::hexedit::HexEdit> {
     unsafe { app_mut(app) }.and_then(App::hex_edit)
 }
 
@@ -5054,7 +5054,7 @@ pub unsafe extern "C" fn jtf_hex_row_count(app: *mut App) -> u64 {
 /// Bytes per row.
 #[no_mangle]
 pub extern "C" fn jtf_hex_row_bytes() -> c_int {
-    c_int::try_from(crate::hexedit::ROW_BYTES).unwrap_or(16)
+    c_int::try_from(jtf_app::hexedit::ROW_BYTES).unwrap_or(16)
 }
 
 /// One row's bytes, and for each whether it was changed this session.
@@ -5143,7 +5143,7 @@ pub unsafe extern "C" fn jtf_hex_column(app: *mut App) -> c_int {
 pub unsafe extern "C" fn jtf_hex_set_column(app: *mut App, column: c_int) {
     if let Some(h) = unsafe { hex_mut(app) } {
         h.session_mut()
-            .set_column(crate::hexedit::column_of(column));
+            .set_column(jtf_app::hexedit::column_of(column));
     }
 }
 
@@ -5153,7 +5153,7 @@ pub unsafe extern "C" fn jtf_hex_set_column(app: *mut App, column: c_int) {
 /// See [`jtf_app_free`].
 #[no_mangle]
 pub unsafe extern "C" fn jtf_hex_mode(app: *mut App) -> c_int {
-    unsafe { hex_mut(app) }.map_or(0, |h| crate::hexedit::mode_code(h.session().mode()))
+    unsafe { hex_mut(app) }.map_or(0, |h| jtf_app::hexedit::mode_code(h.session().mode()))
 }
 
 /// # Safety
@@ -5161,7 +5161,7 @@ pub unsafe extern "C" fn jtf_hex_mode(app: *mut App) -> c_int {
 #[no_mangle]
 pub unsafe extern "C" fn jtf_hex_set_mode(app: *mut App, mode: c_int) {
     if let Some(h) = unsafe { hex_mut(app) } {
-        h.session_mut().set_mode(crate::hexedit::mode_of(mode));
+        h.session_mut().set_mode(jtf_app::hexedit::mode_of(mode));
     }
 }
 
@@ -5323,7 +5323,7 @@ pub unsafe extern "C" fn jtf_hex_find(
     forward: c_int,
 ) -> c_int {
     let text = unsafe { read_str(text) }.unwrap_or("");
-    let kind = crate::hexedit::kind_of(kind, width, little_endian != 0);
+    let kind = jtf_app::hexedit::kind_of(kind, width, little_endian != 0);
     unsafe { hex_mut(app) }.map_or(0, |h| c_int::from(h.find(text, kind, forward != 0)))
 }
 
@@ -5343,7 +5343,7 @@ pub unsafe extern "C" fn jtf_hex_replace(
 ) -> c_int {
     let find = unsafe { read_str(find) }.unwrap_or("");
     let replacement = unsafe { read_str(replacement) }.unwrap_or("");
-    let kind = crate::hexedit::kind_of(kind, width, little_endian != 0);
+    let kind = jtf_app::hexedit::kind_of(kind, width, little_endian != 0);
     let Some(h) = (unsafe { hex_mut(app) }) else {
         return 0;
     };
@@ -5368,7 +5368,7 @@ pub unsafe extern "C" fn jtf_hex_replace_all(
 ) -> u64 {
     let find = unsafe { read_str(find) }.unwrap_or("");
     let replacement = unsafe { read_str(replacement) }.unwrap_or("");
-    let kind = crate::hexedit::kind_of(kind, width, little_endian != 0);
+    let kind = jtf_app::hexedit::kind_of(kind, width, little_endian != 0);
     let Some(h) = (unsafe { hex_mut(app) }) else {
         return 0;
     };
@@ -5391,7 +5391,7 @@ pub unsafe extern "C" fn jtf_hex_copy_as(
     len: c_int,
 ) -> c_int {
     let text = unsafe { hex_mut(app) }
-        .map(|h| h.copy_as(crate::hexedit::format_of(format)))
+        .map(|h| h.copy_as(jtf_app::hexedit::format_of(format)))
         .unwrap_or_default();
     unsafe { write_str(&text, buf, len) }
 }
@@ -5418,7 +5418,7 @@ pub unsafe extern "C" fn jtf_hex_take_paste_kind(
     len: c_int,
 ) -> c_int {
     let key = unsafe { hex_mut(app) }
-        .and_then(crate::hexedit::HexEdit::take_paste_kind)
+        .and_then(jtf_app::hexedit::HexEdit::take_paste_kind)
         .unwrap_or("");
     unsafe { write_str(key, buf, len) }
 }

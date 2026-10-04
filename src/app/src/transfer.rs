@@ -15,14 +15,15 @@ use jtf_transfer::{Kind, Plan, Report};
 
 /// What the worker publishes as it goes.
 #[derive(Default)]
-pub(crate) struct Shared {
+pub struct Shared {
     /// Bytes moved, the total as currently known, and what is in hand.
     pub progress: Option<(u64, u64, String)>,
+    /// The final report, once the transfer has finished.
     pub report: Option<Report>,
 }
 
 /// A transfer under way.
-pub(crate) struct Running {
+pub struct Running {
     canceller: Canceller,
     shared: Arc<Mutex<Shared>>,
     join: Option<thread::JoinHandle<()>>,
@@ -49,7 +50,7 @@ impl Running {
     /// connection pool and is built to be reached from a worker, which is how
     /// the transfer gets the connection the window already opened instead of
     /// making a second one and asking for the password again.
-    pub(crate) fn start(plan: Plan, sftp: SftpProvider, policy: Policy) -> Self {
+    pub fn start(plan: Plan, sftp: SftpProvider, policy: Policy) -> Self {
         let (token, canceller) = CancellationToken::new();
         let shared = Arc::new(Mutex::new(Shared::default()));
         let kind = match plan.kind {
@@ -87,12 +88,12 @@ impl Running {
     }
 
     /// Which job is running, for the label.
-    pub(crate) const fn kind(&self) -> JobKind {
+    pub const fn kind(&self) -> JobKind {
         self.kind
     }
 
     /// How far along, or `None` while the total is still unknown.
-    pub(crate) fn percent(&self) -> Option<u8> {
+    pub fn percent(&self) -> Option<u8> {
         let guard = self.shared.lock().ok()?;
         let (done, total, _) = guard.progress.as_ref()?;
         if *total == 0 {
@@ -105,26 +106,26 @@ impl Running {
     }
 
     /// What is in hand right now.
-    pub(crate) fn current(&self) -> Option<String> {
+    pub fn current(&self) -> Option<String> {
         let guard = self.shared.lock().ok()?;
         let (_, _, current) = guard.progress.as_ref()?;
         (!current.is_empty()).then(|| current.clone())
     }
 
     /// Whether the worker has published its report.
-    pub(crate) fn is_finished(&self) -> bool {
+    pub fn is_finished(&self) -> bool {
         self.shared
             .lock()
             .map_or(true, |guard| guard.report.is_some())
     }
 
     /// Ask it to stop.
-    pub(crate) fn cancel(&self) {
+    pub fn cancel(&self) {
         self.canceller.cancel();
     }
 
     /// Take the report, waiting for the worker to end.
-    pub(crate) fn finish(mut self) -> Option<Report> {
+    pub fn finish(mut self) -> Option<Report> {
         if let Some(join) = self.join.take() {
             let _ = join.join();
         }
@@ -144,16 +145,22 @@ impl Drop for Running {
 }
 
 /// What a finished transfer amounts to, for the one-line summary.
-pub(crate) struct Summary {
+pub struct Summary {
+    /// The message key for the outcome as a whole.
     pub key: &'static str,
+    /// Entries that arrived.
     pub succeeded: usize,
+    /// Entries left alone, by the conflict answer.
     pub skipped: usize,
+    /// Entries that failed.
     pub failed: usize,
+    /// What the first failure said, if there was one.
     pub first_error: Option<String>,
 }
 
 impl Summary {
-    pub(crate) fn from_report(report: &Report) -> Self {
+    /// Summarise a finished transfer.
+    pub fn from_report(report: &Report) -> Self {
         let left_both_copies = report
             .outcomes
             .iter()
@@ -199,7 +206,7 @@ impl Summary {
 }
 
 /// Turn the window's conflict code into a policy.
-pub(crate) const fn policy_of(code: i32) -> Policy {
+pub const fn policy_of(code: i32) -> Policy {
     match code {
         1 => Policy::Overwrite,
         2 => Policy::KeepBoth,

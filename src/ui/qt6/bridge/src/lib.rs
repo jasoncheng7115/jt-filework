@@ -36,10 +36,8 @@
     reason = "safety stated per function below"
 )]
 
-mod app;
 mod ffi;
-mod hexedit;
-mod operations;
-mod transfer;
 
-pub use app::App;
+// The application itself lives in `jtf-app` (ADR-0008); this crate is the C
+// ABI over it and nothing else.
+pub use jtf_app::App;
