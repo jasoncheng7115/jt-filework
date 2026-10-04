@@ -187,6 +187,10 @@ identifier, package names, catalogue values, file names, commit messages.
 Not `JT FileWork`, not `JTFileWork`, not `Jt-Filework`. One spelling means
 search finds everything and no build artefact disagrees with any other.
 
+One exception, chosen by the project owner on 2026-10-04: the terminal front
+end's command is **`jtf-tui`**, because it is typed far more often than it is
+searched for. Its package is still `jt-filework-tui` (ADR-0008).
+
 ## 10.2 Ordinary UI Conventions Are Not Optional
 
 `docs/UI_CONVENTIONS.md` lists what every surface must get right without being
@@ -473,7 +477,7 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-10-04 · **Version:** 0.6.60 · **Branch:** `main` ·
+**Updated:** 2026-10-04 · **Version:** 0.6.61 · **Branch:** `main` ·
 **Phase:** 1 — usable build
 
 ### Gates
@@ -684,16 +688,20 @@ for.
   Part A). SignPath carries a condition to confirm before applying: no
   commercial dual-licence for as long as it is used (§B1 condition 5).
 - Where our own file metadata would live. That wants an ADR before code.
-- **ADR-0008 (terminal front end)** — proposed 2026-10-04: extract the
-  application layer from the Qt bridge into `jtf-app`, then a ratatui front
-  end that installs and runs on Linux with no desktop. Four questions are
-  open in it: the command's name (§10.1), its place against the "Next" list,
-  Single-Key only, and leaving out the root-only device commands.
+- **ADR-0008 (terminal front end)** — accepted 2026-10-04: the application
+  layer moves from the Qt bridge into `jtf-app`, then `jtf-tui`, a ratatui
+  front end that installs and runs on Linux with no desktop. Single-Key only
+  and no root-only device commands in its first version.
 
 ### Next
 
-1. Windows and Linux platform adapters: trash, reveal, tags, Open With.
-2. Signing, so the installers stop warning.
+1. **`jtf-app`** (ADR-0008 step 1): the bridge's `App` into a crate of its
+   own, with the key routing, the key strip's choice and command availability
+   moved down from C++. Nothing visible changes.
+2. Windows and Linux platform adapters: trash, reveal, tags, Open With.
+3. **`jtf-tui`** (ADR-0008 step 2): the terminal front end.
+4. Signing, so the installers stop warning. It moves when the external parts
+   do, alongside the rest.
    - **Windows / SignPath** — the MSI is already built in GitHub Actions
      (`.github/workflows/release.yml`), which is what SignPath requires (§B1
      condition 3); the signing step goes into its windows job. Still to do:

@@ -12,6 +12,17 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.61] - 2026-10-04
+
+### Changed
+
+- **ADR-0008 accepted.** The terminal front end's command is `jtf-tui`, its
+  package `jt-filework-tui`. The shared application layer comes first, the
+  terminal screens after the Windows and Linux platform adapters; the first
+  version is Single-Key only and leaves out the commands that need root.
+  `AGENTS.md` §10.1 records the command's name as the one exception to the
+  product's spelling.
+
 ## [0.6.60] - 2026-10-04
 
 ### Added

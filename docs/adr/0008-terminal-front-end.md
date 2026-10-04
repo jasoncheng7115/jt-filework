@@ -1,6 +1,6 @@
 # ADR-0008: A terminal front end, and the application layer it shares
 
-- **Status:** Proposed
+- **Status:** Accepted — step 1 next
 - **Date:** 2026-10-04
 - **Deciders:** project owner
 - **Asked for:** 2026-10-04, as "the modern CView for the Linux command line":
@@ -8,6 +8,10 @@
   a machine with no desktop at all. The owner added the second half - 「在沒有
   xwindow desktop 的 linux 也要可以安裝使用」 - and it is a hard requirement
   below, not a preference.
+- **Decided:** 2026-10-04. The command is 「jtf-tui」; the other three were
+  answered with the recommendations: package `jt-filework-tui`, the shared
+  layer first and the terminal screens after the platform adapters,
+  Single-Key only, no root-only device commands in the first version.
 
 ## Context
 
@@ -238,17 +242,17 @@ device commands, AI, image protocols, syntax highlighting, Git, SQLite.
 - `AGENTS.md` §21 applies to the terminal front end as to the window: no
   blocking I/O on its loop, i18n keys rather than literals, cancellation.
 
-## Open decisions
+## Decided
 
-1. **The command's name.** `AGENTS.md` §10.1 spells the product
-   `jt-filework` everywhere. `jtf` is shorter to type; it is either an
-   exception written into §10.1, or a link installed beside
-   `jt-filework-tui`.
-2. **Order.** Before or after the Windows and Linux platform adapters and
-   signing, which are first and second on the "Next" list.
-3. **Single-Key only** in the first version, as recommended above.
-4. **The root-only device commands** left out of the first version, as
-   recommended above.
+1. **Names.** The command is `jtf-tui`, chosen by the project owner. The
+   package - `.deb`, `.rpm`, tarball - is `jt-filework-tui`, so a search for
+   `jt-filework` finds both front ends. `AGENTS.md` §10.1 records the
+   command as its one exception.
+2. **Order.** Step 1 (`jtf-app`) first: it changes nothing visible and puts
+   the window's own marking rules under Rust tests. Step 2, the terminal
+   screens, after the Windows and Linux platform adapters.
+3. **Single-Key only** in the first version.
+4. **No root-only device commands** in the first version.
 
 ## Revisit Criteria
 
