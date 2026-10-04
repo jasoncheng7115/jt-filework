@@ -12,6 +12,19 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.63] - 2026-10-04
+
+### Fixed
+
+- **No gap before the highlighted text on a marked row.** With a filter on,
+  every marked row showed a space between 「A4-」 and the highlighted 「長欣」.
+  The text was measured in the marked row's bold font and drawn in a regular
+  one, so each piece fell short of the room left for it. Marked rows also
+  lost their bold while a filter was on; they keep it now.
+- **The filter's matches are picked out as you type.** The highlight was set
+  only when something else happened to refresh the pane, so it could be
+  missing until then.
+
 ## [0.6.62] - 2026-10-04
 
 ### Changed

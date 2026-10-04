@@ -240,6 +240,11 @@ PaneWidget::PaneWidget(JtfApp *app, int paneId, QWidget *parent)
         const QByteArray utf8 = text.toUtf8();
         jtf_set_filter(m_app, m_pane, utf8.constData());
         m_model->refresh();
+        // The highlight follows the typing. It was set only when the columns
+        // were next applied, which a keystroke in this box does not cause, so
+        // whether the matched text was picked out depended on what had
+        // happened to refresh the pane since.
+        refreshMatchNeedle();
         retranslate();
     });
     layout->addWidget(m_filterBar);
@@ -910,6 +915,20 @@ void PaneWidget::showHeaderMenu(const QPoint &position) {
     menu.exec(m_view->horizontalHeader()->mapToGlobal(position));
 }
 
+void PaneWidget::refreshMatchNeedle() {
+    // What to pick out: the search's terms, or the filter's, or nothing.
+    // Both narrow the list by matching text, and in both the reader wants to
+    // see which part matched.
+    QString needle =
+        jtfText([&](char *b, int l) { return jtf_search_query(m_app, m_pane, b, l); });
+    if (needle.isEmpty() && m_filterBar->isVisible()) {
+        needle = m_filter->text();
+    }
+    m_matches->setNeedle(needle);
+    m_view->viewport()->update();
+    m_grid->viewport()->update();
+}
+
 void PaneWidget::applyColumnVisibility() {
     // In search results the Path column is shown whatever the tab's own
     // setting says: two files called `notes.md` are indistinguishable without
@@ -919,14 +938,7 @@ void PaneWidget::applyColumnVisibility() {
         jtfText([&](char *b, int l) { return jtf_search_query(m_app, m_pane, b, l); });
     const bool searching = jtf_is_searching(m_app, m_pane) || !query.isEmpty();
 
-    // What to pick out: the search's terms, or the filter's, or nothing.
-    // Both narrow the list by matching text, and in both the reader wants to
-    // see which part matched.
-    QString needle = query;
-    if (needle.isEmpty() && m_filterBar->isVisible()) {
-        needle = m_filter->text();
-    }
-    m_matches->setNeedle(needle);
+    refreshMatchNeedle();
 
     m_wantedColumns.clear();
     for (int column = 0; column < jtf_column_count(); ++column) {

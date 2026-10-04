@@ -140,6 +140,8 @@ private:
     void showContextMenu(const QPoint &position);
     void showHeaderMenu(const QPoint &position);
     void applyColumnVisibility();
+    /// Pick out what the search or the filter matched, as it is now.
+    void refreshMatchNeedle();
     bool isPathColumn(int column) const;
     void setHoveredRow(int row);
     int m_hoveredRow = -1;

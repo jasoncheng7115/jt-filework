@@ -49,6 +49,12 @@ void MatchDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
     const int start = shown.indexOf(m_needle, 0, Qt::CaseInsensitive);
     painter->save();
     painter->setClipRect(textRect);
+    // Drawn in the font it was measured in. A marked row's font is bold, and
+    // the runs were measured bold but drawn in the painter's own regular
+    // font: each came out narrower than the room left for it, which showed
+    // as a gap between 「A4-」 and the highlighted 「長欣」 on every marked
+    // row - and the marked rows lost their bold while a filter was on.
+    painter->setFont(base.font);
     const int baseline = textRect.top() + (textRect.height() + metrics.ascent()
                                            - metrics.descent()) / 2;
     int x = textRect.left();
