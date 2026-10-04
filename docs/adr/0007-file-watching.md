@@ -1,6 +1,6 @@
 # ADR-0007: Watching the folders the panes show
 
-- **Status:** Accepted — building
+- **Status:** Accepted — built (0.6.57)
 - **Date:** 2026-09-28
 - **Deciders:** project owner
 - **Decided:** 2026-09-28. Native file watching has stood as item 1 of the

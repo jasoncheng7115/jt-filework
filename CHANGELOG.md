@@ -12,6 +12,19 @@ A Traditional Chinese edition of this file is kept alongside it at
 [`CHANGELOG_zh-TW.md`](CHANGELOG_zh-TW.md). Both are written by hand and both
 must be updated in the same change.
 
+## [0.6.60] - 2026-10-04
+
+### Added
+
+- **ADR-0008, proposed: a terminal front end.** A ratatui program with the
+  Single-Key handling, the viewers, archives and SFTP, that installs and runs
+  on a Linux machine with no desktop - over SSH, on the text console, in a
+  container - as one static file if need be. The first step it sets out
+  changes nothing visible: the application layer, about 8,000 lines that sit
+  in the Qt bridge without using a single C type, moves to a crate of its own
+  so that both front ends share one set of rules. Four questions in it are for
+  the project owner. Nothing is built yet.
+
 ## [0.6.59] - 2026-09-30
 
 A pass over everything that could choose files other than the ones marked, or

@@ -473,7 +473,7 @@ Before marking work complete:
 
 ## Current Implementation State
 
-**Updated:** 2026-09-30 · **Version:** 0.6.59 · **Branch:** `main` ·
+**Updated:** 2026-10-04 · **Version:** 0.6.60 · **Branch:** `main` ·
 **Phase:** 1 — usable build
 
 ### Gates
@@ -612,7 +612,7 @@ JTF_WATCHDOG=1 <the app>         # UI-thread timings, reported as it runs
 | `src/ui/qt6/cpp` | Qt 6 Widgets front end, Objective-C++ for macOS |
 
 Also: `locales/{en,zh-TW}`, `keymaps/{native,single-key}.keymap`, Iconoir icons
-(MIT), the application icon, CI, ADR-0002 to ADR-0007, and the reference
+(MIT), the application icon, CI, ADR-0002 to ADR-0008, and the reference
 layouts and CView key table in `docs/design/`.
 
 ### Not built yet
@@ -684,6 +684,11 @@ for.
   Part A). SignPath carries a condition to confirm before applying: no
   commercial dual-licence for as long as it is used (§B1 condition 5).
 - Where our own file metadata would live. That wants an ADR before code.
+- **ADR-0008 (terminal front end)** — proposed 2026-10-04: extract the
+  application layer from the Qt bridge into `jtf-app`, then a ratatui front
+  end that installs and runs on Linux with no desktop. Four questions are
+  open in it: the command's name (§10.1), its place against the "Next" list,
+  Single-Key only, and leaving out the root-only device commands.
 
 ### Next
 
